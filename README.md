@@ -202,4 +202,4 @@ A DigitalOcean droplet running Counter-Strike, deliberately cast as a **fake unt
 
 - **Lawyer:** raw-event retention (13-month placeholder), retention-for-ban-enforcement under GDPR, ToS + privacy policy for the public site.
 - **War Dogs:** stats confirmed to exist — pin down the exact format before building its adapter.
-- **Stake the name:** GitHub org + domain for gravel.
+- ~~**Stake the name:** GitHub org + domain for gravel.~~ **GitHub org staked 2026-10-02:** [`gravel-project`](https://github.com/gravel-project), home of this repo and, later, `gravel-catalog` and the `gravel-adapter-*` repos. The domain is still open.

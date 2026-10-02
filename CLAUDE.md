@@ -67,4 +67,4 @@ Matchmaking · player-facing allocation · billing / payment processing · anti-
 
 - Exact War Dogs stats format (stats confirmed to exist).
 - Legal: raw-event retention (13-month placeholder), retention for ban enforcement, ToS/privacy policy.
-- GitHub org + domain for `gravel` not yet staked.
+- GitHub org staked: `gravel-project` (2026-10-02); this repo moved there from `jomkz/gravel`. New gravel repos (`gravel-catalog`, `gravel-adapter-*`) are created in it. The domain is not yet staked.
