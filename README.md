@@ -2,7 +2,7 @@
 
 > Open-source, Kubernetes-native framework for hosting many game servers across many games, with one control interface and cross-game statistics. Each server is a grain; the fleet is the gravel.
 
-**Status:** design complete (2026-09-25), pre-code. The next step is the first commit.
+**Status:** design complete (2026-09-25); build order revised by [ADR-0001](docs/adr/0001-hub-first-kubernetes-later.md) on 2026-10-08: **hub first, Kubernetes later.** Pre-code; the first commit is the hub skeleton (#12).
 **Design doc (full, block-level detail):** https://claude.ai/code/artifact/e559420c-d087-4f74-8829-853cafbb5eb8 (private Claude Docs; this README is the distilled version)
 **License:** Apache 2.0
 
@@ -10,10 +10,11 @@
 
 ## Why this exists
 
-Hidden Token Gaming (hiddentoken.com) is the proving ground — a real community with a real Discord, real players, real donations. Launch games exercise opposite ends of the design:
+Hidden Token Gaming (hiddentoken.com) is the proving ground — a real community with a real Discord, real players, real donations. It launches with five games in three shapes, and War Dogs goes first:
 
-- **War Dogs** — externally hosted, RCON-only, assume Windows-only. We don't run it; we link it, read stats and push moderation over RCON. Stats are confirmed to exist; exact format still to be pinned down before its adapter is built.
-- **Counter-Strike** — fully managed, containerized in-cluster via Agones. Where all the operational concerns (SteamCMD, persistent volumes, updates, backups) actually apply.
+- **War Dogs** — externally hosted under a closed licence (QONZER), reachable only over a plain-HTTP bearer RCON API plus a push kill feed (`[WDServerFeed]`). We don't run it; we link it, read stats and push moderation over RCON. The *external-reachable* path, and the first thing gravel does for real.
+- **Counter-Strike 2** — fully managed, containerized in-cluster via Agones. Where all the operational concerns (SteamCMD, a 60 GB shared install, patch-day lockstep, GSLTs, backups) actually apply. The managed path, second.
+- **Sea of Thieves, Star Citizen, PUBG** — no community-hostable server at all. gravel still owns identity, participation stats and, for PUBG, official-API stats for them: *server-less games* (#2).
 
 **Build closed first, open-source v1 later.** Frameworks built in the abstract get the abstractions wrong; this one gets battle-tested on a live community before extraction. Pragmatic shortcuts are fine as long as the provider-behind-an-interface seams stay clean.
 
@@ -40,7 +41,7 @@ The principle applies to itself: nothing above is hard-wired. Each sits behind a
 These recur across the whole design. When in doubt, these decide.
 
 1. **Every seam is a provider behind a Go interface.** Stats stores, payments, identity providers, lifecycle drivers, spoke implementations, game-knowledge providers, pseudonym generators — all pluggable, all with a boring-but-solid default.
-2. **The declarative resource is the source of truth; every client is API-only.** CLI and web UI never touch Kubernetes directly. Validation and business rules live in exactly one place.
+2. **The declarative resource is the source of truth, and it lives in the hub's database behind the API; every client is API-only.** CLI and web UI never touch Kubernetes or Postgres directly. Validation and business rules live in exactly one place. Kubernetes is a driver target, never the datastore ([ADR-0001](docs/adr/0001-hub-first-kubernetes-later.md)).
 3. **Stats are keyed by provider identity (Steam ID), never internal user ID, and resolved to a user at read time.** Unlinked players accumulate history; late linking inherits it; merges never move events; erasure re-keys instead of deleting.
 4. **Game-server logs are authoritative.** Our pipeline is reliable delivery on top, never the sole record.
 5. **Spokes keep working when the hub is unreachable.** Servers keep running; stats buffer locally and sync on reconnect.
@@ -53,7 +54,7 @@ These recur across the whole design. When in doubt, these decide.
 
 ### Hub and spoke
 
-- **Hub** runs the core: API, identity, stats databases, web UI. It is the single point of no return — backed up with CloudNativePG WAL archiving + PITR from day one.
+- **Hub** runs the core: API, identity, stats databases, web UI, as one Go service beside Postgres. Deployment target one is podman quadlets (ADR-0001); Kubernetes comes with the first managed game. It is the single point of no return — backed up with base backups + continuous WAL archiving to object storage (PITR) from day one.
 - **Spoke** = any location that runs servers: a Kubernetes cluster (our operator + Agones + a small agent), a Podman box, a DigitalOcean droplet, or a member's personal Windows gaming rig running the standalone agent as a native `.exe`.
 - **Agents dial outbound** to the hub over a persistent gRPC stream. A Kind cluster behind a home router joins with no inbound firewall holes.
 - **`location`** is the unifying field on every server resource. Multi-cluster, member-contributed servers, and the transient "spin one up for my buddies" case are all the same design.
@@ -61,6 +62,8 @@ These recur across the whole design. When in doubt, these decide.
 - Open Cluster Management is the first spoke implementation, behind our own interface. A thin standalone Go agent covers non-Kubernetes locations.
 
 ### Custom resources (operator: Go, controller-runtime / kubebuilder)
+
+Under ADR-0001 these are hub resources first (rows behind the API). The operator, which arrives with Counter-Strike 2 (#21), projects the ones a managed driver needs into the cluster; names and fields are unchanged.
 
 - **`ManagedServer`** — the source of truth for one server. Named to avoid colliding with Agones' `GameServer` and because the framework *manages* servers it doesn't necessarily *run*. Carries `location`, `organization`, driver, adapter, trust level, curation state, ownership.
 - **`Game`** — per-game spec: distribution (Steam app ID), persistence, updates, backups, hard/soft stat sanity bounds, default UI layout, and the operational concerns that must never leak into the core.
@@ -93,22 +96,22 @@ One protobuf definition serves gRPC, gRPC-Web, and plain HTTP-JSON. No separate 
 - RCON code hardening: CSPRNG token, minutes-long expiry, single-use, two-layer rate limits (requests + attempts), bound to the exact identity + server it was issued for.
 - Account linking/merging: link while logged in (primary path); shared verified email; else RCON proof-of-control; **absorb, don't delete**; one transaction; immutable log.
 - Human roles: player / moderator / admin / owner, scoped to `organization`.
-- Machine identity: **SPIFFE/SPIRE all the way** — mTLS on internal gRPC, short-lived CLI tokens, behind a pluggable identity-provider interface.
+- Machine identity: **SPIFFE/SPIRE all the way** — mTLS on internal gRPC, short-lived CLI tokens, behind a pluggable identity-provider interface. Deferred until the first second process (the first spoke); in-process drivers need no machine identity (ADR-0001).
 - Account recovery: provider-only identity means losing your only provider loses the account — an accepted, documented v1 tradeoff. Mitigation is multi-provider linking, not a recovery flow.
 - Day-zero bootstrap: `gravel` CLI bootstrap command initializes the hub and prints a one-time owner-claim token, single-use and only valid while the hub is unowned.
 
 ### Data layer
 
 - **Identity → Postgres** (CloudNativePG). Relational, uniqueness enforced at the DB level.
-- **Stats → TimescaleDB** first, **ClickHouse** later, behind a Go stats-store interface written in domain terms (write event, query aggregates over a time range). Never leak DB-specific features into the interface.
+- **Stats → Postgres** first (TimescaleDB is an extension adopted on a measured signal, ADR-0001), **ClickHouse** later, behind a Go stats-store interface written in domain terms (write event, query aggregates over a time range). Never leak DB-specific features into the interface.
 - Stats schema: fixed common fields (kills, deaths, playtime, score, match count) + an extensions map for game-specific fields. **Version the core schema from day one.**
 - Retention: TimescaleDB continuous aggregates + compression + retention policies. **Raw identity-linked events roll off at 13 months** (placeholder pending legal review); aggregates persist indefinitely.
-- Hub backup/restore: the operator owns it as a declarative workflow ("desired recovery point = T"), PITRs both DBs independently to the same wall-clock moment, and delegates all data movement to CloudNativePG. Restore is a documented, rehearsed ops task.
+- Hub backup/restore: the hub owns it (ADR-0001). Base backups plus continuous WAL archiving to object storage; a scripted, timed restore to a wall-clock point is a rehearsed ops task and HTG's P1 gate. The 2026-09-25 design gave this to the operator via CloudNativePG, which returns as an option when the operator exists.
 - Configuration: one **Organization settings** resource, managed through the API, holds every host-configurable knob (Discord role mapping, token lifetimes, layout overrides, pseudonym provider, trust floors). No scattered ConfigMaps.
 
 ### Stats adapters
 
-- Each game's adapter is its own gRPC service (its own repo). protobuf `StatsAdapter`: fetch stats, stream live events, describe schema.
+- Each game's adapter implements the protobuf `StatsAdapter` contract: fetch stats, stream live events, describe schema. During primary development adapters are Go packages in this repo running in the hub process (ADR-0001); each becomes its own gRPC service in its own repo at the open-source cut, by `git subtree split`. The conformance suite is the contract either way.
 - Adapters **self-register** with the hub on startup over SPIFFE-attested mTLS, advertising game, schema version, and capabilities; health-checked so dead adapters drop out.
 - Ingestion reliability: event IDs + dedup (at-least-once), **on-disk durable local queues in v1**, backfill from logs as the backstop.
 - **At-source signing in v1**: adapters sign each event batch with their SPIFFE-issued key so the hub verifies provenance.
@@ -151,7 +154,7 @@ One protobuf definition serves gRPC, gRPC-Web, and plain HTTP-JSON. No separate 
 ## Local dev & runnability
 
 - "Clone, one command, it's running" is a first-class requirement. Never assume a managed cloud cluster: no hard dependency on cloud load balancers, storage classes, or external DNS.
-- **Kind is the documented default** (Podman-backed on Fedora). **OpenShift is also supported**, with OpenShift-specific features where available (CRC for a local OpenShift).
+- **`podman compose up` is the documented default** for the hub (rootless, on Fedora; ADR-0001). **Kind** is the e2e target for the operator path (Podman-backed). **OpenShift is also supported**, with OpenShift-specific features where available (CRC for a local OpenShift).
 - Packaging: Helm chart + OLM bundle so it's a first-class OpenShift operator.
 
 ## Ops & release engineering
@@ -187,18 +190,24 @@ A DigitalOcean droplet running Counter-Strike, deliberately cast as a **fake unt
 ## Repo layout (planned)
 
 - **This repo (`gravel`) is the monorepo for the core:** operator, core API, CLI, web UI, agent — everything that versions and releases together.
-- **Separate repos across the plugin seams:** stats adapters (one per game) and the community game catalog. The repo boundary is the plugin boundary.
+- **Separate repos across the plugin seams:** stats adapters (one per game) and the community game catalog. The repo boundary is the plugin boundary. **Until the open-source cut, adapters and drivers live here** as packages behind the same interfaces (ADR-0001).
 - Name rationale: `gsf` rejected (one letter off LinuxGSM's `GSM`), `grain` taken (grain-lang ships a `grain` binary), `grit` crowded, `gman` is Half-Life's. `gravel` is meaningful and effectively free; the only namesake is a small, low-activity Go build tool. "Gravel Server Manager = GSM" is a docs wink only, never the official expansion.
 
 ## Build order
 
-1. Core API (Connect) + `ManagedServer` / `Game` CRDs + operator
-2. `gravel` CLI as a thin HTTP-JSON client (including hub bootstrap)
-3. Web UI (templ + htmx) over the same API
-4. First adapters: Counter-Strike (in-cluster, Agones) and War Dogs (external, RCON)
-5. Standalone agent + droplet test harness
+Revised by [ADR-0001](docs/adr/0001-hub-first-kubernetes-later.md) (2026-10-08). Issues are grouped by Hidden Token Gaming's milestones: P1 Hub, P2 War Dogs, P4 Counter-Strike 2, P5 the server-less games.
+
+1. Hub: Connect API, Postgres with migrations, config, health, metrics, UI skeleton, quadlets (#12, #14)
+2. Identity: Discord and Steam login, `(provider, subject)` identities, sessions (#13, #5)
+3. External-reachable driver and the War Dogs adapter, the stats store, boards and moderation (#16, #4, #3, #17, #18)
+4. Composable Discord modules and OIDC for first-party apps (#15, #6), the participation API (#19)
+5. `gravel` CLI as a thin HTTP-JSON client, including the hub bootstrap
+6. Operator + Agones as the fully managed driver, the Counter-Strike 2 adapter, the transient-server API (#21, #9, #20)
+7. Standalone agent and the droplet test harness
 
 ## Open threads that need the outside world
+
+- **Design deltas from HTG (filed 2026-10-01, sequenced 2026-10-08):** #2 server-less games · #3 stats provenance · #4 inbound push ingestion · #5 identity pairs and proof-of-control · #6 OIDC for first-party apps · #7 branding and navigation · #8 publisher guardrails · #9 managed-path realities. The plan behind them is `hidden-token-gaming/handbook` `docs/plan.md` (private).
 
 - **Lawyer:** raw-event retention (13-month placeholder), retention-for-ban-enforcement under GDPR, ToS + privacy policy for the public site.
 - **War Dogs:** stats confirmed to exist — pin down the exact format before building its adapter.
