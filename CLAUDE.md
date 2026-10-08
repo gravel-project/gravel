@@ -2,7 +2,7 @@
 
 ## What this is
 
-An open-source framework in Go for hosting many game servers across many games with one control interface and cross-game stats. The hub is one Go service beside Postgres; Kubernetes (the operator plus Agones) is the fully managed driver, added with the first managed game. Design is **complete** as of 2026-09-25 and the build order was revised by `docs/adr/0001-hub-first-kubernetes-later.md` on 2026-10-08 (hub first, Kubernetes later); the codebase is at the first-commit stage.
+An open-source framework in Go for hosting many game servers across many games with one control interface and cross-game stats. The hub is one Go service beside Postgres; Kubernetes (the operator plus Agones) is the fully managed driver, added with the first managed game. Design is **complete** as of 2026-09-25 and the build order was revised by `docs/adr/0001-hub-first-kubernetes-later.md` on 2026-10-08 (hub first, Kubernetes later). The hub skeleton (#12) is in: `cmd/gravel-hub`, `internal/{config,store,org,api,httpx,hub}`, `proto/` with generated `gen/`, `deploy/` (compose + quadlets). `docs/hub.md` says how it runs; `make check` is the pre-PR gate.
 
 **Read `README.md` first** — it is the distilled design and the source of truth for every architectural decision. The full block-level design doc with the reasoning behind each decision is at https://claude.ai/code/artifact/e559420c-d087-4f74-8829-853cafbb5eb8 (private).
 
@@ -43,6 +43,12 @@ Go · Connect (buf) · Postgres (identity and stats; TimescaleDB as an extension
 
 This repo is the **monorepo for the core**: hub (API, web UI), CLI, operator, agent. Stats adapters and the game catalog become **separate repos at the open-source cut**; until then adapters and drivers are packages here (`adapters/<game>`, `drivers/<game>`) behind the designed interfaces and the conformance suite (ADR-0001). Keep the seam clean: nothing outside an adapter package may import a game's wire format. HTG-specific behaviour never lives here; it belongs in `hidden-token-gaming/htg`.
 
+- `cmd/gravel-hub` — the binary (serve, migrate, config check, healthcheck, version).
+- `internal/config` (strict versioned YAML, secrets from podman secrets or env) · `internal/store` (pgx, embedded goose migrations; the only package that speaks SQL) · `internal/org` (built-in organization, owner claim) · `internal/api` (Connect handlers; maps domain errors to codes, never leaks internals) · `internal/httpx` (request ids, access logs, recovery, metrics) · `internal/hub` (wiring, listeners, graceful drain).
+- `proto/gravel/hub/v1/` is the API source; `gen/` is generated and committed (`make generate`; CI fails on drift).
+- `games/<game>/` — a game's client library (RCON, feed, log parsing). **No gravel imports**, enforced by depguard: these become standalone Go modules at the open-source cut. `drivers/<game>/` and `adapters/<game>/` adapt them to gravel's interfaces. No nested go.mod until the cut.
+- `deploy/` — `compose.yaml` for development, `quadlet/` for production. `docs/` — ADRs and `hub.md`.
+
 ## Build order
 
 Per ADR-0001 (hub first, Kubernetes later):
@@ -51,7 +57,7 @@ Per ADR-0001 (hub first, Kubernetes later):
 2. Identity: Discord and Steam login, `(provider, subject)` identities, sessions
 3. External-reachable driver + War Dogs adapter, stats store, boards, moderation with an audit log
 4. Composable Discord modules, OIDC for first-party apps, the participation API
-5. `gravel` CLI as a thin HTTP-JSON client, including the hub bootstrap command (one-time owner-claim token, valid only while the hub is unowned)
+5. `gravel` CLI as a thin HTTP-JSON client, including `gravel claim`, which consumes the one-time owner-claim token the hub printed at start (ADR-0002)
 6. Operator + Agones as the fully managed driver, the Counter-Strike 2 adapter, the transient-server API
 7. Standalone agent + DigitalOcean droplet test harness (cast as a fake untrusted community member)
 
@@ -64,7 +70,10 @@ Matchmaking · player-facing allocation · billing / payment processing · anti-
 - Version the core stats schema from day one (version field in the protobuf).
 - Postgres schema migrations from day one; CRD versioning early.
 - Structured logs + Prometheus metrics in every component.
-- "Clone, one command, it's running" on Kind is a first-class requirement — never assume a cloud cluster.
+- "Clone, one command, it's running": `make up` (ko image + podman compose) for the hub; Kind for the operator path later. Never assume a cloud cluster.
+- `make check` before every PR. Tools are pinned at the top of the Makefile and installed to `.bin/` by `make tools` (not `go tool` directives); bump a version there and, for golangci-lint, in `.github/workflows/ci.yml`.
+- Secrets reach containers as podman secrets (`Secret=` in quadlets, `external: true` in compose) and the config reads them through `*_file` keys. Never bind-mount a secret file (SELinux blocks it, and it leaves plaintext in a working tree).
+- The owner claim: the hub mints and logs the one-time token at start while unowned; `ClaimOwnership` consumes it (ADR-0002).
 - Secrets never in plaintext config or DB.
 
 ## Open threads (don't guess at these — ask John)
