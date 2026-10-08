@@ -14,4 +14,7 @@ permissions: {}
 jobs:
   add:
     uses: hidden-token-gaming/.github/.github/workflows/add-to-project.yml@main
-    secrets: inherit
+    # Explicit, not `secrets: inherit`: the reusable workflow lives in another org, and inherited
+    # secrets did not reach it from here (verified 2026-10-08), while an explicit pass does.
+    secrets:
+      PROJECT_ADMIN_TOKEN: ${{ secrets.PROJECT_ADMIN_TOKEN }}
