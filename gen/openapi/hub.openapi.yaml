@@ -1,0 +1,227 @@
+openapi: 3.1.0
+info:
+  title: gravel hub
+  description: The HTTP-JSON side of the gravel hub's Connect API. The same procedures serve gRPC and gRPC-Web.
+  version: v1
+  license:
+    name: Apache-2.0
+    identifier: Apache-2.0
+paths:
+  /gravel.hub.v1.OrganizationService/ClaimOwnership:
+    post:
+      tags:
+        - gravel.hub.v1.OrganizationService
+      summary: ClaimOwnership
+      description: |-
+        ClaimOwnership consumes the one-time owner-claim token. It succeeds once per hub: the token is
+         single-use, expires, and no token exists once the hub is owned.
+      operationId: gravel.hub.v1.OrganizationService.ClaimOwnership
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.ClaimOwnershipRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.ClaimOwnershipResponse'
+  /gravel.hub.v1.OrganizationService/GetOrganization:
+    post:
+      tags:
+        - gravel.hub.v1.OrganizationService
+      summary: GetOrganization
+      operationId: gravel.hub.v1.OrganizationService.GetOrganization
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.GetOrganizationRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.GetOrganizationResponse'
+components:
+  schemas:
+    connect-protocol-version:
+      type: number
+      examples:
+        - 1
+      title: Connect-Protocol-Version
+      description: Define the version of the Connect protocol
+      const: 1
+    connect-timeout-header:
+      type: number
+      examples:
+        - 1000
+      title: Connect-Timeout-Ms
+      description: Define the timeout, in ms
+    connect.error:
+      type: object
+      properties:
+        code:
+          type: string
+          examples:
+            - not_found
+          enum:
+            - canceled
+            - unknown
+            - invalid_argument
+            - deadline_exceeded
+            - not_found
+            - already_exists
+            - permission_denied
+            - resource_exhausted
+            - failed_precondition
+            - aborted
+            - out_of_range
+            - unimplemented
+            - internal
+            - unavailable
+            - data_loss
+            - unauthenticated
+          description: The status code, which should be an enum value of [google.rpc.Code][google.rpc.Code].
+        message:
+          type: string
+          description: A developer-facing error message, which should be in English. Any user-facing error message should be localized and sent in the [google.rpc.Status.details][google.rpc.Status.details] field, or localized by the client.
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/connect.error_details.Any'
+          description: A list of messages that carry the error details. There is no limit on the number of messages.
+      title: Connect Error
+      additionalProperties: true
+      description: 'Error type returned by Connect: https://connectrpc.com/docs/go/errors/#http-representation'
+    connect.error_details.Any:
+      type: object
+      properties:
+        type:
+          type: string
+          description: 'A URL that acts as a globally unique identifier for the type of the serialized message. For example: `type.googleapis.com/google.rpc.ErrorInfo`.'
+        value:
+          type: string
+          format: byte
+          description: The Protobuf message, serialized as bytes and base64-encoded. The specific message type is identified by the `type` field.
+        debug:
+          type: object
+          title: Debug
+          additionalProperties: true
+          description: Deserialized error detail payload. The 'type' field indicates the schema. This field is for easier debugging and should not be relied upon for application logic.
+      additionalProperties: true
+      description: Contains an arbitrary serialized message along with a @type that describes the type of the serialized message, with an additional debug field for ConnectRPC error details.
+    google.protobuf.Timestamp:
+      type: string
+      examples:
+        - "2023-01-15T01:30:15.01Z"
+        - "2024-12-25T12:00:00Z"
+      format: date-time
+      description: A point in time in RFC 3339 format, with up to nanosecond precision. Output uses UTC (`Z`); input may use an offset from UTC.
+    gravel.hub.v1.ClaimOwnershipRequest:
+      type: object
+      properties:
+        token:
+          type: string
+          title: token
+          description: The one-time owner-claim token the hub printed to its log at start.
+      title: ClaimOwnershipRequest
+      additionalProperties: false
+    gravel.hub.v1.ClaimOwnershipResponse:
+      type: object
+      properties:
+        organization:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.Organization'
+          title: organization
+      title: ClaimOwnershipResponse
+      additionalProperties: false
+    gravel.hub.v1.GetOrganizationRequest:
+      type: object
+      title: GetOrganizationRequest
+      additionalProperties: false
+    gravel.hub.v1.GetOrganizationResponse:
+      type: object
+      properties:
+        organization:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.Organization'
+          title: organization
+      title: GetOrganizationResponse
+      additionalProperties: false
+    gravel.hub.v1.Organization:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+          description: Stable identifier (UUID).
+        name:
+          type: string
+          title: name
+          description: Display name, from the hub's configuration.
+        owned:
+          type: boolean
+          title: owned
+          description: Whether ownership has been claimed. An unowned hub accepts exactly one ClaimOwnership call.
+        createdAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: created_at
+        claimedAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: claimed_at
+          description: When ownership was claimed; unset while unowned.
+      title: Organization
+      additionalProperties: false
+      description: |-
+        Organization is the single tenant a hub serves. Every top-level object carries an organization
+         (the seam for a second tenant later); there is exactly one built-in organization today.
+security: []
+tags:
+  - name: gravel.hub.v1.OrganizationService
+    description: OrganizationService reads the built-in organization and claims its ownership once.
