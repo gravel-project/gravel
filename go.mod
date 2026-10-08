@@ -2,6 +2,8 @@ module github.com/gravel-project/gravel
 
 go 1.26.0
 
+toolchain go1.26.8
+
 require (
 	connectrpc.com/connect v1.21.0
 	connectrpc.com/grpchealth v1.5.0
