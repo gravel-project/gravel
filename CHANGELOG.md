@@ -13,11 +13,13 @@ All notable changes to gravel are documented here. The format follows
 
 ### Added
 
+- `docs/adr/0003-cloud-vm-driver-behind-a-cloud-provider-interface.md`: a fourth lifecycle driver, cloud-VM, for a virtual machine gravel creates, sizes, parks and destroys through a `cloud.Provider` interface that DigitalOcean implements first and AWS, Azure and Google Cloud can implement later; the game under systemd from cloud-init, controlled over RCON and log push; the install on a detachable volume with the root disk minimal and fixed so a resize never touches disk; a vertical scaling policy that walks a tier ladder only at a map change or match end, with hysteresis, a cooldown and a chat warning, in-place first and replace later; parking as a provider-dependent step (a powered-off Droplet bills in full); a minimal DOKS cluster as the operator path's environment with Kind in CI; and the ownership boundary with an operator's infrastructure code (`Adopt`). Decided by John for Hidden Token Gaming on 2026-10-08; the work is #35, #36 and #37 (#34).
 - `deploy/README.md` and `docs/hub.md` say the config file must be readable by uid 65532, the container's user: a 0600 file owned by the login user is "permission denied" from inside a rootless container, which cost Hidden Token Gaming's first converge (#32).
 - `docs/releasing.md`: how a release is cut, what it contains, how to verify an image's signature and move the digest pin, and the one-time setup done for v0.1.0 (#31).
 
 ### Changed
 
+- README and CLAUDE.md follow ADR-0003: the status line, the driver taxonomy and the spoke list gain the cloud-VM driver, the stack names the clouds' SDKs behind `cloud.Provider` and the DOKS environment, the layout gains `cloud/` and `drivers/cloudvm/`, build order step 6 is restated and step 7 is the agent for machines gravel does not own, and the test-harness paragraph says the Counter-Strike 2 test Droplet is the driver's first real server (#34).
 - `deploy/quadlet/gravel-hub.container` pins `ghcr.io/gravel-project/gravel-hub` by the 0.1.0 index digest instead of `:latest`; `deploy/README.md` and `docs/hub.md` say the image tag carries no `v` and how to verify it (#31).
 
 ## [0.1.0] - 2026-10-08
