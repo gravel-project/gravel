@@ -6,6 +6,14 @@ All notable changes to gravel are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `docs/releasing.md`: how a release is cut, what it contains, how to verify an image's signature and move the digest pin, and the one-time setup done for v0.1.0 (#31).
+
+### Changed
+
+- `deploy/quadlet/gravel-hub.container` pins `ghcr.io/gravel-project/gravel-hub` by the 0.1.0 index digest instead of `:latest`; `deploy/README.md` and `docs/hub.md` say the image tag carries no `v` and how to verify it (#31).
+
 ## [0.1.0] - 2026-10-08
 
 ### Fixed
