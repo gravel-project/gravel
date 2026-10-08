@@ -1,0 +1,17 @@
+# Put every newly opened or reopened issue and pull request on the HTG Platform board, with the
+# org's reusable workflow (hidden-token-gaming/.github). Without the PROJECT_ADMIN_TOKEN secret it
+# logs a notice and skips, so Dependabot and fork PRs stay green.
+name: project-add
+
+on:
+  issues:
+    types: [opened, reopened]
+  pull_request:
+    types: [opened, reopened]
+
+permissions: {}
+
+jobs:
+  add:
+    uses: hidden-token-gaming/.github/.github/workflows/add-to-project.yml@main
+    secrets: inherit
