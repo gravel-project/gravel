@@ -8,7 +8,7 @@ podman 4.5 or later):
 | Files | `compose.yaml`, `hub.yaml` | `quadlet/*` |
 | Start | `make up` | `systemctl --user start gravel-hub` |
 | Secrets | `dev-secrets.sh` generates them into podman's secret store | `podman secret create` from your own files |
-| Image | `localhost/gravel-hub:dev`, built by `make image` | `ghcr.io/gravel-project/gravel-hub`, pinned by digest |
+| Image | `localhost/gravel-hub:dev`, built by `make image` | `ghcr.io/gravel-project/gravel-hub`, pinned by digest, signature verified |
 
 Secrets are never bind-mounted: podman copies each secret into the container's tmpfs, so SELinux
 labels and file ownership on the host don't matter and nothing readable is left in a working tree.
@@ -29,9 +29,11 @@ read-only.
 
 ## Production: quadlet units
 
-1. Build or pull the image. Until the first release: `make image` and set
-   `Image=localhost/gravel-hub:dev` in `gravel-hub.container`; afterwards pin a digest of
-   `ghcr.io/gravel-project/gravel-hub`.
+1. The unit pins a release of `ghcr.io/gravel-project/gravel-hub` by digest. Verify it before
+   trusting it (`docs/releasing.md`): `cosign verify ghcr.io/gravel-project/gravel-hub@<digest>
+   --certificate-oidc-issuer https://token.actions.githubusercontent.com
+   --certificate-identity-regexp '^https://github.com/gravel-project/gravel/\.github/workflows/release\.yml@refs/tags/v'`.
+   For a local build: `make image` and `Image=localhost/gravel-hub:dev`.
 2. Create the secrets from files you keep outside any repository:
 
    ```sh
