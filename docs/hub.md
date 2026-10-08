@@ -107,7 +107,8 @@ migration has a `-- +goose Down` section so tests can reset a database.
   come from `GRAVEL_PORT` and `GRAVEL_INTERNAL_PORT` (8080 and 9090 by default). `make down` stops
   it and keeps the Postgres volume.
 - **Production:** the quadlet units in `deploy/quadlet/` as rootless systemd user units; see
-  `deploy/README.md`.
+  `deploy/README.md`. The config file must be readable by uid 65532, the container's user (mode
+  0644 is fine: it holds no secrets).
 
 The image is built by ko from `cmd/gravel-hub` on `gcr.io/distroless/static-debian12:nonroot`,
 runs as uid 65532, and has the binary at `/ko-app/gravel-hub` (`.ko.yaml`). Releases push it to

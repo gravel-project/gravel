@@ -43,7 +43,9 @@ read-only.
    ```
 
 3. Write `~/.config/gravel/hub.yaml` (reference: `docs/hub.md`; start from `deploy/hub.yaml` with
-   `url_file: /run/secrets/gravel-db-url`).
+   `url_file: /run/secrets/gravel-db-url`). Make it world-readable (`chmod 644`): the hub runs as
+   uid 65532 inside a rootless container, which maps to one of your subordinate uids, so a 0600
+   file owned by you is "permission denied" from inside. The file holds no secrets by design.
 4. Install and start:
 
    ```sh
