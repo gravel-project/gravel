@@ -8,6 +8,7 @@ All notable changes to gravel are documented here. The format follows
 
 ### Added
 
+- `deploy/README.md` and `docs/hub.md` say the config file must be readable by uid 65532, the container's user: a 0600 file owned by the login user is "permission denied" from inside a rootless container, which cost Hidden Token Gaming's first converge (#32).
 - `docs/releasing.md`: how a release is cut, what it contains, how to verify an image's signature and move the digest pin, and the one-time setup done for v0.1.0 (#31).
 
 ### Changed
