@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+package gravel.hub.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/gravel-project/gravel/gen/gravel/hub/v1;hubv1";
+
+// Organization is the single tenant a hub serves. Every top-level object carries an organization
+// (the seam for a second tenant later); there is exactly one built-in organization today.
+message Organization {
+  // Stable identifier (UUID).
+  string id = 1;
+  // Display name, from the hub's configuration.
+  string name = 2;
+  // Whether ownership has been claimed. An unowned hub accepts exactly one ClaimOwnership call.
+  bool owned = 3;
+  google.protobuf.Timestamp created_at = 4;
+  // When ownership was claimed; unset while unowned.
+  google.protobuf.Timestamp claimed_at = 5;
+}
+
+message GetOrganizationRequest {}
+
+message GetOrganizationResponse {
+  Organization organization = 1;
+}
+
+message ClaimOwnershipRequest {
+  // The one-time owner-claim token the hub printed to its log at start.
+  string token = 1;
+}
+
+message ClaimOwnershipResponse {
+  Organization organization = 1;
+}
+
+// OrganizationService reads the built-in organization and claims its ownership once.
+service OrganizationService {
+  rpc GetOrganization(GetOrganizationRequest) returns (GetOrganizationResponse);
+  // ClaimOwnership consumes the one-time owner-claim token. It succeeds once per hub: the token is
+  // single-use, expires, and no token exists once the hub is owned.
+  rpc ClaimOwnership(ClaimOwnershipRequest) returns (ClaimOwnershipResponse);
+}

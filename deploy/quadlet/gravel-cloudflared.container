@@ -1,0 +1,19 @@
+# Optional: a Cloudflare Tunnel that exposes the hub with no inbound ports. The tunnel's origin is
+# http://gravel-hub:8080 on gravel.network. Secret: gravel-tunnel-token
+# (`podman secret create gravel-tunnel-token <file>`). Pin a digest in production.
+[Unit]
+Description=Cloudflare Tunnel for the gravel hub
+After=gravel-hub.service
+
+[Container]
+Image=docker.io/cloudflare/cloudflared:latest
+ContainerName=gravel-cloudflared
+Network=gravel.network
+Secret=gravel-tunnel-token,type=env,target=TUNNEL_TOKEN
+Exec=tunnel --no-autoupdate run
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target

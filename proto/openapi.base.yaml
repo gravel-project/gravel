@@ -1,0 +1,8 @@
+openapi: 3.1.0
+info:
+  title: gravel hub
+  description: The HTTP-JSON side of the gravel hub's Connect API. The same procedures serve gRPC and gRPC-Web.
+  version: v1
+  license:
+    name: Apache-2.0
+    identifier: Apache-2.0

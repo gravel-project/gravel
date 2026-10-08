@@ -1,0 +1,81 @@
+# goreleaser v2. CI's release-config job validates this file on every PR; release.yml runs it on a tag.
+# (goreleaser can't be `go install`ed, its module uses replace directives, so there is no local pin.)
+version: 2
+project_name: gravel
+
+builds:
+  - id: gravel-hub
+    main: ./cmd/gravel-hub
+    binary: gravel-hub
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+
+archives:
+  - id: gravel-hub
+    ids:
+      - gravel-hub
+    formats:
+      - tar.gz
+    name_template: "gravel-hub_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: checksums.txt
+
+sboms:
+  - artifacts: archive
+
+kos:
+  - id: gravel-hub
+    build: gravel-hub
+    main: ./cmd/gravel-hub
+    repositories:
+      - ghcr.io/gravel-project/gravel-hub
+    bare: true
+    base_image: gcr.io/distroless/static-debian12:nonroot
+    platforms:
+      - linux/amd64
+      - linux/arm64
+    tags:
+      - "{{ .Version }}"
+      - latest
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+    sbom: spdx
+    labels:
+      org.opencontainers.image.source: https://github.com/gravel-project/gravel
+      org.opencontainers.image.version: "{{ .Version }}"
+      org.opencontainers.image.licenses: Apache-2.0
+
+docker_signs:
+  - cmd: cosign
+    artifacts: all
+    args:
+      - sign
+      - "${artifact}@${digest}"
+      - --yes
+
+changelog:
+  use: github
+  sort: asc
+  filters:
+    exclude:
+      - "^chore"
+      - "^ci"
+
+release:
+  github:
+    owner: gravel-project
+    name: gravel
+  draft: false
+  prerelease: auto

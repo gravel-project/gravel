@@ -1,0 +1,52 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: standard
+  enable:
+    - bodyclose
+    - copyloopvar
+    - depguard
+    - errorlint
+    - misspell
+    - noctx
+    - sqlclosecheck
+    - unconvert
+    - unparam
+  settings:
+    errcheck:
+      exclude-functions:
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+    depguard:
+      rules:
+        # games/<game>/ holds game client packages that become standalone Go modules at the
+        # open-source cut (ADR-0001). They may import each other and the world, never gravel.
+        game-clients:
+          list-mode: lax
+          files:
+            - "**/games/**"
+          allow:
+            - github.com/gravel-project/gravel/games
+          deny:
+            - pkg: github.com/gravel-project/gravel
+              desc: "game client packages under games/ must not depend on gravel; they are extracted as standalone modules at the open-source cut (ADR-0001)"
+  exclusions:
+    generated: lax
+    paths:
+      - ^gen/
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/gravel-project/gravel
+  exclusions:
+    paths:
+      - ^gen/

@@ -1,0 +1,23 @@
+# Postgres 17 for the hub. Pin a digest in production. Secret: gravel-db-password
+# (`podman secret create gravel-db-password <file>`).
+[Unit]
+Description=Postgres for the gravel hub
+
+[Container]
+Image=docker.io/library/postgres:17
+ContainerName=gravel-postgres
+Network=gravel.network
+Volume=gravel-postgres.volume:/var/lib/postgresql/data
+Environment=POSTGRES_USER=gravel POSTGRES_DB=gravel POSTGRES_PASSWORD_FILE=/run/secrets/gravel-db-password
+Secret=gravel-db-password
+HealthCmd=pg_isready -U gravel -d gravel
+HealthInterval=10s
+HealthTimeout=3s
+HealthRetries=6
+
+[Service]
+Restart=always
+TimeoutStartSec=300
+
+[Install]
+WantedBy=default.target

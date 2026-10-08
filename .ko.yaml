@@ -1,0 +1,12 @@
+# ko builds the hub image straight from Go: no Containerfile. `make image` loads it into podman,
+# goreleaser pushes it to ghcr.io on a tag (same config, same base image).
+defaultBaseImage: gcr.io/distroless/static-debian12:nonroot
+defaultPlatforms:
+  - linux/amd64
+builds:
+  - id: gravel-hub
+    main: ./cmd/gravel-hub
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{.Env.VERSION}}

@@ -1,0 +1,5 @@
+# Postgres data. Back it up with the hub's backup job; never bind-mount a host path here.
+[Unit]
+Description=gravel Postgres data
+
+[Volume]

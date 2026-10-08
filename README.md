@@ -2,7 +2,7 @@
 
 > Open-source, Kubernetes-native framework for hosting many game servers across many games, with one control interface and cross-game statistics. Each server is a grain; the fleet is the gravel.
 
-**Status:** design complete (2026-09-25); build order revised by [ADR-0001](docs/adr/0001-hub-first-kubernetes-later.md) on 2026-10-08: **hub first, Kubernetes later.** Pre-code; the first commit is the hub skeleton (#12).
+**Status:** design complete (2026-09-25); build order revised by [ADR-0001](docs/adr/0001-hub-first-kubernetes-later.md) on 2026-10-08: **hub first, Kubernetes later.** The hub skeleton is in (#12): Connect API, Postgres with migrations, the owner claim, health, metrics, podman compose and quadlets. `make up` runs it; [docs/hub.md](docs/hub.md) is the operator reference.
 **Design doc (full, block-level detail):** https://claude.ai/code/artifact/e559420c-d087-4f74-8829-853cafbb5eb8 (private Claude Docs; this README is the distilled version)
 **License:** Apache 2.0
 
@@ -98,7 +98,7 @@ One protobuf definition serves gRPC, gRPC-Web, and plain HTTP-JSON. No separate 
 - Human roles: player / moderator / admin / owner, scoped to `organization`.
 - Machine identity: **SPIFFE/SPIRE all the way** — mTLS on internal gRPC, short-lived CLI tokens, behind a pluggable identity-provider interface. Deferred until the first second process (the first spoke); in-process drivers need no machine identity (ADR-0001).
 - Account recovery: provider-only identity means losing your only provider loses the account — an accepted, documented v1 tradeoff. Mitigation is multi-provider linking, not a recovery flow.
-- Day-zero bootstrap: `gravel` CLI bootstrap command initializes the hub and prints a one-time owner-claim token, single-use and only valid while the hub is unowned.
+- Day-zero bootstrap: the hub mints a one-time owner-claim token at start while it is unowned and prints it to its own log; `gravel claim <token>` (the CLI, step 5) consumes it over the API. Single-use, expiring, and never minted again once the hub is owned ([ADR-0002](docs/adr/0002-hub-mints-the-owner-claim-token.md)).
 
 ### Data layer
 
@@ -151,6 +151,19 @@ One protobuf definition serves gRPC, gRPC-Web, and plain HTTP-JSON. No separate 
 - Per-game layout is **declarative data in the Game spec** (which stat cards, which leaderboard columns), rendered by the front end, host-overridable. The core stays game-agnostic.
 - Grafana is optional and operator-facing only (ops/health dashboards). Player-facing pages are native and branded.
 
+## Run the hub
+
+Go 1.26 and podman (with podman-compose) are the prerequisites; `make tools` installs the pinned CLIs into `.bin/`.
+
+```sh
+make up          # build the image with ko, create dev secrets, start hub + Postgres 17, wait for /readyz
+curl http://127.0.0.1:8080/healthz
+make check       # what CI runs: gofmt, vet, buf lint, golangci-lint, govulncheck, generate drift, tests, quadlet dry-run
+make down
+```
+
+The hub logs a one-time owner-claim token on first start; claim it with `ClaimOwnership` ([docs/hub.md](docs/hub.md)). Production runs the same image as rootless quadlet units ([deploy/README.md](deploy/README.md)).
+
 ## Local dev & runnability
 
 - "Clone, one command, it's running" is a first-class requirement. Never assume a managed cloud cluster: no hard dependency on cloud load balancers, storage classes, or external DNS.
@@ -190,7 +203,7 @@ A DigitalOcean droplet running Counter-Strike, deliberately cast as a **fake unt
 ## Repo layout (planned)
 
 - **This repo (`gravel`) is the monorepo for the core:** operator, core API, CLI, web UI, agent — everything that versions and releases together.
-- **Separate repos across the plugin seams:** stats adapters (one per game) and the community game catalog. The repo boundary is the plugin boundary. **Until the open-source cut, adapters and drivers live here** as packages behind the same interfaces (ADR-0001).
+- **Separate repos across the plugin seams:** stats adapters (one per game) and the community game catalog. The repo boundary is the plugin boundary. **Until the open-source cut, adapters and drivers live here** as packages behind the same interfaces (ADR-0001). Each game's client library (its RCON, feed or log protocol) lives under `games/<game>/` with no gravel imports, enforced by a lint rule, so it becomes a standalone Go module at the cut; `drivers/<game>/` and `adapters/<game>/` are the gravel-side packages that use it.
 - Name rationale: `gsf` rejected (one letter off LinuxGSM's `GSM`), `grain` taken (grain-lang ships a `grain` binary), `grit` crowded, `gman` is Half-Life's. `gravel` is meaningful and effectively free; the only namesake is a small, low-activity Go build tool. "Gravel Server Manager = GSM" is a docs wink only, never the official expansion.
 
 ## Build order
@@ -201,7 +214,7 @@ Revised by [ADR-0001](docs/adr/0001-hub-first-kubernetes-later.md) (2026-10-08).
 2. Identity: Discord and Steam login, `(provider, subject)` identities, sessions (#13, #5)
 3. External-reachable driver and the War Dogs adapter, the stats store, boards and moderation (#16, #4, #3, #17, #18)
 4. Composable Discord modules and OIDC for first-party apps (#15, #6), the participation API (#19)
-5. `gravel` CLI as a thin HTTP-JSON client, including the hub bootstrap
+5. `gravel` CLI as a thin HTTP-JSON client, including `gravel claim` (ADR-0002)
 6. Operator + Agones as the fully managed driver, the Counter-Strike 2 adapter, the transient-server API (#21, #9, #20)
 7. Standalone agent and the droplet test harness
 

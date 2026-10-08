@@ -1,0 +1,6 @@
+# Private network shared by the hub, Postgres and cloudflared. Containers reach each other by
+# unit name (gravel-postgres, gravel-hub).
+[Unit]
+Description=gravel hub network
+
+[Network]
