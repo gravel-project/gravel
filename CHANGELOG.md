@@ -6,6 +6,10 @@ All notable changes to gravel are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- `deploy/quadlet/gravel-hub.container`'s health check is the exec form: the string form runs through `/bin/sh -c`, which the distroless image lacks, so podman reported the hub unhealthy while it served fine (found on Hidden Token Gaming's first converge) (#33).
+
 ### Added
 
 - `deploy/README.md` and `docs/hub.md` say the config file must be readable by uid 65532, the container's user: a 0600 file owned by the login user is "permission denied" from inside a rootless container, which cost Hidden Token Gaming's first converge (#32).

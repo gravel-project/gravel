@@ -17,7 +17,8 @@ PublishPort=127.0.0.1:9090:9090
 Volume=%h/.config/gravel/hub.yaml:/etc/gravel/hub.yaml:ro,Z
 Secret=gravel-db-url
 Exec=serve --config /etc/gravel/hub.yaml
-HealthCmd=/ko-app/gravel-hub healthcheck
+# Exec form on purpose: a plain string runs through /bin/sh -c, and the distroless image has no shell.
+HealthCmd=["CMD", "/ko-app/gravel-hub", "healthcheck"]
 HealthInterval=30s
 HealthTimeout=3s
 HealthRetries=3
