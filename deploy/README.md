@@ -64,6 +64,9 @@ parameterises these units for earth and adds the Tunnel hostnames.
 
 `make quadlet-check` dry-runs the units with the quadlet generator (CI does too).
 
+Health checks on the hub's image must be the exec form (`HealthCmd=["CMD", …]`): the string form
+runs through `/bin/sh -c`, and distroless has no shell, so it reports unhealthy while the hub is fine.
+
 ## Upgrading
 
 Change `Image=` to the new digest, `systemctl --user daemon-reload`, then
