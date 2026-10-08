@@ -1,0 +1,29 @@
+# The gravel hub. Until the first release, build the image with `make image` and set
+# Image=localhost/gravel-hub:dev; afterwards pin ghcr.io/gravel-project/gravel-hub by digest.
+# Config: ~/.config/gravel/hub.yaml (docs/hub.md). Secret: gravel-db-url
+# (`podman secret create gravel-db-url <file>`, the file holding the postgres:// URL).
+[Unit]
+Description=gravel hub
+Requires=gravel-postgres.service
+After=gravel-postgres.service
+
+[Container]
+Image=ghcr.io/gravel-project/gravel-hub:latest
+ContainerName=gravel-hub
+Network=gravel.network
+PublishPort=127.0.0.1:8080:8080
+PublishPort=127.0.0.1:9090:9090
+Volume=%h/.config/gravel/hub.yaml:/etc/gravel/hub.yaml:ro,Z
+Secret=gravel-db-url
+Exec=serve --config /etc/gravel/hub.yaml
+HealthCmd=/ko-app/gravel-hub healthcheck
+HealthInterval=30s
+HealthTimeout=3s
+HealthRetries=3
+
+[Service]
+Restart=always
+TimeoutStartSec=300
+
+[Install]
+WantedBy=default.target

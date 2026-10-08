@@ -1,0 +1,18 @@
+# Hub configuration for the compose stack. Copy and edit for a real deployment; the reference is
+# docs/hub.md. No secrets here: the database URL is the podman secret gravel-db-url, mounted under /run/secrets.
+version: 1
+
+organization:
+  name: Local gravel
+
+server:
+  listen: 0.0.0.0:8080          # published on 127.0.0.1 by compose.yaml
+  internal_listen: 0.0.0.0:9090 # /metrics and pprof; published on 127.0.0.1 only
+
+database:
+  url_file: /run/secrets/gravel-db-url
+  migrate: auto
+
+log:
+  level: info
+  format: json

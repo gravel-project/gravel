@@ -1,0 +1,51 @@
+# Local hub: `make up` builds the image with ko, loads the dev secrets into podman's secret store
+# (deploy/dev-secrets.sh) and starts this stack with podman compose. Secrets are never bind-mounted:
+# podman copies them into each container's tmpfs, exactly as the quadlet units in quadlet/ do.
+name: gravel
+
+services:
+  postgres:
+    image: docker.io/library/postgres:17
+    environment:
+      POSTGRES_USER: gravel
+      POSTGRES_DB: gravel
+      POSTGRES_PASSWORD_FILE: /run/secrets/gravel-db-password
+    secrets:
+      - gravel-db-password
+    volumes:
+      - gravel-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gravel -d gravel"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  hub:
+    image: localhost/gravel-hub:dev
+    pull_policy: never
+    depends_on:
+      - postgres # the hub itself waits for the database (database.connect_timeout)
+    command: ["serve", "--config", "/etc/gravel/hub.yaml"]
+    secrets:
+      - gravel-db-url
+    volumes:
+      - ./hub.yaml:/etc/gravel/hub.yaml:ro,Z
+    ports: # host ports: GRAVEL_PORT / GRAVEL_INTERNAL_PORT (make up exports them)
+      - "127.0.0.1:${GRAVEL_PORT:-8080}:8080"
+      - "127.0.0.1:${GRAVEL_INTERNAL_PORT:-9090}:9090"
+    healthcheck:
+      test: ["CMD", "/ko-app/gravel-hub", "healthcheck"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+    restart: unless-stopped
+
+secrets:
+  gravel-db-password:
+    external: true
+  gravel-db-url:
+    external: true
+
+volumes:
+  gravel-postgres: {}
