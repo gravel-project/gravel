@@ -1,0 +1,25 @@
+name: Feature
+description: New functionality or a request
+type: Feature
+body:
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: What problem does this solve, and for whom?
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      value: |
+        - [ ]
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: Done when
+    validations:
+      required: true
