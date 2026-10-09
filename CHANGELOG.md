@@ -6,6 +6,8 @@ All notable changes to gravel are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-09
+
 ### Added
 
 - The Organization settings resource (#7, ADR-0007): one JSON document on the organization (migration 3) holding the theme (tokens for the light and dark schemes, the font, a logo, a favicon) and navigation links (header or footer, optionally owner-only), with the Discord role mapping, token lifetimes and layout overrides to join it. `GetOrganizationSettings` is public (the login page renders the theme) and `UpdateOrganizationSettings` is the owner's; validation names every invalid field (colours must be plain CSS colours, URLs https or site-relative, at most 12 links). The pages read the theme through the in-process API, so a host's look is data, not a fork. `gravel-hub settings export` prints the document as a YAML manifest and `gravel-hub settings apply <manifest>` stores one (`--dry-run` exits 3 on a change), for deployments that commit their settings until the `gravel` CLI applies them over the API.
@@ -13,6 +15,10 @@ All notable changes to gravel are documented here. The format follows
 ### Changed
 
 - The quadlet units pin the 0.3.0 images by index digest, both verified against the release workflow at `v0.3.0`: `ghcr.io/gravel-project/gravel-hub@sha256:95c16cd9a8789019977f4e2057edd1180469c08df2bab7177e5cd5b77e3b2ce0` in `gravel-hub.container`, and `ghcr.io/gravel-project/gravel-postgres@sha256:f9bd60a531e1fc8e1d78935b972ef4b2f3c51543c60b9eb3308282d04c4f75df` in the backup set, which no longer carries a placeholder; `docs/hub.md` names 0.3.0 as the tag example.
+
+### Fixed
+
+- The backup drop-in's archive command wrote `%p`, which systemd expands as a specifier in the generated `ExecStart` (to the unit's prefix name), so a quadlet deployment with the drop-in installed would have archived nothing; it is `%%p` now, and `docs/hub.md` says why. The compose stack and the drill hand the command to podman directly and were unaffected (#49).
 
 ## [0.3.0] - 2026-10-09
 
@@ -72,7 +78,8 @@ All notable changes to gravel are documented here. The format follows
 
 - README and CLAUDE.md follow ADR-0001: status line, principle 2 (the resource lives in the hub's database), the hub and backup paragraphs, the adapter-repo rule, the local-dev default, and a seven-step build order with the issues behind each step. The launch games are the five Hidden Token Gaming plays, in three shapes, with War Dogs first; the open threads link the design-delta issues #2–#9 (#1).
 
-[Unreleased]: https://github.com/gravel-project/gravel/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/gravel-project/gravel/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/gravel-project/gravel/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/gravel-project/gravel/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/gravel-project/gravel/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/gravel-project/gravel/releases/tag/v0.1.0
