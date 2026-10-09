@@ -151,7 +151,7 @@ source that serves the same bytes by the same digest.
 | `gravel-hub`, `gravel-bot`, `gravel-postgres` | `ghcr.io/gravel-project/…` | gravel's own, cosign-signed on release |
 | Postgres 17 (the base of `gravel-postgres`; the test database in CI and the docs) | `public.ecr.aws/docker/library/postgres:17` | AWS's mirror of the Docker Official Images; the digest is Docker Hub's. Unauthenticated pulls: one a second, 500 GB a month |
 | Prometheus | `quay.io/prometheus/prometheus` | the project publishes there beside Docker Hub, same digest |
-| Grafana, cloudflared | `ghcr.io/gravel-project/mirror/…` | they exist only on Docker Hub, so `.github/workflows/mirror.yml` copies the versions in `deploy/mirror/images.txt` weekly with `skopeo copy --all`, digest preserved. Until those packages are public, the pins name `mirror.gcr.io`, Google's cache of Docker Hub, which serves the same digests |
+| Grafana, cloudflared | `ghcr.io/gravel-project/mirror/…` | they exist only on Docker Hub, so `.github/workflows/mirror.yml` copies the versions in `deploy/mirror/images.txt` weekly with `skopeo copy --all`, digest preserved; the packages are public |
 | versitygw (the development object store) | `ghcr.io/versity/versitygw` | the project's own |
 
 A new image goes in this table; one that exists only on Docker Hub goes in `deploy/mirror/images.txt` too.
