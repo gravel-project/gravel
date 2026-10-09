@@ -122,7 +122,7 @@ func TestListIdentityEvents(t *testing.T) {
 	}
 	bot := hubv1connect.NewIdentityServiceClient(bearerClient(http.DefaultClient, r.bearer(t, "bot", "identity:read")), r.srv.URL)
 	all, err := bot.ListIdentityEvents(ctx, connect.NewRequest(&hubv1.ListIdentityEventsRequest{}))
-	if err != nil || len(all.Msg.GetEvents()) != 3 || all.Msg.GetNextAfterId() != 3 {
+	if err != nil || len(all.Msg.GetEvents()) != 3 || all.Msg.GetNextAfterId() != 3 || all.Msg.GetHeadId() != 3 {
 		t.Fatalf("all: %v %v", err, all)
 	}
 	ev := all.Msg.GetEvents()
@@ -130,7 +130,7 @@ func TestListIdentityEvents(t *testing.T) {
 		t.Errorf("events: %v", ev)
 	}
 	two, err := bot.ListIdentityEvents(ctx, connect.NewRequest(&hubv1.ListIdentityEventsRequest{AfterId: 1, Limit: 1}))
-	if err != nil || len(two.Msg.GetEvents()) != 1 || two.Msg.GetEvents()[0].GetId() != 2 || two.Msg.GetNextAfterId() != 2 {
+	if err != nil || len(two.Msg.GetEvents()) != 1 || two.Msg.GetEvents()[0].GetId() != 2 || two.Msg.GetNextAfterId() != 2 || two.Msg.GetHeadId() != 3 {
 		t.Errorf("after 1 limit 1: %v %v", err, two)
 	}
 	none, err := bot.ListIdentityEvents(ctx, connect.NewRequest(&hubv1.ListIdentityEventsRequest{AfterId: 3}))

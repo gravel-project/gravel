@@ -57,6 +57,10 @@ type Registry struct {
 	names    map[string]string
 	jobs     []namedJob
 	listen   []disgobot.EventListener
+
+	client  *disgobot.Client
+	metrics prometheus.Registerer
+	logger  *slog.Logger
 }
 
 type namedJob struct {
@@ -96,6 +100,19 @@ func (r *Registry) Listen(l disgobot.EventListener) { r.listen = append(r.listen
 func (r *Registry) Job(name string, run Job) {
 	r.jobs = append(r.jobs, namedJob{name: r.module + "/" + name, run: run})
 }
+
+// Rest is Discord's REST API through the runtime's client, for a job or a listener: one rate
+// limiter sees every call the bot makes.
+func (r *Registry) Rest() rest.Rest { return r.client.Rest }
+
+// ApplicationID is the application the bot runs as.
+func (r *Registry) ApplicationID() snowflake.ID { return r.client.ApplicationID }
+
+// Metrics registers a module's collectors beside the runtime's, on /metrics.
+func (r *Registry) Metrics() prometheus.Registerer { return r.metrics }
+
+// Logger is the runtime's logger, naming the module.
+func (r *Registry) Logger() *slog.Logger { return r.logger }
 
 // Options tune New beyond the configuration.
 type Options struct {
@@ -170,17 +187,14 @@ func New(opts Options, modules ...Module) (*Runtime, error) {
 		logger.Error("interaction failed", "error", err.Error(), "interaction", e.ID())
 	})
 
-	names := map[string]string{}
-	var listen []disgobot.EventListener
-	for _, m := range modules {
-		reg := &Registry{module: m.Name(), router: rt.router, names: names}
-		if err := m.Register(reg); err != nil {
-			return nil, fmt.Errorf("bot: module %s: %w", m.Name(), err)
-		}
-		rt.commands = append(rt.commands, reg.commands...)
-		rt.jobs = append(rt.jobs, reg.jobs...)
-		listen = append(listen, reg.listen...)
-	}
+	rt.registry = prometheus.NewRegistry()
+	rt.registry.MustRegister(collectors.NewGoCollector(), collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
+	buildInfo := prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "gravel_bot_build_info", Help: "Build information; always 1."}, []string{"version", "go_version"})
+	buildInfo.WithLabelValues(rt.version, runtime.Version()).Set(1)
+	rt.interactions = prometheus.NewCounterVec(prometheus.CounterOpts{Name: "gravel_bot_interactions_total", Help: "Interactions handled, by route and result."}, []string{"route", "result"})
+	rt.gatewayConnected = prometheus.NewGauge(prometheus.GaugeOpts{Name: "gravel_bot_gateway_connected", Help: "1 while the gateway session is up."})
+	rt.jobResults = prometheus.NewCounterVec(prometheus.CounterOpts{Name: "gravel_bot_jobs_total", Help: "Background jobs ended, by job and result."}, []string{"job", "result"})
+	rt.registry.MustRegister(buildInfo, rt.interactions, rt.gatewayConnected, rt.jobResults)
 
 	intents := defaultIntents
 	if opts.Intents != nil {
@@ -197,7 +211,7 @@ func New(opts Options, modules ...Module) (*Runtime, error) {
 	clientOpts := []disgobot.ConfigOpt{
 		disgobot.WithLogger(logger),
 		disgobot.WithRestClientConfigOpts(restOpts...),
-		disgobot.WithEventListeners(append([]disgobot.EventListener{rt.router, rt.gatewayStatus()}, listen...)...),
+		disgobot.WithEventListeners(rt.router, rt.gatewayStatus()),
 	}
 	if cfg.Discord.Gateway {
 		clientOpts = append(clientOpts, disgobot.WithGatewayConfigOpts(gateway.WithIntents(intents), gateway.WithAutoReconnect(true)))
@@ -208,14 +222,19 @@ func New(opts Options, modules ...Module) (*Runtime, error) {
 	}
 	rt.client = client
 
-	rt.registry = prometheus.NewRegistry()
-	rt.registry.MustRegister(collectors.NewGoCollector(), collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
-	buildInfo := prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "gravel_bot_build_info", Help: "Build information; always 1."}, []string{"version", "go_version"})
-	buildInfo.WithLabelValues(rt.version, runtime.Version()).Set(1)
-	rt.interactions = prometheus.NewCounterVec(prometheus.CounterOpts{Name: "gravel_bot_interactions_total", Help: "Interactions handled, by route and result."}, []string{"route", "result"})
-	rt.gatewayConnected = prometheus.NewGauge(prometheus.GaugeOpts{Name: "gravel_bot_gateway_connected", Help: "1 while the gateway session is up."})
-	rt.jobResults = prometheus.NewCounterVec(prometheus.CounterOpts{Name: "gravel_bot_jobs_total", Help: "Background jobs ended, by job and result."}, []string{"job", "result"})
-	rt.registry.MustRegister(buildInfo, rt.interactions, rt.gatewayConnected, rt.jobResults)
+	// The modules register against the built client, so a job or listener reaches Discord
+	// through the one rate limiter.
+	names := map[string]string{}
+	for _, m := range modules {
+		reg := &Registry{module: m.Name(), router: rt.router, names: names, client: client, metrics: rt.registry, logger: logger.With("module", m.Name())}
+		if err := m.Register(reg); err != nil {
+			client.Close(context.Background())
+			return nil, fmt.Errorf("bot: module %s: %w", m.Name(), err)
+		}
+		rt.commands = append(rt.commands, reg.commands...)
+		rt.jobs = append(rt.jobs, reg.jobs...)
+		client.AddEventListeners(reg.listen...)
+	}
 
 	rt.public = rt.buildPublic(key)
 	rt.internal = rt.buildInternal()

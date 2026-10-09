@@ -102,6 +102,9 @@ type AccountPage struct {
 	Page
 	Identities    []Identity
 	LinkProviders []Provider
+	// RoleProviders are linked providers that show the member's linked accounts (Discord's
+	// Linked Roles), each with an update button.
+	RoleProviders []Provider
 }
 
 // ErrorPage explains a refusal or a failure.

@@ -113,6 +113,9 @@ message ListIdentityEventsResponse {
   repeated IdentityEvent events = 1;
   // The id to pass as after_id next time: the last event's, or after_id itself when there were none.
   int64 next_after_id = 2;
+  // The newest id in the log when it was read; 0 for an empty log. A reader that starts with a
+  // full pass begins its incremental reads here instead of paging through the history.
+  int64 head_id = 3;
 }
 
 // IdentityService is the logged-in member's account and the lookups role sync needs. Every

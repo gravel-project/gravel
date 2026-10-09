@@ -123,7 +123,7 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 	if regs == nil {
 		regs = h.buildProviders()
 	}
-	h.ids = identity.New(st, o.ID, regs, cfg.Auth.AttemptTTL, logger)
+	h.ids = identity.New(st, o.ID, regs, cfg.Auth.AttemptTTL, logger, identity.WithOrganizationName(o.Name))
 	h.sess = session.New(st, cfg.Auth.SessionTTL, cfg.Auth.Secure(), logger)
 	h.apps = apps.New(st, o.ID, cfg.Apps.TokenTTL, logger)
 	h.perIP = ratelimit.New(cfg.RateLimit.PerIP.RequestsPerMinute, cfg.RateLimit.PerIP.Burst)
@@ -140,7 +140,7 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 	}, []string{"version", "go_version"})
 	buildInfo.WithLabelValues(h.version, runtime.Version()).Set(1)
 	h.authTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "gravel_auth_completions_total", Help: "Finished login and link attempts by provider, intent and result.",
+		Name: "gravel_auth_completions_total", Help: "Finished login, link and Linked Roles attempts by provider, intent and result.",
 	}, []string{"provider", "intent", "result"})
 	h.limitedTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "gravel_rate_limited_total", Help: "Requests refused by a rate limit, by scope (ip, user or app).",
@@ -173,7 +173,11 @@ func (h *Hub) buildProviders() []identity.Registration {
 	var regs []identity.Registration
 	if cfg.Discord.Enabled {
 		regs = append(regs, identity.Registration{Provider: providers.Discord(cfg.Discord.ClientID, cfg.Discord.ClientSecret, cfg.CallbackURL("discord"), client), Login: cfg.Discord.Login})
-		h.logger.Info("login provider", "provider", "discord", "login", cfg.Discord.Login, "callback", cfg.CallbackURL("discord"), "secret", cfg.Discord.SecretSource())
+		linkedRoles := "off (discord is link-only)"
+		if cfg.Discord.Login {
+			linkedRoles = cfg.RolesURL("discord")
+		}
+		h.logger.Info("login provider", "provider", "discord", "login", cfg.Discord.Login, "callback", cfg.CallbackURL("discord"), "linked_roles_verification_url", linkedRoles, "secret", cfg.Discord.SecretSource())
 	}
 	if cfg.Steam.Enabled {
 		regs = append(regs, identity.Registration{Provider: providers.Steam(cfg.Steam.APIKey, cfg.CallbackURL("steam"), client), Login: cfg.Steam.Login})

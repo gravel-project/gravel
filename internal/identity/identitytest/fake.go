@@ -267,6 +267,18 @@ func (f *FakeStore) ListIdentityEventsAfter(_ context.Context, afterID int64, li
 	return out, nil
 }
 
+func (f *FakeStore) IdentityEventsHead(context.Context) (int64, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.fail("IdentityEventsHead"); err != nil {
+		return 0, err
+	}
+	if len(f.Events) == 0 {
+		return 0, nil
+	}
+	return f.Events[len(f.Events)-1].ID, nil
+}
+
 func (f *FakeStore) CreateAuthAttempt(_ context.Context, a store.AuthAttempt) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -461,4 +473,51 @@ func (p *FakeProvider) LastState() string {
 		return ""
 	}
 	return p.States[len(p.States)-1]
+}
+
+// FakePublisher is a FakeProvider that is also an identity.Publisher. BeginPublish marks its
+// session, so CompletePublish proves the flow began as a publish; the function it returns records
+// each Profile, or fails with PublishErr.
+type FakePublisher struct {
+	FakeProvider
+	PublishErr error
+
+	pubMu     sync.Mutex
+	published []identity.Profile
+}
+
+// BeginPublish is Begin with a publish session.
+func (p *FakePublisher) BeginPublish(ctx context.Context, state string) (string, string, error) {
+	authURL, _, err := p.Begin(ctx, state)
+	if err != nil {
+		return "", "", err
+	}
+	return authURL + "&publish=1", "psess:publish:" + state, nil
+}
+
+// CompletePublish is Complete for a session BeginPublish made.
+func (p *FakePublisher) CompletePublish(ctx context.Context, session string, params url.Values) (identity.Account, func(context.Context, identity.Profile) error, error) {
+	if !strings.HasPrefix(session, "psess:publish:") {
+		return identity.Account{}, nil, fmt.Errorf("%w: not a publish session", identity.ErrProviderFailed)
+	}
+	acct, err := p.Complete(ctx, session, params)
+	if err != nil {
+		return identity.Account{}, nil, err
+	}
+	return acct, func(_ context.Context, prof identity.Profile) error {
+		if p.PublishErr != nil {
+			return p.PublishErr
+		}
+		p.pubMu.Lock()
+		defer p.pubMu.Unlock()
+		p.published = append(p.published, prof)
+		return nil
+	}, nil
+}
+
+// Published returns the profiles published so far.
+func (p *FakePublisher) Published() []identity.Profile {
+	p.pubMu.Lock()
+	defer p.pubMu.Unlock()
+	return slices.Clone(p.published)
 }

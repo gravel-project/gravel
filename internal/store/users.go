@@ -311,6 +311,15 @@ func (s *Store) ListIdentityEvents(ctx context.Context, userID uuid.UUID) ([]Ide
 	return out, nil
 }
 
+// IdentityEventsHead returns the newest id in the identity log, 0 when it is empty.
+func (s *Store) IdentityEventsHead(ctx context.Context) (int64, error) {
+	var id int64
+	if err := s.pool.QueryRow(ctx, `SELECT coalesce(max(id), 0) FROM identity_events`).Scan(&id); err != nil {
+		return 0, fmt.Errorf("store: identity events head: %w", err)
+	}
+	return id, nil
+}
+
 // ListIdentityEventsAfter returns up to limit events with an id greater than afterID, oldest
 // first: the incremental read a role-sync reconciler makes (ADR-0008).
 func (s *Store) ListIdentityEventsAfter(ctx context.Context, afterID int64, limit int) ([]IdentityEvent, error) {

@@ -55,7 +55,7 @@ type OrganizationServiceClient interface {
 	// single-use, expires, and no token exists once the hub is owned.
 	ClaimOwnership(context.Context, *connect.Request[v1.ClaimOwnershipRequest]) (*connect.Response[v1.ClaimOwnershipResponse], error)
 	// GetOrganizationSettings returns the settings; public, because the pages render the theme
-	// before anyone logs in.
+	// before anyone logs in, and the document holds no credential.
 	GetOrganizationSettings(context.Context, *connect.Request[v1.GetOrganizationSettingsRequest]) (*connect.Response[v1.GetOrganizationSettingsResponse], error)
 	// UpdateOrganizationSettings replaces the settings. The owner only; invalid_argument names
 	// every invalid field.
@@ -136,7 +136,7 @@ type OrganizationServiceHandler interface {
 	// single-use, expires, and no token exists once the hub is owned.
 	ClaimOwnership(context.Context, *connect.Request[v1.ClaimOwnershipRequest]) (*connect.Response[v1.ClaimOwnershipResponse], error)
 	// GetOrganizationSettings returns the settings; public, because the pages render the theme
-	// before anyone logs in.
+	// before anyone logs in, and the document holds no credential.
 	GetOrganizationSettings(context.Context, *connect.Request[v1.GetOrganizationSettingsRequest]) (*connect.Response[v1.GetOrganizationSettingsResponse], error)
 	// UpdateOrganizationSettings replaces the settings. The owner only; invalid_argument names
 	// every invalid field.

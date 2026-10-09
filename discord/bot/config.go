@@ -17,6 +17,13 @@ import (
 // CurrentVersion is the configuration format this build reads.
 const CurrentVersion = 1
 
+// Role sync's floors: a full pass lists every guild member, and the identity log is one hub
+// call per poll.
+const (
+	MinRoleSyncInterval = time.Minute
+	MinRoleSyncPoll     = 5 * time.Second
+)
+
 // Environment variables that override the secrets.
 const (
 	EnvDiscordToken    = "GRAVEL_BOT_DISCORD_TOKEN"
@@ -27,11 +34,33 @@ const (
 // the hub's, it is strict (an unknown key is an error), versioned, and reads each secret from
 // the environment, then a file (a podman secret), then the inline key, which is for development.
 type Config struct {
-	Version int     `yaml:"version"`
-	Discord Discord `yaml:"discord"`
-	Hub     Hub     `yaml:"hub"`
-	Server  Server  `yaml:"server"`
-	Log     Log     `yaml:"log"`
+	Version     int         `yaml:"version"`
+	Discord     Discord     `yaml:"discord"`
+	Hub         Hub         `yaml:"hub"`
+	RoleSync    RoleSync    `yaml:"role_sync"`
+	LinkedRoles LinkedRoles `yaml:"linked_roles"`
+	Server      Server      `yaml:"server"`
+	Log         Log         `yaml:"log"`
+}
+
+// RoleSync runs the role-sync reconciler (discord/modules/rolesync). What it maps lives in the
+// Organization settings' discord section; this is how the process runs it.
+type RoleSync struct {
+	Enabled bool `yaml:"enabled"`
+	// Interval is the full pass: every member, every mapped role, whatever changed.
+	Interval time.Duration `yaml:"interval"`
+	// PollInterval is how often the hub's identity log is read; a link or an unlink in it
+	// starts a pass.
+	PollInterval time.Duration `yaml:"poll_interval"`
+	// DryRun logs the changes a pass would make and makes none: the first run against a guild
+	// whose roles were assigned by hand.
+	DryRun bool `yaml:"dry_run"`
+}
+
+// LinkedRoles registers the Linked Roles metadata schema with the application at start
+// (discord/modules/linkedroles); the hub's /auth/discord/roles writes each member's values.
+type LinkedRoles struct {
+	Enabled bool `yaml:"enabled"`
 }
 
 // Discord is the application the bot runs as.
@@ -97,10 +126,12 @@ func OSEnv() Env { return Env{LookupEnv: os.LookupEnv, ReadFile: os.ReadFile} }
 // Default returns the configuration with every optional field at its default.
 func Default() Config {
 	return Config{
-		Version: CurrentVersion,
-		Discord: Discord{Gateway: true},
-		Server:  Server{Listen: "127.0.0.1:8081", InternalListen: "127.0.0.1:9091", ShutdownTimeout: 15 * time.Second},
-		Log:     Log{Level: "info", Format: "json"},
+		Version:     CurrentVersion,
+		Discord:     Discord{Gateway: true},
+		RoleSync:    RoleSync{Enabled: true, Interval: 10 * time.Minute, PollInterval: 30 * time.Second},
+		LinkedRoles: LinkedRoles{Enabled: true},
+		Server:      Server{Listen: "127.0.0.1:8081", InternalListen: "127.0.0.1:9091", ShutdownTimeout: 15 * time.Second},
+		Log:         Log{Level: "info", Format: "json"},
 	}
 }
 
@@ -220,6 +251,12 @@ func (c Config) Validate() error {
 	}
 	if c.Hub.ClientSecret == "" {
 		bad("hub: no client secret; set %s, hub.client_secret_file or hub.client_secret", EnvHubClientSecret)
+	}
+	if c.RoleSync.Interval < MinRoleSyncInterval {
+		bad("role_sync.interval: %s is shorter than %s", c.RoleSync.Interval, MinRoleSyncInterval)
+	}
+	if c.RoleSync.PollInterval < MinRoleSyncPoll || c.RoleSync.PollInterval > c.RoleSync.Interval {
+		bad("role_sync.poll_interval: %s must be at least %s and at most role_sync.interval", c.RoleSync.PollInterval, MinRoleSyncPoll)
 	}
 	if c.Server.Listen == "" || c.Server.InternalListen == "" {
 		bad("server.listen and server.internal_listen: required")

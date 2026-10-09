@@ -51,12 +51,19 @@ func TestListUsersAndEvents(t *testing.T) {
 		t.Errorf("past the end: %v %+v", err, empty)
 	}
 
-	events, err := svc.ListEvents(ctx, 0, 10)
-	if err != nil || len(events) != 5 || events[0].ID != 1 || events[4].Event != store.IdentityEventLinked {
-		t.Fatalf("events: %v %+v", err, events)
+	events, head, err := svc.ListEvents(ctx, 0, 10)
+	if err != nil || len(events) != 5 || events[0].ID != 1 || events[4].Event != store.IdentityEventLinked || head != 5 {
+		t.Fatalf("events: %v %d %+v", err, head, events)
 	}
-	if later, err := svc.ListEvents(ctx, 3, 1); err != nil || len(later) != 1 || later[0].ID != 4 {
-		t.Errorf("after 3, limit 1: %v %+v", err, later)
+	if later, head, err := svc.ListEvents(ctx, 3, 1); err != nil || len(later) != 1 || later[0].ID != 4 || head != 5 {
+		t.Errorf("after 3, limit 1: %v %d %+v", err, head, later)
+	}
+	if none, head, err := svc.ListEvents(ctx, 5, 10); err != nil || len(none) != 0 || head != 5 {
+		t.Errorf("at the head: %v %d %+v", err, head, none)
+	}
+	st.ErrOn = "IdentityEventsHead"
+	if _, _, err := svc.ListEvents(ctx, 0, 10); err == nil {
+		t.Error("a head failure surfaces")
 	}
 	st.ErrOn = "ListIdentitiesForUsers"
 	if _, err := svc.ListUsers(ctx, nil, 2); err == nil {

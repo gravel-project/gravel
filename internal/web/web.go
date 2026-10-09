@@ -90,6 +90,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /account", h.account)
 	mux.HandleFunc("GET /auth/{provider}/start", h.startLogin)
 	mux.HandleFunc("GET /auth/{provider}/link", h.startLink)
+	mux.HandleFunc("GET /auth/{provider}/roles", h.startRoles)
 	mux.HandleFunc("GET /auth/{provider}/callback", h.callback)
 	mux.HandleFunc("POST /auth/logout", h.logout)
 	mux.HandleFunc("POST /account/unlink", h.unlink)
@@ -170,8 +171,12 @@ func (h *Handler) accountPage(r *http.Request, flash *templates.Flash) (template
 		ap.Identities = append(ap.Identities, i)
 	}
 	for _, reg := range h.ids.Providers() {
-		if !linked[reg.Provider.Name()] {
-			ap.LinkProviders = append(ap.LinkProviders, templates.Provider{Name: reg.Provider.Name(), DisplayName: reg.Provider.DisplayName()})
+		pr := templates.Provider{Name: reg.Provider.Name(), DisplayName: reg.Provider.DisplayName()}
+		if !linked[pr.Name] {
+			ap.LinkProviders = append(ap.LinkProviders, pr)
+		}
+		if _, ok := reg.Provider.(identity.Publisher); ok && reg.Login && linked[pr.Name] {
+			ap.RoleProviders = append(ap.RoleProviders, pr)
 		}
 	}
 	return ap, b, nil
@@ -194,12 +199,22 @@ func (h *Handler) startLink(w http.ResponseWriter, r *http.Request) {
 	h.start(w, r, identity.IntentLink, &s.UserID)
 }
 
+// startRoles is the verification URL a Discord application points Linked Roles at: the member
+// arrives from Discord, logged in to the hub or not, and the flow logs them in and publishes
+// their linked accounts (ADR-0008 §4). It always runs, so it also refreshes what Discord knows.
+func (h *Handler) startRoles(w http.ResponseWriter, r *http.Request) {
+	h.start(w, r, identity.IntentRoles, nil)
+}
+
 func (h *Handler) start(w http.ResponseWriter, r *http.Request, intent identity.Intent, userID *uuid.UUID) {
 	provider := r.PathValue("provider")
 	b, err := h.ids.Begin(r.Context(), provider, intent, userID)
 	switch {
 	case errors.Is(err, identity.ErrUnknownProvider), errors.Is(err, identity.ErrLoginNotAllowed):
 		h.fail(w, r, http.StatusNotFound, "No such login", "This hub has no such login provider.")
+		return
+	case errors.Is(err, identity.ErrNotPublisher):
+		h.fail(w, r, http.StatusNotFound, "No linked roles", "This hub publishes no linked roles to that provider.")
 		return
 	case errors.Is(err, identity.ErrProviderFailed):
 		h.logger.WarnContext(r.Context(), "provider could not start", "provider", provider, "error", err.Error(), "request_id", httpx.RequestIDFromContext(r.Context()))
@@ -240,6 +255,21 @@ func (h *Handler) callback(w http.ResponseWriter, r *http.Request) {
 	switch done.Intent {
 	case identity.IntentLink:
 		h.setFlash(w, "ok", h.providerDisplay(provider)+" account "+display+" linked.")
+	case identity.IntentRoles:
+		// A login, except that the member's own session stays when they were already in it.
+		if !loggedIn || current.UserID != done.User.ID {
+			if loggedIn {
+				if err := h.sess.Revoke(r.Context(), w, current); err != nil {
+					h.serverError(w, r, err)
+					return
+				}
+			}
+			if _, err := h.sess.Issue(r.Context(), w, done.User.ID); err != nil {
+				h.serverError(w, r, err)
+				return
+			}
+		}
+		h.rolesFlash(w, provider, done)
 	default:
 		if loggedIn { // a fresh login replaces the session it was started from
 			if err := h.sess.Revoke(r.Context(), w, current); err != nil {
@@ -260,6 +290,26 @@ func (h *Handler) callback(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/account", http.StatusSeeOther)
 }
 
+// rolesFlash says what the provider now shows, or that it would not take it.
+func (h *Handler) rolesFlash(w http.ResponseWriter, provider string, done identity.Completed) {
+	name := h.providerDisplay(provider)
+	if done.PublishErr != nil || done.Published == nil {
+		h.setFlash(w, "err", "You are logged in, but "+name+" did not take the update to your linked roles. Try again in a moment.")
+		return
+	}
+	var others []string
+	for _, p := range done.Published.Providers {
+		if p != provider {
+			others = append(others, h.providerDisplay(p))
+		}
+	}
+	if len(others) == 0 {
+		h.setFlash(w, "ok", name+" now knows you have no other accounts linked. Link one here, then update your linked roles again.")
+		return
+	}
+	h.setFlash(w, "ok", name+" now knows your linked accounts: "+strings.Join(others, ", ")+". Roles that need them update in "+name+".")
+}
+
 func (h *Handler) observe(provider string, intent identity.Intent, result string) {
 	if h.Observe != nil {
 		h.Observe(provider, intent, result)
@@ -273,7 +323,7 @@ func authResult(err error) string {
 		return "denied"
 	case errors.Is(err, identity.ErrProviderFailed):
 		return "failed"
-	case errors.Is(err, identity.ErrAttemptInvalid), errors.Is(err, identity.ErrWrongUser), errors.Is(err, identity.ErrUnknownProvider), errors.Is(err, identity.ErrLoginNotAllowed):
+	case errors.Is(err, identity.ErrAttemptInvalid), errors.Is(err, identity.ErrWrongUser), errors.Is(err, identity.ErrUnknownProvider), errors.Is(err, identity.ErrLoginNotAllowed), errors.Is(err, identity.ErrNotPublisher):
 		return "invalid"
 	case errors.Is(err, identity.ErrStateMismatch):
 		return "mismatch"
@@ -296,7 +346,7 @@ func (h *Handler) authError(w http.ResponseWriter, r *http.Request, provider str
 		h.fail(w, r, http.StatusBadRequest, "Cancelled", "You cancelled at "+name+".")
 	case errors.Is(err, identity.ErrIdentityTaken):
 		h.fail(w, r, http.StatusConflict, "Already linked", "That "+name+" account is already linked to another member.")
-	case errors.Is(err, identity.ErrUnknownProvider), errors.Is(err, identity.ErrLoginNotAllowed):
+	case errors.Is(err, identity.ErrUnknownProvider), errors.Is(err, identity.ErrLoginNotAllowed), errors.Is(err, identity.ErrNotPublisher):
 		h.fail(w, r, http.StatusNotFound, "No such login", "This hub has no such login provider.")
 	case errors.Is(err, identity.ErrProviderFailed):
 		h.logger.WarnContext(r.Context(), "provider failed", "provider", provider, "error", err.Error(), "request_id", httpx.RequestIDFromContext(r.Context()))

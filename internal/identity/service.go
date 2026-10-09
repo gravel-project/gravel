@@ -35,6 +35,7 @@ type Store interface {
 	ListUsers(ctx context.Context, orgID uuid.UUID, after *store.UserCursor, limit int) ([]store.User, error)
 	ListIdentitiesForUsers(ctx context.Context, userIDs []uuid.UUID) ([]store.Identity, error)
 	ListIdentityEventsAfter(ctx context.Context, afterID int64, limit int) ([]store.IdentityEvent, error)
+	IdentityEventsHead(ctx context.Context) (int64, error)
 }
 
 // Registration is a provider and what it may be used for.
@@ -53,6 +54,7 @@ type Service struct {
 	byName     map[string]Registration
 	attemptTTL time.Duration
 	logger     *slog.Logger
+	orgName    string
 
 	now  func() time.Time
 	rand io.Reader
@@ -63,6 +65,10 @@ type Option func(*Service)
 
 // WithClock replaces the clock; tests use it to expire attempts.
 func WithClock(now func() time.Time) Option { return func(s *Service) { s.now = now } }
+
+// WithOrganizationName is the name a Publisher shows as the platform (Discord's connection on a
+// member's profile).
+func WithOrganizationName(name string) Option { return func(s *Service) { s.orgName = name } }
 
 // New builds a service. orgID is the organization new users belong to (the built-in one);
 // attemptTTL bounds how long a member has to come back from a provider.
@@ -95,20 +101,32 @@ type Begun struct {
 	ExpiresAt    time.Time
 }
 
-// Begin starts a login or link attempt with a provider. For IntentLink, userID is the logged-in
-// user the identity will be added to. ErrUnknownProvider, ErrLoginNotAllowed for a link-only
-// provider used to log in, ErrProviderFailed when the provider cannot start.
+// Begin starts a login, link or roles attempt with a provider. For IntentLink, userID is the
+// logged-in user the identity will be added to. IntentRoles is a login that also publishes, so
+// the provider must allow login and be a Publisher. ErrUnknownProvider, ErrLoginNotAllowed for a
+// link-only provider used to log in, ErrNotPublisher, ErrProviderFailed when the provider cannot
+// start.
 func (s *Service) Begin(ctx context.Context, provider string, intent Intent, userID *uuid.UUID) (Begun, error) {
 	reg, ok := s.byName[provider]
 	if !ok {
 		return Begun{}, ErrUnknownProvider
 	}
+	begin := reg.Provider.Begin
 	switch intent {
 	case IntentLogin:
 		if !reg.Login {
 			return Begun{}, ErrLoginNotAllowed
 		}
 		userID = nil
+	case IntentRoles:
+		pub, ok := reg.Provider.(Publisher)
+		if !ok {
+			return Begun{}, ErrNotPublisher
+		}
+		if !reg.Login {
+			return Begun{}, ErrLoginNotAllowed
+		}
+		begin, userID = pub.BeginPublish, nil
 	case IntentLink:
 		if userID == nil {
 			return Begun{}, errors.New("identity: a link attempt needs a user")
@@ -128,7 +146,7 @@ func (s *Service) Begin(ctx context.Context, provider string, intent Intent, use
 	if err != nil {
 		return Begun{}, fmt.Errorf("identity: new id: %w", err)
 	}
-	authURL, psess, err := reg.Provider.Begin(ctx, state)
+	authURL, psess, err := begin(ctx, state)
 	if err != nil {
 		if errors.Is(err, ErrProviderFailed) {
 			return Begun{}, err
@@ -152,6 +170,9 @@ type Completed struct {
 	User       store.User
 	Identity   store.Identity
 	Registered bool // a login that created the user
+	// For IntentRoles: what was published, or why it was not. The login stands either way.
+	Published  *Profile
+	PublishErr error
 }
 
 // Complete finishes the attempt the browser's auth cookie names, with the provider's callback
@@ -185,11 +206,21 @@ func (s *Service) Complete(ctx context.Context, attemptToken, provider string, p
 	if intent == IntentLink && (sessionUser == nil || a.UserID == nil || *sessionUser != *a.UserID) {
 		return Completed{}, ErrWrongUser
 	}
-	if intent == IntentLogin && !reg.Login {
+	if (intent == IntentLogin || intent == IntentRoles) && !reg.Login {
 		return Completed{}, ErrLoginNotAllowed
 	}
 
-	acct, err := reg.Provider.Complete(ctx, a.ProviderSession, params)
+	var acct Account
+	var publish func(context.Context, Profile) error
+	if intent == IntentRoles {
+		pub, ok := reg.Provider.(Publisher)
+		if !ok {
+			return Completed{}, ErrNotPublisher
+		}
+		acct, publish, err = pub.CompletePublish(ctx, a.ProviderSession, params)
+	} else {
+		acct, err = reg.Provider.Complete(ctx, a.ProviderSession, params)
+	}
 	if err != nil {
 		if errors.Is(err, ErrProviderDenied) || errors.Is(err, ErrProviderFailed) {
 			return Completed{}, err
@@ -203,9 +234,45 @@ func (s *Service) Complete(ctx context.Context, attemptToken, provider string, p
 	switch intent {
 	case IntentLink:
 		return s.link(ctx, *a.UserID, acct)
+	case IntentRoles:
+		done, err := s.login(ctx, acct, now)
+		if err != nil {
+			return Completed{}, err
+		}
+		done.Intent = IntentRoles
+		s.publish(ctx, &done, publish)
+		return done, nil
 	default:
 		return s.login(ctx, acct, now)
 	}
+}
+
+// publish writes the member's Profile with the grant the roles flow just obtained. A failure is
+// recorded on done, not returned: the member did log in.
+func (s *Service) publish(ctx context.Context, done *Completed, publish func(context.Context, Profile) error) {
+	idents, err := s.st.ListIdentities(ctx, done.User.ID)
+	if err != nil {
+		done.PublishErr = err
+		return
+	}
+	p := Profile{Organization: s.orgName, DisplayName: done.User.DisplayName}
+	for _, i := range idents {
+		p.Providers = append(p.Providers, i.Provider)
+	}
+	if publish == nil {
+		done.PublishErr = fmt.Errorf("%w: %s returned nothing to publish with", ErrProviderFailed, done.Identity.Provider)
+		return
+	}
+	if err := publish(ctx, p); err != nil {
+		if !errors.Is(err, ErrProviderFailed) {
+			err = fmt.Errorf("%w: %s: %w", ErrProviderFailed, done.Identity.Provider, err)
+		}
+		done.PublishErr = err
+		s.logger.WarnContext(ctx, "linked accounts not published", "user_id", done.User.ID, "provider", done.Identity.Provider, "error", err.Error())
+		return
+	}
+	done.Published = &p
+	s.logger.InfoContext(ctx, "linked accounts published", "user_id", done.User.ID, "provider", done.Identity.Provider, "providers", len(p.Providers))
 }
 
 func (s *Service) login(ctx context.Context, acct Account, now time.Time) (Completed, error) {
@@ -359,10 +426,19 @@ func (s *Service) ListUsers(ctx context.Context, after *store.UserCursor, limit 
 	return out, nil
 }
 
-// ListEvents returns identity events after a position in the log, oldest first: the incremental
-// pass of role sync. A reader remembers the last id it saw.
-func (s *Service) ListEvents(ctx context.Context, afterID int64, limit int) ([]store.IdentityEvent, error) {
-	return s.st.ListIdentityEventsAfter(ctx, afterID, limit)
+// ListEvents returns identity events after a position in the log, oldest first, and the log's
+// newest id: the incremental pass of role sync. A reader remembers the last id it saw, and one
+// that starts with a full pass starts reading at the head.
+func (s *Service) ListEvents(ctx context.Context, afterID int64, limit int) (events []store.IdentityEvent, head int64, err error) {
+	// The head first: an event appended between the two reads is then in the page or after
+	// the head, never skipped by a reader that jumps to the head.
+	if head, err = s.st.IdentityEventsHead(ctx); err != nil {
+		return nil, 0, err
+	}
+	if events, err = s.st.ListIdentityEventsAfter(ctx, afterID, limit); err != nil {
+		return nil, 0, err
+	}
+	return events, head, nil
 }
 
 // Unlink removes one of a user's identities. ErrLastIdentity when it is the only one (a

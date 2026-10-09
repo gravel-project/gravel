@@ -2,9 +2,12 @@ package bot
 
 import (
 	"errors"
+	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 const goodKey = "f61a8fd49fee0b5bf031dad66740c7225d06a4c4b60b412b875f2482a91ca808"
@@ -43,6 +46,13 @@ func TestParseDefaults(t *testing.T) {
 	}
 	if c.Hub.PublicURL != "http://hub:8080" {
 		t.Errorf("public_url defaults to url: %q", c.Hub.PublicURL)
+	}
+	if !c.RoleSync.Enabled || c.RoleSync.Interval != 10*time.Minute || c.RoleSync.PollInterval != 30*time.Second || c.RoleSync.DryRun || !c.LinkedRoles.Enabled {
+		t.Errorf("role sync and linked roles defaults: %+v %+v", c.RoleSync, c.LinkedRoles)
+	}
+	tuned, err := Parse(strings.NewReader(minimal+"role_sync:\n  interval: 5m\n  poll_interval: 1m\n  dry_run: true\nlinked_roles:\n  enabled: false\n"), env(nil, nil))
+	if err != nil || !tuned.RoleSync.Enabled || tuned.RoleSync.Interval != 5*time.Minute || tuned.RoleSync.PollInterval != time.Minute || !tuned.RoleSync.DryRun || tuned.LinkedRoles.Enabled {
+		t.Errorf("tuned: %v %+v %+v", err, tuned.RoleSync, tuned.LinkedRoles)
 	}
 	if c.Discord.TokenSource() != "discord.token" || c.Hub.SecretSource() != "hub.client_secret" {
 		t.Errorf("sources: %q %q", c.Discord.TokenSource(), c.Hub.SecretSource())
@@ -95,6 +105,9 @@ discord:
 hub:
   url: "hub:8080/path"
   public_url: "ftp://x"
+role_sync:
+  interval: 30s
+  poll_interval: 1s
 server:
   listen: ""
   shutdown_timeout: 0s
@@ -106,7 +119,7 @@ log:
 	if err == nil {
 		t.Fatal("expected errors")
 	}
-	for _, want := range []string{"version:", "discord.application_id", "discord.guild_ids[0]", "discord.public_key", "discord: no token", "hub.url", "hub.public_url", "hub.client_id", "hub: no client secret", "server.listen", "shutdown_timeout", "log.level", "log.format"} {
+	for _, want := range []string{"version:", "discord.application_id", "discord.guild_ids[0]", "discord.public_key", "discord: no token", "hub.url", "hub.public_url", "hub.client_id", "hub: no client secret", "role_sync.interval", "role_sync.poll_interval", "server.listen", "shutdown_timeout", "log.level", "log.format"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("missing %q in %v", want, err)
 		}
@@ -119,5 +132,31 @@ func TestLogger(t *testing.T) {
 	}
 	if _, err := (Log{Level: "loud"}).SlogLevel(); err == nil {
 		t.Error("a bad level is an error")
+	}
+}
+
+func TestRoleSyncPollWithinInterval(t *testing.T) {
+	_, err := Parse(strings.NewReader(minimal+"role_sync:\n  interval: 2m\n  poll_interval: 3m\n"), env(nil, nil))
+	if err == nil || !strings.Contains(err.Error(), "role_sync.poll_interval") || strings.Contains(err.Error(), "role_sync.interval:") {
+		t.Errorf("a poll longer than the pass: %v", err)
+	}
+}
+
+// The compose stack's example carries placeholders that fail validation by design; every key in
+// it must still be one this build reads.
+func TestDeployExampleDecodes(t *testing.T) {
+	f, err := os.Open("../../deploy/bot.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = f.Close() }()
+	c := Default()
+	dec := yaml.NewDecoder(f)
+	dec.KnownFields(true)
+	if err := dec.Decode(&c); err != nil {
+		t.Fatalf("deploy/bot.yaml: %v", err)
+	}
+	if !c.RoleSync.Enabled || !c.RoleSync.DryRun || !c.LinkedRoles.Enabled {
+		t.Errorf("the example runs role sync dry and registers the schema: %+v %+v", c.RoleSync, c.LinkedRoles)
 	}
 }

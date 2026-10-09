@@ -89,6 +89,9 @@ func TestListUsersAndIdentityEventsAfter(t *testing.T) {
 	ctx := context.Background()
 	o := newOrg(t, st)
 	now := time.Now().UTC().Truncate(time.Microsecond)
+	if head, err := st.IdentityEventsHead(ctx); err != nil || head != 0 {
+		t.Fatalf("an empty log's head: %v %d", err, head)
+	}
 	var users []store.User
 	for i, name := range []string{"A", "B", "C"} {
 		u, err := st.RegisterUser(ctx, store.User{ID: uuid.New(), OrganizationID: o.ID, DisplayName: name}, ident("discord", name, now.Add(time.Duration(i)*time.Second)))
@@ -142,6 +145,9 @@ func TestListUsersAndIdentityEventsAfter(t *testing.T) {
 		if events[i].ID <= events[i-1].ID {
 			t.Errorf("ids not ascending: %+v", events)
 		}
+	}
+	if head, err := st.IdentityEventsHead(ctx); err != nil || head != events[3].ID {
+		t.Errorf("head: %v %d, want %d", err, head, events[3].ID)
 	}
 	if later, err := st.ListIdentityEventsAfter(ctx, events[1].ID, 1); err != nil || len(later) != 1 || later[0].ID != events[2].ID {
 		t.Errorf("after the second, limit 1: %v %+v", err, later)
