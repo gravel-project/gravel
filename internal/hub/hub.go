@@ -61,6 +61,7 @@ type Hub struct {
 	metrics      *httpx.Metrics
 	authTotal    *prometheus.CounterVec
 	limitedTotal *prometheus.CounterVec
+	api          *http.ServeMux
 	public       http.Handler
 	internal     http.Handler
 
@@ -122,11 +123,6 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 	h.sess = session.New(st, cfg.Auth.SessionTTL, cfg.Auth.Secure(), logger)
 	h.perIP = ratelimit.New(cfg.RateLimit.PerIP.RequestsPerMinute, cfg.RateLimit.PerIP.Burst)
 	h.perUser = ratelimit.New(cfg.RateLimit.PerUser.RequestsPerMinute, cfg.RateLimit.PerUser.Burst)
-	h.web, err = web.New(h.ids, h.sess, h.org, logger)
-	if err != nil {
-		st.Close()
-		return nil, fmt.Errorf("hub: %w", err)
-	}
 
 	h.registry = prometheus.NewRegistry()
 	h.registry.MustRegister(
@@ -145,6 +141,15 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 	}, []string{"scope"})
 	h.registry.MustRegister(buildInfo, h.authTotal, h.limitedTotal)
 	h.metrics = httpx.NewMetrics(h.registry)
+
+	// The API, once: the public listener serves it, and the pages call it in process through
+	// the session middleware (ADR-0005).
+	h.api = h.buildAPI()
+	h.web, err = web.New(h.ids, h.sess, h.sess.Middleware(h.api), web.StaticTheme{T: web.DefaultTheme()}, logger)
+	if err != nil {
+		st.Close()
+		return nil, fmt.Errorf("hub: %w", err)
+	}
 	h.web.Observe = func(provider string, intent identity.Intent, result string) {
 		h.authTotal.WithLabelValues(provider, string(intent), result).Inc()
 	}
@@ -192,16 +197,35 @@ func (h *Hub) OwnerClaimToken() string { return h.claimToken }
 // Close releases the database pool. Run calls it; call it yourself when you only used Handler.
 func (h *Hub) Close() { h.st.Close() }
 
+// scopes are the rate-limit buckets: per user when logged in, else per client address. An API
+// call a page makes in process is not counted again: the page request was.
 func (h *Hub) scopes() []ratelimit.Scoped {
 	return []ratelimit.Scoped{
 		{Scope: "user", Limiter: h.perUser, Key: func(r *http.Request) string {
+			if web.IsInProcess(r.Context()) {
+				return ""
+			}
 			if s, ok := session.FromContext(r.Context()); ok {
 				return s.UserID.String()
 			}
 			return ""
 		}},
-		{Scope: "ip", Limiter: h.perIP, Key: ratelimit.ClientIP},
+		{Scope: "ip", Limiter: h.perIP, Key: func(r *http.Request) string {
+			if web.IsInProcess(r.Context()) {
+				return ""
+			}
+			return ratelimit.ClientIP(r)
+		}},
 	}
+}
+
+// buildAPI mounts the Connect services with their interceptors.
+func (h *Hub) buildAPI() *http.ServeMux {
+	mux := http.NewServeMux()
+	interceptors := connect.WithInterceptors(h.metrics.Interceptor(), ratelimit.Interceptor(h.scopes(), h.rejected))
+	mux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(h.org, h.logger), interceptors))
+	mux.Handle(hubv1connect.NewIdentityServiceHandler(api.NewIdentityServer(h.ids, h.sess, h.org, h.logger), interceptors))
+	return mux
 }
 
 func (h *Hub) rejected(scope string) { h.limitedTotal.WithLabelValues(scope).Inc() }
@@ -209,9 +233,9 @@ func (h *Hub) rejected(scope string) { h.limitedTotal.WithLabelValues(scope).Inc
 func (h *Hub) buildPublic() http.Handler {
 	scopes := h.scopes()
 	mux := http.NewServeMux()
-	interceptors := connect.WithInterceptors(h.metrics.Interceptor(), ratelimit.Interceptor(scopes, h.rejected))
-	mux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(h.org, h.logger), interceptors))
-	mux.Handle(hubv1connect.NewIdentityServiceHandler(api.NewIdentityServer(h.ids, h.sess, h.org, h.logger), interceptors))
+	for _, prefix := range []string{"/" + hubv1connect.OrganizationServiceName + "/", "/" + hubv1connect.IdentityServiceName + "/"} {
+		mux.Handle(prefix, h.api)
+	}
 	services := []string{hubv1connect.OrganizationServiceName, hubv1connect.IdentityServiceName}
 	mux.Handle(grpchealth.NewHandler(grpchealth.NewStaticChecker(services...)))
 	reflector := grpcreflect.NewStaticReflector(services...)

@@ -13,12 +13,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
+	"github.com/gravel-project/gravel/internal/api"
 	"github.com/gravel-project/gravel/internal/identity"
 	"github.com/gravel-project/gravel/internal/identity/identitytest"
 	"github.com/gravel-project/gravel/internal/org"
 	"github.com/gravel-project/gravel/internal/org/orgtest"
 	"github.com/gravel-project/gravel/internal/session"
 	"github.com/gravel-project/gravel/internal/web"
+	"github.com/gravel-project/gravel/internal/web/templates"
 )
 
 type rig struct {
@@ -28,6 +31,22 @@ type rig struct {
 	steam   *identitytest.FakeProvider
 	token   string
 	results []string
+}
+
+// testTheme has a logo, a favicon, header and footer links, an owner-only link and one bad
+// token, so the pages prove the theme seam.
+func testTheme() templates.Theme {
+	t := web.DefaultTheme()
+	t.Light.Accent = "#0b5fff"
+	t.Dark.Background = "not a colour"
+	t.LogoURL = "https://cdn.example/logo.png"
+	t.FaviconURL = "/static/app.css"
+	t.Nav = []templates.NavLink{
+		{Label: "Muster", URL: "https://muster.example", Placement: "header"},
+		{Label: "Rules", URL: "https://example.com/rules", Placement: "footer"},
+		{Label: "Admin", URL: "/admin", Placement: "header", Role: "owner"},
+	}
+	return t
 }
 
 func newRig(t *testing.T) *rig {
@@ -49,7 +68,10 @@ func newRig(t *testing.T) *rig {
 	}}
 	ids := identity.New(r.idSt, o.ID, []identity.Registration{{Provider: r.discord, Login: true}, {Provider: r.steam}}, 10*time.Minute, logger)
 	sess := session.New(r.idSt, time.Hour, false, logger)
-	h, err := web.New(ids, sess, orgSvc, logger)
+	apiMux := http.NewServeMux()
+	apiMux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(orgSvc, logger)))
+	apiMux.Handle(hubv1connect.NewIdentityServiceHandler(api.NewIdentityServer(ids, sess, orgSvc, logger)))
+	h, err := web.New(ids, sess, sess.Middleware(apiMux), web.StaticTheme{T: testTheme()}, logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,16 +115,19 @@ func do(t *testing.T, c *http.Client, req *http.Request) (reply, string) {
 	return reply{StatusCode: resp.StatusCode, Header: resp.Header, cookies: resp.Cookies()}, string(body)
 }
 
-func get(t *testing.T, c *http.Client, u string) (reply, string) {
+func get(t *testing.T, c *http.Client, u string, headers ...string) (reply, string) {
 	t.Helper()
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, u, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
+	for i := 0; i+1 < len(headers); i += 2 {
+		req.Header.Set(headers[i], headers[i+1])
+	}
 	return do(t, c, req)
 }
 
-func post(t *testing.T, c *http.Client, u string, form url.Values, headers map[string]string) reply {
+func post(t *testing.T, c *http.Client, u string, form url.Values, headers map[string]string) (reply, string) {
 	t.Helper()
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, u, strings.NewReader(form.Encode()))
 	if err != nil {
@@ -112,9 +137,10 @@ func post(t *testing.T, c *http.Client, u string, form url.Values, headers map[s
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
-	r, _ := do(t, c, req)
-	return r
+	return do(t, c, req)
 }
+
+var hx = map[string]string{"HX-Request": "true"}
 
 var csrfRe = regexp.MustCompile(`name="_csrf" value="([^"]+)"`)
 
@@ -155,8 +181,19 @@ func TestLoginLinkUnlinkClaimLogout(t *testing.T) {
 	if resp.StatusCode != http.StatusOK || !strings.Contains(body, "Log in with Discord") || strings.Contains(body, "Log in with Steam") {
 		t.Errorf("login page: %d %s", resp.StatusCode, body)
 	}
-	if csp := resp.Header.Get("Content-Security-Policy"); !strings.Contains(csp, "default-src 'none'") || !strings.Contains(csp, "form-action 'self'") {
+	if csp := resp.Header.Get("Content-Security-Policy"); !strings.Contains(csp, "default-src 'none'") || !strings.Contains(csp, "script-src 'self'") || !strings.Contains(csp, "form-action 'self'") {
 		t.Errorf("csp: %q", csp)
+	}
+	for _, want := range []string{`<script src="/static/vendor/htmx.min.js" defer>`, `name="htmx-config"`, `href="/theme.css"`, `src="https://cdn.example/logo.png"`, `href="https://muster.example">Muster`, `href="https://example.com/rules">Rules`, `<a class="skip" href="#page">`, `<main id="page" tabindex="-1">`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("login page should contain %q", want)
+		}
+	}
+	if strings.Contains(body, "/admin") {
+		t.Error("the owner-only link must not show to anonymous visitors")
+	}
+	if strings.Contains(body, "<script>") || strings.Contains(body, "style=") {
+		t.Error("no inline script or style, the CSP forbids them")
 	}
 	resp, _ = get(t, c, r.srv.URL+"/account")
 	if resp.StatusCode != http.StatusSeeOther || resp.Header.Get("Location") != "/login" {
@@ -183,12 +220,15 @@ func TestLoginLinkUnlinkClaimLogout(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("account: %d", resp.StatusCode)
 	}
-	for _, want := range []string{"Welcome, Jo", "Link Steam", "your only account", "Claim this hub", `src="https://cdn.example/jo.png"`, "Log out everywhere"} {
+	for _, want := range []string{"Welcome, Jo", "Link Steam", "your only account", "Claim this hub", `src="https://cdn.example/jo.png"`, "Log out everywhere", `hx-post="/account/claim"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("account page should contain %q", want)
 		}
 	}
-	if resp, body = get(t, c, r.srv.URL+"/account"); strings.Contains(body, "Welcome, Jo") {
+	if strings.Contains(body, "/admin") {
+		t.Error("the owner-only link must not show before the claim")
+	}
+	if _, body = get(t, c, r.srv.URL+"/account"); strings.Contains(body, "Welcome, Jo") {
 		t.Error("the flash shows once")
 	}
 	if resp, _ = get(t, c, r.srv.URL+"/login"); resp.StatusCode != http.StatusSeeOther || resp.Header.Get("Location") != "/account" {
@@ -206,52 +246,62 @@ func TestLoginLinkUnlinkClaimLogout(t *testing.T) {
 		t.Fatalf("link callback: %d", resp.StatusCode)
 	}
 	_, body = get(t, c, r.srv.URL+"/account")
-	if !strings.Contains(body, "Steam account JoOnSteam linked") || !strings.Contains(body, "JoOnSteam") || strings.Contains(body, "Link Steam") || strings.Contains(body, "your only account") {
+	if !strings.Contains(body, "Steam account JoOnSteam linked") || !strings.Contains(body, "Unlink Steam") || strings.Contains(body, "Link Steam") || strings.Contains(body, "your only account") {
 		t.Errorf("account after link: %s", body)
 	}
 
-	// Unlink needs the CSRF token; then the last one is refused.
+	// Unlink needs the CSRF token; over htmx the content comes back with the flash inline.
 	csrf := csrfOf(t, body)
-	resp = post(t, c, r.srv.URL+"/account/unlink", url.Values{"provider": {"steam"}, "subject": {"76561198000000001"}}, nil)
+	resp, _ = post(t, c, r.srv.URL+"/account/unlink", url.Values{"provider": {"steam"}, "subject": {"76561198000000001"}}, nil)
 	if resp.StatusCode != http.StatusForbidden {
 		t.Errorf("unlink without csrf: %d", resp.StatusCode)
 	}
-	resp = post(t, c, r.srv.URL+"/account/unlink", url.Values{"_csrf": {csrf}, "provider": {"steam"}, "subject": {"76561198000000001"}}, nil)
+	resp, body = post(t, c, r.srv.URL+"/account/unlink", url.Values{"_csrf": {csrf}, "provider": {"steam"}, "subject": {"76561198000000001"}}, hx)
+	if resp.StatusCode != http.StatusOK || strings.Contains(body, "<html") || !strings.Contains(body, "Steam account unlinked") || !strings.Contains(body, "Link Steam") || !strings.Contains(body, "your only account") {
+		t.Errorf("htmx unlink: %d %s", resp.StatusCode, body)
+	}
+	if v := resp.Header.Get("Vary"); !strings.Contains(v, "HX-Request") {
+		t.Errorf("fragments vary on HX-Request: %q", v)
+	}
+	resp, _ = post(t, c, r.srv.URL+"/account/unlink", url.Values{"_csrf": {csrf}, "provider": {"discord"}, "subject": {"1"}}, nil)
 	if resp.StatusCode != http.StatusSeeOther {
-		t.Errorf("unlink: %d", resp.StatusCode)
+		t.Errorf("unlink last, plain: %d", resp.StatusCode)
 	}
 	_, body = get(t, c, r.srv.URL+"/account")
-	if !strings.Contains(body, "Steam account unlinked") || !strings.Contains(body, "Link Steam") {
-		t.Errorf("after unlink: %s", body)
-	}
-	resp = post(t, c, r.srv.URL+"/account/unlink", url.Values{"_csrf": {csrf}, "provider": {"discord"}, "subject": {"1"}}, nil)
-	_, body = get(t, c, r.srv.URL+"/account")
-	if resp.StatusCode != http.StatusSeeOther || !strings.Contains(body, "cannot unlink your only account") {
-		t.Errorf("unlink last: %d %s", resp.StatusCode, body)
+	if !strings.Contains(body, "cannot unlink your only account") {
+		t.Errorf("unlink last: %s", body)
 	}
 
 	// A cross-site POST is refused before the handler, token or not.
-	resp = post(t, c, r.srv.URL+"/account/unlink", url.Values{"_csrf": {csrf}, "provider": {"discord"}, "subject": {"1"}}, map[string]string{"Sec-Fetch-Site": "cross-site"})
+	resp, _ = post(t, c, r.srv.URL+"/account/unlink", url.Values{"_csrf": {csrf}, "provider": {"discord"}, "subject": {"1"}}, map[string]string{"Sec-Fetch-Site": "cross-site"})
 	if resp.StatusCode != http.StatusForbidden {
 		t.Errorf("cross-site post: %d", resp.StatusCode)
 	}
 
-	// Claim the hub.
-	resp = post(t, c, r.srv.URL+"/account/claim", url.Values{"_csrf": {csrf}, "token": {"wrong"}}, nil)
-	_, body = get(t, c, r.srv.URL+"/account")
-	if resp.StatusCode != http.StatusSeeOther || !strings.Contains(body, "not valid or has expired") {
-		t.Errorf("wrong claim: %d %s", resp.StatusCode, body)
+	// Claim the hub: wrong token over htmx is a 200 fragment with the error, right token plain.
+	resp, body = post(t, c, r.srv.URL+"/account/claim", url.Values{"_csrf": {csrf}, "token": {"wrong"}}, hx)
+	if resp.StatusCode != http.StatusOK || !strings.Contains(body, "not valid or has expired") || !strings.Contains(body, "Claim this hub") {
+		t.Errorf("wrong claim over htmx: %d %s", resp.StatusCode, body)
 	}
 	post(t, c, r.srv.URL+"/account/claim", url.Values{"_csrf": {csrf}, "token": {r.token}}, nil)
 	_, body = get(t, c, r.srv.URL+"/account")
-	if !strings.Contains(body, "You now own this hub") || !strings.Contains(body, `class="badge">owner`) || strings.Contains(body, "Claim this hub") {
+	if !strings.Contains(body, "You now own this hub") || !strings.Contains(body, `class="badge">owner`) || strings.Contains(body, "Claim this hub") || !strings.Contains(body, `href="/admin">Admin`) {
 		t.Errorf("after claim: %s", body)
 	}
 
-	// Log out.
-	resp = post(t, c, r.srv.URL+"/auth/logout", url.Values{"_csrf": {csrf}}, nil)
-	if resp.StatusCode != http.StatusSeeOther || resp.Header.Get("Location") != "/login" {
-		t.Errorf("logout: %d", resp.StatusCode)
+	// Log out over htmx: the API clears the cookie and htmx is told where to go.
+	resp, _ = post(t, c, r.srv.URL+"/auth/logout", url.Values{"_csrf": {csrf}}, hx)
+	if resp.StatusCode != http.StatusOK || resp.Header.Get("HX-Redirect") != "/login" {
+		t.Errorf("htmx logout: %d %q", resp.StatusCode, resp.Header.Get("HX-Redirect"))
+	}
+	var cleared bool
+	for _, ck := range resp.Cookies() {
+		if ck.Name == "gravel_session" && ck.MaxAge < 0 {
+			cleared = true
+		}
+	}
+	if !cleared {
+		t.Errorf("the API's cookie clearing must reach the browser: %v", resp.Cookies())
 	}
 	if resp, _ = get(t, c, r.srv.URL+"/account"); resp.StatusCode != http.StatusSeeOther {
 		t.Errorf("after logout the account page needs a login: %d", resp.StatusCode)
@@ -269,26 +319,22 @@ func TestCallbackFailures(t *testing.T) {
 	r := newRig(t)
 	c := browser(t)
 
-	// Replay: the same callback twice.
 	resp, _ := get(t, c, r.srv.URL+"/auth/discord/start")
 	loc, _ := url.Parse(resp.Header.Get("Location"))
 	cb := r.srv.URL + "/auth/discord/callback?code=jo&state=" + url.QueryEscape(loc.Query().Get("state"))
 	if resp, _ = get(t, c, cb); resp.StatusCode != http.StatusSeeOther {
 		t.Fatalf("first callback: %d", resp.StatusCode)
 	}
-	fresh := browser(t)
-	if resp, body := get(t, fresh, cb); resp.StatusCode != http.StatusBadRequest || !strings.Contains(body, "expired or was already used") {
+	if resp, body := get(t, browser(t), cb); resp.StatusCode != http.StatusBadRequest || !strings.Contains(body, "expired or was already used") || !strings.Contains(body, "Back to the login page") {
 		t.Errorf("replay from another browser: %d %s", resp.StatusCode, body)
 	}
 
-	// State mismatch.
 	c = browser(t)
 	get(t, c, r.srv.URL+"/auth/discord/start")
 	if resp, body := get(t, c, r.srv.URL+"/auth/discord/callback?code=jo&state=forged"); resp.StatusCode != http.StatusBadRequest || !strings.Contains(body, "does not match") {
 		t.Errorf("mismatch: %d %s", resp.StatusCode, body)
 	}
 
-	// Cancelled at the provider.
 	c = browser(t)
 	resp, _ = get(t, c, r.srv.URL+"/auth/discord/start")
 	loc, _ = url.Parse(resp.Header.Get("Location"))
@@ -296,7 +342,6 @@ func TestCallbackFailures(t *testing.T) {
 		t.Errorf("denied: %d %s", resp.StatusCode, body)
 	}
 
-	// Link-only and unknown providers cannot start a login.
 	if resp, _ := get(t, c, r.srv.URL+"/auth/steam/start"); resp.StatusCode != http.StatusNotFound {
 		t.Errorf("steam login: %d", resp.StatusCode)
 	}
@@ -307,7 +352,6 @@ func TestCallbackFailures(t *testing.T) {
 		t.Errorf("link anonymous: %d", resp.StatusCode)
 	}
 
-	// Linking an identity another member holds.
 	jo := browser(t)
 	r.loginAs(t, jo, "jo")
 	resp, _ = get(t, jo, r.srv.URL+"/auth/steam/link")
@@ -317,8 +361,13 @@ func TestCallbackFailures(t *testing.T) {
 	r.loginAs(t, sam, "sam")
 	resp, _ = get(t, sam, r.srv.URL+"/auth/steam/link")
 	loc, _ = url.Parse(resp.Header.Get("Location"))
-	if resp, body := get(t, sam, r.srv.URL+"/auth/steam/callback?code=jo-steam&state="+url.QueryEscape(loc.Query().Get("state"))); resp.StatusCode != http.StatusConflict || !strings.Contains(body, "already linked to another member") {
+	if resp, body := get(t, sam, r.srv.URL+"/auth/steam/callback?code=jo-steam&state="+url.QueryEscape(loc.Query().Get("state"))); resp.StatusCode != http.StatusConflict || !strings.Contains(body, "already linked to another member") || !strings.Contains(body, "Back to your account") {
 		t.Errorf("taken: %d %s", resp.StatusCode, body)
+	}
+	// An htmx request that fails gets the error content, not the page, with the status.
+	resp, body := post(t, sam, r.srv.URL+"/account/unlink", url.Values{"provider": {"discord"}, "subject": {"2"}}, hx)
+	if resp.StatusCode != http.StatusForbidden || strings.Contains(body, "<html") || !strings.Contains(body, "Form expired") {
+		t.Errorf("htmx without csrf: %d %s", resp.StatusCode, body)
 	}
 	if got := strings.Join(r.results, " "); !strings.Contains(got, "discord/unknown/invalid") || !strings.Contains(got, "discord/unknown/mismatch") || !strings.Contains(got, "discord/unknown/denied") || !strings.Contains(got, "steam/unknown/taken") {
 		t.Errorf("observed: %s", got)
@@ -334,7 +383,7 @@ func TestLogoutEverywhere(t *testing.T) {
 		t.Fatalf("sessions: %d", r.idSt.SessionCount())
 	}
 	_, body := get(t, one, r.srv.URL+"/account")
-	resp := post(t, one, r.srv.URL+"/auth/logout", url.Values{"_csrf": {csrfOf(t, body)}, "everywhere": {"1"}}, nil)
+	resp, _ := post(t, one, r.srv.URL+"/auth/logout", url.Values{"_csrf": {csrfOf(t, body)}, "everywhere": {"1"}}, nil)
 	if resp.StatusCode != http.StatusSeeOther {
 		t.Fatalf("logout everywhere: %d", resp.StatusCode)
 	}
@@ -350,13 +399,28 @@ func TestLogoutEverywhere(t *testing.T) {
 	}
 }
 
-func TestStatic(t *testing.T) {
+func TestThemeAndStatic(t *testing.T) {
 	r := newRig(t)
-	resp, body := get(t, browser(t), r.srv.URL+"/static/app.css")
-	if resp.StatusCode != http.StatusOK || !strings.HasPrefix(resp.Header.Get("Content-Type"), "text/css") || !strings.Contains(body, "color-scheme") || resp.Header.Get("Cache-Control") == "" {
-		t.Errorf("css: %d %q %q", resp.StatusCode, resp.Header.Get("Content-Type"), resp.Header.Get("Cache-Control"))
+	c := browser(t)
+	resp, body := get(t, c, r.srv.URL+"/theme.css")
+	if resp.StatusCode != http.StatusOK || !strings.HasPrefix(resp.Header.Get("Content-Type"), "text/css") || resp.Header.Get("ETag") == "" {
+		t.Fatalf("theme.css: %d %q etag=%q", resp.StatusCode, resp.Header.Get("Content-Type"), resp.Header.Get("ETag"))
 	}
-	if resp, _ := get(t, browser(t), r.srv.URL+"/static/../web.go"); resp.StatusCode == http.StatusOK {
+	if !strings.Contains(body, "--accent:#0b5fff") || !strings.Contains(body, "--bg:#151515") || !strings.Contains(body, "--font:system-ui, sans-serif") || !strings.Contains(body, "prefers-color-scheme: dark") {
+		t.Errorf("theme.css should carry the host's valid tokens and the default for the bad one:\n%s", body)
+	}
+	if resp, _ := get(t, c, r.srv.URL+"/theme.css", "If-None-Match", resp.Header.Get("ETag")); resp.StatusCode != http.StatusNotModified {
+		t.Errorf("etag revalidation: %d", resp.StatusCode)
+	}
+	resp, body = get(t, c, r.srv.URL+"/static/app.css")
+	if resp.StatusCode != http.StatusOK || !strings.HasPrefix(resp.Header.Get("Content-Type"), "text/css") || !strings.Contains(body, "var(--accent)") || resp.Header.Get("Cache-Control") == "" {
+		t.Errorf("app.css: %d %q", resp.StatusCode, resp.Header.Get("Content-Type"))
+	}
+	resp, body = get(t, c, r.srv.URL+"/static/vendor/htmx.min.js")
+	if resp.StatusCode != http.StatusOK || !strings.Contains(resp.Header.Get("Content-Type"), "javascript") || !strings.HasPrefix(body, "var htmx=") {
+		t.Errorf("htmx: %d %q", resp.StatusCode, resp.Header.Get("Content-Type"))
+	}
+	if resp, _ := get(t, c, r.srv.URL+"/static/../web.go"); resp.StatusCode == http.StatusOK {
 		t.Error("nothing outside static/ is served")
 	}
 }

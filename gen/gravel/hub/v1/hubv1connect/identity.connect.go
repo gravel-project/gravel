@@ -38,6 +38,8 @@ const (
 	// IdentityServiceUnlinkIdentityProcedure is the fully-qualified name of the IdentityService's
 	// UnlinkIdentity RPC.
 	IdentityServiceUnlinkIdentityProcedure = "/gravel.hub.v1.IdentityService/UnlinkIdentity"
+	// IdentityServiceLogoutProcedure is the fully-qualified name of the IdentityService's Logout RPC.
+	IdentityServiceLogoutProcedure = "/gravel.hub.v1.IdentityService/Logout"
 	// IdentityServiceRevokeSessionsProcedure is the fully-qualified name of the IdentityService's
 	// RevokeSessions RPC.
 	IdentityServiceRevokeSessionsProcedure = "/gravel.hub.v1.IdentityService/RevokeSessions"
@@ -53,6 +55,8 @@ type IdentityServiceClient interface {
 	// UnlinkIdentity removes one of the caller's identities. The last one is refused
 	// (failed_precondition): a provider-only account would be unreachable.
 	UnlinkIdentity(context.Context, *connect.Request[v1.UnlinkIdentityRequest]) (*connect.Response[v1.UnlinkIdentityResponse], error)
+	// Logout ends the calling session and clears its cookie.
+	Logout(context.Context, *connect.Request[v1.LogoutRequest]) (*connect.Response[v1.LogoutResponse], error)
 	// RevokeSessions logs the caller out everywhere, this session included.
 	RevokeSessions(context.Context, *connect.Request[v1.RevokeSessionsRequest]) (*connect.Response[v1.RevokeSessionsResponse], error)
 	// LookupUser resolves a (provider, subject) pair to its user, for role sync. Owner only until
@@ -83,6 +87,12 @@ func NewIdentityServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 			connect.WithSchema(identityServiceMethods.ByName("UnlinkIdentity")),
 			connect.WithClientOptions(opts...),
 		),
+		logout: connect.NewClient[v1.LogoutRequest, v1.LogoutResponse](
+			httpClient,
+			baseURL+IdentityServiceLogoutProcedure,
+			connect.WithSchema(identityServiceMethods.ByName("Logout")),
+			connect.WithClientOptions(opts...),
+		),
 		revokeSessions: connect.NewClient[v1.RevokeSessionsRequest, v1.RevokeSessionsResponse](
 			httpClient,
 			baseURL+IdentityServiceRevokeSessionsProcedure,
@@ -102,6 +112,7 @@ func NewIdentityServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 type identityServiceClient struct {
 	getMe          *connect.Client[v1.GetMeRequest, v1.GetMeResponse]
 	unlinkIdentity *connect.Client[v1.UnlinkIdentityRequest, v1.UnlinkIdentityResponse]
+	logout         *connect.Client[v1.LogoutRequest, v1.LogoutResponse]
 	revokeSessions *connect.Client[v1.RevokeSessionsRequest, v1.RevokeSessionsResponse]
 	lookupUser     *connect.Client[v1.LookupUserRequest, v1.LookupUserResponse]
 }
@@ -114,6 +125,11 @@ func (c *identityServiceClient) GetMe(ctx context.Context, req *connect.Request[
 // UnlinkIdentity calls gravel.hub.v1.IdentityService.UnlinkIdentity.
 func (c *identityServiceClient) UnlinkIdentity(ctx context.Context, req *connect.Request[v1.UnlinkIdentityRequest]) (*connect.Response[v1.UnlinkIdentityResponse], error) {
 	return c.unlinkIdentity.CallUnary(ctx, req)
+}
+
+// Logout calls gravel.hub.v1.IdentityService.Logout.
+func (c *identityServiceClient) Logout(ctx context.Context, req *connect.Request[v1.LogoutRequest]) (*connect.Response[v1.LogoutResponse], error) {
+	return c.logout.CallUnary(ctx, req)
 }
 
 // RevokeSessions calls gravel.hub.v1.IdentityService.RevokeSessions.
@@ -133,6 +149,8 @@ type IdentityServiceHandler interface {
 	// UnlinkIdentity removes one of the caller's identities. The last one is refused
 	// (failed_precondition): a provider-only account would be unreachable.
 	UnlinkIdentity(context.Context, *connect.Request[v1.UnlinkIdentityRequest]) (*connect.Response[v1.UnlinkIdentityResponse], error)
+	// Logout ends the calling session and clears its cookie.
+	Logout(context.Context, *connect.Request[v1.LogoutRequest]) (*connect.Response[v1.LogoutResponse], error)
 	// RevokeSessions logs the caller out everywhere, this session included.
 	RevokeSessions(context.Context, *connect.Request[v1.RevokeSessionsRequest]) (*connect.Response[v1.RevokeSessionsResponse], error)
 	// LookupUser resolves a (provider, subject) pair to its user, for role sync. Owner only until
@@ -159,6 +177,12 @@ func NewIdentityServiceHandler(svc IdentityServiceHandler, opts ...connect.Handl
 		connect.WithSchema(identityServiceMethods.ByName("UnlinkIdentity")),
 		connect.WithHandlerOptions(opts...),
 	)
+	identityServiceLogoutHandler := connect.NewUnaryHandler(
+		IdentityServiceLogoutProcedure,
+		svc.Logout,
+		connect.WithSchema(identityServiceMethods.ByName("Logout")),
+		connect.WithHandlerOptions(opts...),
+	)
 	identityServiceRevokeSessionsHandler := connect.NewUnaryHandler(
 		IdentityServiceRevokeSessionsProcedure,
 		svc.RevokeSessions,
@@ -177,6 +201,8 @@ func NewIdentityServiceHandler(svc IdentityServiceHandler, opts ...connect.Handl
 			identityServiceGetMeHandler.ServeHTTP(w, r)
 		case IdentityServiceUnlinkIdentityProcedure:
 			identityServiceUnlinkIdentityHandler.ServeHTTP(w, r)
+		case IdentityServiceLogoutProcedure:
+			identityServiceLogoutHandler.ServeHTTP(w, r)
 		case IdentityServiceRevokeSessionsProcedure:
 			identityServiceRevokeSessionsHandler.ServeHTTP(w, r)
 		case IdentityServiceLookupUserProcedure:
@@ -196,6 +222,10 @@ func (UnimplementedIdentityServiceHandler) GetMe(context.Context, *connect.Reque
 
 func (UnimplementedIdentityServiceHandler) UnlinkIdentity(context.Context, *connect.Request[v1.UnlinkIdentityRequest]) (*connect.Response[v1.UnlinkIdentityResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.IdentityService.UnlinkIdentity is not implemented"))
+}
+
+func (UnimplementedIdentityServiceHandler) Logout(context.Context, *connect.Request[v1.LogoutRequest]) (*connect.Response[v1.LogoutResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.IdentityService.Logout is not implemented"))
 }
 
 func (UnimplementedIdentityServiceHandler) RevokeSessions(context.Context, *connect.Request[v1.RevokeSessionsRequest]) (*connect.Response[v1.RevokeSessionsResponse], error) {

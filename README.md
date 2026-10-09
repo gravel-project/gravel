@@ -2,7 +2,7 @@
 
 > Open-source, Kubernetes-native framework for hosting many game servers across many games, with one control interface and cross-game statistics. Each server is a grain; the fleet is the gravel.
 
-**Status:** design complete (2026-09-25); build order revised by [ADR-0001](docs/adr/0001-hub-first-kubernetes-later.md) on 2026-10-08: **hub first, Kubernetes later.** [ADR-0003](docs/adr/0003-cloud-vm-driver-behind-a-cloud-provider-interface.md) (2026-10-08) adds the **cloud-VM driver**: a VM gravel owns through a cloud provider interface, DigitalOcean first. The hub skeleton is in (#12): Connect API, Postgres with migrations, the owner claim, health, metrics, podman compose and quadlets; so is login (#13, [ADR-0004](docs/adr/0004-sessions-login-and-the-owner-claim.md)): Discord sign-in, Steam linking, server-side sessions, the account page and rate limits. `make up` runs it; [docs/hub.md](docs/hub.md) is the operator reference.
+**Status:** design complete (2026-09-25); build order revised by [ADR-0001](docs/adr/0001-hub-first-kubernetes-later.md) on 2026-10-08: **hub first, Kubernetes later.** [ADR-0003](docs/adr/0003-cloud-vm-driver-behind-a-cloud-provider-interface.md) (2026-10-08) adds the **cloud-VM driver**: a VM gravel owns through a cloud provider interface, DigitalOcean first. The hub skeleton is in (#12): Connect API, Postgres with migrations, the owner claim, health, metrics, podman compose and quadlets; so is login (#13, [ADR-0004](docs/adr/0004-sessions-login-and-the-owner-claim.md)): Discord sign-in, Steam linking, server-side sessions, the account page and rate limits; and the UI skeleton (#14, [ADR-0005](docs/adr/0005-the-web-ui-is-an-api-client.md)): templ pages over the API, htmx from the binary, a theme seam and an accessibility gate. `make up` runs it; [docs/hub.md](docs/hub.md) is the operator reference.
 **Design doc (full, block-level detail):** https://claude.ai/code/artifact/e559420c-d087-4f74-8829-853cafbb5eb8 (private Claude Docs; this README is the distilled version)
 **License:** Apache 2.0
 
@@ -148,7 +148,7 @@ One protobuf definition serves gRPC, gRPC-Web, and plain HTTP-JSON. No separate 
 
 ### Web UI
 
-- **templ + htmx** to start: server-rendered Go, no JS build pipeline, one deploy artifact. Consumes the same Connect HTTP-JSON API, so a later SPA is a front-end-only change.
+- **templ + htmx** to start: server-rendered Go, no JS build pipeline, one deploy artifact (htmx is vendored into the binary; the CSP allows nothing inline or third-party). The pages consume the same Connect HTTP-JSON API, called in process, so a page can do only what the API allows and a later SPA is a front-end-only change ([ADR-0005](docs/adr/0005-the-web-ui-is-an-api-client.md)). A host's theme (tokens, logo, navigation links) is data behind a `ThemeSource`, rendered as `/theme.css`; axe runs over the pages in CI.
 - Per-game layout is **declarative data in the Game spec** (which stat cards, which leaderboard columns), rendered by the front end, host-overridable. The core stays game-agnostic.
 - Grafana is optional and operator-facing only (ops/health dashboards). Player-facing pages are native and branded.
 

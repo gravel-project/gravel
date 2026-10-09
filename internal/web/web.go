@@ -1,21 +1,22 @@
-// Package web is the hub's browser surface: the login and account pages and the provider
-// redirect flows (start, callback, logout, unlink, claim). The pages are deliberately plain:
-// html/template, one stylesheet, no script, a strict Content-Security-Policy. gravel#14 restyles
-// them with templ and htmx and keeps these routes; the flows under /auth/ are the login the
-// issue describes and are not a page concern.
+// Package web is the hub's browser surface: the pages (templ components over the hub's own
+// Connect HTTP-JSON API, called in process) and the provider redirect flows (start, callback,
+// logout, unlink, claim). htmx is served from the binary and swaps a page's main content on
+// its forms; every page also works without it. A strict Content-Security-Policy allows no
+// inline script or style, so a host's theme is a stylesheet route (/theme.css) built from
+// tokens (gravel#7 stores them; the defaults apply until then). ADR-0005 has the reasoning.
 //
 // Every state-changing route is a POST that carries the session's CSRF token; the hub also runs
-// net/http's cross-origin protection in front of everything. The start routes are GETs: starting
-// an attempt changes nothing a member can see, and the callback binds to the browser that
-// started it through the auth cookie, so a forced start is harmless.
+// net/http's cross-origin protection in front of everything. The start routes are GETs:
+// starting an attempt changes nothing a member can see, and the callback binds to the browser
+// that started it through the auth cookie, so a forced start is harmless.
 package web
 
 import (
 	"bytes"
+	"context"
 	"embed"
 	"errors"
 	"fmt"
-	"html/template"
 	"io/fs"
 	"log/slog"
 	"net/http"
@@ -23,29 +24,37 @@ import (
 	"strings"
 	"time"
 
+	"connectrpc.com/connect"
+	"github.com/a-h/templ"
 	"github.com/google/uuid"
 
+	hubv1 "github.com/gravel-project/gravel/gen/gravel/hub/v1"
+	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
 	"github.com/gravel-project/gravel/internal/httpx"
 	"github.com/gravel-project/gravel/internal/identity"
-	"github.com/gravel-project/gravel/internal/org"
 	"github.com/gravel-project/gravel/internal/session"
-	"github.com/gravel-project/gravel/internal/store"
+	"github.com/gravel-project/gravel/internal/web/templates"
 )
 
-//go:embed templates/*.html static/*
+//go:embed static
 var files embed.FS
 
 // flashTTL is how long a one-shot message waits for the next page.
 const flashTTL = time.Minute
 
+// csp is the pages' Content-Security-Policy: scripts and styles from this origin only (htmx
+// and the stylesheets), images over https, requests from htmx to this origin only.
+const csp = "default-src 'none'; script-src 'self'; style-src 'self'; img-src https: data:; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+
 // Handler serves the pages and the flows.
 type Handler struct {
 	ids    *identity.Service
 	sess   *session.Manager
-	org    *org.Service
+	theme  ThemeSource
 	logger *slog.Logger
-	pages  map[string]*template.Template
 	static http.Handler
+	orgAPI hubv1connect.OrganizationServiceClient
+	idAPI  hubv1connect.IdentityServiceClient
 
 	// Observe, when set, is told how every callback ended: result is "ok", "denied", "failed",
 	// "invalid", "mismatch", "taken" or "error"; intent is "unknown" on a failure, because the
@@ -53,22 +62,24 @@ type Handler struct {
 	Observe func(provider string, intent identity.Intent, result string)
 }
 
-// New parses the templates and wires the services.
-func New(ids *identity.Service, sess *session.Manager, orgSvc *org.Service, logger *slog.Logger) (*Handler, error) {
-	h := &Handler{ids: ids, sess: sess, org: orgSvc, logger: logger, pages: map[string]*template.Template{}}
-	for _, name := range []string{"login", "account", "error"} {
-		t, err := template.New("layout.html").ParseFS(files, "templates/layout.html", "templates/"+name+".html")
-		if err != nil {
-			return nil, fmt.Errorf("web: template %s: %w", name, err)
-		}
-		h.pages[name] = t
-	}
+// New wires the pages. api is the hub's Connect API with the session middleware in front; the
+// pages call it in process as the HTTP-JSON client every other client is. theme says how the
+// pages look.
+func New(ids *identity.Service, sess *session.Manager, api http.Handler, theme ThemeSource, logger *slog.Logger) (*Handler, error) {
 	static, err := fs.Sub(files, "static")
 	if err != nil {
 		return nil, fmt.Errorf("web: static: %w", err)
 	}
-	h.static = http.StripPrefix("/static/", http.FileServerFS(static))
-	return h, nil
+	if theme == nil {
+		theme = StaticTheme{T: DefaultTheme()}
+	}
+	client := &http.Client{Transport: inProcess{api: api}}
+	return &Handler{
+		ids: ids, sess: sess, theme: theme, logger: logger,
+		static: http.StripPrefix("/static/", http.FileServerFS(static)),
+		orgAPI: hubv1connect.NewOrganizationServiceClient(client, "http://hub", connect.WithProtoJSON()),
+		idAPI:  hubv1connect.NewIdentityServiceClient(client, "http://hub", connect.WithProtoJSON()),
+	}, nil
 }
 
 // Register adds the routes to mux.
@@ -82,40 +93,15 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /auth/logout", h.logout)
 	mux.HandleFunc("POST /account/unlink", h.unlink)
 	mux.HandleFunc("POST /account/claim", h.claim)
+	mux.HandleFunc("GET /theme.css", h.themeStylesheet)
 	mux.HandleFunc("GET /static/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "public, max-age=3600")
 		h.static.ServeHTTP(w, r)
 	})
 }
 
-type flash struct {
-	Kind string // "ok" or "err"
-	Text string
-}
-
-type providerView struct {
-	Name        string
-	DisplayName string
-}
-
-type identityView struct {
-	store.Identity
-	ProviderDisplay string
-	CanUnlink       bool
-}
-
-type page struct {
-	Title          string
-	Org            store.Organization
-	User           *identity.User
-	Owner          bool
-	CSRF           string
-	Flash          *flash
-	LoginProviders []providerView
-	LinkProviders  []providerView
-	Identities     []identityView
-	Message        string
-}
+// isHX reports whether htmx made the request; it then wants the page's content, not the page.
+func isHX(r *http.Request) bool { return r.Header.Get("HX-Request") == "true" }
 
 func (h *Handler) home(w http.ResponseWriter, r *http.Request) {
 	if _, ok := session.FromContext(r.Context()); ok {
@@ -130,50 +116,64 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/account", http.StatusSeeOther)
 		return
 	}
-	p, err := h.page(r, "Log in")
+	p, b, err := h.page(r, "Log in")
 	if err != nil {
 		h.serverError(w, r, err)
 		return
 	}
+	lp := templates.LoginPage{Page: p.Page}
 	for _, reg := range h.ids.Providers() {
 		if reg.Login {
-			p.LoginProviders = append(p.LoginProviders, providerView{Name: reg.Provider.Name(), DisplayName: reg.Provider.DisplayName()})
+			lp.Providers = append(lp.Providers, templates.Provider{Name: reg.Provider.Name(), DisplayName: reg.Provider.DisplayName()})
 		}
 	}
-	h.render(w, r, http.StatusOK, "login", p)
+	h.render(w, r, http.StatusOK, b, templates.Login(lp), templates.LoginContent(lp))
 }
 
 func (h *Handler) account(w http.ResponseWriter, r *http.Request) {
-	s, ok := session.FromContext(r.Context())
-	if !ok {
+	if _, ok := session.FromContext(r.Context()); !ok {
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return
 	}
-	p, err := h.page(r, "Account")
+	ap, b, err := h.accountPage(r, nil)
 	if err != nil {
 		h.serverError(w, r, err)
 		return
 	}
-	if p.User == nil { // the session's user is gone; the cookie is already cleared
+	if ap.User == nil { // the session's user is gone
+		h.sess.Clear(w)
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return
 	}
-	p.CSRF = s.CSRFToken
+	h.render(w, r, http.StatusOK, b, templates.Account(ap), templates.AccountContent(ap))
+}
+
+// accountPage builds the account page from the API; flash, when set, replaces the cookie's.
+func (h *Handler) accountPage(r *http.Request, flash *templates.Flash) (templates.AccountPage, *browser, error) {
+	p, b, err := h.page(r, "Account")
+	if err != nil {
+		return templates.AccountPage{}, b, err
+	}
+	if flash != nil {
+		p.Flash = flash
+	}
+	ap := templates.AccountPage{Page: p.Page}
+	if p.User == nil {
+		return ap, b, nil
+	}
 	linked := map[string]bool{}
-	for _, i := range p.User.Identities {
+	for _, i := range p.identities {
 		linked[i.Provider] = true
-		display := i.Provider
-		if reg, ok := h.ids.Provider(i.Provider); ok {
-			display = reg.Provider.DisplayName()
-		}
-		p.Identities = append(p.Identities, identityView{Identity: i, ProviderDisplay: display, CanUnlink: len(p.User.Identities) > 1})
+		i.ProviderDisplay = h.providerDisplay(i.Provider)
+		i.CanUnlink = len(p.identities) > 1
+		ap.Identities = append(ap.Identities, i)
 	}
 	for _, reg := range h.ids.Providers() {
 		if !linked[reg.Provider.Name()] {
-			p.LinkProviders = append(p.LinkProviders, providerView{Name: reg.Provider.Name(), DisplayName: reg.Provider.DisplayName()})
+			ap.LinkProviders = append(ap.LinkProviders, templates.Provider{Name: reg.Provider.Name(), DisplayName: reg.Provider.DisplayName()})
 		}
 	}
-	h.render(w, r, http.StatusOK, "account", p)
+	return ap, b, nil
 }
 
 func (h *Handler) startLogin(w http.ResponseWriter, r *http.Request) {
@@ -306,81 +306,131 @@ func (h *Handler) authError(w http.ResponseWriter, r *http.Request, provider str
 }
 
 func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
-	s, ok := h.authorized(w, r)
-	if !ok {
+	if !h.authorized(w, r) {
 		return
 	}
+	ctx, b := withBrowser(r)
+	var flash string
 	if r.PostFormValue("everywhere") == "1" {
-		n, err := h.sess.RevokeAll(r.Context(), s.UserID)
+		resp, err := h.idAPI.RevokeSessions(ctx, connect.NewRequest(&hubv1.RevokeSessionsRequest{}))
 		if err != nil {
-			h.serverError(w, r, err)
+			h.apiError(w, r, b, err)
 			return
 		}
-		h.sess.Clear(w)
-		h.setFlash(w, "ok", fmt.Sprintf("Logged out everywhere (%d sessions).", n))
+		flash = fmt.Sprintf("Logged out everywhere (%d sessions).", resp.Msg.GetRevoked())
 	} else {
-		if err := h.sess.Revoke(r.Context(), w, s); err != nil {
-			h.serverError(w, r, err)
+		if _, err := h.idAPI.Logout(ctx, connect.NewRequest(&hubv1.LogoutRequest{})); err != nil {
+			h.apiError(w, r, b, err)
 			return
 		}
-		h.setFlash(w, "ok", "Logged out.")
+		flash = "Logged out."
 	}
-	http.Redirect(w, r, "/login", http.StatusSeeOther)
+	b.relay(w) // the API cleared the session cookie
+	h.setFlash(w, "ok", flash)
+	h.redirect(w, r, "/login")
 }
 
 func (h *Handler) unlink(w http.ResponseWriter, r *http.Request) {
-	s, ok := h.authorized(w, r)
-	if !ok {
+	if !h.authorized(w, r) {
 		return
 	}
-	provider, subject := r.PostFormValue("provider"), r.PostFormValue("subject")
-	err := h.ids.Unlink(r.Context(), s.UserID, provider, subject)
-	switch {
-	case errors.Is(err, identity.ErrLastIdentity):
-		h.setFlash(w, "err", "You cannot unlink your only account.")
-	case errors.Is(err, identity.ErrNotLinked):
-		h.setFlash(w, "err", "That account is not linked to you.")
-	case err != nil:
-		h.serverError(w, r, err)
-		return
+	ctx, b := withBrowser(r)
+	provider := r.PostFormValue("provider")
+	_, err := h.idAPI.UnlinkIdentity(ctx, connect.NewRequest(&hubv1.UnlinkIdentityRequest{Provider: provider, Subject: r.PostFormValue("subject")}))
+	var flash templates.Flash
+	switch connect.CodeOf(err) {
+	case connect.CodeFailedPrecondition:
+		flash = templates.Flash{Kind: "err", Text: "You cannot unlink your only account."}
+	case connect.CodeNotFound:
+		flash = templates.Flash{Kind: "err", Text: "That account is not linked to you."}
+	case connect.CodeInvalidArgument:
+		flash = templates.Flash{Kind: "err", Text: "Choose an account to unlink."}
 	default:
-		h.setFlash(w, "ok", h.providerDisplay(provider)+" account unlinked.")
+		if err != nil {
+			h.apiError(w, r, b, err)
+			return
+		}
+		flash = templates.Flash{Kind: "ok", Text: h.providerDisplay(provider) + " account unlinked."}
 	}
-	http.Redirect(w, r, "/account", http.StatusSeeOther)
+	h.accountDone(w, r, b, flash)
 }
 
 func (h *Handler) claim(w http.ResponseWriter, r *http.Request) {
-	s, ok := h.authorized(w, r)
-	if !ok {
+	if !h.authorized(w, r) {
 		return
 	}
-	_, err := h.org.Claim(r.Context(), r.PostFormValue("token"), s.UserID)
-	switch {
-	case errors.Is(err, org.ErrAlreadyOwned):
-		h.setFlash(w, "err", "This hub already has an owner.")
-	case errors.Is(err, org.ErrInvalidToken):
-		h.setFlash(w, "err", "That token is not valid or has expired. The hub logs a fresh one at every start while it is unowned.")
-	case err != nil:
+	ctx, b := withBrowser(r)
+	_, err := h.orgAPI.ClaimOwnership(ctx, connect.NewRequest(&hubv1.ClaimOwnershipRequest{Token: r.PostFormValue("token")}))
+	var flash templates.Flash
+	switch connect.CodeOf(err) {
+	case connect.CodeFailedPrecondition:
+		flash = templates.Flash{Kind: "err", Text: "This hub already has an owner."}
+	case connect.CodePermissionDenied:
+		flash = templates.Flash{Kind: "err", Text: "That token is not valid or has expired. The hub logs a fresh one at every start while it is unowned."}
+	case connect.CodeInvalidArgument:
+		flash = templates.Flash{Kind: "err", Text: "Paste the owner-claim token first."}
+	default:
+		if err != nil {
+			h.apiError(w, r, b, err)
+			return
+		}
+		flash = templates.Flash{Kind: "ok", Text: "You now own this hub."}
+	}
+	h.accountDone(w, r, b, flash)
+}
+
+// accountDone ends a form on the account page: htmx gets the fresh content with the flash
+// inline, a plain browser gets the flash as a cookie and a redirect.
+func (h *Handler) accountDone(w http.ResponseWriter, r *http.Request, b *browser, flash templates.Flash) {
+	if !isHX(r) {
+		b.relay(w)
+		h.setFlash(w, flash.Kind, flash.Text)
+		http.Redirect(w, r, "/account", http.StatusSeeOther)
+		return
+	}
+	ap, b2, err := h.accountPage(r, &flash)
+	if err != nil {
 		h.serverError(w, r, err)
 		return
-	default:
-		h.setFlash(w, "ok", "You now own this hub.")
 	}
-	http.Redirect(w, r, "/account", http.StatusSeeOther)
+	b.relay(w)
+	h.render(w, r, http.StatusOK, b2, templates.Account(ap), templates.AccountContent(ap))
+}
+
+// redirect sends a plain browser on, and tells htmx to navigate.
+func (h *Handler) redirect(w http.ResponseWriter, r *http.Request, to string) {
+	if isHX(r) {
+		w.Header().Set("HX-Redirect", to)
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	http.Redirect(w, r, to, http.StatusSeeOther)
+}
+
+// apiError answers an API failure a form did not expect: a lost session goes back to login,
+// anything else is a server error (the API already logged it with the request id).
+func (h *Handler) apiError(w http.ResponseWriter, r *http.Request, b *browser, err error) {
+	b.relay(w)
+	if connect.CodeOf(err) == connect.CodeUnauthenticated {
+		h.sess.Clear(w)
+		h.redirect(w, r, "/login")
+		return
+	}
+	h.serverError(w, r, err)
 }
 
 // authorized requires a session and the CSRF token on a state-changing form.
-func (h *Handler) authorized(w http.ResponseWriter, r *http.Request) (store.Session, bool) {
+func (h *Handler) authorized(w http.ResponseWriter, r *http.Request) bool {
 	s, ok := session.FromContext(r.Context())
 	if !ok {
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
-		return store.Session{}, false
+		h.redirect(w, r, "/login")
+		return false
 	}
 	if !h.sess.CheckCSRF(r, s) {
 		h.fail(w, r, http.StatusForbidden, "Form expired", "This form did not carry a valid token. Go back and try again.")
-		return store.Session{}, false
+		return false
 	}
-	return s, true
+	return true
 }
 
 func (h *Handler) providerDisplay(name string) string {
@@ -390,35 +440,68 @@ func (h *Handler) providerDisplay(name string) string {
 	return name
 }
 
-// page builds the data every page starts from: the organization, the session's user (nil when
-// anonymous or gone) and the pending flash.
-func (h *Handler) page(r *http.Request, title string) (*page, error) {
-	o, err := h.org.Get(r.Context())
-	if err != nil && !errors.Is(err, store.ErrNotFound) {
-		return nil, err
+// pageData is a Page plus the identities the API returned, before the account page shapes them.
+type pageData struct {
+	templates.Page
+	identities []templates.Identity
+}
+
+// page builds what every page starts from, through the API: the organization, the session's
+// user (nil when anonymous or gone) with their identities, the theme and its links, and the
+// pending flash.
+func (h *Handler) page(r *http.Request, title string) (pageData, *browser, error) {
+	ctx, b := withBrowser(r)
+	p := pageData{Page: templates.Page{Title: title}}
+	org, err := h.orgAPI.GetOrganization(ctx, connect.NewRequest(&hubv1.GetOrganizationRequest{}))
+	if err != nil {
+		return p, b, fmt.Errorf("GetOrganization: %w", err)
 	}
-	p := &page{Title: title, Org: o}
+	p.Org = templates.Org{Name: org.Msg.GetOrganization().GetName(), Owned: org.Msg.GetOrganization().GetOwned()}
 	if s, ok := session.FromContext(r.Context()); ok {
-		u, err := h.ids.Me(r.Context(), s.UserID)
+		me, err := h.idAPI.GetMe(ctx, connect.NewRequest(&hubv1.GetMeRequest{}))
 		switch {
-		case errors.Is(err, store.ErrNotFound):
-			// Leave User nil; the caller redirects. The middleware's cookie is cleared by the handler.
-		case err != nil:
-			return nil, err
-		default:
-			p.User = &u
+		case err == nil:
+			u := me.Msg.GetUser()
+			p.User = &templates.User{ID: u.GetId(), DisplayName: u.GetDisplayName(), Owner: u.GetOwner()}
 			p.CSRF = s.CSRFToken
-			p.Owner = o.OwnerUserID != nil && *o.OwnerUserID == u.ID
+			for _, i := range u.GetIdentities() {
+				v := templates.Identity{Provider: i.GetProvider(), Subject: i.GetSubject(), DisplayName: i.GetDisplayName(), AvatarURL: i.GetAvatarUrl(), Method: i.GetVerificationMethod(), VerifiedAt: i.GetVerifiedAt().AsTime()}
+				if i.GetLastLoginAt() != nil {
+					t := i.GetLastLoginAt().AsTime()
+					v.LastLoginAt = &t
+				}
+				p.identities = append(p.identities, v)
+			}
+		case connect.CodeOf(err) == connect.CodeUnauthenticated, connect.CodeOf(err) == connect.CodeNotFound:
+			// The session's user is gone; the page stays anonymous and the handler redirects.
+		default:
+			return p, b, fmt.Errorf("GetMe: %w", err)
+		}
+	}
+	t, err := h.theme.Theme(ctx)
+	if err != nil {
+		h.logger.WarnContext(ctx, "theme unavailable, using the defaults", "error", err.Error())
+		t = DefaultTheme()
+	}
+	p.Theme = normalizeTheme(t)
+	for _, l := range p.Theme.Nav {
+		if l.Role == "owner" && (p.User == nil || !p.User.Owner) {
+			continue
+		}
+		if l.Placement == "footer" {
+			p.FooterNav = append(p.FooterNav, l)
+		} else {
+			p.HeaderNav = append(p.HeaderNav, l)
 		}
 	}
 	if c, err := r.Cookie(h.sess.CookieName(session.CookieFlash)); err == nil && c.Value != "" {
 		if kind, text, ok := strings.Cut(c.Value, ":"); ok {
 			if text, err := url.QueryUnescape(text); err == nil && (kind == "ok" || kind == "err") {
-				p.Flash = &flash{Kind: kind, Text: text}
+				p.Flash = &templates.Flash{Kind: kind, Text: text}
 			}
 		}
 	}
-	return p, nil
+	return p, b, nil
 }
 
 func (h *Handler) setFlash(w http.ResponseWriter, kind, text string) {
@@ -426,13 +509,13 @@ func (h *Handler) setFlash(w http.ResponseWriter, kind, text string) {
 }
 
 func (h *Handler) fail(w http.ResponseWriter, r *http.Request, status int, title, message string) {
-	p, err := h.page(r, title)
+	p, b, err := h.page(r, title)
 	if err != nil {
 		h.serverError(w, r, err)
 		return
 	}
-	p.Message = message
-	h.render(w, r, status, "error", p)
+	ep := templates.ErrorPage{Page: p.Page, Message: message}
+	h.render(w, r, status, b, templates.Error(ep), templates.ErrorContent(ep))
 }
 
 func (h *Handler) serverError(w http.ResponseWriter, r *http.Request, err error) {
@@ -440,21 +523,30 @@ func (h *Handler) serverError(w http.ResponseWriter, r *http.Request, err error)
 	http.Error(w, "Something went wrong on our side. Try again in a moment.", http.StatusInternalServerError)
 }
 
-func (h *Handler) render(w http.ResponseWriter, r *http.Request, status int, name string, p *page) {
-	if p.Flash != nil {
-		http.SetCookie(w, h.sess.Cookie(session.CookieFlash, "", 0))
+// render writes a page, or only its content for htmx, after relaying what the API set.
+func (h *Handler) render(w http.ResponseWriter, r *http.Request, status int, b *browser, full, content templ.Component) {
+	c := full
+	if isHX(r) {
+		c = content
 	}
 	var buf bytes.Buffer
-	if err := h.pages[name].ExecuteTemplate(&buf, "layout.html", p); err != nil {
+	if err := c.Render(context.WithoutCancel(r.Context()), &buf); err != nil {
 		h.serverError(w, r, err)
 		return
 	}
+	if b != nil {
+		b.relay(w)
+	}
+	if c, err := r.Cookie(h.sess.CookieName(session.CookieFlash)); err == nil && c.Value != "" {
+		http.SetCookie(w, h.sess.Cookie(session.CookieFlash, "", 0))
+	}
 	hdr := w.Header()
 	hdr.Set("Content-Type", "text/html; charset=utf-8")
-	hdr.Set("Content-Security-Policy", "default-src 'none'; style-src 'self'; img-src https:; form-action 'self'; base-uri 'none'; frame-ancestors 'none'")
+	hdr.Set("Content-Security-Policy", csp)
 	hdr.Set("Referrer-Policy", "same-origin")
 	hdr.Set("X-Content-Type-Options", "nosniff")
 	hdr.Set("Cache-Control", "no-store")
+	hdr.Set("Vary", "HX-Request, Cookie")
 	w.WriteHeader(status)
 	_, _ = buf.WriteTo(w)
 }

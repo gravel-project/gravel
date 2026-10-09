@@ -94,6 +94,24 @@ jobs:
           go-version-file: go.mod
       - run: make test-integration
 
+  a11y:
+    runs-on: ubuntu-latest # ships Chrome, which @axe-core/cli drives
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      # axe bundles a ChromeDriver that drifts from the runner's Chrome; install a synced pair.
+      - run: npx --yes browser-driver-manager@2.0.1 install chrome
+      - run: |
+          . ~/.browser-driver-manager/.env
+          case "$CHROME_TEST_PATH" in /*) ;; *) CHROME_TEST_PATH="$HOME/$CHROME_TEST_PATH" ;; esac
+          case "$CHROMEDRIVER_TEST_PATH" in /*) ;; *) CHROMEDRIVER_TEST_PATH="$HOME/$CHROMEDRIVER_TEST_PATH" ;; esac
+          AXE_CHROME_PATH="$CHROME_TEST_PATH" AXE_CHROMEDRIVER_PATH="$CHROMEDRIVER_TEST_PATH" make a11y
+
   release-config:
     runs-on: ubuntu-latest
     steps:

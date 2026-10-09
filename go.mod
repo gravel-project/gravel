@@ -8,6 +8,7 @@ require (
 	connectrpc.com/connect v1.21.0
 	connectrpc.com/grpchealth v1.5.0
 	connectrpc.com/grpcreflect v1.3.1
+	github.com/a-h/templ v0.3.1070
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/markbates/goth v1.82.0

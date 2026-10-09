@@ -55,6 +55,10 @@ message UnlinkIdentityResponse {
   User user = 1;
 }
 
+message LogoutRequest {}
+
+message LogoutResponse {}
+
 message RevokeSessionsRequest {}
 
 message RevokeSessionsResponse {
@@ -79,6 +83,8 @@ service IdentityService {
   // UnlinkIdentity removes one of the caller's identities. The last one is refused
   // (failed_precondition): a provider-only account would be unreachable.
   rpc UnlinkIdentity(UnlinkIdentityRequest) returns (UnlinkIdentityResponse);
+  // Logout ends the calling session and clears its cookie.
+  rpc Logout(LogoutRequest) returns (LogoutResponse);
   // RevokeSessions logs the caller out everywhere, this session included.
   rpc RevokeSessions(RevokeSessionsRequest) returns (RevokeSessionsResponse);
   // LookupUser resolves a (provider, subject) pair to its user, for role sync. Owner only until

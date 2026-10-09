@@ -81,6 +81,32 @@ func TestRevokeSessions(t *testing.T) {
 	}
 }
 
+func TestLogoutEndsOnlyThisSession(t *testing.T) {
+	r := newRig(t)
+	ctx := context.Background()
+	jo := r.user(t, "Jo", "1")
+	cookie := r.login(t, jo.ID)
+	r.login(t, jo.ID)
+	anon := hubv1connect.NewIdentityServiceClient(http.DefaultClient, r.srv.URL)
+	if _, err := anon.Logout(ctx, connect.NewRequest(&hubv1.LogoutRequest{})); connect.CodeOf(err) != connect.CodeUnauthenticated {
+		t.Errorf("anonymous logout: %v", err)
+	}
+	client := hubv1connect.NewIdentityServiceClient(cookieClient(http.DefaultClient, cookie), r.srv.URL)
+	resp, err := client.Logout(ctx, connect.NewRequest(&hubv1.LogoutRequest{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sc := resp.Header().Get("Set-Cookie"); !strings.Contains(sc, "gravel_session=;") || !strings.Contains(sc, "Max-Age=0") {
+		t.Errorf("logout must clear the cookie: %q", sc)
+	}
+	if r.idSt.SessionCount() != 1 {
+		t.Errorf("the other session must survive: %d left", r.idSt.SessionCount())
+	}
+	if _, err := client.GetMe(ctx, connect.NewRequest(&hubv1.GetMeRequest{})); connect.CodeOf(err) != connect.CodeUnauthenticated {
+		t.Errorf("the cookie is dead after logout: %v", err)
+	}
+}
+
 func TestLookupUserIsOwnerOnly(t *testing.T) {
 	r := newRig(t)
 	ctx := context.Background()
