@@ -6,6 +6,8 @@ All notable changes to gravel are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-09
+
 ### Added
 
 - The Organization settings resource (#7, ADR-0007): one JSON document on the organization (migration 3) holding the theme (tokens for the light and dark schemes, the font, a logo, a favicon) and navigation links (header or footer, optionally owner-only), with the Discord role mapping, token lifetimes and layout overrides to join it. `GetOrganizationSettings` is public (the login page renders the theme) and `UpdateOrganizationSettings` is the owner's; validation names every invalid field (colours must be plain CSS colours, URLs https or site-relative, at most 12 links). The pages read the theme through the in-process API, so a host's look is data, not a fork. `gravel-hub settings export` prints the document as a YAML manifest and `gravel-hub settings apply <manifest>` stores one (`--dry-run` exits 3 on a change), for deployments that commit their settings until the `gravel` CLI applies them over the API.
@@ -72,7 +74,8 @@ All notable changes to gravel are documented here. The format follows
 
 - README and CLAUDE.md follow ADR-0001: status line, principle 2 (the resource lives in the hub's database), the hub and backup paragraphs, the adapter-repo rule, the local-dev default, and a seven-step build order with the issues behind each step. The launch games are the five Hidden Token Gaming plays, in three shapes, with War Dogs first; the open threads link the design-delta issues #2–#9 (#1).
 
-[Unreleased]: https://github.com/gravel-project/gravel/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/gravel-project/gravel/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/gravel-project/gravel/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/gravel-project/gravel/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/gravel-project/gravel/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/gravel-project/gravel/releases/tag/v0.1.0
