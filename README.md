@@ -2,7 +2,7 @@
 
 > Open-source, Kubernetes-native framework for hosting many game servers across many games, with one control interface and cross-game statistics. Each server is a grain; the fleet is the gravel.
 
-**Status:** design complete (2026-09-25); build order revised by [ADR-0001](docs/adr/0001-hub-first-kubernetes-later.md) on 2026-10-08: **hub first, Kubernetes later.** The hub skeleton is in (#12): Connect API, Postgres with migrations, the owner claim, health, metrics, podman compose and quadlets. `make up` runs it; [docs/hub.md](docs/hub.md) is the operator reference.
+**Status:** design complete (2026-09-25); build order revised by [ADR-0001](docs/adr/0001-hub-first-kubernetes-later.md) on 2026-10-08: **hub first, Kubernetes later.** [ADR-0003](docs/adr/0003-cloud-vm-driver-behind-a-cloud-provider-interface.md) (2026-10-08) adds the **cloud-VM driver**: a VM gravel owns through a cloud provider interface, DigitalOcean first. The hub skeleton is in (#12): Connect API, Postgres with migrations, the owner claim, health, metrics, podman compose and quadlets. `make up` runs it; [docs/hub.md](docs/hub.md) is the operator reference.
 **Design doc (full, block-level detail):** https://claude.ai/code/artifact/e559420c-d087-4f74-8829-853cafbb5eb8 (private Claude Docs; this README is the distilled version)
 **License:** Apache 2.0
 
@@ -22,7 +22,7 @@ Hidden Token Gaming (hiddentoken.com) is the proving ground — a real community
 
 Wherever a solid open-source project already solves a layer, build on it. Our value is the layers above — identity, stats, community, external-server drivers — not the plumbing.
 
-Applied: Goth (auth) · TimescaleDB (stats) · Agones (in-cluster servers) · SPIFFE/SPIRE (machine identity) · Open Cluster Management (first spoke) · CloudNativePG (Postgres ops + backup/PITR) · Connect/buf (API) · LinuxGSM (game knowledge) · goreleaser + sigstore/cosign (releases)
+Applied: Goth (auth) · TimescaleDB (stats) · Agones (in-cluster servers) · SPIFFE/SPIRE (machine identity) · Open Cluster Management (first spoke) · CloudNativePG (Postgres ops + backup/PITR) · Connect/buf (API) · LinuxGSM (game knowledge) · goreleaser + sigstore/cosign (releases) · the clouds' own SDKs, godo first (VMs, behind the cloud provider interface)
 
 The principle applies to itself: nothing above is hard-wired. Each sits behind a Go interface as the *first* implementation.
 
@@ -55,7 +55,7 @@ These recur across the whole design. When in doubt, these decide.
 ### Hub and spoke
 
 - **Hub** runs the core: API, identity, stats databases, web UI, as one Go service beside Postgres. Deployment target one is podman quadlets (ADR-0001); Kubernetes comes with the first managed game. It is the single point of no return — backed up with base backups + continuous WAL archiving to object storage (PITR) from day one.
-- **Spoke** = any location that runs servers: a Kubernetes cluster (our operator + Agones + a small agent), a Podman box, a DigitalOcean droplet, or a member's personal Windows gaming rig running the standalone agent as a native `.exe`.
+- **Spoke** = any location that runs servers: a Kubernetes cluster (our operator + Agones + a small agent), a Podman box, a cloud VM gravel creates and sizes itself (a DigitalOcean Droplet first, ADR-0003), or a member's personal Windows gaming rig running the standalone agent as a native `.exe`.
 - **Agents dial outbound** to the hub over a persistent gRPC stream. A Kind cluster behind a home router joins with no inbound firewall holes.
 - **`location`** is the unifying field on every server resource. Multi-cluster, member-contributed servers, and the transient "spin one up for my buddies" case are all the same design.
 - Enrollment: SPIRE join-token attestation. One-time token, 15-minute default lifetime, burned on use.
@@ -74,6 +74,7 @@ Under ADR-0001 these are hub resources first (rows behind the API). The operator
 A `ManagedServer` records a server that exists somewhere; a **driver** controls it. Each driver declares a **capabilities flag** and the UI only shows what the driver supports.
 
 - **Fully managed** — Agones underneath (port assignment, health, safe node drain). Agones is a hard dependency of the in-cluster path *only*; the framework must run without it for external-only hosts.
+- **Cloud-VM** — a single-tenant VM gravel creates, sizes, parks and destroys through the `cloud.Provider` interface (DigitalOcean first; AWS, Azure and Google Cloud behind the same interface later), the game under systemd from cloud-init, controlled over RCON and log push. The install lives on a detachable volume and a resize never touches disk; a vertical scaling policy walks a tier ladder (10 players → 20) only at a map change or match end ([ADR-0003](docs/adr/0003-cloud-vm-driver-behind-a-cloud-provider-interface.md)).
 - **External but reachable** — RCON / SSH for stats and commands, no lifecycle control.
 - **Externally referenced** — registered so it shows in the UI; we can barely touch it.
 - The local-execution driver has **two flavors**: container-based (Linux) and native-process-based (Windows / bare). War Dogs, if ever brought in-cluster, rides the native flavor.
@@ -167,7 +168,7 @@ The hub logs a one-time owner-claim token on first start; claim it with `ClaimOw
 ## Local dev & runnability
 
 - "Clone, one command, it's running" is a first-class requirement. Never assume a managed cloud cluster: no hard dependency on cloud load balancers, storage classes, or external DNS.
-- **`podman compose up` is the documented default** for the hub (rootless, on Fedora; ADR-0001). **Kind** is the e2e target for the operator path (Podman-backed). **OpenShift is also supported**, with OpenShift-specific features where available (CRC for a local OpenShift).
+- **`podman compose up` is the documented default** for the hub (rootless, on Fedora; ADR-0001). **Kind** is the CI target for the operator path (Podman-backed); a minimal DOKS cluster is where the operator is proven, with no game servers on it until it scales (ADR-0003). **OpenShift is also supported**, with OpenShift-specific features where available (CRC for a local OpenShift).
 - Packaging: Helm chart + OLM bundle so it's a first-class OpenShift operator.
 
 ## Ops & release engineering
@@ -198,7 +199,7 @@ The hub logs a one-time owner-claim token on first start; claim it with `ClaimOw
 
 ## Test harness
 
-A DigitalOcean droplet running Counter-Strike, deliberately cast as a **fake untrusted community member**. Double duty: first remote-spoke validation (outbound agent, stats over gRPC, `location` outside the hub cluster) and the untrusted-source path end to end (Community trust level, at-source signing verification, curation/moderation reach).
+A DigitalOcean droplet running Counter-Strike, deliberately cast as a **fake untrusted community member**. Double duty: first remote-spoke validation (outbound agent, stats over gRPC, `location` outside the hub cluster) and the untrusted-source path end to end (Community trust level, at-source signing verification, curation/moderation reach). Under ADR-0003 the harness VM is one the cloud-VM driver makes; the Counter-Strike 2 test server Hidden Token Gaming runs on a Droplet is that driver's first real server, not the harness.
 
 ## Repo layout (planned)
 
@@ -215,12 +216,13 @@ Revised by [ADR-0001](docs/adr/0001-hub-first-kubernetes-later.md) (2026-10-08).
 3. External-reachable driver and the War Dogs adapter, the stats store, boards and moderation (#16, #4, #3, #17, #18)
 4. Composable Discord modules and OIDC for first-party apps (#15, #6), the participation API (#19)
 5. `gravel` CLI as a thin HTTP-JSON client, including `gravel claim` (ADR-0002)
-6. Operator + Agones as the fully managed driver, the Counter-Strike 2 adapter, the transient-server API (#21, #9, #20)
-7. Standalone agent and the droplet test harness
+6. Operator + Agones as the fully managed driver, proven on a minimal DOKS cluster; the cloud provider interface and the DigitalOcean implementation; the cloud-VM driver with Counter-Strike 2 and vertical scaling at a map change; the Counter-Strike 2 adapter; the transient-server API (#21, #9, #35, #36, #37, #20; ADR-0003)
+7. Standalone agent for machines gravel does not own, and the untrusted-member test harness
 
 ## Open threads that need the outside world
 
 - **Design deltas from HTG (filed 2026-10-01, sequenced 2026-10-08):** #2 server-less games · #3 stats provenance · #4 inbound push ingestion · #5 identity pairs and proof-of-control · #6 OIDC for first-party apps · #7 branding and navigation · #8 publisher guardrails · #9 managed-path realities. The plan behind them is `hidden-token-gaming/handbook` `docs/plan.md` (private).
+- **DigitalOcean (ADR-0003, 2026-10-08):** #35 cloud provider interface and the DigitalOcean implementation · #36 cloud-VM driver · #37 vertical scaling policy. HTG's side: deploy#108 the stack and the measured region, deploy#109 the minimal DOKS cluster, deploy#110 the Counter-Strike 2 test Droplet.
 
 - **Lawyer:** raw-event retention (13-month placeholder), retention-for-ban-enforcement under GDPR, ToS + privacy policy for the public site.
 - **War Dogs:** stats confirmed to exist — pin down the exact format before building its adapter.
