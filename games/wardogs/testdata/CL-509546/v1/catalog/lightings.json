@@ -1,0 +1,37 @@
+{
+  "count": 8,
+  "lightings": [
+    {
+      "displayName": "DayStartClear",
+      "id": "DayStartClear"
+    },
+    {
+      "displayName": "DayEarlyClear",
+      "id": "DayEarlyClear"
+    },
+    {
+      "displayName": "DayEarlyFog",
+      "id": "DayEarlyFog"
+    },
+    {
+      "displayName": "DayClear",
+      "id": "DayClear"
+    },
+    {
+      "displayName": "DayLateClear",
+      "id": "DayLateClear"
+    },
+    {
+      "displayName": "DayLateGray",
+      "id": "DayLateGray"
+    },
+    {
+      "displayName": "DayLateGrayFog",
+      "id": "DayLateGrayFog"
+    },
+    {
+      "displayName": "DayEndClear",
+      "id": "DayEndClear"
+    }
+  ]
+}

@@ -1,0 +1,95 @@
+{
+  "build": "++Wardogs+Live-CL-509546",
+  "apiVersion": "1",
+  "recordedAt": "2026-10-09T23:02:13Z",
+  "recorder": "gravel-hub wardogs record v0.6.1-0.20261009222831-5a8cd1a12b9a+dirty",
+  "files": [
+    {
+      "route": "GET /v1/capabilities",
+      "file": "v1/capabilities.json"
+    },
+    {
+      "route": "GET /v1/audit?limit=20",
+      "file": "v1/audit.json"
+    },
+    {
+      "route": "GET /v1/bans",
+      "file": "v1/bans.json"
+    },
+    {
+      "route": "GET /v1/catalog/experiences",
+      "file": "v1/catalog/experiences.json"
+    },
+    {
+      "route": "GET /v1/catalog/lightings",
+      "file": "v1/catalog/lightings.json"
+    },
+    {
+      "route": "GET /v1/catalog/maps",
+      "file": "v1/catalog/maps.json"
+    },
+    {
+      "route": "GET /v1/catalog/maps/Europe/alternators",
+      "file": "v1/catalog/maps/Europe/alternators.json"
+    },
+    {
+      "route": "GET /v1/catalog/maps/Kavkazi/alternators",
+      "file": "v1/catalog/maps/Kavkazi/alternators.json"
+    },
+    {
+      "route": "GET /v1/catalog/maps/NorthAmerica/alternators",
+      "file": "v1/catalog/maps/NorthAmerica/alternators.json"
+    },
+    {
+      "route": "GET /v1/catalog/maps/Europe/experiences",
+      "file": "v1/catalog/maps/Europe/experiences.json"
+    },
+    {
+      "route": "GET /v1/catalog/maps/Kavkazi/experiences",
+      "file": "v1/catalog/maps/Kavkazi/experiences.json"
+    },
+    {
+      "route": "GET /v1/catalog/maps/NorthAmerica/experiences",
+      "file": "v1/catalog/maps/NorthAmerica/experiences.json"
+    },
+    {
+      "route": "GET /v1/config",
+      "file": "v1/config.json"
+    },
+    {
+      "route": "GET /v1/health",
+      "file": "v1/health.json"
+    },
+    {
+      "route": "GET /v1/players",
+      "file": "v1/players.json"
+    },
+    {
+      "route": "GET /v1/reserved-slots",
+      "file": "v1/reserved-slots.json"
+    },
+    {
+      "route": "GET /v1/rotation",
+      "file": "v1/rotation.json"
+    },
+    {
+      "route": "GET /v1/server-id",
+      "file": "v1/server-id.json"
+    },
+    {
+      "route": "GET /v1/sponsor",
+      "file": "v1/sponsor.json"
+    },
+    {
+      "route": "GET /v1/status",
+      "file": "v1/status.json"
+    }
+  ],
+  "scrubbed": {
+    "steamIds": 0,
+    "names": 0,
+    "addresses": 2,
+    "serverIds": 1,
+    "secrets": 1
+  }
+}

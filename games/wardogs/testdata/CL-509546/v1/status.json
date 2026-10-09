@@ -1,0 +1,39 @@
+{
+  "alternator": "ZoneAlternator.Ozeti.Default.Circle",
+  "experiences": [
+    "Madrid_KOTH_01"
+  ],
+  "factionScores": [
+    {
+      "colorHex": "#4CB1EF",
+      "name": "Lonestar",
+      "score": 0
+    },
+    {
+      "colorHex": "#FA503E",
+      "name": "Valkyra",
+      "score": 0
+    },
+    {
+      "colorHex": "#1DD65C",
+      "name": "Manticore",
+      "score": 0
+    }
+  ],
+  "lighting": "DayEarlyClear",
+  "map": "Ozeti",
+  "players": {
+    "current": 0,
+    "max": 100
+  },
+  "rotation": {
+    "nextIndex": 1,
+    "nowIndex": 0
+  },
+  "scoreTick": {
+    "current": 24,
+    "max": 30,
+    "min": 18
+  },
+  "serverName": "HTG WARDOGS | NA WEST | #1"
+}

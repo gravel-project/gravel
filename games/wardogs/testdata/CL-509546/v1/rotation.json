@@ -1,0 +1,73 @@
+{
+  "count": 6,
+  "enabled": true,
+  "entries": [
+    {
+      "denied": false,
+      "experiences": [
+        "Madrid_KOTH_01"
+      ],
+      "index": 0,
+      "lighting": "DayStartClear",
+      "map": "Europe",
+      "status": "now",
+      "zoneAlternator": "ZoneAlternator.Ozeti.Default.Circle"
+    },
+    {
+      "denied": false,
+      "experiences": [
+        "Detroit_KOTH_01"
+      ],
+      "index": 1,
+      "lighting": "DayEarlyFog",
+      "map": "NorthAmerica",
+      "status": "next",
+      "zoneAlternator": "ZoneAlternator.Zestafona.Default.Circle"
+    },
+    {
+      "denied": false,
+      "experiences": [
+        "Bakurani_KOTH_01"
+      ],
+      "index": 2,
+      "lighting": "DayClear",
+      "map": "Kavkazi",
+      "status": null,
+      "zoneAlternator": "ZoneAlternator.Bakurani.Default.Circle"
+    },
+    {
+      "denied": false,
+      "experiences": [
+        "Madrid_KOTH_01"
+      ],
+      "index": 3,
+      "lighting": "DayLateClear",
+      "map": "Europe",
+      "status": null,
+      "zoneAlternator": "ZoneAlternator.Ozeti.River.Circle"
+    },
+    {
+      "denied": false,
+      "experiences": [
+        "Detroit_KOTH_01"
+      ],
+      "index": 4,
+      "lighting": "DayLateGray",
+      "map": "NorthAmerica",
+      "status": null,
+      "zoneAlternator": "ZoneAlternator.Zestafona.WaterTreatment.Circle"
+    },
+    {
+      "denied": false,
+      "experiences": [
+        "Bakurani_KOTH_01"
+      ],
+      "index": 5,
+      "lighting": "DayEndClear",
+      "map": "Kavkazi",
+      "status": null,
+      "zoneAlternator": "ZoneAlternator.Bakurani.Farmland.Circle"
+    }
+  ],
+  "mode": "ordered"
+}

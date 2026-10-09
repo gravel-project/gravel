@@ -1,0 +1,21 @@
+{
+  "alternators": [
+    {
+      "displayName": "Bakurani Default Circle",
+      "index": 0,
+      "tag": "ZoneAlternator.Bakurani.Default.Circle"
+    },
+    {
+      "displayName": "Bakurani Farmland Circle",
+      "index": 1,
+      "tag": "ZoneAlternator.Bakurani.Farmland.Circle"
+    },
+    {
+      "displayName": "Bakurani Lumberyard Circle",
+      "index": 2,
+      "tag": "ZoneAlternator.Bakurani.Lumberyard.Circle"
+    }
+  ],
+  "count": 3,
+  "map": "Kavkazi"
+}

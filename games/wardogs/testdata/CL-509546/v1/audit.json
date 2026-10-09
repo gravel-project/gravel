@@ -1,0 +1,146 @@
+{
+  "count": 20,
+  "entries": [
+    {
+      "detail": "GET /v1/capabilities -> 200",
+      "event": "HTTP",
+      "peer": "192.0.2.1:35018",
+      "sessionId": "qkMOwRYwSk-aohvIxqA_Pw",
+      "timestampUtc": "2026-10-09T23:01:36.899Z"
+    },
+    {
+      "detail": null,
+      "event": "ACCEPT",
+      "peer": "192.0.2.1:35030",
+      "sessionId": "S5KYChClTKu152fBRO_S2w",
+      "timestampUtc": "2026-10-09T23:01:36.958Z"
+    },
+    {
+      "detail": null,
+      "event": "AUTH_OK",
+      "peer": "192.0.2.1:35030",
+      "sessionId": "S5KYChClTKu152fBRO_S2w",
+      "timestampUtc": "2026-10-09T23:01:36.959Z"
+    },
+    {
+      "detail": "GET /v1/status -> 200",
+      "event": "HTTP",
+      "peer": "192.0.2.1:35030",
+      "sessionId": "S5KYChClTKu152fBRO_S2w",
+      "timestampUtc": "2026-10-09T23:01:36.969Z"
+    },
+    {
+      "detail": null,
+      "event": "ACCEPT",
+      "peer": "192.0.2.1:37632",
+      "sessionId": "8yT8XX2JQBy9nZEN3-hGkA",
+      "timestampUtc": "2026-10-09T23:01:49.076Z"
+    },
+    {
+      "detail": "GET /v1/capabilities -> 200",
+      "event": "HTTP",
+      "peer": "192.0.2.1:37632",
+      "sessionId": "8yT8XX2JQBy9nZEN3-hGkA",
+      "timestampUtc": "2026-10-09T23:01:49.080Z"
+    },
+    {
+      "detail": null,
+      "event": "ACCEPT",
+      "peer": "192.0.2.1:37638",
+      "sessionId": "hcRhieI9S8yGMrJV-stK9Q",
+      "timestampUtc": "2026-10-09T23:01:49.141Z"
+    },
+    {
+      "detail": null,
+      "event": "AUTH_OK",
+      "peer": "192.0.2.1:37638",
+      "sessionId": "hcRhieI9S8yGMrJV-stK9Q",
+      "timestampUtc": "2026-10-09T23:01:49.160Z"
+    },
+    {
+      "detail": "GET /v1/status -> 200",
+      "event": "HTTP",
+      "peer": "192.0.2.1:37638",
+      "sessionId": "hcRhieI9S8yGMrJV-stK9Q",
+      "timestampUtc": "2026-10-09T23:01:49.161Z"
+    },
+    {
+      "detail": null,
+      "event": "ACCEPT",
+      "peer": "192.0.2.1:57894",
+      "sessionId": "FS-i7QUqRtWJCLu25Zl9aA",
+      "timestampUtc": "2026-10-09T23:02:06.046Z"
+    },
+    {
+      "detail": "GET /v1/capabilities -> 200",
+      "event": "HTTP",
+      "peer": "192.0.2.1:57894",
+      "sessionId": "FS-i7QUqRtWJCLu25Zl9aA",
+      "timestampUtc": "2026-10-09T23:02:06.057Z"
+    },
+    {
+      "detail": null,
+      "event": "ACCEPT",
+      "peer": "192.0.2.1:57906",
+      "sessionId": "ImXtHvyNRJOldpEIlE2kXQ",
+      "timestampUtc": "2026-10-09T23:02:06.113Z"
+    },
+    {
+      "detail": null,
+      "event": "AUTH_OK",
+      "peer": "192.0.2.1:57906",
+      "sessionId": "ImXtHvyNRJOldpEIlE2kXQ",
+      "timestampUtc": "2026-10-09T23:02:06.118Z"
+    },
+    {
+      "detail": "GET /v1/status -> 200",
+      "event": "HTTP",
+      "peer": "192.0.2.1:57906",
+      "sessionId": "ImXtHvyNRJOldpEIlE2kXQ",
+      "timestampUtc": "2026-10-09T23:02:06.130Z"
+    },
+    {
+      "detail": null,
+      "event": "ACCEPT",
+      "peer": "192.0.2.2:38556",
+      "sessionId": "-JWoQ_pkQlOlzCaHEQxSXw",
+      "timestampUtc": "2026-10-09T23:02:11.059Z"
+    },
+    {
+      "detail": "GET /v1/capabilities -> 200",
+      "event": "HTTP",
+      "peer": "192.0.2.2:38556",
+      "sessionId": "-JWoQ_pkQlOlzCaHEQxSXw",
+      "timestampUtc": "2026-10-09T23:02:11.096Z"
+    },
+    {
+      "detail": "GET /v1/capabilities -> 200",
+      "event": "HTTP",
+      "peer": "192.0.2.2:38556",
+      "sessionId": "-JWoQ_pkQlOlzCaHEQxSXw",
+      "timestampUtc": "2026-10-09T23:02:11.177Z"
+    },
+    {
+      "detail": null,
+      "event": "AUTH_OK",
+      "peer": "192.0.2.2:38556",
+      "sessionId": "-JWoQ_pkQlOlzCaHEQxSXw",
+      "timestampUtc": "2026-10-09T23:02:11.257Z"
+    },
+    {
+      "detail": "GET /v1/catalog/maps -> 200",
+      "event": "HTTP",
+      "peer": "192.0.2.2:38556",
+      "sessionId": "-JWoQ_pkQlOlzCaHEQxSXw",
+      "timestampUtc": "2026-10-09T23:02:11.275Z"
+    },
+    {
+      "detail": null,
+      "event": "AUTH_OK",
+      "peer": "192.0.2.2:38556",
+      "sessionId": "-JWoQ_pkQlOlzCaHEQxSXw",
+      "timestampUtc": "2026-10-09T23:02:11.358Z"
+    }
+  ],
+  "limit": 20
+}

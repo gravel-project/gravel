@@ -1,0 +1,25 @@
+{
+  "count": 5,
+  "experiences": [
+    {
+      "displayName": "Madrid KOTH 01",
+      "id": "Madrid_KOTH_01"
+    },
+    {
+      "displayName": "Bakurani KOTH 01",
+      "id": "Bakurani_KOTH_01"
+    },
+    {
+      "displayName": "Detroit KOTH 01",
+      "id": "Detroit_KOTH_01"
+    },
+    {
+      "displayName": "KOTH InfantryOnly",
+      "id": "KOTH_InfantryOnly"
+    },
+    {
+      "displayName": "KOTH Hardcore",
+      "id": "KOTH_Hardcore"
+    }
+  ]
+}
