@@ -8,6 +8,8 @@ patch release is everything else.
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-10-09
+
 ### Added
 
 - The War Dogs client, `games/wardogs` (ADR-0010; #24, part of #16), with no gravel imports. Capabilities come from the server's `GET /v1/capabilities`: routes match by shape (`{id}` and `{steamId}` are one route), a call whose route is gone fails with `ErrNotSupported` before sending, and `DiffRoutes` compares two builds. The client keeps the server's rules: one token, nothing protected sent after a 401 until a new token is set and protected requests serialised until the token is first accepted (one strike at most against the server's three-strike lockout, however many callers), `Retry-After` kept on a 429, bodies over the advertised limit refused. Typed calls cover the reads (health, status, players, rotation, bans, reserved slots, server id, sponsor, audit, the catalog), the moderation calls (kick, kill, message, broadcast, move, ban, unban) and the configuration document (read, validate, `PutConfig` with a quoted `If-Match` and CRLF, the 412 and 422 results with `outcomes[]`, `shadowed[]`, `stripped[]` and `warnings[]`, and the per-key schema: honoured, writable, locked by, applies when); `RedactConfig` blanks the secrets keeping CRLF. Parsing is tolerant (a drifted field is reported, the rest kept) and strict in tests. `gravel-hub wardogs record` writes a build's read-only answers to `games/wardogs/testdata/<build>/` with every SteamID, player name, address and server id replaced by a stand-in and the secrets redacted, writes nothing if a final read finds an original, and diffs the routes against the previous recording; `games/wardogs/testdata/CL-509546/` is the first, recorded from a live server. `games/wardogs/wardogstest` serves a recording as a fake server with the three-strike throttle; one contract runs against every recorded build, against a changed build (a route gone, a parameter renamed) and, with `-tags live`, against a real server, reading only. `games/wardogs/README.md` is the procedure for a new build.
@@ -133,7 +135,8 @@ patch release is everything else.
 
 - README and CLAUDE.md follow ADR-0001: status line, principle 2 (the resource lives in the hub's database), the hub and backup paragraphs, the adapter-repo rule, the local-dev default, and a seven-step build order with the issues behind each step. The launch games are the five Hidden Token Gaming plays, in three shapes, with War Dogs first; the open threads link the design-delta issues #2–#9 (#1).
 
-[Unreleased]: https://github.com/gravel-project/gravel/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/gravel-project/gravel/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/gravel-project/gravel/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/gravel-project/gravel/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/gravel-project/gravel/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/gravel-project/gravel/compare/v0.3.0...v0.4.0
