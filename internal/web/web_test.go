@@ -424,3 +424,55 @@ func TestThemeAndStatic(t *testing.T) {
 		t.Error("nothing outside static/ is served")
 	}
 }
+
+// TestThemeFromSettings renders the pages with the theme the API serves from the Organization
+// settings (the hub's wiring), instead of the test rig's static theme.
+func TestThemeFromSettings(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	idSt := identitytest.NewFakeStore()
+	orgSvc := org.New(&orgtest.FakeStore{}, 15*time.Minute, logger)
+	o, _, err := orgSvc.EnsureBuiltin(context.Background(), "Hidden Token Gaming")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids := identity.New(idSt, o.ID, nil, 10*time.Minute, logger)
+	sess := session.New(idSt, time.Hour, false, logger)
+	apiMux := http.NewServeMux()
+	apiMux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(orgSvc, logger)))
+	apiMux.Handle(hubv1connect.NewIdentityServiceHandler(api.NewIdentityServer(ids, sess, orgSvc, logger)))
+	h, err := web.New(ids, sess, sess.Middleware(apiMux), nil, logger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mux := http.NewServeMux()
+	h.Register(mux)
+	srv := httptest.NewServer(sess.Middleware(mux))
+	defer srv.Close()
+	c := browser(t)
+
+	_, css := get(t, c, srv.URL+"/theme.css")
+	if !strings.Contains(css, "--accent:#1a7a4a") {
+		t.Errorf("defaults before any settings:\n%s", css)
+	}
+	if _, err := orgSvc.UpdateSettings(context.Background(), org.Settings{
+		Theme: org.Theme{Dark: org.Tokens{Accent: "#3ee07a", Background: "#070b17"}, Light: org.Tokens{Accent: "#0a7a3a"}, Font: "Archivo, system-ui, sans-serif", LogoURL: "https://hiddentoken.com/brand/mark.svg", FaviconURL: "https://hiddentoken.com/favicon.svg"},
+		Nav:   []org.NavLink{{Label: "Discord", URL: "https://discord.gg/x"}, {Label: "Rules", URL: "https://hiddentoken.com/rules/", Placement: "footer"}, {Label: "Admin", URL: "/admin", Role: "owner"}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	_, css = get(t, c, srv.URL+"/theme.css")
+	for _, want := range []string{"--accent:#0a7a3a", "--bg:#fafafa", "--font:Archivo, system-ui, sans-serif", "--accent:#3ee07a", "--bg:#070b17"} {
+		if !strings.Contains(css, want) {
+			t.Errorf("theme.css should carry %q (set tokens) with defaults for the rest:\n%s", want, css)
+		}
+	}
+	_, body := get(t, c, srv.URL+"/login")
+	for _, want := range []string{`src="https://hiddentoken.com/brand/mark.svg"`, `rel="icon" href="https://hiddentoken.com/favicon.svg"`, `href="https://discord.gg/x">Discord`, `href="https://hiddentoken.com/rules/">Rules`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("login page should contain %q", want)
+		}
+	}
+	if strings.Contains(body, "/admin") {
+		t.Error("the owner-only link must not show to anonymous visitors")
+	}
+}

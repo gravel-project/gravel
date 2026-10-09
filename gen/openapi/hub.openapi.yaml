@@ -286,6 +286,88 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.GetOrganizationResponse'
+  /gravel.hub.v1.OrganizationService/GetOrganizationSettings:
+    post:
+      tags:
+        - gravel.hub.v1.OrganizationService
+      summary: GetOrganizationSettings
+      description: |-
+        GetOrganizationSettings returns the settings; public, because the pages render the theme
+         before anyone logs in.
+      operationId: gravel.hub.v1.OrganizationService.GetOrganizationSettings
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.GetOrganizationSettingsRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.GetOrganizationSettingsResponse'
+  /gravel.hub.v1.OrganizationService/UpdateOrganizationSettings:
+    post:
+      tags:
+        - gravel.hub.v1.OrganizationService
+      summary: UpdateOrganizationSettings
+      description: |-
+        UpdateOrganizationSettings replaces the settings. The owner only; invalid_argument names
+         every invalid field.
+      operationId: gravel.hub.v1.OrganizationService.UpdateOrganizationSettings
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.UpdateOrganizationSettingsRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.UpdateOrganizationSettingsResponse'
 components:
   schemas:
     connect-protocol-version:
@@ -405,6 +487,19 @@ components:
           title: organization
       title: GetOrganizationResponse
       additionalProperties: false
+    gravel.hub.v1.GetOrganizationSettingsRequest:
+      type: object
+      title: GetOrganizationSettingsRequest
+      additionalProperties: false
+    gravel.hub.v1.GetOrganizationSettingsResponse:
+      type: object
+      properties:
+        settings:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.OrganizationSettings'
+          title: settings
+      title: GetOrganizationSettingsResponse
+      additionalProperties: false
     gravel.hub.v1.Identity:
       type: object
       properties:
@@ -473,6 +568,26 @@ components:
           title: user
       title: LookupUserResponse
       additionalProperties: false
+    gravel.hub.v1.NavLink:
+      type: object
+      properties:
+        label:
+          type: string
+          title: label
+        url:
+          type: string
+          title: url
+        placement:
+          type: string
+          title: placement
+          description: '"header" or "footer"; empty means header.'
+        role:
+          type: string
+          title: role
+          description: Empty for everyone, "owner" for the owner only.
+      title: NavLink
+      additionalProperties: false
+      description: NavLink is a navigation extension link.
     gravel.hub.v1.Organization:
       type: object
       properties:
@@ -506,6 +621,33 @@ components:
       description: |-
         Organization is the single tenant a hub serves. Every top-level object carries an organization
          (the seam for a second tenant later); there is exactly one built-in organization today.
+    gravel.hub.v1.OrganizationSettings:
+      type: object
+      properties:
+        version:
+          type: integer
+          title: version
+          format: int32
+        theme:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.Theme'
+          title: theme
+        nav:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.NavLink'
+          title: nav
+        updatedAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: updated_at
+          description: When the settings were last written; unset while the defaults apply.
+      title: OrganizationSettings
+      additionalProperties: false
+      description: |-
+        OrganizationSettings is the Organization settings resource: every host-configurable knob in
+         one document (theme and navigation first; the Discord role mapping, token lifetimes and layout
+         overrides join it with their features). Version is the document format.
     gravel.hub.v1.RevokeSessionsRequest:
       type: object
       title: RevokeSessionsRequest
@@ -520,6 +662,58 @@ components:
           description: How many sessions were ended, the caller's included.
       title: RevokeSessionsResponse
       additionalProperties: false
+    gravel.hub.v1.Theme:
+      type: object
+      properties:
+        light:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.ThemeTokens'
+          title: light
+        dark:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.ThemeTokens'
+          title: dark
+        font:
+          type: string
+          title: font
+          description: A CSS font-family list; empty means the system font.
+        logoUrl:
+          type: string
+          title: logo_url
+          description: An https URL or a site-relative path, or empty.
+        faviconUrl:
+          type: string
+          title: favicon_url
+      title: Theme
+      additionalProperties: false
+      description: Theme is how the organization's pages look.
+    gravel.hub.v1.ThemeTokens:
+      type: object
+      properties:
+        accent:
+          type: string
+          title: accent
+        background:
+          type: string
+          title: background
+        foreground:
+          type: string
+          title: foreground
+        muted:
+          type: string
+          title: muted
+        line:
+          type: string
+          title: line
+        ok:
+          type: string
+          title: ok
+        err:
+          type: string
+          title: err
+      title: ThemeTokens
+      additionalProperties: false
+      description: ThemeTokens are one colour scheme's colours as CSS colours; an empty token means the default.
     gravel.hub.v1.UnlinkIdentityRequest:
       type: object
       properties:
@@ -540,6 +734,25 @@ components:
           title: user
           description: The caller, after the unlink.
       title: UnlinkIdentityResponse
+      additionalProperties: false
+    gravel.hub.v1.UpdateOrganizationSettingsRequest:
+      type: object
+      properties:
+        settings:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.OrganizationSettings'
+          title: settings
+          description: The whole document; omitted tokens mean the default, an omitted nav means no links.
+      title: UpdateOrganizationSettingsRequest
+      additionalProperties: false
+    gravel.hub.v1.UpdateOrganizationSettingsResponse:
+      type: object
+      properties:
+        settings:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.OrganizationSettings'
+          title: settings
+      title: UpdateOrganizationSettingsResponse
       additionalProperties: false
     gravel.hub.v1.User:
       type: object

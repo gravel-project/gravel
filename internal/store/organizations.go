@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -22,16 +23,19 @@ type Organization struct {
 	OwnerUserID         *uuid.UUID
 	ClaimTokenHash      []byte
 	ClaimTokenExpiresAt *time.Time
+	// Settings is the Organization settings document (org.Settings), "{}" until one is written.
+	Settings          json.RawMessage
+	SettingsUpdatedAt *time.Time
 }
 
 // Owned reports whether ownership has been claimed.
 func (o Organization) Owned() bool { return o.ClaimedAt != nil }
 
-const organizationColumns = `id, name, builtin, created_at, claimed_at, owner_user_id, claim_token_hash, claim_token_expires_at`
+const organizationColumns = `id, name, builtin, created_at, claimed_at, owner_user_id, claim_token_hash, claim_token_expires_at, settings, settings_updated_at`
 
 func scanOrganization(row pgx.Row) (Organization, error) {
 	var o Organization
-	err := row.Scan(&o.ID, &o.Name, &o.Builtin, &o.CreatedAt, &o.ClaimedAt, &o.OwnerUserID, &o.ClaimTokenHash, &o.ClaimTokenExpiresAt)
+	err := row.Scan(&o.ID, &o.Name, &o.Builtin, &o.CreatedAt, &o.ClaimedAt, &o.OwnerUserID, &o.ClaimTokenHash, &o.ClaimTokenExpiresAt, &o.Settings, &o.SettingsUpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Organization{}, ErrNotFound
 	}
@@ -119,4 +123,14 @@ func (s *Store) ClaimOrganization(ctx context.Context, id uuid.UUID, hash []byte
 		return Organization{}, ErrOwned
 	}
 	return Organization{}, ErrClaimRejected
+}
+
+// UpdateOrganizationSettings replaces the settings document. ErrNotFound for an unknown id.
+func (s *Store) UpdateOrganizationSettings(ctx context.Context, id uuid.UUID, settings json.RawMessage, at time.Time) (Organization, error) {
+	o, err := scanOrganization(s.pool.QueryRow(ctx,
+		`UPDATE organizations SET settings = $2, settings_updated_at = $3 WHERE id = $1 RETURNING `+organizationColumns, id, settings, at))
+	if err != nil && !errors.Is(err, ErrNotFound) {
+		return Organization{}, fmt.Errorf("store: update organization settings: %w", err)
+	}
+	return o, err
 }

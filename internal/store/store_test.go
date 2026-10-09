@@ -2,6 +2,7 @@ package store_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 	"time"
@@ -119,5 +120,34 @@ func TestArchiverWithArchivingOff(t *testing.T) {
 	}
 	if a.ArchivedCount != 0 || a.FailedCount != 0 || a.LastArchivedTime != nil || a.LastFailedTime != nil || a.LastArchivedWAL != "" {
 		t.Errorf("a test database archives nothing: %+v", a)
+	}
+}
+
+func TestOrganizationSettings(t *testing.T) {
+	st := storetest.Open(t)
+	storetest.Reset(t, st)
+	ctx := context.Background()
+	o, err := st.CreateBuiltinOrganization(ctx, uuid.New(), "HTG")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(o.Settings) != "{}" || o.SettingsUpdatedAt != nil {
+		t.Errorf("fresh settings: %s %v", o.Settings, o.SettingsUpdatedAt)
+	}
+	now := time.Now().UTC().Truncate(time.Microsecond)
+	doc := json.RawMessage(`{"version": 1, "theme": {"font": "Archivo, sans-serif"}}`)
+	u, err := st.UpdateOrganizationSettings(ctx, o.ID, doc, now)
+	if err != nil || u.SettingsUpdatedAt == nil || !u.SettingsUpdatedAt.Equal(now) {
+		t.Fatalf("update: %v %+v", err, u)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(u.Settings, &got); err != nil || got["version"] != float64(1) || got["theme"].(map[string]any)["font"] != "Archivo, sans-serif" {
+		t.Errorf("settings round trip: %s (%v)", u.Settings, err)
+	}
+	if _, err := st.UpdateOrganizationSettings(ctx, uuid.New(), doc, now); !errors.Is(err, store.ErrNotFound) {
+		t.Errorf("unknown organization: %v", err)
+	}
+	if again, _ := st.GetBuiltinOrganization(ctx); string(again.Settings) != string(u.Settings) {
+		t.Errorf("get after update: %s", again.Settings)
 	}
 }

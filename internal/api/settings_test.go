@@ -1,0 +1,72 @@
+package api_test
+
+import (
+	"context"
+	"net/http"
+	"strings"
+	"testing"
+
+	"connectrpc.com/connect"
+
+	hubv1 "github.com/gravel-project/gravel/gen/gravel/hub/v1"
+	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
+)
+
+func TestOrganizationSettings(t *testing.T) {
+	r := newRig(t)
+	ctx := context.Background()
+	anon := hubv1connect.NewOrganizationServiceClient(http.DefaultClient, r.srv.URL)
+
+	got, err := anon.GetOrganizationSettings(ctx, connect.NewRequest(&hubv1.GetOrganizationSettingsRequest{}))
+	if err != nil || got.Msg.GetSettings().GetVersion() != 1 || got.Msg.GetSettings().GetUpdatedAt() != nil || len(got.Msg.GetSettings().GetNav()) != 0 {
+		t.Fatalf("defaults are public: %v %v", err, got)
+	}
+
+	want := &hubv1.OrganizationSettings{
+		Theme: &hubv1.Theme{Dark: &hubv1.ThemeTokens{Accent: "#3ee07a", Background: "#070b17"}, Light: &hubv1.ThemeTokens{Accent: "#0a7a3a"}, Font: "Archivo, system-ui, sans-serif", LogoUrl: "https://hiddentoken.com/brand/mark.svg"},
+		Nav:   []*hubv1.NavLink{{Label: "Discord", Url: "https://discord.gg/x"}, {Label: "Rules", Url: "https://hiddentoken.com/rules/", Placement: "footer"}, {Label: "Admin", Url: "/admin", Role: "owner"}},
+	}
+	if _, err := anon.UpdateOrganizationSettings(ctx, connect.NewRequest(&hubv1.UpdateOrganizationSettingsRequest{Settings: want})); connect.CodeOf(err) != connect.CodeUnauthenticated {
+		t.Errorf("anonymous update: %v", err)
+	}
+	jo := r.user(t, "Jo", "1")
+	sam := r.user(t, "Sam", "2")
+	joClient := hubv1connect.NewOrganizationServiceClient(cookieClient(http.DefaultClient, r.login(t, jo.ID)), r.srv.URL)
+	samClient := hubv1connect.NewOrganizationServiceClient(cookieClient(http.DefaultClient, r.login(t, sam.ID)), r.srv.URL)
+	if _, err := joClient.UpdateOrganizationSettings(ctx, connect.NewRequest(&hubv1.UpdateOrganizationSettingsRequest{Settings: want})); connect.CodeOf(err) != connect.CodePermissionDenied {
+		t.Errorf("a member before any claim: %v", err)
+	}
+	if _, err := r.org.Claim(ctx, r.token, jo.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := samClient.UpdateOrganizationSettings(ctx, connect.NewRequest(&hubv1.UpdateOrganizationSettingsRequest{Settings: want})); connect.CodeOf(err) != connect.CodePermissionDenied {
+		t.Errorf("a member: %v", err)
+	}
+	upd, err := joClient.UpdateOrganizationSettings(ctx, connect.NewRequest(&hubv1.UpdateOrganizationSettingsRequest{Settings: want}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := upd.Msg.GetSettings()
+	if s.GetVersion() != 1 || s.GetUpdatedAt() == nil || s.GetTheme().GetDark().GetAccent() != "#3ee07a" || s.GetTheme().GetLogoUrl() != "https://hiddentoken.com/brand/mark.svg" || len(s.GetNav()) != 3 || s.GetNav()[0].GetPlacement() != "header" || s.GetNav()[1].GetPlacement() != "footer" || s.GetNav()[2].GetRole() != "owner" {
+		t.Errorf("update: %v", s)
+	}
+	got, _ = anon.GetOrganizationSettings(ctx, connect.NewRequest(&hubv1.GetOrganizationSettingsRequest{}))
+	if got.Msg.GetSettings().GetTheme().GetFont() != "Archivo, system-ui, sans-serif" || got.Msg.GetSettings().GetUpdatedAt() == nil {
+		t.Errorf("read back: %v", got.Msg)
+	}
+
+	bad := &hubv1.OrganizationSettings{Theme: &hubv1.Theme{Light: &hubv1.ThemeTokens{Accent: "red; }"}, LogoUrl: "http://insecure.example/x.png"}, Nav: []*hubv1.NavLink{{Label: "", Url: "javascript:alert(1)", Placement: "sidebar"}}}
+	_, err = joClient.UpdateOrganizationSettings(ctx, connect.NewRequest(&hubv1.UpdateOrganizationSettingsRequest{Settings: bad}))
+	if connect.CodeOf(err) != connect.CodeInvalidArgument {
+		t.Fatalf("invalid: %v", err)
+	}
+	for _, want := range []string{"theme.light.accent", "theme.logo_url", "nav[0].label", "nav[0].url", "nav[0].placement"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("the error names %s: %v", want, err)
+		}
+	}
+	got, _ = anon.GetOrganizationSettings(ctx, connect.NewRequest(&hubv1.GetOrganizationSettingsRequest{}))
+	if got.Msg.GetSettings().GetTheme().GetDark().GetAccent() != "#3ee07a" {
+		t.Error("an invalid update must leave the settings as they were")
+	}
+}

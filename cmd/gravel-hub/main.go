@@ -4,6 +4,8 @@
 //	gravel-hub migrate      [--config hub.yaml] [--status] apply pending migrations, or show them
 //	gravel-hub config check [--config hub.yaml]           load and validate the configuration
 //	gravel-hub healthcheck  [--url http://127.0.0.1:8080/healthz]
+//	gravel-hub settings export [--config hub.yaml]              print the Organization settings as a manifest
+//	gravel-hub settings apply <manifest.yaml> [--dry-run]       apply a manifest (exit 3 on --dry-run with changes)
 //	gravel-hub version
 //
 // The config path defaults to $GRAVEL_CONFIG, then /etc/gravel/hub.yaml.
@@ -54,6 +56,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		return configCheck(args[1:], stdout, stderr)
 	case "healthcheck":
 		return healthcheck(ctx, args, stderr)
+	case "settings":
+		return settings(ctx, args, stdout, stderr)
 	case "version":
 		fmt.Fprintln(stdout, "gravel-hub", buildVersion())
 		return 0
@@ -75,6 +79,7 @@ func usage(w io.Writer) {
   migrate       apply pending migrations; --status shows them instead
   config check  load and validate the configuration
   healthcheck   GET /healthz and exit 0 when it answers; --url
+  settings      export the Organization settings as a manifest, or apply one (--dry-run exits 3 on a change)
   version       print the version
 
 The config path comes from --config, then $GRAVEL_CONFIG, then `+defaultConfigPath+`.

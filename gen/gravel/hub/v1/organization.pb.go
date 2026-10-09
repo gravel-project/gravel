@@ -282,6 +282,490 @@ func (x *ClaimOwnershipResponse) GetOrganization() *Organization {
 	return nil
 }
 
+// ThemeTokens are one colour scheme's colours as CSS colours; an empty token means the default.
+type ThemeTokens struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Accent        string                 `protobuf:"bytes,1,opt,name=accent,proto3" json:"accent,omitempty"`
+	Background    string                 `protobuf:"bytes,2,opt,name=background,proto3" json:"background,omitempty"`
+	Foreground    string                 `protobuf:"bytes,3,opt,name=foreground,proto3" json:"foreground,omitempty"`
+	Muted         string                 `protobuf:"bytes,4,opt,name=muted,proto3" json:"muted,omitempty"`
+	Line          string                 `protobuf:"bytes,5,opt,name=line,proto3" json:"line,omitempty"`
+	Ok            string                 `protobuf:"bytes,6,opt,name=ok,proto3" json:"ok,omitempty"`
+	Err           string                 `protobuf:"bytes,7,opt,name=err,proto3" json:"err,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ThemeTokens) Reset() {
+	*x = ThemeTokens{}
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ThemeTokens) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ThemeTokens) ProtoMessage() {}
+
+func (x *ThemeTokens) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ThemeTokens.ProtoReflect.Descriptor instead.
+func (*ThemeTokens) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *ThemeTokens) GetAccent() string {
+	if x != nil {
+		return x.Accent
+	}
+	return ""
+}
+
+func (x *ThemeTokens) GetBackground() string {
+	if x != nil {
+		return x.Background
+	}
+	return ""
+}
+
+func (x *ThemeTokens) GetForeground() string {
+	if x != nil {
+		return x.Foreground
+	}
+	return ""
+}
+
+func (x *ThemeTokens) GetMuted() string {
+	if x != nil {
+		return x.Muted
+	}
+	return ""
+}
+
+func (x *ThemeTokens) GetLine() string {
+	if x != nil {
+		return x.Line
+	}
+	return ""
+}
+
+func (x *ThemeTokens) GetOk() string {
+	if x != nil {
+		return x.Ok
+	}
+	return ""
+}
+
+func (x *ThemeTokens) GetErr() string {
+	if x != nil {
+		return x.Err
+	}
+	return ""
+}
+
+// Theme is how the organization's pages look.
+type Theme struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Light *ThemeTokens           `protobuf:"bytes,1,opt,name=light,proto3" json:"light,omitempty"`
+	Dark  *ThemeTokens           `protobuf:"bytes,2,opt,name=dark,proto3" json:"dark,omitempty"`
+	// A CSS font-family list; empty means the system font.
+	Font string `protobuf:"bytes,3,opt,name=font,proto3" json:"font,omitempty"`
+	// An https URL or a site-relative path, or empty.
+	LogoUrl       string `protobuf:"bytes,4,opt,name=logo_url,json=logoUrl,proto3" json:"logo_url,omitempty"`
+	FaviconUrl    string `protobuf:"bytes,5,opt,name=favicon_url,json=faviconUrl,proto3" json:"favicon_url,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Theme) Reset() {
+	*x = Theme{}
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Theme) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Theme) ProtoMessage() {}
+
+func (x *Theme) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Theme.ProtoReflect.Descriptor instead.
+func (*Theme) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *Theme) GetLight() *ThemeTokens {
+	if x != nil {
+		return x.Light
+	}
+	return nil
+}
+
+func (x *Theme) GetDark() *ThemeTokens {
+	if x != nil {
+		return x.Dark
+	}
+	return nil
+}
+
+func (x *Theme) GetFont() string {
+	if x != nil {
+		return x.Font
+	}
+	return ""
+}
+
+func (x *Theme) GetLogoUrl() string {
+	if x != nil {
+		return x.LogoUrl
+	}
+	return ""
+}
+
+func (x *Theme) GetFaviconUrl() string {
+	if x != nil {
+		return x.FaviconUrl
+	}
+	return ""
+}
+
+// NavLink is a navigation extension link.
+type NavLink struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Label string                 `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	Url   string                 `protobuf:"bytes,2,opt,name=url,proto3" json:"url,omitempty"`
+	// "header" or "footer"; empty means header.
+	Placement string `protobuf:"bytes,3,opt,name=placement,proto3" json:"placement,omitempty"`
+	// Empty for everyone, "owner" for the owner only.
+	Role          string `protobuf:"bytes,4,opt,name=role,proto3" json:"role,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NavLink) Reset() {
+	*x = NavLink{}
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NavLink) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NavLink) ProtoMessage() {}
+
+func (x *NavLink) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NavLink.ProtoReflect.Descriptor instead.
+func (*NavLink) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *NavLink) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+func (x *NavLink) GetUrl() string {
+	if x != nil {
+		return x.Url
+	}
+	return ""
+}
+
+func (x *NavLink) GetPlacement() string {
+	if x != nil {
+		return x.Placement
+	}
+	return ""
+}
+
+func (x *NavLink) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
+// OrganizationSettings is the Organization settings resource: every host-configurable knob in
+// one document (theme and navigation first; the Discord role mapping, token lifetimes and layout
+// overrides join it with their features). Version is the document format.
+type OrganizationSettings struct {
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Version int32                  `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
+	Theme   *Theme                 `protobuf:"bytes,2,opt,name=theme,proto3" json:"theme,omitempty"`
+	Nav     []*NavLink             `protobuf:"bytes,3,rep,name=nav,proto3" json:"nav,omitempty"`
+	// When the settings were last written; unset while the defaults apply.
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *OrganizationSettings) Reset() {
+	*x = OrganizationSettings{}
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OrganizationSettings) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OrganizationSettings) ProtoMessage() {}
+
+func (x *OrganizationSettings) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OrganizationSettings.ProtoReflect.Descriptor instead.
+func (*OrganizationSettings) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *OrganizationSettings) GetVersion() int32 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
+func (x *OrganizationSettings) GetTheme() *Theme {
+	if x != nil {
+		return x.Theme
+	}
+	return nil
+}
+
+func (x *OrganizationSettings) GetNav() []*NavLink {
+	if x != nil {
+		return x.Nav
+	}
+	return nil
+}
+
+func (x *OrganizationSettings) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+type GetOrganizationSettingsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetOrganizationSettingsRequest) Reset() {
+	*x = GetOrganizationSettingsRequest{}
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetOrganizationSettingsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetOrganizationSettingsRequest) ProtoMessage() {}
+
+func (x *GetOrganizationSettingsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetOrganizationSettingsRequest.ProtoReflect.Descriptor instead.
+func (*GetOrganizationSettingsRequest) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{9}
+}
+
+type GetOrganizationSettingsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Settings      *OrganizationSettings  `protobuf:"bytes,1,opt,name=settings,proto3" json:"settings,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetOrganizationSettingsResponse) Reset() {
+	*x = GetOrganizationSettingsResponse{}
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetOrganizationSettingsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetOrganizationSettingsResponse) ProtoMessage() {}
+
+func (x *GetOrganizationSettingsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetOrganizationSettingsResponse.ProtoReflect.Descriptor instead.
+func (*GetOrganizationSettingsResponse) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *GetOrganizationSettingsResponse) GetSettings() *OrganizationSettings {
+	if x != nil {
+		return x.Settings
+	}
+	return nil
+}
+
+type UpdateOrganizationSettingsRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The whole document; omitted tokens mean the default, an omitted nav means no links.
+	Settings      *OrganizationSettings `protobuf:"bytes,1,opt,name=settings,proto3" json:"settings,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateOrganizationSettingsRequest) Reset() {
+	*x = UpdateOrganizationSettingsRequest{}
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateOrganizationSettingsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateOrganizationSettingsRequest) ProtoMessage() {}
+
+func (x *UpdateOrganizationSettingsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateOrganizationSettingsRequest.ProtoReflect.Descriptor instead.
+func (*UpdateOrganizationSettingsRequest) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *UpdateOrganizationSettingsRequest) GetSettings() *OrganizationSettings {
+	if x != nil {
+		return x.Settings
+	}
+	return nil
+}
+
+type UpdateOrganizationSettingsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Settings      *OrganizationSettings  `protobuf:"bytes,1,opt,name=settings,proto3" json:"settings,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateOrganizationSettingsResponse) Reset() {
+	*x = UpdateOrganizationSettingsResponse{}
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateOrganizationSettingsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateOrganizationSettingsResponse) ProtoMessage() {}
+
+func (x *UpdateOrganizationSettingsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateOrganizationSettingsResponse.ProtoReflect.Descriptor instead.
+func (*UpdateOrganizationSettingsResponse) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *UpdateOrganizationSettingsResponse) GetSettings() *OrganizationSettings {
+	if x != nil {
+		return x.Settings
+	}
+	return nil
+}
+
 var File_gravel_hub_v1_organization_proto protoreflect.FileDescriptor
 
 const file_gravel_hub_v1_organization_proto_rawDesc = "" +
@@ -302,10 +786,49 @@ const file_gravel_hub_v1_organization_proto_rawDesc = "" +
 	"\x15ClaimOwnershipRequest\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\"Y\n" +
 	"\x16ClaimOwnershipResponse\x12?\n" +
-	"\forganization\x18\x01 \x01(\v2\x1b.gravel.hub.v1.OrganizationR\forganization2\xd6\x01\n" +
+	"\forganization\x18\x01 \x01(\v2\x1b.gravel.hub.v1.OrganizationR\forganization\"\xb1\x01\n" +
+	"\vThemeTokens\x12\x16\n" +
+	"\x06accent\x18\x01 \x01(\tR\x06accent\x12\x1e\n" +
+	"\n" +
+	"background\x18\x02 \x01(\tR\n" +
+	"background\x12\x1e\n" +
+	"\n" +
+	"foreground\x18\x03 \x01(\tR\n" +
+	"foreground\x12\x14\n" +
+	"\x05muted\x18\x04 \x01(\tR\x05muted\x12\x12\n" +
+	"\x04line\x18\x05 \x01(\tR\x04line\x12\x0e\n" +
+	"\x02ok\x18\x06 \x01(\tR\x02ok\x12\x10\n" +
+	"\x03err\x18\a \x01(\tR\x03err\"\xb9\x01\n" +
+	"\x05Theme\x120\n" +
+	"\x05light\x18\x01 \x01(\v2\x1a.gravel.hub.v1.ThemeTokensR\x05light\x12.\n" +
+	"\x04dark\x18\x02 \x01(\v2\x1a.gravel.hub.v1.ThemeTokensR\x04dark\x12\x12\n" +
+	"\x04font\x18\x03 \x01(\tR\x04font\x12\x19\n" +
+	"\blogo_url\x18\x04 \x01(\tR\alogoUrl\x12\x1f\n" +
+	"\vfavicon_url\x18\x05 \x01(\tR\n" +
+	"faviconUrl\"c\n" +
+	"\aNavLink\x12\x14\n" +
+	"\x05label\x18\x01 \x01(\tR\x05label\x12\x10\n" +
+	"\x03url\x18\x02 \x01(\tR\x03url\x12\x1c\n" +
+	"\tplacement\x18\x03 \x01(\tR\tplacement\x12\x12\n" +
+	"\x04role\x18\x04 \x01(\tR\x04role\"\xc1\x01\n" +
+	"\x14OrganizationSettings\x12\x18\n" +
+	"\aversion\x18\x01 \x01(\x05R\aversion\x12*\n" +
+	"\x05theme\x18\x02 \x01(\v2\x14.gravel.hub.v1.ThemeR\x05theme\x12(\n" +
+	"\x03nav\x18\x03 \x03(\v2\x16.gravel.hub.v1.NavLinkR\x03nav\x129\n" +
+	"\n" +
+	"updated_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\" \n" +
+	"\x1eGetOrganizationSettingsRequest\"b\n" +
+	"\x1fGetOrganizationSettingsResponse\x12?\n" +
+	"\bsettings\x18\x01 \x01(\v2#.gravel.hub.v1.OrganizationSettingsR\bsettings\"d\n" +
+	"!UpdateOrganizationSettingsRequest\x12?\n" +
+	"\bsettings\x18\x01 \x01(\v2#.gravel.hub.v1.OrganizationSettingsR\bsettings\"e\n" +
+	"\"UpdateOrganizationSettingsResponse\x12?\n" +
+	"\bsettings\x18\x01 \x01(\v2#.gravel.hub.v1.OrganizationSettingsR\bsettings2\xd4\x03\n" +
 	"\x13OrganizationService\x12`\n" +
 	"\x0fGetOrganization\x12%.gravel.hub.v1.GetOrganizationRequest\x1a&.gravel.hub.v1.GetOrganizationResponse\x12]\n" +
-	"\x0eClaimOwnership\x12$.gravel.hub.v1.ClaimOwnershipRequest\x1a%.gravel.hub.v1.ClaimOwnershipResponseB:Z8github.com/gravel-project/gravel/gen/gravel/hub/v1;hubv1b\x06proto3"
+	"\x0eClaimOwnership\x12$.gravel.hub.v1.ClaimOwnershipRequest\x1a%.gravel.hub.v1.ClaimOwnershipResponse\x12x\n" +
+	"\x17GetOrganizationSettings\x12-.gravel.hub.v1.GetOrganizationSettingsRequest\x1a..gravel.hub.v1.GetOrganizationSettingsResponse\x12\x81\x01\n" +
+	"\x1aUpdateOrganizationSettings\x120.gravel.hub.v1.UpdateOrganizationSettingsRequest\x1a1.gravel.hub.v1.UpdateOrganizationSettingsResponseB:Z8github.com/gravel-project/gravel/gen/gravel/hub/v1;hubv1b\x06proto3"
 
 var (
 	file_gravel_hub_v1_organization_proto_rawDescOnce sync.Once
@@ -319,29 +842,49 @@ func file_gravel_hub_v1_organization_proto_rawDescGZIP() []byte {
 	return file_gravel_hub_v1_organization_proto_rawDescData
 }
 
-var file_gravel_hub_v1_organization_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_gravel_hub_v1_organization_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_gravel_hub_v1_organization_proto_goTypes = []any{
-	(*Organization)(nil),            // 0: gravel.hub.v1.Organization
-	(*GetOrganizationRequest)(nil),  // 1: gravel.hub.v1.GetOrganizationRequest
-	(*GetOrganizationResponse)(nil), // 2: gravel.hub.v1.GetOrganizationResponse
-	(*ClaimOwnershipRequest)(nil),   // 3: gravel.hub.v1.ClaimOwnershipRequest
-	(*ClaimOwnershipResponse)(nil),  // 4: gravel.hub.v1.ClaimOwnershipResponse
-	(*timestamppb.Timestamp)(nil),   // 5: google.protobuf.Timestamp
+	(*Organization)(nil),                       // 0: gravel.hub.v1.Organization
+	(*GetOrganizationRequest)(nil),             // 1: gravel.hub.v1.GetOrganizationRequest
+	(*GetOrganizationResponse)(nil),            // 2: gravel.hub.v1.GetOrganizationResponse
+	(*ClaimOwnershipRequest)(nil),              // 3: gravel.hub.v1.ClaimOwnershipRequest
+	(*ClaimOwnershipResponse)(nil),             // 4: gravel.hub.v1.ClaimOwnershipResponse
+	(*ThemeTokens)(nil),                        // 5: gravel.hub.v1.ThemeTokens
+	(*Theme)(nil),                              // 6: gravel.hub.v1.Theme
+	(*NavLink)(nil),                            // 7: gravel.hub.v1.NavLink
+	(*OrganizationSettings)(nil),               // 8: gravel.hub.v1.OrganizationSettings
+	(*GetOrganizationSettingsRequest)(nil),     // 9: gravel.hub.v1.GetOrganizationSettingsRequest
+	(*GetOrganizationSettingsResponse)(nil),    // 10: gravel.hub.v1.GetOrganizationSettingsResponse
+	(*UpdateOrganizationSettingsRequest)(nil),  // 11: gravel.hub.v1.UpdateOrganizationSettingsRequest
+	(*UpdateOrganizationSettingsResponse)(nil), // 12: gravel.hub.v1.UpdateOrganizationSettingsResponse
+	(*timestamppb.Timestamp)(nil),              // 13: google.protobuf.Timestamp
 }
 var file_gravel_hub_v1_organization_proto_depIdxs = []int32{
-	5, // 0: gravel.hub.v1.Organization.created_at:type_name -> google.protobuf.Timestamp
-	5, // 1: gravel.hub.v1.Organization.claimed_at:type_name -> google.protobuf.Timestamp
-	0, // 2: gravel.hub.v1.GetOrganizationResponse.organization:type_name -> gravel.hub.v1.Organization
-	0, // 3: gravel.hub.v1.ClaimOwnershipResponse.organization:type_name -> gravel.hub.v1.Organization
-	1, // 4: gravel.hub.v1.OrganizationService.GetOrganization:input_type -> gravel.hub.v1.GetOrganizationRequest
-	3, // 5: gravel.hub.v1.OrganizationService.ClaimOwnership:input_type -> gravel.hub.v1.ClaimOwnershipRequest
-	2, // 6: gravel.hub.v1.OrganizationService.GetOrganization:output_type -> gravel.hub.v1.GetOrganizationResponse
-	4, // 7: gravel.hub.v1.OrganizationService.ClaimOwnership:output_type -> gravel.hub.v1.ClaimOwnershipResponse
-	6, // [6:8] is the sub-list for method output_type
-	4, // [4:6] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	13, // 0: gravel.hub.v1.Organization.created_at:type_name -> google.protobuf.Timestamp
+	13, // 1: gravel.hub.v1.Organization.claimed_at:type_name -> google.protobuf.Timestamp
+	0,  // 2: gravel.hub.v1.GetOrganizationResponse.organization:type_name -> gravel.hub.v1.Organization
+	0,  // 3: gravel.hub.v1.ClaimOwnershipResponse.organization:type_name -> gravel.hub.v1.Organization
+	5,  // 4: gravel.hub.v1.Theme.light:type_name -> gravel.hub.v1.ThemeTokens
+	5,  // 5: gravel.hub.v1.Theme.dark:type_name -> gravel.hub.v1.ThemeTokens
+	6,  // 6: gravel.hub.v1.OrganizationSettings.theme:type_name -> gravel.hub.v1.Theme
+	7,  // 7: gravel.hub.v1.OrganizationSettings.nav:type_name -> gravel.hub.v1.NavLink
+	13, // 8: gravel.hub.v1.OrganizationSettings.updated_at:type_name -> google.protobuf.Timestamp
+	8,  // 9: gravel.hub.v1.GetOrganizationSettingsResponse.settings:type_name -> gravel.hub.v1.OrganizationSettings
+	8,  // 10: gravel.hub.v1.UpdateOrganizationSettingsRequest.settings:type_name -> gravel.hub.v1.OrganizationSettings
+	8,  // 11: gravel.hub.v1.UpdateOrganizationSettingsResponse.settings:type_name -> gravel.hub.v1.OrganizationSettings
+	1,  // 12: gravel.hub.v1.OrganizationService.GetOrganization:input_type -> gravel.hub.v1.GetOrganizationRequest
+	3,  // 13: gravel.hub.v1.OrganizationService.ClaimOwnership:input_type -> gravel.hub.v1.ClaimOwnershipRequest
+	9,  // 14: gravel.hub.v1.OrganizationService.GetOrganizationSettings:input_type -> gravel.hub.v1.GetOrganizationSettingsRequest
+	11, // 15: gravel.hub.v1.OrganizationService.UpdateOrganizationSettings:input_type -> gravel.hub.v1.UpdateOrganizationSettingsRequest
+	2,  // 16: gravel.hub.v1.OrganizationService.GetOrganization:output_type -> gravel.hub.v1.GetOrganizationResponse
+	4,  // 17: gravel.hub.v1.OrganizationService.ClaimOwnership:output_type -> gravel.hub.v1.ClaimOwnershipResponse
+	10, // 18: gravel.hub.v1.OrganizationService.GetOrganizationSettings:output_type -> gravel.hub.v1.GetOrganizationSettingsResponse
+	12, // 19: gravel.hub.v1.OrganizationService.UpdateOrganizationSettings:output_type -> gravel.hub.v1.UpdateOrganizationSettingsResponse
+	16, // [16:20] is the sub-list for method output_type
+	12, // [12:16] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_gravel_hub_v1_organization_proto_init() }
@@ -355,7 +898,7 @@ func file_gravel_hub_v1_organization_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gravel_hub_v1_organization_proto_rawDesc), len(file_gravel_hub_v1_organization_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

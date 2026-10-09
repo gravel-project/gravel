@@ -37,6 +37,64 @@ message ClaimOwnershipResponse {
   Organization organization = 1;
 }
 
+// ThemeTokens are one colour scheme's colours as CSS colours; an empty token means the default.
+message ThemeTokens {
+  string accent = 1;
+  string background = 2;
+  string foreground = 3;
+  string muted = 4;
+  string line = 5;
+  string ok = 6;
+  string err = 7;
+}
+
+// Theme is how the organization's pages look.
+message Theme {
+  ThemeTokens light = 1;
+  ThemeTokens dark = 2;
+  // A CSS font-family list; empty means the system font.
+  string font = 3;
+  // An https URL or a site-relative path, or empty.
+  string logo_url = 4;
+  string favicon_url = 5;
+}
+
+// NavLink is a navigation extension link.
+message NavLink {
+  string label = 1;
+  string url = 2;
+  // "header" or "footer"; empty means header.
+  string placement = 3;
+  // Empty for everyone, "owner" for the owner only.
+  string role = 4;
+}
+
+// OrganizationSettings is the Organization settings resource: every host-configurable knob in
+// one document (theme and navigation first; the Discord role mapping, token lifetimes and layout
+// overrides join it with their features). Version is the document format.
+message OrganizationSettings {
+  int32 version = 1;
+  Theme theme = 2;
+  repeated NavLink nav = 3;
+  // When the settings were last written; unset while the defaults apply.
+  google.protobuf.Timestamp updated_at = 4;
+}
+
+message GetOrganizationSettingsRequest {}
+
+message GetOrganizationSettingsResponse {
+  OrganizationSettings settings = 1;
+}
+
+message UpdateOrganizationSettingsRequest {
+  // The whole document; omitted tokens mean the default, an omitted nav means no links.
+  OrganizationSettings settings = 1;
+}
+
+message UpdateOrganizationSettingsResponse {
+  OrganizationSettings settings = 1;
+}
+
 // OrganizationService reads the built-in organization and claims its ownership once.
 service OrganizationService {
   rpc GetOrganization(GetOrganizationRequest) returns (GetOrganizationResponse);
@@ -44,4 +102,10 @@ service OrganizationService {
   // needs a session (unauthenticated otherwise) and succeeds once per hub: the token is
   // single-use, expires, and no token exists once the hub is owned.
   rpc ClaimOwnership(ClaimOwnershipRequest) returns (ClaimOwnershipResponse);
+  // GetOrganizationSettings returns the settings; public, because the pages render the theme
+  // before anyone logs in.
+  rpc GetOrganizationSettings(GetOrganizationSettingsRequest) returns (GetOrganizationSettingsResponse);
+  // UpdateOrganizationSettings replaces the settings. The owner only; invalid_argument names
+  // every invalid field.
+  rpc UpdateOrganizationSettings(UpdateOrganizationSettingsRequest) returns (UpdateOrganizationSettingsResponse);
 }
