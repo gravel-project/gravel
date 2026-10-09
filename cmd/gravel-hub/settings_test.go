@@ -68,7 +68,7 @@ func TestSettingsExportAndApply(t *testing.T) {
 	if code, out, _ := run("settings", "apply", manifest, "--dry-run", "--config", cfgPath); code != 3 || !strings.Contains(out, "would change") {
 		t.Errorf("dry run with a change: %d %q", code, out)
 	}
-	if code, out, errOut := run("settings", "apply", "--config", cfgPath, manifest); code != 0 || !strings.Contains(out, "applied (1 nav links") {
+	if code, out, errOut := run("settings", "apply", "--config", cfgPath, manifest); code != 0 || !strings.Contains(out, "applied (1 nav links") || !strings.Contains(out, "discord unmapped") {
 		t.Fatalf("apply: %d %q %q", code, out, errOut)
 	}
 	if code, out, _ := run("settings", "apply", manifest, "--dry-run", "--config", cfgPath); code != 0 || !strings.Contains(out, "unchanged") {
@@ -77,6 +77,16 @@ func TestSettingsExportAndApply(t *testing.T) {
 	code, out, _ = run("settings", "export", "--config", cfgPath)
 	if code != 0 || !strings.Contains(out, "accent: '#3ee07a'") && !strings.Contains(out, `accent: "#3ee07a"`) || !strings.Contains(out, "label: Discord") {
 		t.Errorf("export after apply: %d\n%s", code, out)
+	}
+	mapped := "discord:\n  guild_id: \"519496143298756611\"\n  roles:\n    linked: \"1300000000000000001\"\n  recognition:\n    - role: \"1300000000000000003\"\n      rule: first_members\n      count: 50\n"
+	if err := os.WriteFile(manifest, []byte(mapped), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if code, out, errOut := run("settings", "apply", manifest, "--config", cfgPath); code != 0 || !strings.Contains(out, "discord guild 519496143298756611, 2 roles") {
+		t.Errorf("apply a mapping: %d %q %q", code, out, errOut)
+	}
+	if code, out, _ := run("settings", "export", "--config", cfgPath); code != 0 || !strings.Contains(out, "guild_id: \"519496143298756611\"") && !strings.Contains(out, "guild_id: '519496143298756611'") {
+		t.Errorf("export keeps the ids quoted strings: %d\n%s", code, out)
 	}
 	if err := os.WriteFile(manifest, []byte("theme:\n  font: \"x; y\"\n"), 0o644); err != nil {
 		t.Fatal(err)

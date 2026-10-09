@@ -134,14 +134,14 @@ func settingsApply(ctx context.Context, args []string, stdout, stderr io.Writer)
 		return 0
 	}
 	if *dryRun {
-		fmt.Fprintf(stdout, "settings would change (%d nav links, theme %s)\n", len(want.Nav), describeTheme(want.Theme))
+		fmt.Fprintf(stdout, "settings would change (%d nav links, theme %s, discord %s)\n", len(want.Nav), describeTheme(want.Theme), describeDiscord(want.Discord))
 		return 3
 	}
 	if _, err := svc.UpdateSettings(ctx, want); err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1
 	}
-	fmt.Fprintf(stdout, "settings applied (%d nav links, theme %s)\n", len(want.Nav), describeTheme(want.Theme))
+	fmt.Fprintf(stdout, "settings applied (%d nav links, theme %s, discord %s)\n", len(want.Nav), describeTheme(want.Theme), describeDiscord(want.Discord))
 	return 0
 }
 
@@ -164,4 +164,11 @@ func describeTheme(t org.Theme) string {
 		extra += ", font"
 	}
 	return fmt.Sprintf("%d tokens%s", parts, extra)
+}
+
+func describeDiscord(d org.Discord) string {
+	if d.IsZero() {
+		return "unmapped"
+	}
+	return fmt.Sprintf("guild %s, %d roles", d.GuildID, len(d.RoleIDs()))
 }

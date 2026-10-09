@@ -219,6 +219,9 @@ rate_limit:
 	if !cfg.Auth.Secure() || cfg.Auth.CallbackURL("discord") != "https://app.example.com/auth/discord/callback" {
 		t.Errorf("secure/callback: %v %q", cfg.Auth.Secure(), cfg.Auth.CallbackURL("discord"))
 	}
+	if got := cfg.Auth.RolesURL("discord"); got != "https://app.example.com/auth/discord/roles" {
+		t.Errorf("roles url: %q", got)
+	}
 	if cfg.Auth.SessionTTL != time.Hour || cfg.Auth.AttemptTTL != 2*time.Minute || cfg.Server.ClientIPHeader != "CF-Connecting-IP" {
 		t.Errorf("overrides: %+v %+v", cfg.Auth, cfg.Server)
 	}

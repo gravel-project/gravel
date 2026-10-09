@@ -375,7 +375,7 @@ paths:
       summary: GetOrganizationSettings
       description: |-
         GetOrganizationSettings returns the settings; public, because the pages render the theme
-         before anyone logs in.
+         before anyone logs in, and the document holds no credential.
       operationId: gravel.hub.v1.OrganizationService.GetOrganizationSettings
       parameters:
         - name: Connect-Protocol-Version
@@ -543,6 +543,62 @@ components:
           title: organization
       title: ClaimOwnershipResponse
       additionalProperties: false
+    gravel.hub.v1.DiscordRecognition:
+      type: object
+      properties:
+        role:
+          type: string
+          title: role
+        rule:
+          type: string
+          title: rule
+          description: '"first_members": the first count members by registration.'
+        count:
+          type: integer
+          title: count
+          format: int32
+      title: DiscordRecognition
+      additionalProperties: false
+      description: 'DiscordRecognition is a role earned once and kept: role sync adds it and never removes it.'
+    gravel.hub.v1.DiscordRoles:
+      type: object
+      properties:
+        linked:
+          type: string
+          title: linked
+          description: The role for a member with any identity besides Discord; empty for none.
+        providers:
+          type: object
+          title: providers
+          additionalProperties:
+            type: string
+            title: value
+          description: A provider ("steam") to the role for a member who linked it.
+      title: DiscordRoles
+      additionalProperties: false
+      description: |-
+        DiscordRoles are the roles that follow a member's linked identities; role sync adds and
+         removes them.
+    gravel.hub.v1.DiscordSettings:
+      type: object
+      properties:
+        guildId:
+          type: string
+          title: guild_id
+        roles:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.DiscordRoles'
+          title: roles
+        recognition:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.DiscordRecognition'
+          title: recognition
+      title: DiscordSettings
+      additionalProperties: false
+      description: |-
+        DiscordSettings is the guild role sync manages and the roles it maps (ADR-0008). Ids are
+         Discord snowflakes as strings; empty means role sync has nothing to do.
     gravel.hub.v1.GetMeRequest:
       type: object
       title: GetMeRequest
@@ -680,6 +736,13 @@ components:
           title: next_after_id
           format: int64
           description: 'The id to pass as after_id next time: the last event''s, or after_id itself when there were none.'
+        headId:
+          type: string
+          title: head_id
+          format: int64
+          description: |-
+            The newest id in the log when it was read; 0 for an empty log. A reader that starts with a
+             full pass begins its incremental reads here instead of paging through the history.
       title: ListIdentityEventsResponse
       additionalProperties: false
     gravel.hub.v1.ListUsersRequest:
@@ -813,11 +876,15 @@ components:
             - $ref: '#/components/schemas/google.protobuf.Timestamp'
           title: updated_at
           description: When the settings were last written; unset while the defaults apply.
+        discord:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.DiscordSettings'
+          title: discord
       title: OrganizationSettings
       additionalProperties: false
       description: |-
         OrganizationSettings is the Organization settings resource: every host-configurable knob in
-         one document (theme and navigation first; the Discord role mapping, token lifetimes and layout
+         one document (theme and navigation, the Discord role mapping; token lifetimes and layout
          overrides join it with their features). Version is the document format.
     gravel.hub.v1.RevokeSessionsRequest:
       type: object

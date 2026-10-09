@@ -33,6 +33,13 @@ hub:
   public_url: https://app.example.com   # the origin members open; the links in replies
   client_id: gravel_…            # from `gravel-hub apps create --name bot --scopes identity:read`
   client_secret_file: /run/secrets/gravel-bot-hub-client-secret   # or GRAVEL_BOT_HUB_CLIENT_SECRET
+role_sync:                       # the reconciler; what it maps is the Organization settings' discord section
+  enabled: true
+  interval: 10m                  # the full pass; at least 1m
+  poll_interval: 30s             # the hub's identity log; at least 5s and at most interval
+  dry_run: false                 # log the changes, make none
+linked_roles:
+  enabled: true                  # register the Linked Roles metadata schema at start
 server:
   listen: 127.0.0.1:8081         # /interactions, /healthz, /readyz; put TLS termination in front
   internal_listen: 127.0.0.1:9091   # /metrics; keep it off the public network
@@ -53,9 +60,16 @@ log:
 ## The Discord application
 
 In the Developer Portal: a Bot user; under Privileged Gateway Intents, **Server Members on**
-(the gateway subscribes to guilds and guild members, which role sync follows) and Message Content
-off; the application id and public key into the configuration; the token into a secret. Invite
-the bot with the `bot` and `applications.commands` scopes.
+(role sync lists the guild's members, and the gateway's member events start a pass) and Message
+Content off; the application id and public key into the configuration; the token into a secret.
+Invite the bot with the `bot` and `applications.commands` scopes and the Manage Roles permission,
+and keep its role **above every role the mapping names** and below the staff roles: Discord lets a
+bot manage only the roles under its own.
+
+Use **the application the hub logs members in with** (`auth.discord.client_id`): Linked Roles
+metadata belongs to an application, the bot declares it and the hub writes each member's values
+for its own client id, so the two must be one application. Set its **Linked Roles Verification
+URL** to the hub's `<auth.base_url>/auth/discord/roles` (docs/hub.md, "Discord Linked Roles").
 
 Interactions arrive one of two ways, and the application decides: with an **Interactions Endpoint
 URL** set to the bot's public `/interactions` (behind TLS termination), Discord POSTs them there,
@@ -70,7 +84,7 @@ router.
 | `server.listen` | `POST /interactions` | Discord's outgoing webhook; a request with a bad signature is 401 |
 | | `GET /healthz` | 200 `{"status":"ok","version":"…"}` while the process runs |
 | | `GET /readyz` | 200 once the commands are registered and, with the gateway on, the session is up; else 503 with a reason |
-| `server.internal_listen` | `GET /metrics` | Prometheus: `gravel_bot_build_info`, `gravel_bot_interactions_total{route,result}`, `gravel_bot_gateway_connected`, `gravel_bot_jobs_total{job,result}` |
+| `server.internal_listen` | `GET /metrics` | Prometheus: `gravel_bot_build_info`, `gravel_bot_interactions_total{route,result}`, `gravel_bot_gateway_connected`, `gravel_bot_jobs_total{job,result}`, and the modules' below |
 
 ## The stock modules
 
@@ -79,7 +93,41 @@ router.
 | `/whoami` | the member's display name, each linked account (Discord, Steam, …) with its link date, and the account page; or that the hub does not know this Discord account yet |
 | `/link` | where to link game accounts: the account page |
 
-Role sync and Linked Roles are the next modules (ADR-0008 §4).
+### Role sync (`discord/modules/rolesync`)
+
+Keeps the roles the Organization settings map (docs/hub.md, "Organization settings") in step with
+the hub's members:
+
+- a member whose identities include any provider besides Discord gets `roles.linked`;
+- a member who linked a provider gets `roles.providers.<provider>` where one is mapped;
+- the first `count` members by registration get a `recognition` role, which is **never removed**
+  once given (registration order does not change, and a role given by hand before role sync is
+  kept).
+
+A pass reads the mapping, every hub member (`ListUsers`) and every guild member, and adds or
+removes **only the roles the mapping names**: other roles, staff roles and bots are never touched,
+and a guild member the hub does not know loses the linked and provider roles. It runs at start,
+every `interval`, as soon as the identity log (read every `poll_interval`) shows a registration,
+a link or an unlink, and when a member joins the guild. Passes are idempotent. Discord's rate
+limits are the REST client's business (it waits and retries); a change Discord refuses because
+the role sits above the bot's is counted and logged once per role per pass ("move the bot's role
+above it"); a member who left before their change is skipped. Any other failure ends the pass,
+which is logged and counted, and the next one tries again: the bot keeps running. With no mapping
+the module idles and says so once.
+
+Run `dry_run: true` first on a guild whose roles were given by hand: every change is logged
+("role sync would add a role") and none is made. Metrics:
+`gravel_bot_rolesync_passes_total{result}` (`ok`, `idle`, `error`),
+`gravel_bot_rolesync_changes_total{action,result}` (`add`/`remove`; `ok`, `dry_run`, `forbidden`,
+`gone`), `gravel_bot_rolesync_last_success_timestamp_seconds`.
+
+### Linked Roles (`discord/modules/linkedroles`)
+
+Puts the metadata schema (`discord/rolemeta`: `steam_linked`, `xbox_linked`, `rsi_linked`,
+`pubg_linked` as booleans, `supporter_tier` as an integer) on the application at start, when what
+Discord holds differs, retrying with backoff while Discord is away. A provider the hub does not
+offer yet reads 0 until it does. The member's values come from the hub's verification flow.
+Metric: `gravel_bot_linked_roles_schema_registered`.
 
 ## A host's bot
 
@@ -117,4 +165,8 @@ gravel-bot config check --config bot.yaml
 `go test ./discord/...`: the configuration (defaults, strict keys, secret precedence, validation),
 the runtime over a signed PING and a slash command delivered over HTTP against a fake Discord API
 and a fake hub, the hub client's token fetch, refresh and retry, and the core module's replies.
-The gateway itself is disgo's and is not driven in tests.
+Role sync is tested as a plan (who gets what) and as passes against a fake Discord REST API and a
+fake hub: changes applied and settled, a refused role, a member who left, a 429 waited out, a
+refused member list, a dry run, paging past a thousand members, and the loop following the
+identity log; Linked Roles against a fake metadata endpoint, idempotent and retried. The gateway itself is disgo's and is not
+driven in tests.

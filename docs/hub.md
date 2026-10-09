@@ -98,7 +98,7 @@ Public listener (`server.listen`), HTTP/1.1 and unencrypted HTTP/2 so gRPC works
 | `/gravel.hub.v1.IdentityService/RevokeSessions` | log out everywhere; answers how many sessions ended and clears the cookie |
 | `/gravel.hub.v1.IdentityService/LookupUser` | `{"provider": "discord", "subject": "…"}` → the user and their identities, for role sync; an app with `identity:read`, or the owner |
 | `/gravel.hub.v1.IdentityService/ListUsers` | `{"page_size": 100, "page_token": "…"}` → members with their identities, oldest first, and the next page's token; role sync's full pass; `identity:read` or the owner |
-| `/gravel.hub.v1.IdentityService/ListIdentityEvents` | `{"after_id": 0, "limit": 100}` → the identity log after a position, oldest first, and the id to continue from; role sync's incremental pass; `identity:read` or the owner |
+| `/gravel.hub.v1.IdentityService/ListIdentityEvents` | `{"after_id": 0, "limit": 100}` → the identity log after a position, oldest first, the id to continue from, and the log's newest id (`head_id`, where a reader that just made a full pass starts); role sync's incremental pass; `identity:read` or the owner |
 | `/grpc.health.v1.Health/Check` | gRPC health |
 | `/grpc.reflection.v1.ServerReflection/…` (and v1alpha) | gRPC reflection, so `grpcurl` and `buf curl` discover the API |
 | `GET /healthz` | 200 `{"status":"ok","version":"…"}` while the process runs |
@@ -116,6 +116,7 @@ every page works without it):
 | `GET /account` | the member's identities, link buttons, unlink forms, "log out everywhere", and the claim form while the hub is unowned |
 | `GET /auth/{provider}/start` | begin a login (providers with `login: true`) |
 | `GET /auth/{provider}/link` | begin a link, logged in |
+| `GET /auth/{provider}/roles` | begin Discord's Linked Roles verification: a login that also publishes the member's linked accounts to Discord (below) |
 | `GET /auth/{provider}/callback` | the provider's return |
 | `POST /auth/logout` | this session (`Logout`), or every session with `everywhere=1` (`RevokeSessions`) |
 | `POST /account/unlink`, `POST /account/claim` | forms; every POST carries the session's CSRF token in `_csrf`; with `HX-Request: true` the answer is the page's content, else a redirect |
@@ -145,8 +146,8 @@ grpcurl -plaintext 127.0.0.1:8080 gravel.hub.v1.OrganizationService/GetOrganizat
 ## Organization settings (ADR-0007)
 
 Every host-configurable knob is one document on the organization: the theme (tokens for the
-light and dark schemes, the font, a logo, a favicon) and the navigation links now; the Discord
-role mapping, token lifetimes and layout overrides later. Zero values mean the default. The pages
+light and dark schemes, the font, a logo, a favicon), the navigation links and the Discord role
+mapping now; token lifetimes and layout overrides later. Zero values mean the default. The pages
 read it through the API; the owner writes it through `UpdateOrganizationSettings`, or a
 deployment commits a manifest and applies it:
 
@@ -176,6 +177,16 @@ nav:                         # at most 12; label at most 40 characters
   - label: Admin
     url: /admin
     role: owner              # shown to the owner only
+discord:                     # what the bot's role sync manages (docs/bot.md); ids as quoted strings
+  guild_id: "519496143298756611"
+  roles:
+    linked: "…"              # a member with any account besides Discord
+    providers:               # a member who linked this provider (discord, steam)
+      steam: "…"
+  recognition:               # earned once, never removed; at most 10
+    - role: "…"
+      rule: first_members    # the first `count` members by registration
+      count: 50
 ```
 
 ```sh
@@ -187,6 +198,11 @@ podman exec gravel-hub /ko-app/gravel-hub settings export --config /etc/gravel/h
 converge can check before writing. An invalid manifest is refused with every problem named, and
 nothing is stored. The default tokens meet WCAG AA contrast in both schemes; a host's tokens are
 the host's responsibility (`make a11y` checks the defaults only).
+
+The `discord` section holds ids, never a credential, and is as public as the rest. Ids are Discord
+snowflakes as quoted strings (YAML would read a bare one as a number); a role may be mapped once,
+never to the guild's own id (`@everyone`), and roles need a guild. The bot reads the section at
+every role-sync pass, so a mapping change is a manifest change and lands within one pass.
 
 ## Service credentials (ADR-0008)
 
@@ -230,7 +246,7 @@ expired callback is refused, and a link must finish in the session that started 
 so is unlinking the last one (a provider-only account would be unreachable).
 
 - **Discord:** register `<auth.base_url>/auth/discord/callback` as a redirect in the Developer
-  Portal's OAuth2 settings; the scope is `identify` alone (no email, no connections).
+  Portal's OAuth2 settings; login asks for `identify` alone (no email, no connections).
 - **Steam:** nothing to register; the OpenID assertion proves the SteamID64. The Web API key only
   fetches the persona name and avatar, and may be left out.
 - **Sessions:** server-side, `auth.session_ttl` long, no idle timeout. The cookie is `HttpOnly`,
@@ -247,6 +263,31 @@ so is unlinking the last one (a provider-only account would be unreachable).
   cloudflared); otherwise everyone shares the proxy's bucket. Set it only when nothing else can
   reach the listener: the header is trusted as given.
 - Expired sessions and attempts are pruned every ten minutes.
+
+## Discord Linked Roles (ADR-0008)
+
+A guild can make a role require "Steam linked" (Server Settings, Roles, the role's Links), and
+Discord asks the member to verify with the application that declares that field. The bot declares
+the fields at start (`discord/rolemeta`: `steam_linked`, `xbox_linked`, `rsi_linked`,
+`pubg_linked`, `supporter_tier`); the hub writes a member's values:
+
+- In the Developer Portal, set the application's **Linked Roles Verification URL** to
+  `<auth.base_url>/auth/discord/roles` (the hub logs it at start as
+  `linked_roles_verification_url`). The application is the one login uses, so the redirect is the
+  same callback. Discord must be a login provider (`login: true`).
+- A member arriving there goes through Discord's consent for `identify role_connections.write`,
+  comes back to the usual callback, and is logged in exactly as by `/auth/discord/start`
+  (registered on a first visit; an existing session of the same member is kept). The hub then
+  writes their role connection with the access token in hand: the platform is the organization's
+  name, the username their display name, and each `<provider>_linked` is 1 for a provider they
+  have linked. The token is not kept; an attempt row with intent `roles` (migration 5) is all
+  that is stored, and consumed like any other.
+- The values are as fresh as the member's last verification, so the account page offers
+  **Update Discord linked roles** after a link or an unlink. A role the bot's role sync manages
+  follows identity changes on its own within a pass; map a role to one mechanism or the other,
+  not both.
+- A refusal from Discord leaves the member logged in and says so; `gravel_auth_completions_total`
+  counts the flow under `intent="roles"`.
 
 ## Owner claim (ADR-0002, ADR-0004)
 
@@ -369,7 +410,8 @@ command and the digest-pin procedure.
   or `pages`), `gravel_http_request_duration_seconds{handler}`,
   `gravel_rpc_requests_total{procedure,code}` (`code` is the Connect code, `ok` on success),
   `gravel_rpc_request_duration_seconds{procedure}`,
-  `gravel_auth_completions_total{provider,intent,result}` (`result` is `ok`, `denied`, `failed`,
+  `gravel_auth_completions_total{provider,intent,result}` (`intent` is `login`, `link`, `roles` or
+  `unknown`; `result` is `ok`, `denied`, `failed`,
   `invalid`, `mismatch`, `taken` or `error`), `gravel_rate_limited_total{scope}` (`ip` or `user`),
   `gravel_build_info{version,go_version}`, plus the Go and process collectors.
 - **Secrets in logs:** the owner-claim token is the only secret the hub ever logs, once, at WARN.

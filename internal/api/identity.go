@@ -186,11 +186,11 @@ func (s *IdentityServer) ListIdentityEvents(ctx context.Context, req *connect.Re
 	case limit > maxEventPage:
 		limit = maxEventPage
 	}
-	events, err := s.ids.ListEvents(ctx, after, limit)
+	events, head, err := s.ids.ListEvents(ctx, after, limit)
 	if err != nil {
 		return nil, mapError(ctx, s.logger, err)
 	}
-	resp := &hubv1.ListIdentityEventsResponse{NextAfterId: after}
+	resp := &hubv1.ListIdentityEventsResponse{NextAfterId: after, HeadId: head}
 	for _, e := range events {
 		resp.Events = append(resp.Events, &hubv1.IdentityEvent{
 			Id: e.ID, UserId: e.UserID.String(), Provider: e.Provider, Subject: e.Subject, Event: e.Event, At: timestamppb.New(e.At),

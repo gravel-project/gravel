@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/url"
 	"regexp"
+	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -18,12 +21,14 @@ const SettingsVersion = 1
 
 // Settings is the Organization settings resource: every host-configurable knob, one document,
 // managed through the API or applied from a committed manifest (`gravel-hub settings apply`).
-// Theme tokens and navigation links first (gravel#7); the Discord role mapping, token lifetimes
-// and layout overrides join it with their features. Zero values mean "the default".
+// Theme tokens and navigation links first (gravel#7), the Discord role mapping (ADR-0008);
+// token lifetimes and layout overrides join it with their features. Zero values mean "the
+// default".
 type Settings struct {
 	Version int       `json:"version" yaml:"version"`
 	Theme   Theme     `json:"theme" yaml:"theme"`
 	Nav     []NavLink `json:"nav,omitempty" yaml:"nav,omitempty"`
+	Discord Discord   `json:"discord,omitzero" yaml:"discord,omitempty"`
 }
 
 // Theme is how the organization's pages look.
@@ -54,6 +59,63 @@ type NavLink struct {
 	Role      string `json:"role,omitempty" yaml:"role,omitempty"`           // "" (everyone) or "owner"
 }
 
+// Discord is the guild role sync manages and the roles it maps (ADR-0008 §3). Ids are Discord
+// snowflakes as strings. Everything here is public: ids, never a credential. Empty means role
+// sync has nothing to do.
+type Discord struct {
+	GuildID     string        `json:"guild_id,omitempty" yaml:"guild_id,omitempty"`
+	Roles       DiscordRoles  `json:"roles,omitzero" yaml:"roles,omitempty"`
+	Recognition []Recognition `json:"recognition,omitempty" yaml:"recognition,omitempty"`
+}
+
+// DiscordRoles are the roles that follow a member's linked identities. Role sync adds and
+// removes them as identities are linked and unlinked.
+type DiscordRoles struct {
+	// Linked is for a member with any identity besides Discord.
+	Linked string `json:"linked,omitempty" yaml:"linked,omitempty"`
+	// Providers maps a provider ("steam") to the role for a member who linked it.
+	Providers map[string]string `json:"providers,omitempty" yaml:"providers,omitempty"`
+}
+
+// Recognition is a role earned once and kept: role sync adds it and never removes it.
+type Recognition struct {
+	Role string `json:"role" yaml:"role"`
+	// Rule is RuleFirstMembers: the first Count members by registration.
+	Rule  string `json:"rule" yaml:"rule"`
+	Count int    `json:"count" yaml:"count"`
+}
+
+// Recognition rules.
+const RuleFirstMembers = "first_members"
+
+// MappedProviders are the providers a Discord role may follow: the hub's login and link
+// providers (internal/identity/providers).
+var MappedProviders = []string{"discord", "steam"}
+
+// IsZero reports whether no mapping is set.
+func (d Discord) IsZero() bool {
+	return d.GuildID == "" && d.Roles.IsZero() && len(d.Recognition) == 0
+}
+
+// IsZero reports whether no role is mapped.
+func (r DiscordRoles) IsZero() bool { return r.Linked == "" && len(r.Providers) == 0 }
+
+// RoleIDs are every role the mapping names, in a stable order: linked, the providers' by
+// provider name, then the recognition roles. Role sync manages these and no other.
+func (d Discord) RoleIDs() []string {
+	var out []string
+	if d.Roles.Linked != "" {
+		out = append(out, d.Roles.Linked)
+	}
+	for _, p := range slices.Sorted(maps.Keys(d.Roles.Providers)) {
+		out = append(out, d.Roles.Providers[p])
+	}
+	for _, r := range d.Recognition {
+		out = append(out, r.Role)
+	}
+	return out
+}
+
 // Placements and roles a NavLink may carry.
 const (
 	PlacementHeader = "header"
@@ -69,6 +131,8 @@ const (
 	MaxFontFamily   = 120
 	MaxURLLength    = 512
 	maxNavURLLength = MaxURLLength
+	MaxRecognition  = 10
+	MaxFirstMembers = 100000
 )
 
 // ErrInvalidSettings wraps every validation failure; the message says which field and why.
@@ -120,10 +184,70 @@ func (s Settings) Validate() error {
 			bad("nav[%d].role: %q is not empty or %q", i, l.Role, RoleOwner)
 		}
 	}
+	validateDiscord(s.Discord, bad)
 	if len(errs) == 0 {
 		return nil
 	}
 	return errors.Join(errs...)
+}
+
+func validateDiscord(d Discord, bad func(string, ...any)) {
+	if d.IsZero() {
+		return
+	}
+	if d.GuildID == "" {
+		bad("discord.guild_id: required when roles are mapped")
+	} else if !snowflakeOK(d.GuildID) {
+		bad("discord.guild_id: %q is not a Discord id", d.GuildID)
+	}
+	seen := map[string]string{}
+	role := func(field, id string) {
+		if !snowflakeOK(id) {
+			bad("%s: %q is not a Discord id", field, id)
+			return
+		}
+		if id == d.GuildID {
+			bad("%s: %q is the guild's @everyone role, which every member has", field, id)
+		}
+		if other, dup := seen[id]; dup {
+			bad("%s: role %s is already mapped by %s", field, id, other)
+			return
+		}
+		seen[id] = field
+	}
+	if d.Roles.Linked != "" {
+		role("discord.roles.linked", d.Roles.Linked)
+	}
+	for _, p := range slices.Sorted(maps.Keys(d.Roles.Providers)) {
+		field := "discord.roles.providers." + p
+		if !slices.Contains(MappedProviders, p) {
+			bad("%s: %q is not a provider (%s)", field, p, strings.Join(MappedProviders, ", "))
+			continue
+		}
+		role(field, d.Roles.Providers[p])
+	}
+	if len(d.Recognition) > MaxRecognition {
+		bad("discord.recognition: %d entries, at most %d", len(d.Recognition), MaxRecognition)
+	}
+	for i, r := range d.Recognition {
+		field := fmt.Sprintf("discord.recognition[%d]", i)
+		role(field+".role", r.Role)
+		if r.Rule != RuleFirstMembers {
+			bad("%s.rule: %q is not %q", field, r.Rule, RuleFirstMembers)
+		}
+		if r.Count < 1 || r.Count > MaxFirstMembers {
+			bad("%s.count: %d is not between 1 and %d", field, r.Count, MaxFirstMembers)
+		}
+	}
+}
+
+// snowflakeOK reports whether s is a Discord id: 17 to 20 digits.
+func snowflakeOK(s string) bool {
+	if len(s) < 17 || len(s) > 20 || strings.Trim(s, "0123456789") != "" {
+		return false
+	}
+	_, err := strconv.ParseUint(s, 10, 64)
+	return err == nil
 }
 
 func assetURLOK(u string) bool {
@@ -156,6 +280,12 @@ func (s Settings) Normalized() Settings {
 			s.Nav[i].Placement = PlacementHeader
 		}
 		s.Nav[i].Label = strings.TrimSpace(s.Nav[i].Label)
+	}
+	if len(s.Discord.Roles.Providers) == 0 {
+		s.Discord.Roles.Providers = nil
+	}
+	if len(s.Discord.Recognition) == 0 {
+		s.Discord.Recognition = nil
 	}
 	return s
 }
@@ -228,6 +358,6 @@ func (s *Service) UpdateSettings(ctx context.Context, set Settings) (Settings, e
 	if _, err := s.st.UpdateOrganizationSettings(ctx, o.ID, raw, s.now()); err != nil {
 		return Settings{}, err
 	}
-	s.logger.Info("organization settings updated", "organization_id", o.ID, "nav_links", len(set.Nav))
+	s.logger.Info("organization settings updated", "organization_id", o.ID, "nav_links", len(set.Nav), "discord_roles", len(set.Discord.RoleIDs()))
 	return set, nil
 }

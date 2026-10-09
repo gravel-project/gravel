@@ -899,7 +899,10 @@ type ListIdentityEventsResponse struct {
 	state  protoimpl.MessageState `protogen:"open.v1"`
 	Events []*IdentityEvent       `protobuf:"bytes,1,rep,name=events,proto3" json:"events,omitempty"`
 	// The id to pass as after_id next time: the last event's, or after_id itself when there were none.
-	NextAfterId   int64 `protobuf:"varint,2,opt,name=next_after_id,json=nextAfterId,proto3" json:"next_after_id,omitempty"`
+	NextAfterId int64 `protobuf:"varint,2,opt,name=next_after_id,json=nextAfterId,proto3" json:"next_after_id,omitempty"`
+	// The newest id in the log when it was read; 0 for an empty log. A reader that starts with a
+	// full pass begins its incremental reads here instead of paging through the history.
+	HeadId        int64 `protobuf:"varint,3,opt,name=head_id,json=headId,proto3" json:"head_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -944,6 +947,13 @@ func (x *ListIdentityEventsResponse) GetEvents() []*IdentityEvent {
 func (x *ListIdentityEventsResponse) GetNextAfterId() int64 {
 	if x != nil {
 		return x.NextAfterId
+	}
+	return 0
+}
+
+func (x *ListIdentityEventsResponse) GetHeadId() int64 {
+	if x != nil {
+		return x.HeadId
 	}
 	return 0
 }
@@ -1008,10 +1018,11 @@ const file_gravel_hub_v1_identity_proto_rawDesc = "" +
 	"\x02at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\x02at\"L\n" +
 	"\x19ListIdentityEventsRequest\x12\x19\n" +
 	"\bafter_id\x18\x01 \x01(\x03R\aafterId\x12\x14\n" +
-	"\x05limit\x18\x02 \x01(\x05R\x05limit\"v\n" +
+	"\x05limit\x18\x02 \x01(\x05R\x05limit\"\x8f\x01\n" +
 	"\x1aListIdentityEventsResponse\x124\n" +
 	"\x06events\x18\x01 \x03(\v2\x1c.gravel.hub.v1.IdentityEventR\x06events\x12\"\n" +
-	"\rnext_after_id\x18\x02 \x01(\x03R\vnextAfterId2\xe8\x04\n" +
+	"\rnext_after_id\x18\x02 \x01(\x03R\vnextAfterId\x12\x17\n" +
+	"\ahead_id\x18\x03 \x01(\x03R\x06headId2\xe8\x04\n" +
 	"\x0fIdentityService\x12B\n" +
 	"\x05GetMe\x12\x1b.gravel.hub.v1.GetMeRequest\x1a\x1c.gravel.hub.v1.GetMeResponse\x12]\n" +
 	"\x0eUnlinkIdentity\x12$.gravel.hub.v1.UnlinkIdentityRequest\x1a%.gravel.hub.v1.UnlinkIdentityResponse\x12E\n" +

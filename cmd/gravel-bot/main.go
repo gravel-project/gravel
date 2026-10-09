@@ -24,6 +24,8 @@ import (
 	"github.com/gravel-project/gravel/discord/bot"
 	"github.com/gravel-project/gravel/discord/hubclient"
 	"github.com/gravel-project/gravel/discord/modules/core"
+	"github.com/gravel-project/gravel/discord/modules/linkedroles"
+	"github.com/gravel-project/gravel/discord/modules/rolesync"
 )
 
 // version is set by the linker (-X main.version=...); ko and goreleaser both do.
@@ -106,7 +108,14 @@ func modules(cfg bot.Config) ([]bot.Module, error) {
 	if err != nil {
 		return nil, err
 	}
-	return []bot.Module{core.New(hub, cfg.Hub.PublicURL)}, nil
+	mods := []bot.Module{core.New(hub, cfg.Hub.PublicURL)}
+	if cfg.RoleSync.Enabled {
+		mods = append(mods, rolesync.New(hub, rolesync.Config{Interval: cfg.RoleSync.Interval, PollInterval: cfg.RoleSync.PollInterval, DryRun: cfg.RoleSync.DryRun}))
+	}
+	if cfg.LinkedRoles.Enabled {
+		mods = append(mods, linkedroles.New())
+	}
+	return mods, nil
 }
 
 func serve(ctx context.Context, args []string, stdout, stderr io.Writer) int {
@@ -153,9 +162,16 @@ func configCheck(args []string, stdout, stderr io.Writer) int {
 	if n := len(cfg.Discord.GuildIDs); n > 0 {
 		guilds = fmt.Sprintf("%d guild(s)", n)
 	}
-	fmt.Fprintf(stdout, "config ok: application %s, commands %s, gateway %t, hub %s (public %s, client %s), token from %s, hub secret from %s, listen %s, internal %s\n",
+	roleSync := "off"
+	if cfg.RoleSync.Enabled {
+		roleSync = fmt.Sprintf("every %s, poll %s", cfg.RoleSync.Interval, cfg.RoleSync.PollInterval)
+		if cfg.RoleSync.DryRun {
+			roleSync += ", dry run"
+		}
+	}
+	fmt.Fprintf(stdout, "config ok: application %s, commands %s, gateway %t, hub %s (public %s, client %s), token from %s, hub secret from %s, role sync %s, linked roles %t, listen %s, internal %s\n",
 		cfg.Discord.ApplicationID, guilds, cfg.Discord.Gateway, cfg.Hub.URL, cfg.Hub.PublicURL, cfg.Hub.ClientID,
-		cfg.Discord.TokenSource(), cfg.Hub.SecretSource(), cfg.Server.Listen, cfg.Server.InternalListen)
+		cfg.Discord.TokenSource(), cfg.Hub.SecretSource(), roleSync, cfg.LinkedRoles.Enabled, cfg.Server.Listen, cfg.Server.InternalListen)
 	return 0
 }
 

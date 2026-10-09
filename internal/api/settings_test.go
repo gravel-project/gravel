@@ -25,6 +25,9 @@ func TestOrganizationSettings(t *testing.T) {
 	want := &hubv1.OrganizationSettings{
 		Theme: &hubv1.Theme{Dark: &hubv1.ThemeTokens{Accent: "#3ee07a", Background: "#070b17"}, Light: &hubv1.ThemeTokens{Accent: "#0a7a3a"}, Font: "Archivo, system-ui, sans-serif", LogoUrl: "https://hiddentoken.com/brand/mark.svg"},
 		Nav:   []*hubv1.NavLink{{Label: "Discord", Url: "https://discord.gg/x"}, {Label: "Rules", Url: "https://hiddentoken.com/rules/", Placement: "footer"}, {Label: "Admin", Url: "/admin", Role: "owner"}},
+		Discord: &hubv1.DiscordSettings{GuildId: "519496143298756611",
+			Roles:       &hubv1.DiscordRoles{Linked: "1300000000000000001", Providers: map[string]string{"steam": "1300000000000000002"}},
+			Recognition: []*hubv1.DiscordRecognition{{Role: "1300000000000000003", Rule: "first_members", Count: 50}}},
 	}
 	if _, err := anon.UpdateOrganizationSettings(ctx, connect.NewRequest(&hubv1.UpdateOrganizationSettingsRequest{Settings: want})); connect.CodeOf(err) != connect.CodeUnauthenticated {
 		t.Errorf("anonymous update: %v", err)
@@ -54,13 +57,20 @@ func TestOrganizationSettings(t *testing.T) {
 	if got.Msg.GetSettings().GetTheme().GetFont() != "Archivo, system-ui, sans-serif" || got.Msg.GetSettings().GetUpdatedAt() == nil {
 		t.Errorf("read back: %v", got.Msg)
 	}
+	// The Discord mapping is public too: a bot reads it with its app token, the pages anonymously.
+	d := got.Msg.GetSettings().GetDiscord()
+	if d.GetGuildId() != "519496143298756611" || d.GetRoles().GetLinked() != "1300000000000000001" || d.GetRoles().GetProviders()["steam"] != "1300000000000000002" ||
+		len(d.GetRecognition()) != 1 || d.GetRecognition()[0].GetRule() != "first_members" || d.GetRecognition()[0].GetCount() != 50 {
+		t.Errorf("discord read back: %v", d)
+	}
 
-	bad := &hubv1.OrganizationSettings{Theme: &hubv1.Theme{Light: &hubv1.ThemeTokens{Accent: "red; }"}, LogoUrl: "http://insecure.example/x.png"}, Nav: []*hubv1.NavLink{{Label: "", Url: "javascript:alert(1)", Placement: "sidebar"}}}
+	bad := &hubv1.OrganizationSettings{Theme: &hubv1.Theme{Light: &hubv1.ThemeTokens{Accent: "red; }"}, LogoUrl: "http://insecure.example/x.png"}, Nav: []*hubv1.NavLink{{Label: "", Url: "javascript:alert(1)", Placement: "sidebar"}},
+		Discord: &hubv1.DiscordSettings{Roles: &hubv1.DiscordRoles{Providers: map[string]string{"xbox": "1300000000000000002"}}}}
 	_, err = joClient.UpdateOrganizationSettings(ctx, connect.NewRequest(&hubv1.UpdateOrganizationSettingsRequest{Settings: bad}))
 	if connect.CodeOf(err) != connect.CodeInvalidArgument {
 		t.Fatalf("invalid: %v", err)
 	}
-	for _, want := range []string{"theme.light.accent", "theme.logo_url", "nav[0].label", "nav[0].url", "nav[0].placement"} {
+	for _, want := range []string{"theme.light.accent", "theme.logo_url", "nav[0].label", "nav[0].url", "nav[0].placement", "discord.guild_id", "discord.roles.providers.xbox"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("the error names %s: %v", want, err)
 		}
@@ -68,5 +78,12 @@ func TestOrganizationSettings(t *testing.T) {
 	got, _ = anon.GetOrganizationSettings(ctx, connect.NewRequest(&hubv1.GetOrganizationSettingsRequest{}))
 	if got.Msg.GetSettings().GetTheme().GetDark().GetAccent() != "#3ee07a" {
 		t.Error("an invalid update must leave the settings as they were")
+	}
+	// Clearing the mapping: a document without the section has none.
+	if _, err := joClient.UpdateOrganizationSettings(ctx, connect.NewRequest(&hubv1.UpdateOrganizationSettingsRequest{Settings: &hubv1.OrganizationSettings{}})); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ = anon.GetOrganizationSettings(ctx, connect.NewRequest(&hubv1.GetOrganizationSettingsRequest{})); got.Msg.GetSettings().GetDiscord() != nil {
+		t.Errorf("a cleared mapping is absent: %v", got.Msg.GetSettings().GetDiscord())
 	}
 }

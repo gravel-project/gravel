@@ -188,6 +188,16 @@ func TestSessionsAndAttempts(t *testing.T) {
 	if err := st.CreateAuthAttempt(ctx, store.AuthAttempt{ID: uuid.New(), TokenHash: []byte("bad"), Provider: "steam", Intent: "link", State: "s", ProviderSession: "{}", CreatedAt: now, ExpiresAt: now.Add(time.Minute)}); err == nil {
 		t.Error("a link attempt without a user must be refused by the schema")
 	}
+	roles := store.AuthAttempt{ID: uuid.New(), TokenHash: []byte("roles"), Provider: "discord", Intent: "roles", State: "sr", ProviderSession: "{}", CreatedAt: now, ExpiresAt: now.Add(time.Minute)}
+	if err := st.CreateAuthAttempt(ctx, roles); err != nil {
+		t.Fatalf("a Linked Roles attempt (migration 5): %v", err)
+	}
+	if got, err := st.ConsumeAuthAttempt(ctx, []byte("roles"), now); err != nil || got.Intent != "roles" {
+		t.Errorf("consume roles: %v %+v", err, got)
+	}
+	if err := st.CreateAuthAttempt(ctx, store.AuthAttempt{ID: uuid.New(), TokenHash: []byte("odd"), Provider: "discord", Intent: "sudo", State: "s", ProviderSession: "{}", CreatedAt: now, ExpiresAt: now.Add(time.Minute)}); err == nil {
+		t.Error("an unknown intent must still be refused by the schema")
+	}
 	consumed, err := st.ConsumeAuthAttempt(ctx, []byte("attempt"), now)
 	if err != nil || consumed.ID != a.ID || consumed.State != "s" || consumed.UserID != nil {
 		t.Fatalf("consume: %v %+v", err, consumed)

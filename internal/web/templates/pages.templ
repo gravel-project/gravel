@@ -83,6 +83,12 @@ templ AccountContent(p AccountPage) {
 				}
 			</ul>
 		}
+		for _, pr := range p.RoleProviders {
+			<p class="muted">After linking or unlinking an account, update what { pr.DisplayName } knows, so its linked roles follow.</p>
+			<ul class="providers">
+				<li><a class="button" href={ templ.SafeURL("/auth/" + pr.Name + "/roles") }>Update { pr.DisplayName } linked roles</a></li>
+			</ul>
+		}
 	</section>
 	<section aria-labelledby="sessions-heading">
 		<h2 id="sessions-heading">Sessions</h2>

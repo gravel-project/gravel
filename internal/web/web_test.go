@@ -27,7 +27,7 @@ import (
 type rig struct {
 	srv     *httptest.Server
 	idSt    *identitytest.FakeStore
-	discord *identitytest.FakeProvider
+	discord *identitytest.FakePublisher
 	steam   *identitytest.FakeProvider
 	token   string
 	results []string
@@ -59,10 +59,10 @@ func newRig(t *testing.T) *rig {
 		t.Fatal(err)
 	}
 	r.token = token
-	r.discord = &identitytest.FakeProvider{ProviderName: "discord", Accounts: map[string]identity.Account{
+	r.discord = &identitytest.FakePublisher{FakeProvider: identitytest.FakeProvider{ProviderName: "discord", Accounts: map[string]identity.Account{
 		"jo":  {Subject: "1", DisplayName: "Jo", AvatarURL: "https://cdn.example/jo.png", Method: identity.MethodOAuth2},
 		"sam": {Subject: "2", DisplayName: "Sam", Method: identity.MethodOAuth2},
-	}}
+	}}}
 	r.steam = &identitytest.FakeProvider{ProviderName: "steam", Accounts: map[string]identity.Account{
 		"jo-steam": {Subject: "76561198000000001", DisplayName: "JoOnSteam", Method: identity.MethodOpenID},
 	}}

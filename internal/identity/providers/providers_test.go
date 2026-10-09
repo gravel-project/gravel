@@ -1,6 +1,7 @@
 package providers_test
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/gravel-project/gravel/internal/identity"
 	"github.com/gravel-project/gravel/internal/identity/providers"
@@ -288,6 +290,94 @@ func TestDiscordComplete(t *testing.T) {
 				t.Errorf("served %v", served)
 			}
 		})
+	}
+}
+
+func TestDiscordBeginPublish(t *testing.T) {
+	p := providers.Discord(clientID, clientSecret, callbackURL, newFake(t).client())
+	authURL, _, err := p.BeginPublish(t.Context(), "st4te")
+	if err != nil {
+		t.Fatal(err)
+	}
+	u, err := url.Parse(authURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	q := u.Query()
+	if q.Get("scope") != "identify role_connections.write" || q.Get("redirect_uri") != callbackURL || q.Get("state") != "st4te" {
+		t.Errorf("publish auth URL = %s", authURL)
+	}
+	// Login keeps asking for identify alone.
+	loginURL, _, _ := p.Begin(t.Context(), "st4te")
+	if lu, _ := url.Parse(loginURL); lu.Query().Get("scope") != "identify" {
+		t.Errorf("login scope widened: %s", loginURL)
+	}
+}
+
+func TestDiscordCompletePublish(t *testing.T) {
+	const profile = `{"id":"123","username":"jo","global_name":"Jo","avatar":"abc"}`
+	const path = "/api/v10/users/@me/applications/" + clientID + "/role-connection"
+	f := discordFake(t, discordOpts{userJSON: profile})
+	var mu sync.Mutex
+	var got map[string]any
+	status := http.StatusOK
+	f.mux.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPut || r.Header.Get("Authorization") != "Bearer tok" || r.Header.Get("Content-Type") != "application/json" {
+			t.Errorf("role connection: %s, Authorization %q, Content-Type %q", r.Method, r.Header.Get("Authorization"), r.Header.Get("Content-Type"))
+		}
+		mu.Lock()
+		defer mu.Unlock()
+		got = nil
+		if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+			t.Errorf("role connection body: %v", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(status)
+		if status != http.StatusOK {
+			fmt.Fprint(w, `{"code":50025,"message":"Invalid OAuth2 access token"}`)
+			return
+		}
+		fmt.Fprint(w, `{"platform_name":"x","platform_username":"y","metadata":{}}`)
+	})
+	p := providers.Discord(clientID, clientSecret, callbackURL, f.client())
+	acct, publish, err := p.CompletePublish(t.Context(), "", url.Values{"code": {"good"}, "state": {"st4te"}})
+	if err != nil || acct.Subject != "123" || acct.DisplayName != "Jo" || publish == nil {
+		t.Fatalf("complete: %+v %v", acct, err)
+	}
+	long := strings.Repeat("é", 60) // 120 bytes: cut to 50 on a rune boundary
+	if err := publish(t.Context(), identity.Profile{Organization: long, DisplayName: "Jo", Providers: []string{"discord", "steam"}}); err != nil {
+		t.Fatal(err)
+	}
+	mu.Lock()
+	meta, _ := got["metadata"].(map[string]any)
+	name, _ := got["platform_name"].(string)
+	if got["platform_username"] != "Jo" || meta["steam_linked"] != "1" || meta["xbox_linked"] != "0" || meta["supporter_tier"] != "0" || len(name) != 50 || !utf8.ValidString(name) {
+		t.Errorf("role connection = %v", got)
+	}
+	mu.Unlock()
+	if served := f.served(); !slices.Equal(served, []string{"/api/oauth2/token", "/api/users/@me", path}) {
+		t.Errorf("served %v", served)
+	}
+
+	// No organization name, no platform_name: Discord shows the application's.
+	if err := publish(t.Context(), identity.Profile{DisplayName: "Jo", Providers: []string{"discord"}}); err != nil {
+		t.Fatal(err)
+	}
+	mu.Lock()
+	if _, ok := got["platform_name"]; ok || got["metadata"].(map[string]any)["steam_linked"] != "0" {
+		t.Errorf("without a name: %v", got)
+	}
+	status = http.StatusUnauthorized
+	mu.Unlock()
+	err = publish(t.Context(), identity.Profile{DisplayName: "Jo"})
+	if !errors.Is(err, identity.ErrProviderFailed) || !strings.Contains(err.Error(), "status 401, code 50025") || strings.Contains(err.Error(), "Invalid OAuth2") {
+		t.Errorf("a refusal keeps the status and code, not the message: %v", err)
+	}
+
+	// A failed authorization returns no publisher.
+	_, publish, err = p.CompletePublish(t.Context(), "", url.Values{"error": {"access_denied"}})
+	if !errors.Is(err, identity.ErrProviderDenied) || publish != nil {
+		t.Errorf("denied: %v %v", err, publish != nil)
 	}
 }
 

@@ -61,7 +61,7 @@ func TestAccessibility(t *testing.T) {
 			p.Title, p.User, p.CSRF = "Account", owner, "csrf"
 			p.Org.Owned = true
 			p.Flash = &templates.Flash{Kind: "err", Text: "You cannot unlink your only account."}
-			return templates.Account(templates.AccountPage{Page: p, Identities: identities})
+			return templates.Account(templates.AccountPage{Page: p, Identities: identities, RoleProviders: []templates.Provider{{Name: "discord", DisplayName: "Discord"}}})
 		},
 		"/fixture/error": func() templ.Component {
 			p := base

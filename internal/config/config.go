@@ -113,7 +113,8 @@ type Auth struct {
 	Steam      Steam         `yaml:"steam"`
 }
 
-// Discord is the Discord OAuth2 application (scope identify only).
+// Discord is the Discord OAuth2 application: scope identify for login and linking, plus
+// role_connections.write in the Linked Roles flow (/auth/discord/roles, which needs Login).
 type Discord struct {
 	Enabled  bool   `yaml:"enabled"`
 	ClientID string `yaml:"client_id"`
@@ -389,6 +390,12 @@ func (a Auth) Secure() bool { return strings.HasPrefix(strings.ToLower(a.BaseURL
 // CallbackURL is the provider callback members return to after authenticating.
 func (a Auth) CallbackURL(provider string) string {
 	return strings.TrimSuffix(a.BaseURL, "/") + "/auth/" + provider + "/callback"
+}
+
+// RolesURL is the Linked Roles verification URL to set on a provider's application (Discord's
+// "Linked Roles Verification URL").
+func (a Auth) RolesURL(provider string) string {
+	return strings.TrimSuffix(a.BaseURL, "/") + "/auth/" + provider + "/roles"
 }
 
 // RedactedURL is the database URL with any password replaced, safe for logs.
