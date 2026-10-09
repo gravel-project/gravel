@@ -13,6 +13,8 @@ import (
 
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
 	"github.com/gravel-project/gravel/internal/api"
+	"github.com/gravel-project/gravel/internal/apps"
+	"github.com/gravel-project/gravel/internal/apps/appstest"
 	"github.com/gravel-project/gravel/internal/identity"
 	"github.com/gravel-project/gravel/internal/identity/identitytest"
 	"github.com/gravel-project/gravel/internal/org"
@@ -27,16 +29,18 @@ type rig struct {
 	srv   *httptest.Server
 	orgSt *orgtest.FakeStore
 	idSt  *identitytest.FakeStore
+	appSt *appstest.FakeStore
 	org   *org.Service
 	ids   *identity.Service
 	sess  *session.Manager
+	apps  *apps.Service
 	token string
 }
 
 func newRig(t *testing.T) *rig {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	r := &rig{orgSt: &orgtest.FakeStore{}, idSt: identitytest.NewFakeStore()}
+	r := &rig{orgSt: &orgtest.FakeStore{}, idSt: identitytest.NewFakeStore(), appSt: appstest.NewFakeStore()}
 	r.org = org.New(r.orgSt, 15*time.Minute, logger)
 	o, token, err := r.org.EnsureBuiltin(context.Background(), "Test")
 	if err != nil {
@@ -45,12 +49,49 @@ func newRig(t *testing.T) *rig {
 	r.token = token
 	r.ids = identity.New(r.idSt, o.ID, nil, 10*time.Minute, logger)
 	r.sess = session.New(r.idSt, time.Hour, false, logger)
+	r.apps = apps.New(r.appSt, o.ID, time.Hour, logger)
 	mux := http.NewServeMux()
 	mux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(r.org, logger)))
 	mux.Handle(hubv1connect.NewIdentityServiceHandler(api.NewIdentityServer(r.ids, r.sess, r.org, logger)))
-	r.srv = newH2CServer(r.sess.Middleware(mux))
+	r.srv = newH2CServer(r.sess.Middleware(r.apps.Middleware(mux)))
 	t.Cleanup(r.srv.Close)
 	return r
+}
+
+// bearer registers an app with the scopes and returns a token's Authorization header value.
+func (r *rig) bearer(t *testing.T, name string, scopes ...string) string {
+	t.Helper()
+	c, err := r.apps.Create(context.Background(), name, scopes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tok, err := r.apps.Issue(context.Background(), c.App.ClientID, c.Secret, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return "Bearer " + tok.Value
+}
+
+// bearerClient is an HTTP client that sends one Authorization header on every request.
+func bearerClient(base *http.Client, auth string) *http.Client {
+	c := *base
+	c.Transport = headerTransport{next: base.Transport, name: "Authorization", value: auth}
+	return &c
+}
+
+type headerTransport struct {
+	next        http.RoundTripper
+	name, value string
+}
+
+func (t headerTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	r = r.Clone(r.Context())
+	r.Header.Set(t.name, t.value)
+	next := t.next
+	if next == nil {
+		next = http.DefaultTransport
+	}
+	return next.RoundTrip(r)
 }
 
 // user registers a user with one Discord identity and returns them.

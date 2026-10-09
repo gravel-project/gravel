@@ -46,6 +46,88 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.GetMeResponse'
+  /gravel.hub.v1.IdentityService/ListIdentityEvents:
+    post:
+      tags:
+        - gravel.hub.v1.IdentityService
+      summary: ListIdentityEvents
+      description: |-
+        ListIdentityEvents returns the identity log after a position, oldest first: a reconciler's
+         incremental pass. An app with identity:read, or the owner.
+      operationId: gravel.hub.v1.IdentityService.ListIdentityEvents
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.ListIdentityEventsRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.ListIdentityEventsResponse'
+  /gravel.hub.v1.IdentityService/ListUsers:
+    post:
+      tags:
+        - gravel.hub.v1.IdentityService
+      summary: ListUsers
+      description: |-
+        ListUsers pages through the members with their identities, oldest first: a role-sync
+         reconciler's full pass. An app with identity:read, or the owner.
+      operationId: gravel.hub.v1.IdentityService.ListUsers
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.ListUsersRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.ListUsersResponse'
   /gravel.hub.v1.IdentityService/Logout:
     post:
       tags:
@@ -540,6 +622,95 @@ components:
       description: |-
         Identity is one provider account linked to a user: a (provider, subject) pair, unique across
          the hub, with mutable display attributes and a record of how control was proven.
+    gravel.hub.v1.IdentityEvent:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+          format: int64
+          description: The log position; ask for what comes after it next time.
+        userId:
+          type: string
+          title: user_id
+        provider:
+          type: string
+          title: provider
+        subject:
+          type: string
+          title: subject
+        event:
+          type: string
+          title: event
+          description: '"registered", "login", "linked" or "unlinked".'
+        at:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: at
+      title: IdentityEvent
+      additionalProperties: false
+      description: |-
+        IdentityEvent is one line of the append-only identity log: a registration, a login, a link or
+         an unlink of one (provider, subject) pair.
+    gravel.hub.v1.ListIdentityEventsRequest:
+      type: object
+      properties:
+        afterId:
+          type: string
+          title: after_id
+          format: int64
+          description: Return events with an id greater than this; 0 for the start of the log.
+        limit:
+          type: integer
+          title: limit
+          format: int32
+          description: At most 1000; 100 when unset.
+      title: ListIdentityEventsRequest
+      additionalProperties: false
+    gravel.hub.v1.ListIdentityEventsResponse:
+      type: object
+      properties:
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.IdentityEvent'
+          title: events
+        nextAfterId:
+          type: string
+          title: next_after_id
+          format: int64
+          description: 'The id to pass as after_id next time: the last event''s, or after_id itself when there were none.'
+      title: ListIdentityEventsResponse
+      additionalProperties: false
+    gravel.hub.v1.ListUsersRequest:
+      type: object
+      properties:
+        pageSize:
+          type: integer
+          title: page_size
+          format: int32
+          description: At most 500; 100 when unset.
+        pageToken:
+          type: string
+          title: page_token
+          description: The next_page_token of the previous page; empty for the first.
+      title: ListUsersRequest
+      additionalProperties: false
+    gravel.hub.v1.ListUsersResponse:
+      type: object
+      properties:
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.User'
+          title: users
+          description: Members with their identities, oldest registration first.
+        nextPageToken:
+          type: string
+          title: next_page_token
+          description: Empty on the last page.
+      title: ListUsersResponse
+      additionalProperties: false
     gravel.hub.v1.LogoutRequest:
       type: object
       title: LogoutRequest

@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"slices"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -192,7 +194,77 @@ func (f *FakeStore) UnlinkIdentity(_ context.Context, userID uuid.UUID, provider
 }
 
 func (f *FakeStore) event(userID uuid.UUID, provider, subject, event string, at time.Time) {
-	f.Events = append(f.Events, store.IdentityEvent{UserID: userID, Provider: provider, Subject: subject, Event: event, At: at})
+	f.Events = append(f.Events, store.IdentityEvent{ID: int64(len(f.Events) + 1), UserID: userID, Provider: provider, Subject: subject, Event: event, At: at})
+}
+
+func (f *FakeStore) ListUsers(_ context.Context, orgID uuid.UUID, after *store.UserCursor, limit int) ([]store.User, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.fail("ListUsers"); err != nil {
+		return nil, err
+	}
+	var all []store.User
+	for _, u := range f.Users {
+		if u.OrganizationID != orgID {
+			continue
+		}
+		if after != nil {
+			later := u.CreatedAt.After(after.CreatedAt) || (u.CreatedAt.Equal(after.CreatedAt) && u.ID.String() > after.ID.String())
+			if !later {
+				continue
+			}
+		}
+		all = append(all, u)
+	}
+	sort.Slice(all, func(i, j int) bool {
+		if !all[i].CreatedAt.Equal(all[j].CreatedAt) {
+			return all[i].CreatedAt.Before(all[j].CreatedAt)
+		}
+		return all[i].ID.String() < all[j].ID.String()
+	})
+	if len(all) > limit {
+		all = all[:limit]
+	}
+	return all, nil
+}
+
+func (f *FakeStore) ListIdentitiesForUsers(_ context.Context, userIDs []uuid.UUID) ([]store.Identity, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.fail("ListIdentitiesForUsers"); err != nil {
+		return nil, err
+	}
+	var out []store.Identity
+	for _, id := range f.Identities {
+		if slices.Contains(userIDs, id.UserID) {
+			out = append(out, id)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].UserID != out[j].UserID {
+			return out[i].UserID.String() < out[j].UserID.String()
+		}
+		return out[i].LinkedAt.Before(out[j].LinkedAt)
+	})
+	return out, nil
+}
+
+func (f *FakeStore) ListIdentityEventsAfter(_ context.Context, afterID int64, limit int) ([]store.IdentityEvent, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.fail("ListIdentityEventsAfter"); err != nil {
+		return nil, err
+	}
+	var out []store.IdentityEvent
+	for _, e := range f.Events {
+		if e.ID > afterID {
+			out = append(out, e)
+		}
+		if len(out) == limit {
+			break
+		}
+	}
+	return out, nil
 }
 
 func (f *FakeStore) CreateAuthAttempt(_ context.Context, a store.AuthAttempt) error {

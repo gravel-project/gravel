@@ -6,6 +6,9 @@
 //	gravel-hub healthcheck  [--url http://127.0.0.1:8080/healthz]
 //	gravel-hub settings export [--config hub.yaml]              print the Organization settings as a manifest
 //	gravel-hub settings apply <manifest.yaml> [--dry-run]       apply a manifest (exit 3 on --dry-run with changes)
+//	gravel-hub apps create --name NAME --scopes SCOPES          register a first-party app; prints its secret once
+//	gravel-hub apps list                                        the registered apps
+//	gravel-hub apps revoke --client-id ID                       revoke an app and its tokens
 //	gravel-hub version
 //
 // The config path defaults to $GRAVEL_CONFIG, then /etc/gravel/hub.yaml.
@@ -58,6 +61,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		return healthcheck(ctx, args, stderr)
 	case "settings":
 		return settings(ctx, args, stdout, stderr)
+	case "apps":
+		return appsCmd(ctx, args, stdout, stderr)
 	case "version":
 		fmt.Fprintln(stdout, "gravel-hub", buildVersion())
 		return 0
@@ -80,6 +85,7 @@ func usage(w io.Writer) {
   config check  load and validate the configuration
   healthcheck   GET /healthz and exit 0 when it answers; --url
   settings      export the Organization settings as a manifest, or apply one (--dry-run exits 3 on a change)
+  apps          register, list or revoke first-party apps (create prints the client secret once)
   version       print the version
 
 The config path comes from --config, then $GRAVEL_CONFIG, then `+defaultConfigPath+`.

@@ -75,6 +75,46 @@ message LookupUserResponse {
   User user = 1;
 }
 
+message ListUsersRequest {
+  // At most 500; 100 when unset.
+  int32 page_size = 1;
+  // The next_page_token of the previous page; empty for the first.
+  string page_token = 2;
+}
+
+message ListUsersResponse {
+  // Members with their identities, oldest registration first.
+  repeated User users = 1;
+  // Empty on the last page.
+  string next_page_token = 2;
+}
+
+// IdentityEvent is one line of the append-only identity log: a registration, a login, a link or
+// an unlink of one (provider, subject) pair.
+message IdentityEvent {
+  // The log position; ask for what comes after it next time.
+  int64 id = 1;
+  string user_id = 2;
+  string provider = 3;
+  string subject = 4;
+  // "registered", "login", "linked" or "unlinked".
+  string event = 5;
+  google.protobuf.Timestamp at = 6;
+}
+
+message ListIdentityEventsRequest {
+  // Return events with an id greater than this; 0 for the start of the log.
+  int64 after_id = 1;
+  // At most 1000; 100 when unset.
+  int32 limit = 2;
+}
+
+message ListIdentityEventsResponse {
+  repeated IdentityEvent events = 1;
+  // The id to pass as after_id next time: the last event's, or after_id itself when there were none.
+  int64 next_after_id = 2;
+}
+
 // IdentityService is the logged-in member's account and the lookups role sync needs. Every
 // procedure needs a session cookie; login itself is the browser flow under /auth/.
 service IdentityService {
@@ -90,4 +130,10 @@ service IdentityService {
   // LookupUser resolves a (provider, subject) pair to its user, for role sync. Owner only until
   // first-party apps get their own credentials (gravel#6).
   rpc LookupUser(LookupUserRequest) returns (LookupUserResponse);
+  // ListUsers pages through the members with their identities, oldest first: a role-sync
+  // reconciler's full pass. An app with identity:read, or the owner.
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+  // ListIdentityEvents returns the identity log after a position, oldest first: a reconciler's
+  // incremental pass. An app with identity:read, or the owner.
+  rpc ListIdentityEvents(ListIdentityEventsRequest) returns (ListIdentityEventsResponse);
 }

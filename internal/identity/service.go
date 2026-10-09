@@ -32,6 +32,9 @@ type Store interface {
 	CreateAuthAttempt(ctx context.Context, a store.AuthAttempt) error
 	ConsumeAuthAttempt(ctx context.Context, hash []byte, now time.Time) (store.AuthAttempt, error)
 	DeleteExpiredAuthAttempts(ctx context.Context, now time.Time) (int64, error)
+	ListUsers(ctx context.Context, orgID uuid.UUID, after *store.UserCursor, limit int) ([]store.User, error)
+	ListIdentitiesForUsers(ctx context.Context, userIDs []uuid.UUID) ([]store.Identity, error)
+	ListIdentityEventsAfter(ctx context.Context, afterID int64, limit int) ([]store.IdentityEvent, error)
 }
 
 // Registration is a provider and what it may be used for.
@@ -327,6 +330,39 @@ func (s *Service) Lookup(ctx context.Context, provider, subject string) (User, e
 		return User{}, err
 	}
 	return s.Me(ctx, ident.UserID)
+}
+
+// ListUsers pages through the organization's members with their identities, oldest first;
+// after is the previous page's last user, nil for the first page. This is the full pass a
+// role-sync reconciler makes (ADR-0008).
+func (s *Service) ListUsers(ctx context.Context, after *store.UserCursor, limit int) ([]User, error) {
+	users, err := s.st.ListUsers(ctx, s.orgID, after, limit)
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]uuid.UUID, len(users))
+	for i, u := range users {
+		ids[i] = u.ID
+	}
+	idents, err := s.st.ListIdentitiesForUsers(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	byUser := map[uuid.UUID][]store.Identity{}
+	for _, id := range idents {
+		byUser[id.UserID] = append(byUser[id.UserID], id)
+	}
+	out := make([]User, len(users))
+	for i, u := range users {
+		out[i] = User{User: u, Identities: byUser[u.ID]}
+	}
+	return out, nil
+}
+
+// ListEvents returns identity events after a position in the log, oldest first: the incremental
+// pass of role sync. A reader remembers the last id it saw.
+func (s *Service) ListEvents(ctx context.Context, afterID int64, limit int) ([]store.IdentityEvent, error) {
+	return s.st.ListIdentityEventsAfter(ctx, afterID, limit)
 }
 
 // Unlink removes one of a user's identities. ErrLastIdentity when it is the only one (a
