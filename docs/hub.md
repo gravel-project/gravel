@@ -254,6 +254,10 @@ In a quadlet unit the archive command is written `wal-g wal-push %%p`: systemd e
 in the generated service, and `%%` is how a literal percent reaches Postgres (the compose file and
 the drill, which hand the command to podman directly, write `%p`).
 
+In a quadlet unit the archive command is written `wal-g wal-push %%p`: systemd expands `%`
+specifiers in the generated service, and `%%` is how a literal percent reaches Postgres (the
+compose file and the drill, which hand the command to podman directly, write `%p`).
+
 Turning backups on for a quadlet deployment: edit the bucket lines in `deploy/quadlet/backup/`,
 create the two secrets, `make quadlet-install-backup`, restart `gravel-postgres` and `gravel-hub`
 (the drop-ins switch the image and mount the status volume), then
