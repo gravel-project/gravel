@@ -9,6 +9,7 @@ All notable changes to gravel are documented here. The format follows
 ### Added
 
 - Metrics a dashboard needs (#60): `gravel_bot_interaction_duration_seconds{route}`, a histogram dense around Discord's three seconds, and `gravel_bot_gateway_latency_seconds`, the last heartbeat's round trip; on the hub, `gravel_users`, `gravel_identities{provider}` (every configured provider, 0 included, and `other` for rows of one no longer configured) and `gravel_database_size_bytes`, read at scrape in one transaction with a two-second limit, with `gravel_store_stats_readable` 0 instead of numbers when the database doesn't answer. `docs/hub.md` and `docs/bot.md` list every metric in a table with its type, labels and when it is absent.
+- `discord/bot/stock` and `discord/bot/cli` (#59): `stock.Modules` is the stock module set as a `bot.yaml` enables it, and a `cli.Program` is a bot binary's whole command line (serve, config check, healthcheck, version, the config path from a flag, a variable or a default), with the host's own modules registered after the stock set. `cmd/gravel-bot` is a `Program` with no extra modules, and a host's `main` is a few lines, so a module gravel adds reaches every host bot at its next upgrade. `config check` now lists the modules it would run. `docs/bot.md` "A host's bot" shows the short form.
 
 ### Changed
 
