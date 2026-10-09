@@ -6,6 +6,10 @@ All notable changes to gravel are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The quadlet units pin the 0.4.0 images by index digest, both verified against the release workflow at `v0.4.0`: `ghcr.io/gravel-project/gravel-hub@sha256:8255099405c8683ac7482a740d2b043561689d9d775991a4e7712d875b4cc84d` in `gravel-hub.container`, and `ghcr.io/gravel-project/gravel-postgres@sha256:fc4e4f62d96668dd09b2d8503347ea0b52c465ee58abdeb6d2417b638b430d08` in the backup set (the same Containerfile as 0.3.0, rebuilt at the tag); `docs/hub.md` names 0.4.0 as the tag example.
+
 ### Fixed
 
 - `make quadlet-install-backup` put `gravel-backup.timer` in the quadlet directory, which systemd never reads, so the timer could not be enabled; it now goes into `~/.config/systemd/user/`, and the backup README and `deploy/README.md` say so. Found on Hidden Token Gaming's first converge with backups (#28).
