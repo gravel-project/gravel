@@ -3,7 +3,7 @@
 // A fresh hub has no owner and every later action needs one. On each start while it is unowned
 // the hub mints a one-time owner-claim token, stores only its hash, and prints the token once to
 // its log. ClaimOwnership consumes it: single-use, expiring, and refused forever once the hub is
-// owned (ADR-0002). Binding the claim to a logged-in user is gravel#13's job.
+// owned (ADR-0002). The claim binds to the logged-in user who makes it; that user is the owner.
 package org
 
 import (
@@ -36,7 +36,7 @@ type Store interface {
 	CreateBuiltinOrganization(ctx context.Context, id uuid.UUID, name string) (store.Organization, error)
 	UpdateOrganizationName(ctx context.Context, id uuid.UUID, name string) error
 	SetClaimToken(ctx context.Context, id uuid.UUID, hash []byte, expiresAt time.Time) error
-	ClaimOrganization(ctx context.Context, id uuid.UUID, hash []byte, now time.Time) (store.Organization, error)
+	ClaimOrganization(ctx context.Context, id uuid.UUID, hash []byte, ownerUserID uuid.UUID, now time.Time) (store.Organization, error)
 }
 
 // Service is the organization domain.
@@ -105,8 +105,8 @@ func (s *Service) Get(ctx context.Context) (store.Organization, error) {
 	return s.st.GetBuiltinOrganization(ctx)
 }
 
-// Claim consumes the owner-claim token.
-func (s *Service) Claim(ctx context.Context, token string) (store.Organization, error) {
+// Claim consumes the owner-claim token and makes ownerUserID the owner.
+func (s *Service) Claim(ctx context.Context, token string, ownerUserID uuid.UUID) (store.Organization, error) {
 	token = strings.TrimSpace(token)
 	o, err := s.st.GetBuiltinOrganization(ctx)
 	if err != nil {
@@ -121,7 +121,7 @@ func (s *Service) Claim(ctx context.Context, token string) (store.Organization, 
 	if token == "" || len(o.ClaimTokenHash) != len(hash) || subtle.ConstantTimeCompare(o.ClaimTokenHash, hash) != 1 {
 		return store.Organization{}, ErrInvalidToken
 	}
-	claimed, err := s.st.ClaimOrganization(ctx, o.ID, hash, s.now())
+	claimed, err := s.st.ClaimOrganization(ctx, o.ID, hash, ownerUserID, s.now())
 	switch {
 	case errors.Is(err, store.ErrOwned):
 		return store.Organization{}, ErrAlreadyOwned
@@ -130,7 +130,7 @@ func (s *Service) Claim(ctx context.Context, token string) (store.Organization, 
 	case err != nil:
 		return store.Organization{}, err
 	}
-	s.logger.Info("ownership claimed", "organization_id", claimed.ID)
+	s.logger.Info("ownership claimed", "organization_id", claimed.ID, "owner_user_id", ownerUserID)
 	return claimed, nil
 }
 

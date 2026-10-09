@@ -16,3 +16,16 @@ database:
 log:
   level: info
   format: json
+
+# Login (docs/hub.md "Login"). Disabled here so the stack runs with no Discord application; to
+# enable it, register http://127.0.0.1:8080/auth/discord/callback on your Discord app, load the
+# secrets (deploy/README.md) and turn the providers on.
+auth:
+  base_url: http://127.0.0.1:8080
+  discord:
+    enabled: false
+    client_id: ""
+    client_secret_file: /run/secrets/gravel-discord-client-secret
+  steam:
+    enabled: false
+    api_key_file: /run/secrets/gravel-steam-api-key

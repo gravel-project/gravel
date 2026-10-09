@@ -174,3 +174,126 @@ func TestSlogLevel(t *testing.T) {
 		t.Error("loud should fail")
 	}
 }
+
+func TestAuthDefaultsAndOverrides(t *testing.T) {
+	cfg, err := Parse(strings.NewReader(minimal), noEnv())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Auth.SessionTTL != 30*24*time.Hour || cfg.Auth.AttemptTTL != 10*time.Minute || cfg.Auth.BaseURL != "" {
+		t.Errorf("auth defaults: %+v", cfg.Auth)
+	}
+	if cfg.Auth.Discord.Enabled || !cfg.Auth.Discord.Login || cfg.Auth.Steam.Enabled || cfg.Auth.Steam.Login {
+		t.Errorf("provider defaults: %+v %+v", cfg.Auth.Discord, cfg.Auth.Steam)
+	}
+	if cfg.RateLimit.PerIP != (Limit{RequestsPerMinute: 120, Burst: 40}) || cfg.RateLimit.PerUser != (Limit{RequestsPerMinute: 600, Burst: 100}) {
+		t.Errorf("rate limit defaults: %+v", cfg.RateLimit)
+	}
+	if cfg.Auth.Secure() || cfg.Server.ClientIPHeader != "" {
+		t.Errorf("insecure by default: %+v", cfg.Auth)
+	}
+
+	doc := minimal + `
+server:
+  client_ip_header: CF-Connecting-IP
+auth:
+  base_url: https://app.example.com
+  session_ttl: 1h
+  attempt_ttl: 2m
+  discord:
+    enabled: true
+    client_id: "123"
+    client_secret: dev-secret
+  steam:
+    enabled: true
+    api_key: dev-key
+    login: true
+rate_limit:
+  per_ip: {requests_per_minute: 10, burst: 5}
+  per_user: {requests_per_minute: 20, burst: 6}
+`
+	cfg, err = Parse(strings.NewReader(doc), noEnv())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.Auth.Secure() || cfg.Auth.CallbackURL("discord") != "https://app.example.com/auth/discord/callback" {
+		t.Errorf("secure/callback: %v %q", cfg.Auth.Secure(), cfg.Auth.CallbackURL("discord"))
+	}
+	if cfg.Auth.SessionTTL != time.Hour || cfg.Auth.AttemptTTL != 2*time.Minute || cfg.Server.ClientIPHeader != "CF-Connecting-IP" {
+		t.Errorf("overrides: %+v %+v", cfg.Auth, cfg.Server)
+	}
+	if !cfg.Auth.Discord.Enabled || cfg.Auth.Discord.ClientSecret != "dev-secret" || cfg.Auth.Discord.SecretSource() != "auth.discord.client_secret" {
+		t.Errorf("discord: %+v (%s)", cfg.Auth.Discord, cfg.Auth.Discord.SecretSource())
+	}
+	if !cfg.Auth.Steam.Enabled || !cfg.Auth.Steam.Login || cfg.Auth.Steam.APIKey != "dev-key" || cfg.Auth.Steam.KeySource() != "auth.steam.api_key" {
+		t.Errorf("steam: %+v (%s)", cfg.Auth.Steam, cfg.Auth.Steam.KeySource())
+	}
+	if cfg.RateLimit.PerIP != (Limit{10, 5}) || cfg.RateLimit.PerUser != (Limit{20, 6}) {
+		t.Errorf("rate limits: %+v", cfg.RateLimit)
+	}
+}
+
+func TestAuthSecretPrecedence(t *testing.T) {
+	doc := minimal + `
+auth:
+  base_url: http://127.0.0.1:8080
+  discord:
+    enabled: true
+    client_id: "1"
+    client_secret: inline
+    client_secret_file: /run/secrets/discord
+  steam:
+    enabled: true
+    api_key_file: /run/secrets/steam
+`
+	env := Env{
+		LookupEnv: func(k string) (string, bool) {
+			if k == EnvDiscordClientSecret {
+				return "from-env", true
+			}
+			return "", false
+		},
+		ReadFile: func(p string) ([]byte, error) { return []byte("from-file:" + p + "\n"), nil },
+	}
+	cfg, err := Parse(strings.NewReader(doc), env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Auth.Discord.ClientSecret != "from-env" || !strings.HasPrefix(cfg.Auth.Discord.SecretSource(), "env ") {
+		t.Errorf("env wins: %q %q", cfg.Auth.Discord.ClientSecret, cfg.Auth.Discord.SecretSource())
+	}
+	if cfg.Auth.Steam.APIKey != "from-file:/run/secrets/steam" || !strings.HasPrefix(cfg.Auth.Steam.KeySource(), "file ") {
+		t.Errorf("file beats inline and is trimmed: %q %q", cfg.Auth.Steam.APIKey, cfg.Auth.Steam.KeySource())
+	}
+	env.ReadFile = func(string) ([]byte, error) { return nil, errors.New("boom") }
+	env.LookupEnv = func(string) (string, bool) { return "", false }
+	if _, err := Parse(strings.NewReader(doc), env); err == nil || !strings.Contains(err.Error(), "client_secret_file") {
+		t.Errorf("unreadable secret file must fail naming the key: %v", err)
+	}
+}
+
+func TestAuthValidation(t *testing.T) {
+	cases := map[string]string{
+		"discord without id":      "auth:\n  base_url: https://a.example\n  discord:\n    enabled: true\n    client_secret: x\n",
+		"discord without secret":  "auth:\n  base_url: https://a.example\n  discord:\n    enabled: true\n    client_id: '1'\n",
+		"provider without base":   "auth:\n  steam:\n    enabled: true\n",
+		"base with a path":        "auth:\n  base_url: https://a.example/app\n",
+		"base without scheme":     "auth:\n  base_url: a.example\n",
+		"everything link-only":    "auth:\n  base_url: https://a.example\n  discord:\n    enabled: true\n    client_id: '1'\n    client_secret: x\n    login: false\n",
+		"zero rate":               "rate_limit:\n  per_ip: {requests_per_minute: 0, burst: 1}\n",
+		"zero burst":              "rate_limit:\n  per_user: {requests_per_minute: 1, burst: 0}\n",
+		"session ttl":             "auth:\n  session_ttl: 0s\n",
+		"attempt ttl":             "auth:\n  attempt_ttl: -1s\n",
+		"client ip header spaced": "server:\n  client_ip_header: 'X Forwarded'\n",
+	}
+	for name, extra := range cases {
+		if _, err := Parse(strings.NewReader(minimal+extra), noEnv()); err == nil {
+			t.Errorf("%s: want an error", name)
+		}
+	}
+	// Steam alone with login is a valid hub; so is Steam link-only beside Discord.
+	ok := minimal + "auth:\n  base_url: https://a.example\n  steam:\n    enabled: true\n    login: true\n"
+	if _, err := Parse(strings.NewReader(ok), noEnv()); err != nil {
+		t.Errorf("steam-only login: %v", err)
+	}
+}

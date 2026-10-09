@@ -27,6 +27,19 @@ GRAVEL_PORT=18080 GRAVEL_INTERNAL_PORT=19090 make up   # when 8080/9090 are take
 same names the quadlet units use. `hub.yaml` is the hub's configuration for the stack, mounted
 read-only.
 
+Login is off in the stack's `hub.yaml`, so it runs with no Discord application. To try it:
+create a Discord application with `http://127.0.0.1:8080/auth/discord/callback` as an OAuth2
+redirect, then
+
+```sh
+printf '%s' '<client secret>' | podman secret create gravel-discord-client-secret -
+printf '%s' '<steam web api key>' | podman secret create gravel-steam-api-key -   # optional
+```
+
+set `auth.discord.enabled: true` with your `client_id` (and `auth.steam.enabled: true`) in
+`deploy/hub.yaml`, uncomment the two secrets in `compose.yaml`, and `make up`. The owner-claim
+token the hub logs is pasted on the account page after the first login (`docs/hub.md`).
+
 ## Production: quadlet units
 
 1. The unit pins a release of `ghcr.io/gravel-project/gravel-hub` by digest. Verify it before
@@ -40,12 +53,20 @@ read-only.
    podman secret create gravel-db-password /path/to/db-password      # Postgres superuser password
    podman secret create gravel-db-url      /path/to/db-url           # postgres://gravel:<password>@gravel-postgres:5432/gravel?sslmode=disable
    podman secret create gravel-tunnel-token /path/to/tunnel-token    # only with gravel-cloudflared
+   podman secret create gravel-discord-client-secret /path/to/secret # with login: the Discord application's OAuth2 client secret
+   podman secret create gravel-steam-api-key /path/to/key            # optional: persona names and avatars for linked Steam accounts
    ```
 
+   With login enabled, uncomment the matching `Secret=` lines in `quadlet/gravel-hub.container`.
+
 3. Write `~/.config/gravel/hub.yaml` (reference: `docs/hub.md`; start from `deploy/hub.yaml` with
-   `url_file: /run/secrets/gravel-db-url`). Make it world-readable (`chmod 644`): the hub runs as
-   uid 65532 inside a rootless container, which maps to one of your subordinate uids, so a 0600
-   file owned by you is "permission denied" from inside. The file holds no secrets by design.
+   `url_file: /run/secrets/gravel-db-url`). For login, set `auth.base_url` to the origin members
+   use (`https://…` makes the cookies `Secure`), enable the providers, register
+   `<base_url>/auth/discord/callback` on the Discord application, and behind cloudflared set
+   `server.client_ip_header: CF-Connecting-IP` so rate limits see members, not the tunnel. Make
+   the file world-readable (`chmod 644`): the hub runs as uid 65532 inside a rootless container,
+   which maps to one of your subordinate uids, so a 0600 file owned by you is "permission denied"
+   from inside. The file holds no secrets by design.
 4. Install and start:
 
    ```sh

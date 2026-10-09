@@ -68,6 +68,7 @@ func (h *Hub) Run(ctx context.Context) error {
 	errs := make(chan error, 2)
 	go func() { errs <- serve(ctx, publicSrv, publicLn, h.cfg.Server.ShutdownTimeout) }()
 	go func() { errs <- serve(ctx, internalSrv, internalLn, h.cfg.Server.ShutdownTimeout) }()
+	go h.pruneLoop(ctx)
 
 	var first error
 	for range 2 {
@@ -108,4 +109,18 @@ func serve(ctx context.Context, srv *http.Server, ln net.Listener, timeout time.
 	}
 	<-served
 	return nil
+}
+
+// pruneLoop runs Prune every pruneEvery until ctx is cancelled.
+func (h *Hub) pruneLoop(ctx context.Context) {
+	t := time.NewTicker(pruneEvery)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			h.Prune(ctx)
+		}
+	}
 }

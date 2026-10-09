@@ -1,0 +1,25 @@
+:root { color-scheme: light dark; --fg: #1b1b1b; --bg: #fafafa; --muted: #666; --accent: #2a6; --line: #ddd; --ok: #dfd; --err: #fdd; }
+@media (prefers-color-scheme: dark) { :root { --fg: #eee; --bg: #151515; --muted: #aaa; --line: #333; --ok: #1e3a1e; --err: #3a1e1e; } }
+* { box-sizing: border-box; }
+body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: var(--fg); background: var(--bg); }
+.top, .bottom { display: flex; justify-content: space-between; align-items: center; padding: .75rem 1rem; border-bottom: 1px solid var(--line); }
+.bottom { border: 0; border-top: 1px solid var(--line); color: var(--muted); }
+.top nav { display: flex; gap: 1rem; align-items: center; }
+.brand { font-weight: 700; text-decoration: none; color: inherit; }
+main { max-width: 48rem; margin: 0 auto; padding: 1rem; }
+a { color: var(--accent); }
+.button { display: inline-block; padding: .5rem 1rem; border: 1px solid var(--accent); border-radius: .25rem; text-decoration: none; }
+button { font: inherit; padding: .4rem .8rem; border: 1px solid var(--line); border-radius: .25rem; background: transparent; color: inherit; cursor: pointer; }
+button.link { border: 0; padding: 0; color: var(--accent); text-decoration: underline; }
+form.inline { display: inline; }
+.providers { list-style: none; padding: 0; display: flex; gap: .5rem; flex-wrap: wrap; }
+table { border-collapse: collapse; width: 100%; margin: .5rem 0; }
+th, td { text-align: left; padding: .4rem .5rem; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.avatar { border-radius: 50%; vertical-align: middle; }
+.badge { font-size: .7em; vertical-align: middle; padding: .1rem .4rem; border: 1px solid var(--accent); border-radius: .25rem; color: var(--accent); }
+.muted { color: var(--muted); }
+.flash { padding: .5rem .75rem; border-radius: .25rem; border: 1px solid var(--line); }
+.flash-ok { background: var(--ok); }
+.flash-err { background: var(--err); }
+label { display: block; margin-top: .5rem; }
+input[type=text] { font: inherit; padding: .4rem; width: 100%; max-width: 32rem; margin: .25rem 0; color: inherit; background: transparent; border: 1px solid var(--line); border-radius: .25rem; }

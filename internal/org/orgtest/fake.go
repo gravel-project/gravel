@@ -51,7 +51,7 @@ func (f *FakeStore) SetClaimToken(_ context.Context, _ uuid.UUID, hash []byte, e
 	return nil
 }
 
-func (f *FakeStore) ClaimOrganization(_ context.Context, _ uuid.UUID, hash []byte, now time.Time) (store.Organization, error) {
+func (f *FakeStore) ClaimOrganization(_ context.Context, _ uuid.UUID, hash []byte, ownerUserID uuid.UUID, now time.Time) (store.Organization, error) {
 	f.Writes = append(f.Writes, "claim")
 	if f.Org.Owned() {
 		return store.Organization{}, store.ErrOwned
@@ -60,6 +60,7 @@ func (f *FakeStore) ClaimOrganization(_ context.Context, _ uuid.UUID, hash []byt
 		return store.Organization{}, store.ErrClaimRejected
 	}
 	f.Org.ClaimedAt = &now
+	f.Org.OwnerUserID = &ownerUserID
 	f.Org.ClaimTokenHash, f.Org.ClaimTokenExpiresAt = nil, nil
 	return *f.Org, nil
 }

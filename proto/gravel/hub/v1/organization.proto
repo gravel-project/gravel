@@ -18,6 +18,8 @@ message Organization {
   google.protobuf.Timestamp created_at = 4;
   // When ownership was claimed; unset while unowned.
   google.protobuf.Timestamp claimed_at = 5;
+  // The user who claimed ownership; unset while unowned.
+  string owner_user_id = 6;
 }
 
 message GetOrganizationRequest {}
@@ -38,7 +40,8 @@ message ClaimOwnershipResponse {
 // OrganizationService reads the built-in organization and claims its ownership once.
 service OrganizationService {
   rpc GetOrganization(GetOrganizationRequest) returns (GetOrganizationResponse);
-  // ClaimOwnership consumes the one-time owner-claim token. It succeeds once per hub: the token is
+  // ClaimOwnership consumes the one-time owner-claim token and makes the caller the owner. It
+  // needs a session (unauthenticated otherwise) and succeeds once per hub: the token is
   // single-use, expires, and no token exists once the hub is owned.
   rpc ClaimOwnership(ClaimOwnershipRequest) returns (ClaimOwnershipResponse);
 }

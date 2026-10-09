@@ -44,7 +44,8 @@ const (
 // OrganizationServiceClient is a client for the gravel.hub.v1.OrganizationService service.
 type OrganizationServiceClient interface {
 	GetOrganization(context.Context, *connect.Request[v1.GetOrganizationRequest]) (*connect.Response[v1.GetOrganizationResponse], error)
-	// ClaimOwnership consumes the one-time owner-claim token. It succeeds once per hub: the token is
+	// ClaimOwnership consumes the one-time owner-claim token and makes the caller the owner. It
+	// needs a session (unauthenticated otherwise) and succeeds once per hub: the token is
 	// single-use, expires, and no token exists once the hub is owned.
 	ClaimOwnership(context.Context, *connect.Request[v1.ClaimOwnershipRequest]) (*connect.Response[v1.ClaimOwnershipResponse], error)
 }
@@ -94,7 +95,8 @@ func (c *organizationServiceClient) ClaimOwnership(ctx context.Context, req *con
 // OrganizationServiceHandler is an implementation of the gravel.hub.v1.OrganizationService service.
 type OrganizationServiceHandler interface {
 	GetOrganization(context.Context, *connect.Request[v1.GetOrganizationRequest]) (*connect.Response[v1.GetOrganizationResponse], error)
-	// ClaimOwnership consumes the one-time owner-claim token. It succeeds once per hub: the token is
+	// ClaimOwnership consumes the one-time owner-claim token and makes the caller the owner. It
+	// needs a session (unauthenticated otherwise) and succeeds once per hub: the token is
 	// single-use, expires, and no token exists once the hub is owned.
 	ClaimOwnership(context.Context, *connect.Request[v1.ClaimOwnershipRequest]) (*connect.Response[v1.ClaimOwnershipResponse], error)
 }

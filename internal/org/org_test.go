@@ -8,9 +8,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/gravel-project/gravel/internal/org/orgtest"
 	"github.com/gravel-project/gravel/internal/store"
 )
+
+var owner = uuid.MustParse("00000000-0000-7000-8000-000000000001")
 
 func newTestService(f *orgtest.FakeStore) (*Service, *time.Time) {
 	now := time.Date(2026, 10, 8, 12, 0, 0, 0, time.UTC)
@@ -51,10 +55,10 @@ func TestEnsureBuiltinRotatesWhileUnowned(t *testing.T) {
 	if first == second || second == "" {
 		t.Error("a restart while unowned must mint a new token")
 	}
-	if _, err := s.Claim(context.Background(), first); !errors.Is(err, ErrInvalidToken) {
+	if _, err := s.Claim(context.Background(), first, owner); !errors.Is(err, ErrInvalidToken) {
 		t.Errorf("the rotated-away token must be refused: %v", err)
 	}
-	if _, err := s.Claim(context.Background(), second); err != nil {
+	if _, err := s.Claim(context.Background(), second, owner); err != nil {
 		t.Errorf("current token must work: %v", err)
 	}
 }
@@ -74,17 +78,17 @@ func TestClaimOnce(t *testing.T) {
 	s, _ := newTestService(f)
 	_, token, _ := s.EnsureBuiltin(context.Background(), "x")
 
-	if _, err := s.Claim(context.Background(), "nope"); !errors.Is(err, ErrInvalidToken) {
+	if _, err := s.Claim(context.Background(), "nope", owner); !errors.Is(err, ErrInvalidToken) {
 		t.Errorf("wrong token: %v", err)
 	}
-	if _, err := s.Claim(context.Background(), ""); !errors.Is(err, ErrInvalidToken) {
+	if _, err := s.Claim(context.Background(), "", owner); !errors.Is(err, ErrInvalidToken) {
 		t.Errorf("empty token: %v", err)
 	}
-	o, err := s.Claim(context.Background(), " "+token+"\n")
-	if err != nil || !o.Owned() || o.ClaimTokenHash != nil {
+	o, err := s.Claim(context.Background(), " "+token+"\n", owner)
+	if err != nil || !o.Owned() || o.ClaimTokenHash != nil || o.OwnerUserID == nil || *o.OwnerUserID != owner {
 		t.Fatalf("claim: %v %+v", err, o)
 	}
-	if _, err := s.Claim(context.Background(), token); !errors.Is(err, ErrAlreadyOwned) {
+	if _, err := s.Claim(context.Background(), token, owner); !errors.Is(err, ErrAlreadyOwned) {
 		t.Errorf("second use must say owned: %v", err)
 	}
 	o2, tok2, err := s.EnsureBuiltin(context.Background(), "x")
@@ -98,7 +102,7 @@ func TestClaimExpired(t *testing.T) {
 	s, now := newTestService(f)
 	_, token, _ := s.EnsureBuiltin(context.Background(), "x")
 	*now = now.Add(16 * time.Minute)
-	if _, err := s.Claim(context.Background(), token); !errors.Is(err, ErrInvalidToken) {
+	if _, err := s.Claim(context.Background(), token, owner); !errors.Is(err, ErrInvalidToken) {
 		t.Errorf("expired token must be refused: %v", err)
 	}
 }
@@ -114,7 +118,7 @@ func TestClaimRaceLosesToStore(t *testing.T) {
 	snapshot.ClaimedAt = nil
 	racy := &racingStore{FakeStore: f, snapshot: snapshot}
 	s.st = racy
-	if _, err := s.Claim(context.Background(), token); !errors.Is(err, ErrAlreadyOwned) {
+	if _, err := s.Claim(context.Background(), token, owner); !errors.Is(err, ErrAlreadyOwned) {
 		t.Errorf("want ErrAlreadyOwned from the atomic predicate, got %v", err)
 	}
 }
@@ -134,7 +138,7 @@ func TestStoreErrorsPropagate(t *testing.T) {
 	if _, _, err := s.EnsureBuiltin(context.Background(), "x"); err == nil {
 		t.Error("want error")
 	}
-	if _, err := s.Claim(context.Background(), "t"); err == nil {
+	if _, err := s.Claim(context.Background(), "t", owner); err == nil {
 		t.Error("want error")
 	}
 }

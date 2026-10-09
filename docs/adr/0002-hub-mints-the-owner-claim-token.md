@@ -1,6 +1,6 @@
 # ADR-0002: The hub mints the owner-claim token
 
-**Status:** accepted (John, 2026-10-08) · **Changes:** who prints the one-time owner-claim token in the day-zero bootstrap of the 2026-09-25 design · **Tracked by:** #12
+**Status:** accepted (John, 2026-10-08); the claim binds to a logged-in user since ADR-0004 · **Changes:** who prints the one-time owner-claim token in the day-zero bootstrap of the 2026-09-25 design · **Tracked by:** #12
 
 ## Context
 

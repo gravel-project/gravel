@@ -7,13 +7,174 @@ info:
     name: Apache-2.0
     identifier: Apache-2.0
 paths:
+  /gravel.hub.v1.IdentityService/GetMe:
+    post:
+      tags:
+        - gravel.hub.v1.IdentityService
+      summary: GetMe
+      description: GetMe returns the caller and their linked identities.
+      operationId: gravel.hub.v1.IdentityService.GetMe
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.GetMeRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.GetMeResponse'
+  /gravel.hub.v1.IdentityService/LookupUser:
+    post:
+      tags:
+        - gravel.hub.v1.IdentityService
+      summary: LookupUser
+      description: |-
+        LookupUser resolves a (provider, subject) pair to its user, for role sync. Owner only until
+         first-party apps get their own credentials (gravel#6).
+      operationId: gravel.hub.v1.IdentityService.LookupUser
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.LookupUserRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.LookupUserResponse'
+  /gravel.hub.v1.IdentityService/RevokeSessions:
+    post:
+      tags:
+        - gravel.hub.v1.IdentityService
+      summary: RevokeSessions
+      description: RevokeSessions logs the caller out everywhere, this session included.
+      operationId: gravel.hub.v1.IdentityService.RevokeSessions
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.RevokeSessionsRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.RevokeSessionsResponse'
+  /gravel.hub.v1.IdentityService/UnlinkIdentity:
+    post:
+      tags:
+        - gravel.hub.v1.IdentityService
+      summary: UnlinkIdentity
+      description: |-
+        UnlinkIdentity removes one of the caller's identities. The last one is refused
+         (failed_precondition): a provider-only account would be unreachable.
+      operationId: gravel.hub.v1.IdentityService.UnlinkIdentity
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.UnlinkIdentityRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.UnlinkIdentityResponse'
   /gravel.hub.v1.OrganizationService/ClaimOwnership:
     post:
       tags:
         - gravel.hub.v1.OrganizationService
       summary: ClaimOwnership
       description: |-
-        ClaimOwnership consumes the one-time owner-claim token. It succeeds once per hub: the token is
+        ClaimOwnership consumes the one-time owner-claim token and makes the caller the owner. It
+         needs a session (unauthenticated otherwise) and succeeds once per hub: the token is
          single-use, expires, and no token exists once the hub is owned.
       operationId: gravel.hub.v1.OrganizationService.ClaimOwnership
       parameters:
@@ -179,6 +340,19 @@ components:
           title: organization
       title: ClaimOwnershipResponse
       additionalProperties: false
+    gravel.hub.v1.GetMeRequest:
+      type: object
+      title: GetMeRequest
+      additionalProperties: false
+    gravel.hub.v1.GetMeResponse:
+      type: object
+      properties:
+        user:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.User'
+          title: user
+      title: GetMeResponse
+      additionalProperties: false
     gravel.hub.v1.GetOrganizationRequest:
       type: object
       title: GetOrganizationRequest
@@ -191,6 +365,66 @@ components:
             - $ref: '#/components/schemas/gravel.hub.v1.Organization'
           title: organization
       title: GetOrganizationResponse
+      additionalProperties: false
+    gravel.hub.v1.Identity:
+      type: object
+      properties:
+        provider:
+          type: string
+          title: provider
+          description: 'The provider key: "discord", "steam".'
+        subject:
+          type: string
+          title: subject
+          description: 'The stable id at the provider: a Discord user id, a SteamID64.'
+        displayName:
+          type: string
+          title: display_name
+          description: Display attributes refreshed at every login; may be empty.
+        avatarUrl:
+          type: string
+          title: avatar_url
+        verificationMethod:
+          type: string
+          title: verification_method
+          description: 'How control was proven: "oauth2" or "openid".'
+        verifiedAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: verified_at
+        linkedAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: linked_at
+        lastLoginAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: last_login_at
+          description: When this identity was last used to log in; unset for one that was only linked.
+      title: Identity
+      additionalProperties: false
+      description: |-
+        Identity is one provider account linked to a user: a (provider, subject) pair, unique across
+         the hub, with mutable display attributes and a record of how control was proven.
+    gravel.hub.v1.LookupUserRequest:
+      type: object
+      properties:
+        provider:
+          type: string
+          title: provider
+        subject:
+          type: string
+          title: subject
+      title: LookupUserRequest
+      additionalProperties: false
+    gravel.hub.v1.LookupUserResponse:
+      type: object
+      properties:
+        user:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.User'
+          title: user
+      title: LookupUserResponse
       additionalProperties: false
     gravel.hub.v1.Organization:
       type: object
@@ -216,12 +450,89 @@ components:
             - $ref: '#/components/schemas/google.protobuf.Timestamp'
           title: claimed_at
           description: When ownership was claimed; unset while unowned.
+        ownerUserId:
+          type: string
+          title: owner_user_id
+          description: The user who claimed ownership; unset while unowned.
       title: Organization
       additionalProperties: false
       description: |-
         Organization is the single tenant a hub serves. Every top-level object carries an organization
          (the seam for a second tenant later); there is exactly one built-in organization today.
+    gravel.hub.v1.RevokeSessionsRequest:
+      type: object
+      title: RevokeSessionsRequest
+      additionalProperties: false
+    gravel.hub.v1.RevokeSessionsResponse:
+      type: object
+      properties:
+        revoked:
+          type: integer
+          title: revoked
+          format: int32
+          description: How many sessions were ended, the caller's included.
+      title: RevokeSessionsResponse
+      additionalProperties: false
+    gravel.hub.v1.UnlinkIdentityRequest:
+      type: object
+      properties:
+        provider:
+          type: string
+          title: provider
+        subject:
+          type: string
+          title: subject
+      title: UnlinkIdentityRequest
+      additionalProperties: false
+    gravel.hub.v1.UnlinkIdentityResponse:
+      type: object
+      properties:
+        user:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.User'
+          title: user
+          description: The caller, after the unlink.
+      title: UnlinkIdentityResponse
+      additionalProperties: false
+    gravel.hub.v1.User:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+          description: Stable identifier (UUID).
+        displayName:
+          type: string
+          title: display_name
+          description: Display name, taken from the first identity at registration.
+        owner:
+          type: boolean
+          title: owner
+          description: Whether this user owns the organization.
+        createdAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: created_at
+        lastLoginAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: last_login_at
+        identities:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.Identity'
+          title: identities
+          description: The linked identities, oldest link first.
+      title: User
+      additionalProperties: false
+      description: |-
+        User is a member: what their linked identities resolve to. Stats are keyed by identity, never
+         by this id.
 security: []
 tags:
+  - name: gravel.hub.v1.IdentityService
+    description: |-
+      IdentityService is the logged-in member's account and the lookups role sync needs. Every
+       procedure needs a session cookie; login itself is the browser flow under /auth/.
   - name: gravel.hub.v1.OrganizationService
     description: OrganizationService reads the built-in organization and claims its ownership once.

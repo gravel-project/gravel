@@ -29,6 +29,9 @@ services:
     command: ["serve", "--config", "/etc/gravel/hub.yaml"]
     secrets:
       - gravel-db-url
+      # With login enabled in hub.yaml (deploy/README.md):
+      # - gravel-discord-client-secret
+      # - gravel-steam-api-key
     volumes:
       - ./hub.yaml:/etc/gravel/hub.yaml:ro,Z
     ports: # host ports: GRAVEL_PORT / GRAVEL_INTERNAL_PORT (make up exports them)
@@ -46,6 +49,10 @@ secrets:
     external: true
   gravel-db-url:
     external: true
+  # gravel-discord-client-secret:
+  #   external: true
+  # gravel-steam-api-key:
+  #   external: true
 
 volumes:
   gravel-postgres: {}

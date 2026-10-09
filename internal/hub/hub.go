@@ -1,5 +1,5 @@
-// Package hub assembles the service: store, domain, API handlers, health, metrics and the two
-// listeners. cmd/gravel-hub is a thin shell around it.
+// Package hub assembles the service: store, domain, API handlers, pages, health, metrics and
+// the two listeners. cmd/gravel-hub is a thin shell around it.
 package hub
 
 import (
@@ -23,8 +23,13 @@ import (
 	"github.com/gravel-project/gravel/internal/api"
 	"github.com/gravel-project/gravel/internal/config"
 	"github.com/gravel-project/gravel/internal/httpx"
+	"github.com/gravel-project/gravel/internal/identity"
+	"github.com/gravel-project/gravel/internal/identity/providers"
 	"github.com/gravel-project/gravel/internal/org"
+	"github.com/gravel-project/gravel/internal/ratelimit"
+	"github.com/gravel-project/gravel/internal/session"
 	"github.com/gravel-project/gravel/internal/store"
+	"github.com/gravel-project/gravel/internal/web"
 )
 
 // Options configure New.
@@ -32,6 +37,9 @@ type Options struct {
 	Config  config.Config
 	Logger  *slog.Logger
 	Version string
+	// Providers replaces the login providers the configuration describes. Tests use it to
+	// drive the flows with a fake; nil means "build them from the configuration".
+	Providers []identity.Registration
 }
 
 // Hub is a started-but-not-listening service: handlers are ready, Run serves them.
@@ -42,15 +50,26 @@ type Hub struct {
 
 	st         *store.Store
 	org        *org.Service
+	ids        *identity.Service
+	sess       *session.Manager
+	web        *web.Handler
+	perIP      *ratelimit.Limiter
+	perUser    *ratelimit.Limiter
 	claimToken string
 
-	registry *prometheus.Registry
-	metrics  *httpx.Metrics
-	public   http.Handler
-	internal http.Handler
+	registry     *prometheus.Registry
+	metrics      *httpx.Metrics
+	authTotal    *prometheus.CounterVec
+	limitedTotal *prometheus.CounterVec
+	public       http.Handler
+	internal     http.Handler
 
 	listeners *listeners
 }
+
+// pruneEvery is how often expired sessions and attempts are deleted and idle rate-limit
+// buckets dropped.
+const pruneEvery = 10 * time.Minute
 
 // New connects to the database, applies the migration policy, ensures the built-in organization
 // and builds the handlers. It logs the owner-claim token when the hub is unowned.
@@ -90,9 +109,23 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 	if token != "" {
 		logger.Warn("the hub is unowned: claim it once with this token (it expires; a restart mints a new one)",
 			"token", token, "expires_at", o.ClaimTokenExpiresAt.UTC().Format(time.RFC3339),
-			"how", "ClaimOwnership on gravel.hub.v1.OrganizationService")
+			"how", "log in, then paste it on the account page or call ClaimOwnership on gravel.hub.v1.OrganizationService")
 	} else {
-		logger.Info("organization", "name", o.Name, "id", o.ID, "owned", true, "claimed_at", o.ClaimedAt)
+		logger.Info("organization", "name", o.Name, "id", o.ID, "owned", true, "claimed_at", o.ClaimedAt, "owner_user_id", o.OwnerUserID)
+	}
+
+	regs := opts.Providers
+	if regs == nil {
+		regs = h.buildProviders()
+	}
+	h.ids = identity.New(st, o.ID, regs, cfg.Auth.AttemptTTL, logger)
+	h.sess = session.New(st, cfg.Auth.SessionTTL, cfg.Auth.Secure(), logger)
+	h.perIP = ratelimit.New(cfg.RateLimit.PerIP.RequestsPerMinute, cfg.RateLimit.PerIP.Burst)
+	h.perUser = ratelimit.New(cfg.RateLimit.PerUser.RequestsPerMinute, cfg.RateLimit.PerUser.Burst)
+	h.web, err = web.New(h.ids, h.sess, h.org, logger)
+	if err != nil {
+		st.Close()
+		return nil, fmt.Errorf("hub: %w", err)
 	}
 
 	h.registry = prometheus.NewRegistry()
@@ -104,17 +137,50 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 		Name: "gravel_build_info", Help: "Build information; always 1.",
 	}, []string{"version", "go_version"})
 	buildInfo.WithLabelValues(h.version, runtime.Version()).Set(1)
-	h.registry.MustRegister(buildInfo)
+	h.authTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "gravel_auth_completions_total", Help: "Finished login and link attempts by provider, intent and result.",
+	}, []string{"provider", "intent", "result"})
+	h.limitedTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "gravel_rate_limited_total", Help: "Requests refused by a rate limit, by scope (ip or user).",
+	}, []string{"scope"})
+	h.registry.MustRegister(buildInfo, h.authTotal, h.limitedTotal)
 	h.metrics = httpx.NewMetrics(h.registry)
+	h.web.Observe = func(provider string, intent identity.Intent, result string) {
+		h.authTotal.WithLabelValues(provider, string(intent), result).Inc()
+	}
 
 	h.public = h.buildPublic()
 	h.internal = h.buildInternal()
 	return h, nil
 }
 
+// buildProviders turns the auth configuration into login providers. Secrets are logged by
+// source only.
+func (h *Hub) buildProviders() []identity.Registration {
+	cfg := h.cfg.Auth
+	client := &http.Client{Timeout: 15 * time.Second}
+	var regs []identity.Registration
+	if cfg.Discord.Enabled {
+		regs = append(regs, identity.Registration{Provider: providers.Discord(cfg.Discord.ClientID, cfg.Discord.ClientSecret, cfg.CallbackURL("discord"), client), Login: cfg.Discord.Login})
+		h.logger.Info("login provider", "provider", "discord", "login", cfg.Discord.Login, "callback", cfg.CallbackURL("discord"), "secret", cfg.Discord.SecretSource())
+	}
+	if cfg.Steam.Enabled {
+		regs = append(regs, identity.Registration{Provider: providers.Steam(cfg.Steam.APIKey, cfg.CallbackURL("steam"), client), Login: cfg.Steam.Login})
+		key := cfg.Steam.KeySource()
+		if key == "" {
+			key = "none (no persona name or avatar)"
+		}
+		h.logger.Info("login provider", "provider", "steam", "login", cfg.Steam.Login, "callback", cfg.CallbackURL("steam"), "api_key", key)
+	}
+	if len(regs) == 0 {
+		h.logger.Warn("no login provider is configured: the pages offer no login and the API has no callers")
+	}
+	return regs
+}
+
 // Handler is the public listener's handler: the Connect API, gRPC health and reflection,
-// /healthz and /readyz. Serve it with unencrypted HTTP/2 enabled (Run does) so gRPC works
-// behind TLS termination.
+// /healthz and /readyz, and the pages. Serve it with unencrypted HTTP/2 enabled (Run does) so
+// gRPC works behind TLS termination.
 func (h *Hub) Handler() http.Handler { return h.public }
 
 // InternalHandler serves /metrics and /debug/pprof/. Keep it off the public network.
@@ -126,17 +192,55 @@ func (h *Hub) OwnerClaimToken() string { return h.claimToken }
 // Close releases the database pool. Run calls it; call it yourself when you only used Handler.
 func (h *Hub) Close() { h.st.Close() }
 
+func (h *Hub) scopes() []ratelimit.Scoped {
+	return []ratelimit.Scoped{
+		{Scope: "user", Limiter: h.perUser, Key: func(r *http.Request) string {
+			if s, ok := session.FromContext(r.Context()); ok {
+				return s.UserID.String()
+			}
+			return ""
+		}},
+		{Scope: "ip", Limiter: h.perIP, Key: ratelimit.ClientIP},
+	}
+}
+
+func (h *Hub) rejected(scope string) { h.limitedTotal.WithLabelValues(scope).Inc() }
+
 func (h *Hub) buildPublic() http.Handler {
+	scopes := h.scopes()
 	mux := http.NewServeMux()
-	interceptors := connect.WithInterceptors(h.metrics.Interceptor())
+	interceptors := connect.WithInterceptors(h.metrics.Interceptor(), ratelimit.Interceptor(scopes, h.rejected))
 	mux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(h.org, h.logger), interceptors))
-	mux.Handle(grpchealth.NewHandler(grpchealth.NewStaticChecker(hubv1connect.OrganizationServiceName)))
-	reflector := grpcreflect.NewStaticReflector(hubv1connect.OrganizationServiceName)
+	mux.Handle(hubv1connect.NewIdentityServiceHandler(api.NewIdentityServer(h.ids, h.sess, h.org, h.logger), interceptors))
+	services := []string{hubv1connect.OrganizationServiceName, hubv1connect.IdentityServiceName}
+	mux.Handle(grpchealth.NewHandler(grpchealth.NewStaticChecker(services...)))
+	reflector := grpcreflect.NewStaticReflector(services...)
 	mux.Handle(grpcreflect.NewHandlerV1(reflector))
 	mux.Handle(grpcreflect.NewHandlerV1Alpha(reflector))
 	mux.Handle("GET /healthz", h.metrics.HTTP("healthz", http.HandlerFunc(h.healthz)))
 	mux.Handle("GET /readyz", h.metrics.HTTP("readyz", http.HandlerFunc(h.readyz)))
-	return httpx.Chain(mux, httpx.RequestID, httpx.Recover(h.logger), httpx.Logging(h.logger, "/healthz", "/readyz"))
+
+	// The pages, rate-limited as HTTP; the procedures above are limited by the interceptor.
+	pages := http.NewServeMux()
+	h.web.Register(pages)
+	mux.Handle("/", h.metrics.HTTP("pages", ratelimit.Middleware(scopes, h.rejected)(pages)))
+
+	// Cross-site browser requests with unsafe methods are refused by Fetch metadata (or the
+	// Origin header) before any handler; non-browser clients carry neither and pass.
+	csrf := http.NewCrossOriginProtection()
+	if h.cfg.Auth.BaseURL != "" {
+		if err := csrf.AddTrustedOrigin(h.cfg.Auth.BaseURL); err != nil {
+			h.logger.Warn("auth.base_url is not a trusted origin", "error", err.Error())
+		}
+	}
+	return httpx.Chain(mux,
+		httpx.RequestID,
+		httpx.RealIP(h.cfg.Server.ClientIPHeader),
+		httpx.Recover(h.logger),
+		httpx.Logging(h.logger, "/healthz", "/readyz"),
+		csrf.Handler,
+		h.sess.Middleware,
+	)
 }
 
 func (h *Hub) buildInternal() http.Handler {
@@ -162,6 +266,23 @@ func (h *Hub) readyz(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ready"})
+}
+
+// Prune deletes expired sessions and attempts and drops idle rate-limit buckets. Run calls it
+// on a timer; tests call it directly.
+func (h *Hub) Prune(ctx context.Context) {
+	ctx, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
+	sessions, err := h.sess.Prune(ctx)
+	if err != nil {
+		h.logger.Warn("could not prune sessions", "error", err.Error())
+	}
+	attempts, err := h.ids.Prune(ctx)
+	if err != nil {
+		h.logger.Warn("could not prune auth attempts", "error", err.Error())
+	}
+	ips, users := h.perIP.Sweep(), h.perUser.Sweep()
+	h.logger.Debug("pruned", "sessions", sessions, "attempts", attempts, "ip_buckets", ips, "user_buckets", users)
 }
 
 func writeJSON(w http.ResponseWriter, code int, v any) {

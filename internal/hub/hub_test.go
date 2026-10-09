@@ -7,7 +7,9 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/http/cookiejar"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -18,6 +20,8 @@ import (
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
 	"github.com/gravel-project/gravel/internal/config"
 	"github.com/gravel-project/gravel/internal/hub"
+	"github.com/gravel-project/gravel/internal/identity"
+	"github.com/gravel-project/gravel/internal/identity/identitytest"
 	"github.com/gravel-project/gravel/internal/store/storetest"
 )
 
@@ -31,6 +35,13 @@ func testConfig(t *testing.T) config.Config {
 	cfg.Server.InternalListen = "127.0.0.1:0"
 	cfg.Server.ShutdownTimeout = 5 * time.Second
 	return cfg
+}
+
+func fakeProviders() []identity.Registration {
+	discord := &identitytest.FakeProvider{ProviderName: "discord", Accounts: map[string]identity.Account{
+		"jo": {Subject: "1", DisplayName: "Jo", Method: identity.MethodOAuth2},
+	}}
+	return []identity.Registration{{Provider: discord, Login: true}}
 }
 
 func quiet() *slog.Logger { return slog.New(slog.NewTextHandler(io.Discard, nil)) }
@@ -47,6 +58,70 @@ func getJSON(t *testing.T, url string) (int, map[string]any) {
 	return resp.StatusCode, out
 }
 
+// browser is a client with a cookie jar that does not follow redirects.
+func browser(t *testing.T) *http.Client {
+	t.Helper()
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return &http.Client{Jar: jar, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+}
+
+// reply is a response with its body already read and closed.
+type reply struct {
+	StatusCode int
+	Header     http.Header
+	Cookies    []*http.Cookie
+}
+
+func get(t *testing.T, c *http.Client, u string) reply {
+	t.Helper()
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, u, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err := c.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = io.Copy(io.Discard, resp.Body)
+	_ = resp.Body.Close()
+	return reply{StatusCode: resp.StatusCode, Header: resp.Header, Cookies: resp.Cookies()}
+}
+
+// loginAs runs the fake Discord flow in the browser and returns the session cookie.
+func loginAs(t *testing.T, c *http.Client, base, code string) *http.Cookie {
+	t.Helper()
+	resp := get(t, c, base+"/auth/discord/start")
+	loc, _ := url.Parse(resp.Header.Get("Location"))
+	if resp.StatusCode != http.StatusSeeOther || loc.Query().Get("state") == "" {
+		t.Fatalf("start: %d %s", resp.StatusCode, resp.Header.Get("Location"))
+	}
+	resp = get(t, c, base+"/auth/discord/callback?code="+code+"&state="+url.QueryEscape(loc.Query().Get("state")))
+	if resp.StatusCode != http.StatusSeeOther || resp.Header.Get("Location") != "/account" {
+		t.Fatalf("callback: %d %s", resp.StatusCode, resp.Header.Get("Location"))
+	}
+	for _, ck := range resp.Cookies {
+		if ck.Name == "gravel_session" && ck.Value != "" {
+			return ck
+		}
+	}
+	t.Fatal("no session cookie")
+	return nil
+}
+
+type cookieTransport struct {
+	next   http.RoundTripper
+	cookie *http.Cookie
+}
+
+func (ct cookieTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	r = r.Clone(r.Context())
+	r.AddCookie(ct.cookie)
+	return ct.next.RoundTrip(r)
+}
+
 func TestHubEndToEnd(t *testing.T) {
 	ctx := context.Background()
 	cfg := testConfig(t)
@@ -56,7 +131,8 @@ func TestHubEndToEnd(t *testing.T) {
 	}
 
 	cfg.Database.Migrate = config.MigrateAuto
-	h, err := hub.New(ctx, hub.Options{Config: cfg, Logger: quiet(), Version: "test"})
+	regs := fakeProviders()
+	h, err := hub.New(ctx, hub.Options{Config: cfg, Logger: quiet(), Version: "test", Providers: regs})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,27 +153,47 @@ func TestHubEndToEnd(t *testing.T) {
 		t.Errorf("readyz: %d %v", code, body)
 	}
 
-	grpc := hubv1connect.NewOrganizationServiceClient(h2cClient(), public.URL, connect.WithGRPC())
+	anon := hubv1connect.NewOrganizationServiceClient(h2cClient(), public.URL, connect.WithGRPC())
+	if _, err := anon.ClaimOwnership(ctx, connect.NewRequest(&hubv1.ClaimOwnershipRequest{Token: token})); connect.CodeOf(err) != connect.CodeUnauthenticated {
+		t.Errorf("a claim without a login: %v", err)
+	}
+
+	// Log in through the pages, then claim over gRPC with the session cookie.
+	b := browser(t)
+	cookie := loginAs(t, b, public.URL, "jo")
+	authed := &http.Client{Transport: cookieTransport{next: h2cClient().Transport, cookie: cookie}}
+	grpc := hubv1connect.NewOrganizationServiceClient(authed, public.URL, connect.WithGRPC())
 	if _, err := grpc.ClaimOwnership(ctx, connect.NewRequest(&hubv1.ClaimOwnershipRequest{Token: "wrong"})); connect.CodeOf(err) != connect.CodePermissionDenied {
 		t.Errorf("wrong token over gRPC: %v", err)
 	}
 	claimed, err := grpc.ClaimOwnership(ctx, connect.NewRequest(&hubv1.ClaimOwnershipRequest{Token: token}))
-	if err != nil || !claimed.Msg.GetOrganization().GetOwned() {
-		t.Fatalf("claim over gRPC: %v", err)
+	if err != nil || !claimed.Msg.GetOrganization().GetOwned() || claimed.Msg.GetOrganization().GetOwnerUserId() == "" {
+		t.Fatalf("claim over gRPC: %v %v", err, claimed)
 	}
 	if _, err := grpc.ClaimOwnership(ctx, connect.NewRequest(&hubv1.ClaimOwnershipRequest{Token: token})); connect.CodeOf(err) != connect.CodeFailedPrecondition {
 		t.Errorf("second claim: %v", err)
 	}
 
-	resp, err := http.Post(public.URL+"/gravel.hub.v1.OrganizationService/GetOrganization", "application/json", strings.NewReader("{}")) //nolint:noctx // test
+	// The JSON side, with the cookie: the owner sees owner: true and their identity.
+	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, public.URL+"/gravel.hub.v1.IdentityService/GetMe", strings.NewReader("{}"))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(cookie)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var got map[string]any
-	_ = json.NewDecoder(resp.Body).Decode(&got)
+	var me map[string]any
+	_ = json.NewDecoder(resp.Body).Decode(&me)
 	_ = resp.Body.Close()
-	if o, _ := got["organization"].(map[string]any); o["owned"] != true || o["name"] != "Hidden Token Gaming" || resp.Header.Get("X-Request-ID") == "" {
-		t.Errorf("json get after claim: %v (request id %q)", got, resp.Header.Get("X-Request-ID"))
+	u, _ := me["user"].(map[string]any)
+	if resp.StatusCode != 200 || u["owner"] != true || u["displayName"] != "Jo" || resp.Header.Get("X-Request-ID") == "" {
+		t.Errorf("GetMe as the owner: %d %v (request id %q)", resp.StatusCode, me, resp.Header.Get("X-Request-ID"))
+	}
+	if ids, _ := u["identities"].([]any); len(ids) != 1 {
+		t.Errorf("identities: %v", u["identities"])
+	}
+	if resp := get(t, b, public.URL+"/account"); resp.StatusCode != http.StatusOK {
+		t.Errorf("account page: %d", resp.StatusCode)
 	}
 
 	mresp, err := http.Get(internal.URL + "/metrics") //nolint:noctx // test
@@ -110,16 +206,20 @@ func TestHubEndToEnd(t *testing.T) {
 		`gravel_build_info{go_version="`,
 		`gravel_rpc_requests_total{code="ok",procedure="/gravel.hub.v1.OrganizationService/ClaimOwnership"} 1`,
 		`gravel_rpc_requests_total{code="failed_precondition",procedure="/gravel.hub.v1.OrganizationService/ClaimOwnership"} 1`,
+		`gravel_rpc_requests_total{code="unauthenticated",procedure="/gravel.hub.v1.OrganizationService/ClaimOwnership"} 1`,
 		`gravel_http_requests_total{code="200",handler="healthz",method="GET"} 1`,
+		`gravel_http_requests_total{code="303",handler="pages",method="GET"} 2`,
+		`gravel_auth_completions_total{intent="login",provider="discord",result="ok"} 1`,
 		`go_goroutines`,
 	} {
 		if !strings.Contains(string(metrics), want) {
 			t.Errorf("metrics should contain %s", want)
 		}
 	}
+	h.Prune(ctx)
 
 	// A restart of an owned hub mints nothing.
-	h2, err := hub.New(ctx, hub.Options{Config: cfg, Logger: quiet()})
+	h2, err := hub.New(ctx, hub.Options{Config: cfg, Logger: quiet(), Providers: regs})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -134,9 +234,72 @@ func TestHubEndToEnd(t *testing.T) {
 	}
 }
 
+func TestRateLimitsAndClientIP(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.RateLimit.PerIP = config.Limit{RequestsPerMinute: 1, Burst: 2}
+	cfg.Server.ClientIPHeader = "X-Test-IP"
+	regs := fakeProviders()
+	h, err := hub.New(context.Background(), hub.Options{Config: cfg, Logger: quiet(), Providers: regs})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer h.Close()
+	public := httptest.NewServer(h.Handler())
+	defer public.Close()
+	internal := httptest.NewServer(h.InternalHandler())
+	defer internal.Close()
+
+	hit := func(ip string) int {
+		req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, public.URL+"/login", nil)
+		req.Header.Set("X-Test-IP", ip)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = resp.Body.Close()
+		if resp.StatusCode == http.StatusTooManyRequests && resp.Header.Get("Retry-After") == "" {
+			t.Error("429 without Retry-After")
+		}
+		return resp.StatusCode
+	}
+	if a, b := hit("10.0.0.1"), hit("10.0.0.1"); a != 200 || b != 200 {
+		t.Errorf("burst: %d %d", a, b)
+	}
+	if c := hit("10.0.0.1"); c != http.StatusTooManyRequests {
+		t.Errorf("third from the same ip: %d", c)
+	}
+	if d := hit("10.0.0.2"); d != 200 {
+		t.Errorf("another ip has its own bucket: %d", d)
+	}
+	for range 3 {
+		if code, _ := getJSON(t, public.URL+"/healthz"); code != 200 {
+			t.Errorf("probes are never limited: %d", code)
+		}
+	}
+	rpc, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, public.URL+"/gravel.hub.v1.OrganizationService/GetOrganization", strings.NewReader("{}"))
+	rpc.Header.Set("Content-Type", "application/json")
+	rpc.Header.Set("X-Test-IP", "10.0.0.1")
+	resp, err := http.DefaultClient.Do(rpc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out map[string]any
+	_ = json.NewDecoder(resp.Body).Decode(&out)
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusTooManyRequests || out["code"] != "resource_exhausted" {
+		t.Errorf("a procedure from the limited ip: %d %v", resp.StatusCode, out)
+	}
+	mresp, _ := http.Get(internal.URL + "/metrics") //nolint:noctx // test
+	metrics, _ := io.ReadAll(mresp.Body)
+	_ = mresp.Body.Close()
+	if !strings.Contains(string(metrics), `gravel_rate_limited_total{scope="ip"} 2`) {
+		t.Errorf("metrics should count both refusals:\n%s", metrics)
+	}
+}
+
 func TestRunServesAndStops(t *testing.T) {
 	cfg := testConfig(t)
-	h, err := hub.New(context.Background(), hub.Options{Config: cfg, Logger: quiet()})
+	h, err := hub.New(context.Background(), hub.Options{Config: cfg, Logger: quiet(), Providers: []identity.Registration{}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -153,6 +316,9 @@ func TestRunServesAndStops(t *testing.T) {
 	}
 	if code, _ := getJSON(t, "http://"+h.InternalAddr().String()+"/metrics"); code != 200 {
 		t.Errorf("metrics over Run: %d", code)
+	}
+	if resp := get(t, browser(t), "http://"+h.PublicAddr().String()+"/login"); resp.StatusCode != 200 {
+		t.Errorf("login page with no providers still renders: %d", resp.StatusCode)
 	}
 	cancel()
 	select {
@@ -178,7 +344,7 @@ func TestRunFailsOnBusyPort(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = ln.Close() })
 	cfg.Server.Listen = ln.Addr().String()
-	h, err := hub.New(context.Background(), hub.Options{Config: cfg, Logger: quiet()})
+	h, err := hub.New(context.Background(), hub.Options{Config: cfg, Logger: quiet(), Providers: []identity.Registration{}})
 	if err != nil {
 		t.Fatal(err)
 	}

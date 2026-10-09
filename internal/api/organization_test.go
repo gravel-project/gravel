@@ -4,49 +4,32 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"io"
-	"log/slog"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
 	"connectrpc.com/connect"
 
 	hubv1 "github.com/gravel-project/gravel/gen/gravel/hub/v1"
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
-	"github.com/gravel-project/gravel/internal/api"
-	"github.com/gravel-project/gravel/internal/org"
-	"github.com/gravel-project/gravel/internal/org/orgtest"
 )
 
-func newServer(t *testing.T) (*httptest.Server, *orgtest.FakeStore, string) {
-	t.Helper()
-	fake := &orgtest.FakeStore{}
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	svc := org.New(fake, 15*time.Minute, logger)
-	_, token, err := svc.EnsureBuiltin(context.Background(), "Test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	mux := http.NewServeMux()
-	mux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(svc, logger)))
-	srv := newH2CServer(mux)
-	t.Cleanup(srv.Close)
-	return srv, fake, token
-}
-
 func TestClaimFlowOverGRPC(t *testing.T) {
-	srv, _, token := newServer(t)
-	client := hubv1connect.NewOrganizationServiceClient(h2cClient(), srv.URL, connect.WithGRPC())
+	r := newRig(t)
 	ctx := context.Background()
+	anon := hubv1connect.NewOrganizationServiceClient(h2cClient(), r.srv.URL, connect.WithGRPC())
 
-	got, err := client.GetOrganization(ctx, connect.NewRequest(&hubv1.GetOrganizationRequest{}))
+	got, err := anon.GetOrganization(ctx, connect.NewRequest(&hubv1.GetOrganizationRequest{}))
 	if err != nil || got.Msg.GetOrganization().GetOwned() || got.Msg.GetOrganization().GetName() != "Test" {
 		t.Fatalf("get: %v %v", err, got)
 	}
+	_, err = anon.ClaimOwnership(ctx, connect.NewRequest(&hubv1.ClaimOwnershipRequest{Token: r.token}))
+	if connect.CodeOf(err) != connect.CodeUnauthenticated {
+		t.Fatalf("a claim needs a login: %v", err)
+	}
 
+	u := r.user(t, "Jo", "1")
+	client := hubv1connect.NewOrganizationServiceClient(cookieClient(h2cClient(), r.login(t, u.ID)), r.srv.URL, connect.WithGRPC())
 	_, err = client.ClaimOwnership(ctx, connect.NewRequest(&hubv1.ClaimOwnershipRequest{Token: "wrong"}))
 	if connect.CodeOf(err) != connect.CodePermissionDenied {
 		t.Errorf("wrong token: %v", err)
@@ -55,23 +38,35 @@ func TestClaimFlowOverGRPC(t *testing.T) {
 	if connect.CodeOf(err) != connect.CodeInvalidArgument {
 		t.Errorf("blank token: %v", err)
 	}
-
-	claimed, err := client.ClaimOwnership(ctx, connect.NewRequest(&hubv1.ClaimOwnershipRequest{Token: token}))
-	if err != nil || !claimed.Msg.GetOrganization().GetOwned() || claimed.Msg.GetOrganization().GetClaimedAt() == nil {
+	claimed, err := client.ClaimOwnership(ctx, connect.NewRequest(&hubv1.ClaimOwnershipRequest{Token: r.token}))
+	if err != nil || !claimed.Msg.GetOrganization().GetOwned() || claimed.Msg.GetOrganization().GetClaimedAt() == nil || claimed.Msg.GetOrganization().GetOwnerUserId() != u.ID.String() {
 		t.Fatalf("claim: %v %v", err, claimed)
 	}
-
-	_, err = client.ClaimOwnership(ctx, connect.NewRequest(&hubv1.ClaimOwnershipRequest{Token: token}))
+	_, err = client.ClaimOwnership(ctx, connect.NewRequest(&hubv1.ClaimOwnershipRequest{Token: r.token}))
 	if connect.CodeOf(err) != connect.CodeFailedPrecondition {
 		t.Errorf("second claim: %v", err)
+	}
+	got, _ = anon.GetOrganization(ctx, connect.NewRequest(&hubv1.GetOrganizationRequest{}))
+	if got.Msg.GetOrganization().GetOwnerUserId() != u.ID.String() {
+		t.Errorf("owner visible to anyone: %v", got.Msg)
 	}
 }
 
 func TestHTTPJSON(t *testing.T) {
-	srv, _, token := newServer(t)
-	post := func(proc, body string) (int, map[string]any) {
+	r := newRig(t)
+	u := r.user(t, "Jo", "1")
+	cookie := r.login(t, u.ID)
+	post := func(proc, body, cookie string) (int, map[string]any) {
 		t.Helper()
-		resp, err := http.Post(srv.URL+"/gravel.hub.v1.OrganizationService/"+proc, "application/json", strings.NewReader(body)) //nolint:noctx // test
+		req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, r.srv.URL+"/gravel.hub.v1.OrganizationService/"+proc, strings.NewReader(body))
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		if cookie != "" {
+			req.Header.Set("Cookie", cookie)
+		}
+		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -83,24 +78,28 @@ func TestHTTPJSON(t *testing.T) {
 		}
 		return resp.StatusCode, out
 	}
-	code, out := post("GetOrganization", `{}`)
+	code, out := post("GetOrganization", `{}`, "")
 	if code != http.StatusOK || out["organization"].(map[string]any)["owned"] != nil {
 		t.Errorf("json get: %d %v", code, out)
 	}
-	code, out = post("ClaimOwnership", `{"token":"`+token+`"}`)
+	code, out = post("ClaimOwnership", `{"token":"`+r.token+`"}`, "")
+	if code != http.StatusUnauthorized || out["code"] != "unauthenticated" {
+		t.Errorf("json claim without a cookie: %d %v", code, out)
+	}
+	code, out = post("ClaimOwnership", `{"token":"`+r.token+`"}`, cookie)
 	if code != http.StatusOK || out["organization"].(map[string]any)["owned"] != true {
 		t.Errorf("json claim: %d %v", code, out)
 	}
-	code, out = post("ClaimOwnership", `{"token":"`+token+`"}`)
+	code, out = post("ClaimOwnership", `{"token":"`+r.token+`"}`, cookie)
 	if code != http.StatusBadRequest || out["code"] != "failed_precondition" {
 		t.Errorf("json second claim: %d %v", code, out)
 	}
 }
 
 func TestInternalErrorsAreOpaque(t *testing.T) {
-	srv, fake, _ := newServer(t)
-	fake.ErrOn = "get"
-	client := hubv1connect.NewOrganizationServiceClient(http.DefaultClient, srv.URL)
+	r := newRig(t)
+	r.orgSt.ErrOn = "get"
+	client := hubv1connect.NewOrganizationServiceClient(http.DefaultClient, r.srv.URL)
 	_, err := client.GetOrganization(context.Background(), connect.NewRequest(&hubv1.GetOrganizationRequest{}))
 	var ce *connect.Error
 	if !errors.As(err, &ce) || ce.Code() != connect.CodeInternal || strings.Contains(ce.Message(), "db down") {

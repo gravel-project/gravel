@@ -72,17 +72,21 @@ func TestOrganizationLifecycle(t *testing.T) {
 	if err := st.SetClaimToken(ctx, id, hash, now.Add(time.Minute)); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := st.ClaimOrganization(ctx, id, []byte("wrong"), now); !errors.Is(err, store.ErrClaimRejected) {
+	if _, err := st.ClaimOrganization(ctx, id, []byte("wrong"), uuid.New(), now); !errors.Is(err, store.ErrClaimRejected) {
 		t.Errorf("wrong hash: %v", err)
 	}
-	if _, err := st.ClaimOrganization(ctx, id, hash, now.Add(2*time.Minute)); !errors.Is(err, store.ErrClaimRejected) {
+	if _, err := st.ClaimOrganization(ctx, id, hash, uuid.New(), now.Add(2*time.Minute)); !errors.Is(err, store.ErrClaimRejected) {
 		t.Errorf("expired: %v", err)
 	}
-	claimed, err := st.ClaimOrganization(ctx, id, hash, now)
-	if err != nil || !claimed.Owned() || claimed.ClaimTokenHash != nil || claimed.ClaimTokenExpiresAt != nil {
+	owner, err := st.RegisterUser(ctx, store.User{ID: uuid.New(), OrganizationID: id, DisplayName: "Owner"}, store.Identity{Provider: "discord", Subject: "1", VerificationMethod: "oauth2", VerifiedAt: now})
+	if err != nil {
+		t.Fatal(err)
+	}
+	claimed, err := st.ClaimOrganization(ctx, id, hash, owner.ID, now)
+	if err != nil || !claimed.Owned() || claimed.ClaimTokenHash != nil || claimed.ClaimTokenExpiresAt != nil || claimed.OwnerUserID == nil || *claimed.OwnerUserID != owner.ID {
 		t.Fatalf("claim: %v %+v", err, claimed)
 	}
-	if _, err := st.ClaimOrganization(ctx, id, hash, now); !errors.Is(err, store.ErrOwned) {
+	if _, err := st.ClaimOrganization(ctx, id, hash, owner.ID, now); !errors.Is(err, store.ErrOwned) {
 		t.Errorf("second claim: %v", err)
 	}
 	if err := st.SetClaimToken(ctx, id, hash, now.Add(time.Minute)); !errors.Is(err, store.ErrOwned) {

@@ -34,7 +34,9 @@ type Organization struct {
 	Owned     bool                   `protobuf:"varint,3,opt,name=owned,proto3" json:"owned,omitempty"`
 	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	// When ownership was claimed; unset while unowned.
-	ClaimedAt     *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=claimed_at,json=claimedAt,proto3" json:"claimed_at,omitempty"`
+	ClaimedAt *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=claimed_at,json=claimedAt,proto3" json:"claimed_at,omitempty"`
+	// The user who claimed ownership; unset while unowned.
+	OwnerUserId   string `protobuf:"bytes,6,opt,name=owner_user_id,json=ownerUserId,proto3" json:"owner_user_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -102,6 +104,13 @@ func (x *Organization) GetClaimedAt() *timestamppb.Timestamp {
 		return x.ClaimedAt
 	}
 	return nil
+}
+
+func (x *Organization) GetOwnerUserId() string {
+	if x != nil {
+		return x.OwnerUserId
+	}
+	return ""
 }
 
 type GetOrganizationRequest struct {
@@ -277,7 +286,7 @@ var File_gravel_hub_v1_organization_proto protoreflect.FileDescriptor
 
 const file_gravel_hub_v1_organization_proto_rawDesc = "" +
 	"\n" +
-	" gravel/hub/v1/organization.proto\x12\rgravel.hub.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xbe\x01\n" +
+	" gravel/hub/v1/organization.proto\x12\rgravel.hub.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xe2\x01\n" +
 	"\fOrganization\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
@@ -285,7 +294,8 @@ const file_gravel_hub_v1_organization_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"claimed_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tclaimedAt\"\x18\n" +
+	"claimed_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tclaimedAt\x12\"\n" +
+	"\rowner_user_id\x18\x06 \x01(\tR\vownerUserId\"\x18\n" +
 	"\x16GetOrganizationRequest\"Z\n" +
 	"\x17GetOrganizationResponse\x12?\n" +
 	"\forganization\x18\x01 \x01(\v2\x1b.gravel.hub.v1.OrganizationR\forganization\"-\n" +
