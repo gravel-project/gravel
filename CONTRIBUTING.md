@@ -47,6 +47,9 @@ Also, when they apply:
 - `make generate` after editing a `.proto` file, a `.templ` page or the dashboard definitions
   (`internal/tools/dashboards/defs.go`). The generated code is committed and CI fails on drift.
 - `make a11y` when a page changes (axe over the pages; needs Node.js and Chrome).
+- `gravel-hub wardogs record` when War Dogs ships a new server build: the fixtures under
+  `games/wardogs/testdata/<build>/` are recorded, reviewed and committed by a person
+  ([games/wardogs/README.md](games/wardogs/README.md)).
 - `make up` to run the hub with Postgres, then `make down`. [docs/hub.md](docs/hub.md) is the
   operator reference.
 

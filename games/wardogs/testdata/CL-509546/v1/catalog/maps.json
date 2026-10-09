@@ -1,0 +1,17 @@
+{
+  "count": 3,
+  "maps": [
+    {
+      "displayName": "Kavkazi",
+      "id": "Kavkazi"
+    },
+    {
+      "displayName": "Europe",
+      "id": "Europe"
+    },
+    {
+      "displayName": "NorthAmerica",
+      "id": "NorthAmerica"
+    }
+  ]
+}

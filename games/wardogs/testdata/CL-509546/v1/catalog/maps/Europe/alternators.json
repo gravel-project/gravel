@@ -1,0 +1,26 @@
+{
+  "alternators": [
+    {
+      "displayName": "Ozeti Default Circle",
+      "index": 0,
+      "tag": "ZoneAlternator.Ozeti.Default.Circle"
+    },
+    {
+      "displayName": "Ozeti Farmland Circle",
+      "index": 1,
+      "tag": "ZoneAlternator.Ozeti.Farmland.Circle"
+    },
+    {
+      "displayName": "Ozeti Church Circle",
+      "index": 2,
+      "tag": "ZoneAlternator.Ozeti.Church.Circle"
+    },
+    {
+      "displayName": "Ozeti River Circle",
+      "index": 3,
+      "tag": "ZoneAlternator.Ozeti.River.Circle"
+    }
+  ],
+  "count": 4,
+  "map": "Europe"
+}

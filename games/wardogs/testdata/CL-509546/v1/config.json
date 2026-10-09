@@ -1,0 +1,145 @@
+{
+  "revision": "2277a1e42723",
+  "sections": [
+    {
+      "allowedKeys": [
+        "DefaultBannedPlayerIds",
+        "DefaultReservedPlayerIds",
+        "MaxReservedSlots",
+        "PlayerIdentityEntries",
+        "ServerImageURL",
+        "ServerMaxPlayerCash",
+        "ServerMaxPlayerLevel",
+        "ServerMinPlayerCash",
+        "ServerMinPlayerLevel",
+        "ServerName",
+        "ServerPassword"
+      ],
+      "appliesWhen": "applied",
+      "description": "Server identity, bans, reserved slots and the sponsor banner.",
+      "keyOverrides": [
+        {
+          "appliesWhen": "applied",
+          "description": "Sent on the session update this apply triggers, so it gates new joins at once. Players already in are not rechecked.",
+          "key": "ServerPassword",
+          "writable": true
+        },
+        {
+          "appliesWhen": "applied",
+          "description": "Sent on the session update this apply triggers, so new joins are checked against it at once. Players already connected are not re-checked or removed.",
+          "key": "ServerMinPlayerCash",
+          "writable": true
+        },
+        {
+          "appliesWhen": "applied",
+          "description": "Sent on the session update this apply triggers, so new joins are checked against it at once. Players already connected are not re-checked or removed.",
+          "key": "ServerMaxPlayerCash",
+          "writable": true
+        },
+        {
+          "appliesWhen": "applied",
+          "description": "Sent on the session update this apply triggers, so new joins are checked against it at once. Players already connected are not re-checked or removed.",
+          "key": "ServerMinPlayerLevel",
+          "writable": true
+        },
+        {
+          "appliesWhen": "applied",
+          "description": "Sent on the session update this apply triggers, so new joins are checked against it at once. Players already connected are not re-checked or removed.",
+          "key": "ServerMaxPlayerLevel",
+          "writable": true
+        },
+        {
+          "appliesWhen": "pending",
+          "description": "Fetched and validated off-thread before the banner is advertised.",
+          "key": "ServerImageURL",
+          "writable": true
+        }
+      ],
+      "section": "/Script/WDGame.WDGameSession"
+    },
+    {
+      "allowedKeys": [
+        "MaxPlayers"
+      ],
+      "appliesWhen": "next-restart",
+      "description": "Player slot count. Not applied to a running server by choice, so a change takes effect on restart.",
+      "keyOverrides": [],
+      "section": "/Script/Engine.GameSession"
+    },
+    {
+      "allowedKeys": [
+        "bLockOverpopulatedTeamsConfig",
+        "OverpopulatedTeamThresholdConfig"
+      ],
+      "appliesWhen": "next-match",
+      "description": "Team balance rules. The running match keeps its current values; the config values are read when a match starts.",
+      "keyOverrides": [],
+      "section": "/Script/WDGame.WDGameStateSession"
+    },
+    {
+      "allowedKeys": [
+        "bEnabled",
+        "RotationEntries",
+        "RotationMode"
+      ],
+      "appliesWhen": "applied",
+      "description": "Map rotation order and mode. Rebuilt immediately; used from the next map change.",
+      "keyOverrides": [],
+      "section": "/Script/WDGame.WDServerMapRotationSettings"
+    },
+    {
+      "allowedKeys": [
+        "ScorePeriod"
+      ],
+      "appliesWhen": "next-match",
+      "description": "KOTH scoring. The match in progress keeps its current values; scoring cadence never changes mid-round.",
+      "keyOverrides": [],
+      "section": "MatchState.Playing.KOTH"
+    },
+    {
+      "allowedKeys": [
+        "MinimumRequiredPlayers"
+      ],
+      "appliesWhen": "next-match",
+      "description": "Minimum players before a match starts. Read when the next pre-match begins.",
+      "keyOverrides": [],
+      "section": "MatchState.PreMatch.WaitingForPlayers.PlayerCount"
+    },
+    {
+      "allowedKeys": [
+        "AllowedHosts",
+        "AllowedOrigins",
+        "bEnabled",
+        "BindAddress",
+        "Password",
+        "PasswordHash",
+        "Port"
+      ],
+      "appliesWhen": "next-restart",
+      "description": "RCON listener. Written now, read at startup.",
+      "keyOverrides": [
+        {
+          "appliesWhen": "next-restart",
+          "description": "Pinned by -RCONPort on this server's command line. The value is shown but cannot be changed here.",
+          "key": "Port",
+          "lockedBy": "RCONPort",
+          "writable": false
+        }
+      ],
+      "section": "/Script/WDRCON.WDRCONSettings"
+    },
+    {
+      "allowedKeys": [
+        "Token",
+        "Url"
+      ],
+      "appliesWhen": "next-restart",
+      "description": "Kill-event feed endpoint and its ingest token. Written now, read at startup.",
+      "keyOverrides": [],
+      "section": "WDServerFeed"
+    }
+  ],
+  "text": "[/Script/WDRCON.WDRCONSettings]\r\nbEnabled=true\r\nPassword=<redacted>\r\nPort=7789\r\n\r\n[/Script/WDGame.WDGameSession]\r\nServerName=HTG WARDOGS | NA WEST | #1\r\nServerPassword=\r\nServerImageURL=\"https://i.ibb.co/LdnP98zK/server-banner-1024x256.png\"\r\nServerMinPlayerCash=0\r\nServerMaxPlayerCash=0\r\nServerMinPlayerLevel=0\r\nServerMaxPlayerLevel=0\r\nMaxReservedSlots=0\r\n\r\n[MatchState.PreMatch.WaitingForPlayers.PlayerCount]\r\nMinimumRequiredPlayers=20\r\n\r\n[MatchState.Playing.KOTH]\r\nScorePeriod=24\r\n\r\n[/Script/WDGame.WDGameStateSession]\r\nblockOverpopulatedTeamsConfig=True\r\nOverpopulatedTeamThresholdConfig=1\r\n\r\n[/Script/WDGame.WDServerMapRotationSettings]\r\nbEnabled=True\r\nRotationMode=Ordered\r\n!RotationEntries=ClearArray\r\n.RotationEntries=(Map=\"Europe\", Experiences=\"Madrid_KOTH_01\", Lighting=\"DayStartClear\", ZoneAlternator=\"ZoneAlternator.Ozeti.Default.Circle\")\r\n.RotationEntries=(Map=\"NorthAmerica\", Experiences=\"Detroit_KOTH_01\", Lighting=\"DayEarlyFog\", ZoneAlternator=\"ZoneAlternator.Zestafona.Default.Circle\")\r\n.RotationEntries=(Map=\"Kavkazi\", Experiences=\"Bakurani_KOTH_01\", Lighting=\"DayClear\", ZoneAlternator=\"ZoneAlternator.Bakurani.Default.Circle\")\r\n.RotationEntries=(Map=\"Europe\", Experiences=\"Madrid_KOTH_01\", Lighting=\"DayLateClear\", ZoneAlternator=\"ZoneAlternator.Ozeti.River.Circle\")\r\n.RotationEntries=(Map=\"NorthAmerica\", Experiences=\"Detroit_KOTH_01\", Lighting=\"DayLateGray\", ZoneAlternator=\"ZoneAlternator.Zestafona.WaterTreatment.Circle\")\r\n.RotationEntries=(Map=\"Kavkazi\", Experiences=\"Bakurani_KOTH_01\", Lighting=\"DayEndClear\", ZoneAlternator=\"ZoneAlternator.Bakurani.Farmland.Circle\")\r\n",
+  "warnings": [],
+  "writable": true
+}

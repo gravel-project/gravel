@@ -1,0 +1,12 @@
+{
+  "connections": {
+    "active": 1
+  },
+  "gameThreadQueue": {
+    "depth": 32,
+    "inFlight": 0,
+    "rejectedTotal": 0
+  },
+  "status": "ok",
+  "uptimeSeconds": 22958
+}

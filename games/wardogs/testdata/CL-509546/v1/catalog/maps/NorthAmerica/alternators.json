@@ -1,0 +1,26 @@
+{
+  "alternators": [
+    {
+      "displayName": "Zestafona Default Circle",
+      "index": 0,
+      "tag": "ZoneAlternator.Zestafona.Default.Circle"
+    },
+    {
+      "displayName": "Zestafona SmallFactory Circle",
+      "index": 1,
+      "tag": "ZoneAlternator.Zestafona.SmallFactory.Circle"
+    },
+    {
+      "displayName": "Zestafona WaterTreatment Circle",
+      "index": 2,
+      "tag": "ZoneAlternator.Zestafona.WaterTreatment.Circle"
+    },
+    {
+      "displayName": "Zestafona Houses Circle",
+      "index": 3,
+      "tag": "ZoneAlternator.Zestafona.Houses.Circle"
+    }
+  ],
+  "count": 4,
+  "map": "NorthAmerica"
+}

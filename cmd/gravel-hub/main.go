@@ -10,6 +10,7 @@
 //	gravel-hub apps create --name NAME --scopes SCOPES          register a first-party app; prints its secret once
 //	gravel-hub apps list                                        the registered apps
 //	gravel-hub apps revoke --client-id ID                       revoke an app and its tokens
+//	gravel-hub wardogs record --base-url URL [--token-file F]   record a War Dogs server's reads as fixtures
 //	gravel-hub version
 //
 // The config path defaults to $GRAVEL_CONFIG, then /etc/gravel/hub.yaml.
@@ -64,6 +65,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		return settings(ctx, args, stdout, stderr)
 	case "apps":
 		return appsCmd(ctx, args, stdout, stderr)
+	case "wardogs":
+		return wardogsCmd(ctx, args, stdout, stderr)
 	case "version":
 		fmt.Fprintln(stdout, "gravel-hub", buildVersion())
 		return 0
@@ -88,6 +91,7 @@ func usage(w io.Writer) {
   settings      export the Organization settings as a manifest, apply one (--dry-run exits 3 on a change),
                 or check one without a config or database
   apps          register, list or revoke first-party apps (create prints the client secret once)
+  wardogs       record a War Dogs server's read-only answers as per-build test fixtures
   version       print the version
 
 The config path comes from --config, then $GRAVEL_CONFIG, then `+defaultConfigPath+`.

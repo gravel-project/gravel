@@ -1,0 +1,47 @@
+{
+  "apiVersion": "1",
+  "auth": {
+    "header": "Authorization",
+    "scheme": "bearer"
+  },
+  "build": "++Wardogs+Live-CL-509546",
+  "config": {
+    "document": "/v1/config",
+    "writable": true
+  },
+  "limits": {
+    "maxBodyBytes": 65536,
+    "maxRequestsPerMinutePerIp": 600
+  },
+  "routes": [
+    "DELETE /v1/bans/{steamId}",
+    "GET /v1/audit",
+    "GET /v1/bans",
+    "GET /v1/capabilities",
+    "GET /v1/catalog/experiences",
+    "GET /v1/catalog/lightings",
+    "GET /v1/catalog/maps",
+    "GET /v1/catalog/maps/{map}/alternators",
+    "GET /v1/catalog/maps/{map}/experiences",
+    "GET /v1/config",
+    "GET /v1/health",
+    "GET /v1/players",
+    "GET /v1/reserved-slots",
+    "GET /v1/rotation",
+    "GET /v1/server-id",
+    "GET /v1/sponsor",
+    "GET /v1/status",
+    "PATCH /v1/players/{id}",
+    "POST /v1/bans",
+    "POST /v1/broadcast",
+    "POST /v1/config/validate",
+    "POST /v1/match/end",
+    "POST /v1/match/map",
+    "POST /v1/match/restart",
+    "POST /v1/players/{id}/kick",
+    "POST /v1/players/{id}/kill",
+    "POST /v1/players/{id}/message",
+    "PUT /v1/config",
+    "PUT /v1/world/lighting"
+  ]
+}

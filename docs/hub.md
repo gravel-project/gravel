@@ -19,6 +19,7 @@ why, ADR-0004 the login design, ADR-0008 the app credentials; `deploy/README.md`
 | `gravel-hub apps create --name NAME --scopes SCOPES` | Register a first-party app (ADR-0008) and print its client id and secret once; the hub keeps the secret's hash. |
 | `gravel-hub apps list` | The registered apps: client id, name, scopes, created, revoked. |
 | `gravel-hub apps revoke --client-id ID` | Revoke an app: its tokens are deleted and no new one is issued. |
+| `gravel-hub wardogs record --base-url URL [--token-file FILE] [--dir DIR]` | Record a War Dogs server's read-only answers as test fixtures in `<dir>/<build>/` (default `games/wardogs/testdata`), with people, addresses and secrets replaced (ADR-0010; `games/wardogs/README.md`). One token, never retried; without one, only the public routes. |
 | `gravel-hub version` | Print the build version. |
 
 The config path is `--config`, else `$GRAVEL_CONFIG`, else `/etc/gravel/hub.yaml`.
@@ -456,6 +457,10 @@ run in parallel. `make test-integration` insists on the variable. Locally:
 podman run -d --name gravel-test-pg -p 127.0.0.1:55432:5432 -e POSTGRES_USER=gravel -e POSTGRES_PASSWORD=test -e POSTGRES_DB=gravel public.ecr.aws/docker/library/postgres:17
 GRAVEL_TEST_DATABASE_URL='postgres://gravel:test@127.0.0.1:55432/gravel?sslmode=disable' make test-integration
 ```
+
+The War Dogs client (`games/wardogs`) runs one contract against every recorded build in
+`games/wardogs/testdata/` through a fake server (`games/wardogs/wardogstest`); the same contract
+runs against a real server, reading only, with `-tags live` (`games/wardogs/README.md`).
 
 `make a11y` runs axe (`@axe-core/cli`, pinned in the Makefile, through npx) over the login page
 and fixtures of the account and error pages, driving Chrome; CI runs it too. It needs node and
