@@ -1,0 +1,33 @@
+# ADR-0008: A separate bot process with service credentials, and the Discord mapping in the Organization settings
+
+**Status:** proposed (2026-10-09) · **Changes:** how gravel's Discord features run, how a service calls the hub's API, where a host's Discord role mapping lives · **Tracked by:** #15; the client-credentials slice of #6; hidden-token-gaming/deploy#45 (the mapping), htg#29 and htg#30 (the first consumer)
+
+## Context
+
+The design puts gravel's Discord features in Go modules a host compiles into one bot binary with its own modules: one Discord application, one bot user, HTTP interactions at a public URL plus a single-replica gateway worker. Hidden Token Gaming's htg-bot is the first consumer, on earth beside the hub (plan D20). Three things stand in the way:
+
+- The hub's API has one credential, the browser session, and `LookupUser` is the owner's until #6. A bot that reconciles roles for every member cannot run as a member.
+- The Organization settings document (ADR-0007) is public to read. It can carry the guild and role ids role sync needs, and never a credential.
+- Discord's Linked Roles (plan §5: five metadata records) are written per member with that member's own OAuth2 grant for `role_connections.write`. The hub's login asks for `identify` only and stores no provider token.
+
+Decided with John on 2026-10-09: a separate bot process now, with the slice of #6 it needs; OIDC for people (the authorization-code flow Muster's pages will use) when Muster needs it.
+
+## Decision
+
+1. **The bot is its own process, built from importable packages.** `discord/` is a public package tree: `discord/bot` (the runtime), `discord/modules/...` (the stock modules), `discord/hubclient` (the API client with a service credential). `cmd/gravel-bot` is the stock binary; a host's binary (htg's `cmd/htg-bot`) imports the same packages and registers its own modules beside the stock ones. One Discord application and one bot user per deployment. disgo is the Discord library. Interactions arrive over HTTP (Ed25519 signature check, acknowledged within 3 s, work deferred) when the application has an endpoint URL, and over the gateway when it has none, so a staging bot needs no public URL. The gateway worker is single-replica and resumes. A module registers commands, handles interactions and subscribes to gateway events; it reaches Discord's REST API only through the runtime's client, so one rate limiter sees every call.
+
+2. **Services authenticate with client credentials: the slice of #6.** The hub keeps registered apps (`apps`: id, name, client id, secret hash, scopes, created and revoked at) and short-lived opaque bearer tokens (`app_tokens`, hashed like sessions). `POST /oauth/token` with `grant_type=client_credentials` and HTTP basic client authentication issues one. `gravel-hub apps create|list|revoke` manages registrations without an API credential and prints a secret once, at creation, the way `settings apply` bootstraps settings; the owner's API for apps comes with the authorization-code flow. Every procedure sees a principal: a member (session) or an app (bearer) with scopes. `identity:read` admits `LookupUser` and the two reads a reconciler needs, `ListUsers` (paged, with identities) and `ListIdentityEvents` (after a cursor, from the append-only `identity_events`). What is the owner's stays the owner's. Rate limits gain an `app` scope keyed by the app.
+
+3. **The Discord mapping lives in the Organization settings.** A `discord` section: `guild_id`; `roles` (`linked`, and `<provider>_linked` per provider); `recognition`, a bounded list of `{role, rule, count}` with `first_members` as the first rule (Founding Crew). Validated like the theme (snowflakes, known providers and rules, bounds) and applied from the same manifest, so a mapping change is a manifest PR. Role sync reads it through `GetOrganizationSettings`. A member whose identities include any provider but Discord gets `linked`, a provider role where one is mapped, and the first N members by registration a recognition role. Supporter tiers and `member_since` roles join the section with their phases.
+
+4. **Role sync is a reconciler; Linked Roles are a verification flow.** The reconciler lists the guild's members (the `GUILD_MEMBERS` privileged intent, which an application under 100 guilds enables in the portal without review), resolves each to a hub user by Discord subject, computes the desired set of the roles the mapping names, and adds or removes only those, idempotently, resuming after a 429 and skipping members who left. A full pass runs on a schedule and an incremental pass follows `ListIdentityEvents`. The bot registers the Linked Roles metadata schema at startup (`steam_linked`, `xbox_linked`, `rsi_linked`, `pubg_linked`, `supporter_tier`). The per-member metadata is written by the hub in its own flow: the application's verification URL is the hub's `/auth/discord/roles`, which asks for `identify role_connections.write`, writes the member's metadata with the token in hand, and stores no token. So the Linked role arrives through Discord at verification time, and through sync within one reconcile of any identity change, verification or not.
+
+5. **Deployment.** The bot reads a configuration file like the hub's (`bot.yaml`: application id, public key, hub URL, client id, guild); the Discord token and the client secret are secrets read from files. HTG runs it as the quadlet `htg-bot.container` on the `htg` network, the Tunnel's `bot.hiddentoken.com` ingress moves from the hub to the bot, and the role's manifest apply carries the mapping. A staging application and guild (deploy#51) are played against the development stack with gateway-delivered interactions.
+
+## Consequences
+
+- Three public Go packages carry a compatibility promise from the open-source cut on; until then their interfaces change freely (ADR-0001).
+- The hub grows an app principal and a token endpoint; nothing changes for members. The authorization-code flow, consent and introspection stay in #6.
+- A second process on earth, with its own health, metrics, secrets and runbooks in deploy; the leak check and the unit checker learn its unit and its two secrets.
+- A member's Linked Roles metadata is as fresh as their last verification; the role itself is as fresh as the last reconcile. Storing refresh tokens for silent refreshes needs a key at rest and is deferred, noted in #15.
+- `discordctl` keeps managing the guild's structure. The bot manages only the roles the mapping names, below the staff roles (plan D12), and never creates or deletes a role.

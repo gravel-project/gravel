@@ -6,6 +6,9 @@ All notable changes to gravel are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- ADR-0008: gravel's Discord features run as a separate bot process built from public `discord/` packages (`cmd/gravel-bot` the stock binary, a host's binary beside it), services call the hub with client credentials (the slice of #6 the bot needs: registered apps, short-lived bearer tokens, an app principal with scopes), the Discord guild and role mapping lives in the Organization settings and is applied from the manifest, role sync is a reconciler, and Linked Roles metadata is written by the hub's own verification flow without storing a token (#15).
 ### Changed
 
 - The quadlet units pin the 0.4.0 images by index digest, both verified against the release workflow at `v0.4.0`: `ghcr.io/gravel-project/gravel-hub@sha256:8255099405c8683ac7482a740d2b043561689d9d775991a4e7712d875b4cc84d` in `gravel-hub.container`, and `ghcr.io/gravel-project/gravel-postgres@sha256:fc4e4f62d96668dd09b2d8503347ea0b52c465ee58abdeb6d2417b638b430d08` in the backup set (the same Containerfile as 0.3.0, rebuilt at the tag); `docs/hub.md` names 0.4.0 as the tag example.
