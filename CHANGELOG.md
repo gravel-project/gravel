@@ -6,6 +6,8 @@ All notable changes to gravel are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-09
+
 ### Added
 
 - Login (#13): a member signs in with Discord and links Steam, through Goth, on the `(provider, subject)` identity model. New tables for users, identities, an append-only identity log, sessions and attempts in progress (migration 2). Sessions are server-side: an opaque token in an `HttpOnly`, `SameSite=Lax` cookie (`Secure` and `__Host-` behind HTTPS), its hash in Postgres, no signing key; `auth.session_ttl` bounds them. Every login or link is an attempt bound to the browser by a cookie and to the provider's callback by a state value (OAuth2's `state`, or Steam's signed `return_to`), consumed once, so a replayed or forged callback is refused; a link must finish in the session that started it; an identity another member holds cannot be linked; the last identity cannot be unlinked. Pages at `/login` and `/account` (plain `html/template`, a strict CSP, no script; #14 restyles them) with the flows under `/auth/{provider}/start`, `/auth/{provider}/link`, `/auth/{provider}/callback`, `/auth/logout`, `/account/unlink` and `/account/claim`; state-changing forms carry a per-session CSRF token and `net/http`'s cross-origin protection fronts everything. `gravel.hub.v1.IdentityService` (`GetMe`, `UnlinkIdentity`, `RevokeSessions`, `LookupUser` for role sync, owner only until #6). Rate limits per client IP on anonymous requests and per user on authenticated ones (`rate_limit`, 429 with `Retry-After` on pages, `resource_exhausted` on procedures, probes exempt), with `server.client_ip_header` for a trusted proxy. Configuration section `auth` (`base_url`, `session_ttl`, `attempt_ttl`, `discord`, `steam`), the secrets `GRAVEL_DISCORD_CLIENT_SECRET` / `auth.discord.client_secret_file` and `GRAVEL_STEAM_API_KEY` / `auth.steam.api_key_file` with the database URL's precedence, and `gravel-hub config check` naming the providers. Metrics `gravel_auth_completions_total{provider,intent,result}` and `gravel_rate_limited_total{scope}`. Expired sessions and attempts are pruned every ten minutes. ADR-0004 records the decisions.
@@ -46,5 +48,6 @@ All notable changes to gravel are documented here. The format follows
 
 - README and CLAUDE.md follow ADR-0001: status line, principle 2 (the resource lives in the hub's database), the hub and backup paragraphs, the adapter-repo rule, the local-dev default, and a seven-step build order with the issues behind each step. The launch games are the five Hidden Token Gaming plays, in three shapes, with War Dogs first; the open threads link the design-delta issues #2–#9 (#1).
 
-[Unreleased]: https://github.com/gravel-project/gravel/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/gravel-project/gravel/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/gravel-project/gravel/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/gravel-project/gravel/releases/tag/v0.1.0
