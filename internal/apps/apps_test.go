@@ -101,6 +101,7 @@ func TestIssueAndAuthenticate(t *testing.T) {
 		}
 	}
 	// A subset of the app's scopes is fine; a scope the app lacks is not, even though it exists.
+	now = now.Add(time.Second) // registered after "bot", so List's order is fixed
 	narrow, err := svc.Create(ctx, "narrow", nil)
 	if err != nil {
 		t.Fatal(err)

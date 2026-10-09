@@ -89,7 +89,12 @@ func (f *FakeStore) ListApps(_ context.Context, orgID uuid.UUID) ([]store.App, e
 			out = append(out, a)
 		}
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].CreatedAt.Before(out[j].CreatedAt) })
+	sort.Slice(out, func(i, j int) bool {
+		if !out[i].CreatedAt.Equal(out[j].CreatedAt) {
+			return out[i].CreatedAt.Before(out[j].CreatedAt)
+		}
+		return out[i].ClientID < out[j].ClientID // deterministic within one instant, like the real store's (created_at, id)
+	})
 	return out, nil
 }
 
