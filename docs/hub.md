@@ -186,7 +186,7 @@ migration has a `-- +goose Down` section so tests can reset a database.
 
 The image is built by ko from `cmd/gravel-hub` on `gcr.io/distroless/static-debian12:nonroot`,
 runs as uid 65532, and has the binary at `/ko-app/gravel-hub` (`.ko.yaml`). Releases push it to
-`ghcr.io/gravel-project/gravel-hub` as `<version>` (no `v`: `0.1.0`) and `latest`, multi-arch
+`ghcr.io/gravel-project/gravel-hub` as `<version>` (no `v`: `0.2.0`) and `latest`, multi-arch
 (amd64, arm64), signed with cosign and with an SBOM attached; `docs/releasing.md` has the verify
 command and the digest-pin procedure.
 
