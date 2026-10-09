@@ -6,6 +6,7 @@
 //	gravel-hub healthcheck  [--url http://127.0.0.1:8080/healthz]
 //	gravel-hub settings export [--config hub.yaml]              print the Organization settings as a manifest
 //	gravel-hub settings apply <manifest.yaml> [--dry-run]       apply a manifest (exit 3 on --dry-run with changes)
+//	gravel-hub settings check <manifest.yaml>                   validate a manifest; no config, no database
 //	gravel-hub apps create --name NAME --scopes SCOPES          register a first-party app; prints its secret once
 //	gravel-hub apps list                                        the registered apps
 //	gravel-hub apps revoke --client-id ID                       revoke an app and its tokens
@@ -84,7 +85,8 @@ func usage(w io.Writer) {
   migrate       apply pending migrations; --status shows them instead
   config check  load and validate the configuration
   healthcheck   GET /healthz and exit 0 when it answers; --url
-  settings      export the Organization settings as a manifest, or apply one (--dry-run exits 3 on a change)
+  settings      export the Organization settings as a manifest, apply one (--dry-run exits 3 on a change),
+                or check one without a config or database
   apps          register, list or revoke first-party apps (create prints the client secret once)
   version       print the version
 

@@ -8,6 +8,10 @@ patch release is everything else.
 
 ## [Unreleased]
 
+### Added
+
+- `gravel-hub settings check <manifest.yaml>` validates an Organization settings manifest with no configuration and no database, so a deployment's CI can gate its committed manifest on the pinned hub image (#51). It runs the strict parse and `Validate` that `settings apply` runs before it opens the store, exits 0 with the summary apply prints, 1 with the offending fields named (an unknown key by name and line, a bad colour by its path), and 2 on a usage error. `settings apply` and `settings export` now work on a database that was migrated but never served: they create the built-in organization with the configured name, as `serve` does, through a new create-only `org.Service.CreateBuiltinIfAbsent` that never touches the owner claim, so the token `serve` printed stays the one that claims the hub (calling `EnsureBuiltin` there would have minted a new one); `--dry-run` compares with the defaults and creates nothing. Before, both answered `not found`, which read like a broken manifest. `docs/hub.md` lists the command.
+
 ### Changed
 
 - `docs/releasing.md` "Versions": what a version number means before 1.0 (#68). A minor release (0.Y.0) breaks a public surface (the Go packages under `discord/`, the API, the configuration, metric names, unit and secret names, migrations, the command lines; each listed with what breaks it), and its entries say **Breaking:**; a patch release (0.Y.Z) is everything else, features included. The release steps pick the version by it, and the CHANGELOG header points at it.

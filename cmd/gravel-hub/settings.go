@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -12,13 +13,14 @@ import (
 	"github.com/gravel-project/gravel/internal/store"
 )
 
-// settings is `gravel-hub settings export|apply`: the Organization settings as a YAML manifest,
-// read from and written to the hub's database by the hub itself (the same domain rules the API
-// enforces; ADR-0007). `apply` is idempotent and, with --dry-run, exits 3 when it would change
-// something, so a converge can check before it writes.
+// settings is `gravel-hub settings export|apply|check`: the Organization settings as a YAML
+// manifest, read from and written to the hub's database by the hub itself (the same domain rules
+// the API enforces; ADR-0007). `apply` is idempotent and, with --dry-run, exits 3 when it would
+// change something, so a converge can check before it writes. `check` validates a manifest with
+// no configuration and no database, so a deployment's CI can gate on it.
 func settings(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
-		fmt.Fprintln(stderr, "usage: gravel-hub settings export|apply <manifest.yaml> [--dry-run] [--config hub.yaml]")
+		fmt.Fprintln(stderr, "usage: gravel-hub settings export|apply|check <manifest.yaml> [--dry-run] [--config hub.yaml]")
 		return 2
 	}
 	switch args[0] {
@@ -26,6 +28,8 @@ func settings(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 		return settingsExport(ctx, args[1:], stdout, stderr)
 	case "apply":
 		return settingsApply(ctx, args[1:], stdout, stderr)
+	case "check":
+		return settingsCheck(args[1:], stdout, stderr)
 	}
 	fmt.Fprintf(stderr, "gravel-hub settings: unknown command %q\n", args[0])
 	return 2
@@ -56,7 +60,7 @@ func settingsExport(ctx context.Context, args []string, stdout, stderr io.Writer
 		return 1
 	}
 	defer closeStore()
-	set, _, err := svc.Settings(ctx)
+	set, err := storedSettings(ctx, svc, cfg.Organization.Name, false)
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1
@@ -99,17 +103,8 @@ func settingsApply(ctx context.Context, args []string, stdout, stderr io.Writer)
 		fmt.Fprintln(stderr, "usage: gravel-hub settings apply <manifest.yaml> [--dry-run] [--config hub.yaml]")
 		return 2
 	}
-	b, err := os.ReadFile(manifest)
+	want, err := readManifest(manifest)
 	if err != nil {
-		fmt.Fprintln(stderr, err)
-		return 1
-	}
-	want, err := org.ParseManifest(b)
-	if err != nil {
-		fmt.Fprintln(stderr, err)
-		return 1
-	}
-	if err := want.Validate(); err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1
 	}
@@ -122,7 +117,7 @@ func settingsApply(ctx context.Context, args []string, stdout, stderr io.Writer)
 		return 1
 	}
 	defer closeStore()
-	current, _, err := svc.Settings(ctx)
+	current, err := storedSettings(ctx, svc, cfg.Organization.Name, *dryRun)
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1
@@ -134,15 +129,73 @@ func settingsApply(ctx context.Context, args []string, stdout, stderr io.Writer)
 		return 0
 	}
 	if *dryRun {
-		fmt.Fprintf(stdout, "settings would change (%d nav links, theme %s, discord %s)\n", len(want.Nav), describeTheme(want.Theme), describeDiscord(want.Discord))
+		fmt.Fprintf(stdout, "settings would change (%s)\n", summarize(want))
 		return 3
 	}
 	if _, err := svc.UpdateSettings(ctx, want); err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1
 	}
-	fmt.Fprintf(stdout, "settings applied (%d nav links, theme %s, discord %s)\n", len(want.Nav), describeTheme(want.Theme), describeDiscord(want.Discord))
+	fmt.Fprintf(stdout, "settings applied (%s)\n", summarize(want))
 	return 0
+}
+
+// storedSettings is the built-in organization's settings, what export prints and apply compares
+// the manifest with. A migrated database that was never served has no organization yet: it is
+// created with the configured name (never touching the owner claim, so the token serve printed
+// stays valid), except on a dry run, which changes nothing and compares with the defaults.
+func storedSettings(ctx context.Context, svc *org.Service, name string, dryRun bool) (org.Settings, error) {
+	if !dryRun {
+		if _, err := svc.CreateBuiltinIfAbsent(ctx, name); err != nil {
+			return org.Settings{}, err
+		}
+	}
+	set, _, err := svc.Settings(ctx)
+	if dryRun && errors.Is(err, store.ErrNotFound) {
+		return org.DefaultSettings(), nil
+	}
+	return set, err
+}
+
+// settingsCheck is `gravel-hub settings check <manifest.yaml>`: the parse and validation apply
+// runs before it opens the store, and nothing else. Exit 0 valid, 1 invalid (every problem
+// named), 2 usage.
+func settingsCheck(args []string, stdout, stderr io.Writer) int {
+	fs := newFlagSet("settings check", stderr)
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if fs.NArg() != 1 {
+		fmt.Fprintln(stderr, "usage: gravel-hub settings check <manifest.yaml>")
+		return 2
+	}
+	set, err := readManifest(fs.Arg(0))
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
+	}
+	fmt.Fprintf(stdout, "settings valid (%s)\n", summarize(set))
+	return 0
+}
+
+// readManifest reads, strictly parses and validates a manifest: what apply and check share.
+func readManifest(path string) (org.Settings, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return org.Settings{}, err
+	}
+	set, err := org.ParseManifest(b)
+	if err != nil {
+		return org.Settings{}, err
+	}
+	if err := set.Validate(); err != nil {
+		return org.Settings{}, err
+	}
+	return set, nil
+}
+
+func summarize(s org.Settings) string {
+	return fmt.Sprintf("%d nav links, theme %s, discord %s", len(s.Nav), describeTheme(s.Theme), describeDiscord(s.Discord))
 }
 
 func describeTheme(t org.Theme) string {

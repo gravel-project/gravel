@@ -15,6 +15,7 @@ why, ADR-0004 the login design, ADR-0008 the app credentials; `deploy/README.md`
 | `gravel-hub healthcheck [--url …]` | GET `/healthz` and exit 0 when it answers 200. The container healthcheck. |
 | `gravel-hub settings export` | Print the Organization settings as a YAML manifest. |
 | `gravel-hub settings apply <manifest.yaml> [--dry-run]` | Validate and store a manifest; "unchanged" or "applied". With `--dry-run`, exit 3 when it would change something. |
+| `gravel-hub settings check <manifest.yaml>` | Validate a manifest with no configuration and no database: exit 0 and print its summary, 1 with every problem named, 2 on a usage error. |
 | `gravel-hub apps create --name NAME --scopes SCOPES` | Register a first-party app (ADR-0008) and print its client id and secret once; the hub keeps the secret's hash. |
 | `gravel-hub apps list` | The registered apps: client id, name, scopes, created, revoked. |
 | `gravel-hub apps revoke --client-id ID` | Revoke an app: its tokens are deleted and no new one is issued. |
@@ -196,7 +197,20 @@ podman exec gravel-hub /ko-app/gravel-hub settings export --config /etc/gravel/h
 
 `apply` is idempotent; `--dry-run` exits 3 when the manifest differs from what is stored, so a
 converge can check before writing. An invalid manifest is refused with every problem named, and
-nothing is stored. The default tokens meet WCAG AA contrast in both schemes; a host's tokens are
+nothing is stored. On a database that was migrated but never served, `apply` and `export` create
+the built-in organization with the configured name, as `serve` would, and leave the owner claim
+alone: the token `serve` prints stays the one that claims the hub. A `--dry-run` there compares
+with the defaults and creates nothing.
+
+`settings check` runs the same strict parse and validation as `apply`, without a configuration or
+a database, so a deployment's CI can gate its committed manifest on the pinned hub image: exit 0
+with the summary `apply` would print (`settings valid (2 nav links, theme 5 tokens, font, discord
+unmapped)`), 1 with the offending fields named (an unknown key by name and line, a bad value by
+its path, such as `theme.dark.accent`), 2 on a usage error.
+
+```sh
+podman run --rm -v ./hub/organization.yaml:/m.yaml:ro,Z ghcr.io/gravel-project/gravel-hub:<version> settings check /m.yaml
+``` The default tokens meet WCAG AA contrast in both schemes; a host's tokens are
 the host's responsibility (`make a11y` checks the defaults only).
 
 The `discord` section holds ids, never a credential, and is as public as the rest. Ids are Discord
