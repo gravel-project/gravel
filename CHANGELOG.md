@@ -6,6 +6,8 @@ All notable changes to gravel are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-09
+
 ### Added
 
 - Backups (#28, ADR-0006): `ghcr.io/gravel-project/gravel-postgres`, the official Postgres 17 image plus WAL-G (fetched at build time and checked against its published SHA-256 per architecture; `deploy/postgres/Containerfile`, built by `make postgres-image` and by the release workflow for amd64 and arm64, cosign-signed). Postgres archives every WAL segment to object storage as it is written (`archive_command='wal-g wal-push %p'`, `archive_timeout=60`); `gravel-backup` takes a base backup and keeps 30 (`gravel-backup.timer`, nightly) and writes a status file; `gravel-restore --to <RFC 3339>` prepares a point-in-time recovery into an empty volume. The hub exposes `gravel_backup_last_success_timestamp_seconds`, `gravel_backup_last_run_timestamp_seconds`, `gravel_backup_last_run_ok` and `gravel_backup_status_readable` from the status file (`backup.status_file`) and `gravel_wal_archived_total`, `gravel_wal_last_archived_timestamp_seconds`, `gravel_wal_archive_failed_total`, `gravel_wal_last_failed_timestamp_seconds` and `gravel_wal_archiver_readable` from `pg_stat_archiver`. Backups are opt-in for quadlet deployments (`deploy/quadlet/backup/`: drop-ins, the unit, the timer, the volume; `make quadlet-install-backup`); the development stack archives into a local S3 store (versitygw) and `make backup` takes a base backup. `make backup-drill` (`deploy/backup-drill.sh`) restores to a point in time from a destroyed database and checks the rows and the schema, timed; CI runs it on every pull request as the `backup` job.
@@ -62,6 +64,7 @@ All notable changes to gravel are documented here. The format follows
 
 - README and CLAUDE.md follow ADR-0001: status line, principle 2 (the resource lives in the hub's database), the hub and backup paragraphs, the adapter-repo rule, the local-dev default, and a seven-step build order with the issues behind each step. The launch games are the five Hidden Token Gaming plays, in three shapes, with War Dogs first; the open threads link the design-delta issues #2–#9 (#1).
 
-[Unreleased]: https://github.com/gravel-project/gravel/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/gravel-project/gravel/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/gravel-project/gravel/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/gravel-project/gravel/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/gravel-project/gravel/releases/tag/v0.1.0
