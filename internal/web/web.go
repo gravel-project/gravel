@@ -64,20 +64,21 @@ type Handler struct {
 
 // New wires the pages. api is the hub's Connect API with the session middleware in front; the
 // pages call it in process as the HTTP-JSON client every other client is. theme says how the
-// pages look.
+// pages look; nil reads the Organization settings through that same API.
 func New(ids *identity.Service, sess *session.Manager, api http.Handler, theme ThemeSource, logger *slog.Logger) (*Handler, error) {
 	static, err := fs.Sub(files, "static")
 	if err != nil {
 		return nil, fmt.Errorf("web: static: %w", err)
 	}
-	if theme == nil {
-		theme = StaticTheme{T: DefaultTheme()}
-	}
 	client := &http.Client{Transport: inProcess{api: api}}
+	orgAPI := hubv1connect.NewOrganizationServiceClient(client, "http://hub", connect.WithProtoJSON())
+	if theme == nil {
+		theme = apiTheme{client: orgAPI}
+	}
 	return &Handler{
 		ids: ids, sess: sess, theme: theme, logger: logger,
 		static: http.StripPrefix("/static/", http.FileServerFS(static)),
-		orgAPI: hubv1connect.NewOrganizationServiceClient(client, "http://hub", connect.WithProtoJSON()),
+		orgAPI: orgAPI,
 		idAPI:  hubv1connect.NewIdentityServiceClient(client, "http://hub", connect.WithProtoJSON()),
 	}, nil
 }

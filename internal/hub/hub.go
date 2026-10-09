@@ -146,7 +146,7 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 	// The API, once: the public listener serves it, and the pages call it in process through
 	// the session middleware (ADR-0005).
 	h.api = h.buildAPI()
-	h.web, err = web.New(h.ids, h.sess, h.sess.Middleware(h.api), web.StaticTheme{T: web.DefaultTheme()}, logger)
+	h.web, err = web.New(h.ids, h.sess, h.sess.Middleware(h.api), nil, logger) // the theme comes from the Organization settings, through the API
 	if err != nil {
 		st.Close()
 		return nil, fmt.Errorf("hub: %w", err)

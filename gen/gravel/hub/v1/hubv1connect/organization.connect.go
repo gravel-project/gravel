@@ -39,6 +39,12 @@ const (
 	// OrganizationServiceClaimOwnershipProcedure is the fully-qualified name of the
 	// OrganizationService's ClaimOwnership RPC.
 	OrganizationServiceClaimOwnershipProcedure = "/gravel.hub.v1.OrganizationService/ClaimOwnership"
+	// OrganizationServiceGetOrganizationSettingsProcedure is the fully-qualified name of the
+	// OrganizationService's GetOrganizationSettings RPC.
+	OrganizationServiceGetOrganizationSettingsProcedure = "/gravel.hub.v1.OrganizationService/GetOrganizationSettings"
+	// OrganizationServiceUpdateOrganizationSettingsProcedure is the fully-qualified name of the
+	// OrganizationService's UpdateOrganizationSettings RPC.
+	OrganizationServiceUpdateOrganizationSettingsProcedure = "/gravel.hub.v1.OrganizationService/UpdateOrganizationSettings"
 )
 
 // OrganizationServiceClient is a client for the gravel.hub.v1.OrganizationService service.
@@ -48,6 +54,12 @@ type OrganizationServiceClient interface {
 	// needs a session (unauthenticated otherwise) and succeeds once per hub: the token is
 	// single-use, expires, and no token exists once the hub is owned.
 	ClaimOwnership(context.Context, *connect.Request[v1.ClaimOwnershipRequest]) (*connect.Response[v1.ClaimOwnershipResponse], error)
+	// GetOrganizationSettings returns the settings; public, because the pages render the theme
+	// before anyone logs in.
+	GetOrganizationSettings(context.Context, *connect.Request[v1.GetOrganizationSettingsRequest]) (*connect.Response[v1.GetOrganizationSettingsResponse], error)
+	// UpdateOrganizationSettings replaces the settings. The owner only; invalid_argument names
+	// every invalid field.
+	UpdateOrganizationSettings(context.Context, *connect.Request[v1.UpdateOrganizationSettingsRequest]) (*connect.Response[v1.UpdateOrganizationSettingsResponse], error)
 }
 
 // NewOrganizationServiceClient constructs a client for the gravel.hub.v1.OrganizationService
@@ -73,13 +85,27 @@ func NewOrganizationServiceClient(httpClient connect.HTTPClient, baseURL string,
 			connect.WithSchema(organizationServiceMethods.ByName("ClaimOwnership")),
 			connect.WithClientOptions(opts...),
 		),
+		getOrganizationSettings: connect.NewClient[v1.GetOrganizationSettingsRequest, v1.GetOrganizationSettingsResponse](
+			httpClient,
+			baseURL+OrganizationServiceGetOrganizationSettingsProcedure,
+			connect.WithSchema(organizationServiceMethods.ByName("GetOrganizationSettings")),
+			connect.WithClientOptions(opts...),
+		),
+		updateOrganizationSettings: connect.NewClient[v1.UpdateOrganizationSettingsRequest, v1.UpdateOrganizationSettingsResponse](
+			httpClient,
+			baseURL+OrganizationServiceUpdateOrganizationSettingsProcedure,
+			connect.WithSchema(organizationServiceMethods.ByName("UpdateOrganizationSettings")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // organizationServiceClient implements OrganizationServiceClient.
 type organizationServiceClient struct {
-	getOrganization *connect.Client[v1.GetOrganizationRequest, v1.GetOrganizationResponse]
-	claimOwnership  *connect.Client[v1.ClaimOwnershipRequest, v1.ClaimOwnershipResponse]
+	getOrganization            *connect.Client[v1.GetOrganizationRequest, v1.GetOrganizationResponse]
+	claimOwnership             *connect.Client[v1.ClaimOwnershipRequest, v1.ClaimOwnershipResponse]
+	getOrganizationSettings    *connect.Client[v1.GetOrganizationSettingsRequest, v1.GetOrganizationSettingsResponse]
+	updateOrganizationSettings *connect.Client[v1.UpdateOrganizationSettingsRequest, v1.UpdateOrganizationSettingsResponse]
 }
 
 // GetOrganization calls gravel.hub.v1.OrganizationService.GetOrganization.
@@ -92,6 +118,16 @@ func (c *organizationServiceClient) ClaimOwnership(ctx context.Context, req *con
 	return c.claimOwnership.CallUnary(ctx, req)
 }
 
+// GetOrganizationSettings calls gravel.hub.v1.OrganizationService.GetOrganizationSettings.
+func (c *organizationServiceClient) GetOrganizationSettings(ctx context.Context, req *connect.Request[v1.GetOrganizationSettingsRequest]) (*connect.Response[v1.GetOrganizationSettingsResponse], error) {
+	return c.getOrganizationSettings.CallUnary(ctx, req)
+}
+
+// UpdateOrganizationSettings calls gravel.hub.v1.OrganizationService.UpdateOrganizationSettings.
+func (c *organizationServiceClient) UpdateOrganizationSettings(ctx context.Context, req *connect.Request[v1.UpdateOrganizationSettingsRequest]) (*connect.Response[v1.UpdateOrganizationSettingsResponse], error) {
+	return c.updateOrganizationSettings.CallUnary(ctx, req)
+}
+
 // OrganizationServiceHandler is an implementation of the gravel.hub.v1.OrganizationService service.
 type OrganizationServiceHandler interface {
 	GetOrganization(context.Context, *connect.Request[v1.GetOrganizationRequest]) (*connect.Response[v1.GetOrganizationResponse], error)
@@ -99,6 +135,12 @@ type OrganizationServiceHandler interface {
 	// needs a session (unauthenticated otherwise) and succeeds once per hub: the token is
 	// single-use, expires, and no token exists once the hub is owned.
 	ClaimOwnership(context.Context, *connect.Request[v1.ClaimOwnershipRequest]) (*connect.Response[v1.ClaimOwnershipResponse], error)
+	// GetOrganizationSettings returns the settings; public, because the pages render the theme
+	// before anyone logs in.
+	GetOrganizationSettings(context.Context, *connect.Request[v1.GetOrganizationSettingsRequest]) (*connect.Response[v1.GetOrganizationSettingsResponse], error)
+	// UpdateOrganizationSettings replaces the settings. The owner only; invalid_argument names
+	// every invalid field.
+	UpdateOrganizationSettings(context.Context, *connect.Request[v1.UpdateOrganizationSettingsRequest]) (*connect.Response[v1.UpdateOrganizationSettingsResponse], error)
 }
 
 // NewOrganizationServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -120,12 +162,28 @@ func NewOrganizationServiceHandler(svc OrganizationServiceHandler, opts ...conne
 		connect.WithSchema(organizationServiceMethods.ByName("ClaimOwnership")),
 		connect.WithHandlerOptions(opts...),
 	)
+	organizationServiceGetOrganizationSettingsHandler := connect.NewUnaryHandler(
+		OrganizationServiceGetOrganizationSettingsProcedure,
+		svc.GetOrganizationSettings,
+		connect.WithSchema(organizationServiceMethods.ByName("GetOrganizationSettings")),
+		connect.WithHandlerOptions(opts...),
+	)
+	organizationServiceUpdateOrganizationSettingsHandler := connect.NewUnaryHandler(
+		OrganizationServiceUpdateOrganizationSettingsProcedure,
+		svc.UpdateOrganizationSettings,
+		connect.WithSchema(organizationServiceMethods.ByName("UpdateOrganizationSettings")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/gravel.hub.v1.OrganizationService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case OrganizationServiceGetOrganizationProcedure:
 			organizationServiceGetOrganizationHandler.ServeHTTP(w, r)
 		case OrganizationServiceClaimOwnershipProcedure:
 			organizationServiceClaimOwnershipHandler.ServeHTTP(w, r)
+		case OrganizationServiceGetOrganizationSettingsProcedure:
+			organizationServiceGetOrganizationSettingsHandler.ServeHTTP(w, r)
+		case OrganizationServiceUpdateOrganizationSettingsProcedure:
+			organizationServiceUpdateOrganizationSettingsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -141,4 +199,12 @@ func (UnimplementedOrganizationServiceHandler) GetOrganization(context.Context, 
 
 func (UnimplementedOrganizationServiceHandler) ClaimOwnership(context.Context, *connect.Request[v1.ClaimOwnershipRequest]) (*connect.Response[v1.ClaimOwnershipResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.OrganizationService.ClaimOwnership is not implemented"))
+}
+
+func (UnimplementedOrganizationServiceHandler) GetOrganizationSettings(context.Context, *connect.Request[v1.GetOrganizationSettingsRequest]) (*connect.Response[v1.GetOrganizationSettingsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.OrganizationService.GetOrganizationSettings is not implemented"))
+}
+
+func (UnimplementedOrganizationServiceHandler) UpdateOrganizationSettings(context.Context, *connect.Request[v1.UpdateOrganizationSettingsRequest]) (*connect.Response[v1.UpdateOrganizationSettingsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.OrganizationService.UpdateOrganizationSettings is not implemented"))
 }

@@ -4,6 +4,7 @@ package orgtest
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -31,7 +32,7 @@ func (f *FakeStore) GetBuiltinOrganization(context.Context) (store.Organization,
 
 func (f *FakeStore) CreateBuiltinOrganization(_ context.Context, id uuid.UUID, name string) (store.Organization, error) {
 	f.Writes = append(f.Writes, "create")
-	f.Org = &store.Organization{ID: id, Name: name, Builtin: true, CreatedAt: time.Unix(0, 0).UTC()}
+	f.Org = &store.Organization{ID: id, Name: name, Builtin: true, CreatedAt: time.Unix(0, 0).UTC(), Settings: json.RawMessage("{}")}
 	return *f.Org, nil
 }
 
@@ -62,5 +63,15 @@ func (f *FakeStore) ClaimOrganization(_ context.Context, _ uuid.UUID, hash []byt
 	f.Org.ClaimedAt = &now
 	f.Org.OwnerUserID = &ownerUserID
 	f.Org.ClaimTokenHash, f.Org.ClaimTokenExpiresAt = nil, nil
+	return *f.Org, nil
+}
+
+func (f *FakeStore) UpdateOrganizationSettings(_ context.Context, _ uuid.UUID, settings json.RawMessage, at time.Time) (store.Organization, error) {
+	f.Writes = append(f.Writes, "settings")
+	if f.ErrOn == "settings" {
+		return store.Organization{}, errors.New("db down")
+	}
+	f.Org.Settings = append(json.RawMessage(nil), settings...)
+	f.Org.SettingsUpdatedAt = &at
 	return *f.Org, nil
 }

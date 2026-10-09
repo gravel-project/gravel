@@ -99,16 +99,12 @@ func (s *IdentityServer) RevokeSessions(ctx context.Context, _ *connect.Request[
 // LookupUser resolves a (provider, subject) pair to its user. Owner only until first-party
 // apps have their own credentials (gravel#6).
 func (s *IdentityServer) LookupUser(ctx context.Context, req *connect.Request[hubv1.LookupUserRequest]) (*connect.Response[hubv1.LookupUserResponse], error) {
-	uid, err := caller(ctx)
-	if err != nil {
+	if err := requireOwner(ctx, s.org, s.logger); err != nil {
 		return nil, err
 	}
 	o, err := s.org.Get(ctx)
 	if err != nil {
 		return nil, mapError(ctx, s.logger, err)
-	}
-	if o.OwnerUserID == nil || *o.OwnerUserID != uid {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("only the owner may look users up"))
 	}
 	provider, subject := strings.TrimSpace(req.Msg.GetProvider()), strings.TrimSpace(req.Msg.GetSubject())
 	if provider == "" || subject == "" {

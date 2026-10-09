@@ -24,6 +24,23 @@ func caller(ctx context.Context) (uuid.UUID, error) {
 	return s.UserID, nil
 }
 
+// requireOwner refuses anyone but the organization's owner: CodeUnauthenticated without a
+// session, CodePermissionDenied for a member.
+func requireOwner(ctx context.Context, orgSvc *org.Service, logger *slog.Logger) error {
+	uid, err := caller(ctx)
+	if err != nil {
+		return err
+	}
+	o, err := orgSvc.Get(ctx)
+	if err != nil {
+		return mapError(ctx, logger, err)
+	}
+	if o.OwnerUserID == nil || *o.OwnerUserID != uid {
+		return connect.NewError(connect.CodePermissionDenied, errors.New("the owner only"))
+	}
+	return nil
+}
+
 // mapError turns a domain error into a Connect error. Anything unmapped is logged with the
 // request id and answered as an opaque internal error.
 func mapError(ctx context.Context, logger *slog.Logger, err error) error {
@@ -32,6 +49,8 @@ func mapError(ctx context.Context, logger *slog.Logger, err error) error {
 		return connect.NewError(connect.CodeFailedPrecondition, err)
 	case errors.Is(err, org.ErrInvalidToken):
 		return connect.NewError(connect.CodePermissionDenied, err)
+	case errors.Is(err, org.ErrInvalidSettings):
+		return connect.NewError(connect.CodeInvalidArgument, err)
 	case errors.Is(err, identity.ErrLastIdentity):
 		return connect.NewError(connect.CodeFailedPrecondition, err)
 	case errors.Is(err, identity.ErrNotLinked):

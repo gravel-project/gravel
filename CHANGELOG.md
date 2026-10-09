@@ -6,6 +6,10 @@ All notable changes to gravel are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- The Organization settings resource (#7, ADR-0007): one JSON document on the organization (migration 3) holding the theme (tokens for the light and dark schemes, the font, a logo, a favicon) and navigation links (header or footer, optionally owner-only), with the Discord role mapping, token lifetimes and layout overrides to join it. `GetOrganizationSettings` is public (the login page renders the theme) and `UpdateOrganizationSettings` is the owner's; validation names every invalid field (colours must be plain CSS colours, URLs https or site-relative, at most 12 links). The pages read the theme through the in-process API, so a host's look is data, not a fork. `gravel-hub settings export` prints the document as a YAML manifest and `gravel-hub settings apply <manifest>` stores one (`--dry-run` exits 3 on a change), for deployments that commit their settings until the `gravel` CLI applies them over the API.
+
 ### Changed
 
 - The quadlet units pin the 0.3.0 images by index digest, both verified against the release workflow at `v0.3.0`: `ghcr.io/gravel-project/gravel-hub@sha256:95c16cd9a8789019977f4e2057edd1180469c08df2bab7177e5cd5b77e3b2ce0` in `gravel-hub.container`, and `ghcr.io/gravel-project/gravel-postgres@sha256:f9bd60a531e1fc8e1d78935b972ef4b2f3c51543c60b9eb3308282d04c4f75df` in the backup set, which no longer carries a placeholder; `docs/hub.md` names 0.3.0 as the tag example.

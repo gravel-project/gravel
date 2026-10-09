@@ -13,6 +13,8 @@ why, ADR-0004 the login design; `deploy/README.md` is the container how-to.
 | `gravel-hub migrate --status` | Print the schema version and pending count; exit 3 when migrations are pending. |
 | `gravel-hub config check` | Load and validate the configuration, print a summary with the login providers (never a secret). |
 | `gravel-hub healthcheck [--url …]` | GET `/healthz` and exit 0 when it answers 200. The container healthcheck. |
+| `gravel-hub settings export` | Print the Organization settings as a YAML manifest. |
+| `gravel-hub settings apply <manifest.yaml> [--dry-run]` | Validate and store a manifest; "unchanged" or "applied". With `--dry-run`, exit 3 when it would change something. |
 | `gravel-hub version` | Print the build version. |
 
 The config path is `--config`, else `$GRAVEL_CONFIG`, else `/etc/gravel/hub.yaml`.
@@ -82,6 +84,8 @@ Public listener (`server.listen`), HTTP/1.1 and unencrypted HTTP/2 so gRPC works
 |---|---|
 | `/gravel.hub.v1.OrganizationService/GetOrganization` | Connect procedure; POST JSON `{}` or call it over gRPC / gRPC-Web |
 | `/gravel.hub.v1.OrganizationService/ClaimOwnership` | Connect procedure; `{"token": "…"}`; needs a session, binds the caller as owner |
+| `/gravel.hub.v1.OrganizationService/GetOrganizationSettings` | the Organization settings (theme, navigation); public |
+| `/gravel.hub.v1.OrganizationService/UpdateOrganizationSettings` | replace them; the owner only; `invalid_argument` names every invalid field |
 | `/gravel.hub.v1.IdentityService/GetMe` | the caller and their linked identities; needs a session |
 | `/gravel.hub.v1.IdentityService/UnlinkIdentity` | `{"provider": "steam", "subject": "…"}`; the last identity is refused (`failed_precondition`) |
 | `/gravel.hub.v1.IdentityService/Logout` | end the calling session and clear its cookie |
@@ -128,6 +132,52 @@ curl -X POST -H 'Content-Type: application/json' -d '{}' http://127.0.0.1:8080/g
 # gRPC, via reflection
 grpcurl -plaintext 127.0.0.1:8080 gravel.hub.v1.OrganizationService/GetOrganization
 ```
+
+## Organization settings (ADR-0007)
+
+Every host-configurable knob is one document on the organization: the theme (tokens for the
+light and dark schemes, the font, a logo, a favicon) and the navigation links now; the Discord
+role mapping, token lifetimes and layout overrides later. Zero values mean the default. The pages
+read it through the API; the owner writes it through `UpdateOrganizationSettings`, or a
+deployment commits a manifest and applies it:
+
+```yaml
+# organization.yaml
+version: 1
+theme:
+  dark:                      # colours as plain CSS colours; omit a token to keep the default
+    background: "#070b17"
+    foreground: "#e8eef6"
+    muted: "#93a3bb"
+    line: "#1f2a44"
+    accent: "#3ee07a"
+  light:
+    background: "#f2f5f9"
+    foreground: "#0b1222"
+    accent: "#0a7a3a"        # meets AA on the light background; the dark accent would not
+  font: Archivo, system-ui, sans-serif   # the system font when omitted; the hub serves no webfont
+  logo_url: https://example.com/brand/mark.svg   # https or site-relative; shown beside the name
+  favicon_url: https://example.com/favicon.svg
+nav:                         # at most 12; label at most 40 characters
+  - label: Discord
+    url: https://discord.gg/…
+  - label: Rules
+    url: https://example.com/rules/
+    placement: footer        # header (default) or footer
+  - label: Admin
+    url: /admin
+    role: owner              # shown to the owner only
+```
+
+```sh
+podman exec gravel-hub /ko-app/gravel-hub settings apply /etc/gravel/organization.yaml --config /etc/gravel/hub.yaml
+podman exec gravel-hub /ko-app/gravel-hub settings export --config /etc/gravel/hub.yaml
+```
+
+`apply` is idempotent; `--dry-run` exits 3 when the manifest differs from what is stored, so a
+converge can check before writing. An invalid manifest is refused with every problem named, and
+nothing is stored. The default tokens meet WCAG AA contrast in both schemes; a host's tokens are
+the host's responsibility (`make a11y` checks the defaults only).
 
 ## Login (ADR-0004)
 

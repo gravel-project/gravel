@@ -9,6 +9,10 @@ import (
 	"regexp"
 	"strings"
 
+	"connectrpc.com/connect"
+
+	hubv1 "github.com/gravel-project/gravel/gen/gravel/hub/v1"
+	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
 	"github.com/gravel-project/gravel/internal/web/templates"
 )
 
@@ -24,6 +28,31 @@ type StaticTheme struct{ T templates.Theme }
 
 // Theme returns the fixed theme.
 func (s StaticTheme) Theme(context.Context) (templates.Theme, error) { return s.T, nil }
+
+// apiTheme reads the organization's settings through the hub's own API, in process, like
+// every other page read (ADR-0005); an empty token means the default (normalizeTheme fills it).
+type apiTheme struct {
+	client hubv1connect.OrganizationServiceClient
+}
+
+func (t apiTheme) Theme(ctx context.Context) (templates.Theme, error) {
+	resp, err := t.client.GetOrganizationSettings(ctx, connect.NewRequest(&hubv1.GetOrganizationSettingsRequest{}))
+	if err != nil {
+		return templates.Theme{}, fmt.Errorf("GetOrganizationSettings: %w", err)
+	}
+	set := resp.Msg.GetSettings()
+	tokens := func(p *hubv1.ThemeTokens) templates.Tokens {
+		return templates.Tokens{Accent: p.GetAccent(), Background: p.GetBackground(), Foreground: p.GetForeground(), Muted: p.GetMuted(), Line: p.GetLine(), OK: p.GetOk(), Err: p.GetErr()}
+	}
+	theme := templates.Theme{
+		Light: tokens(set.GetTheme().GetLight()), Dark: tokens(set.GetTheme().GetDark()),
+		Font: set.GetTheme().GetFont(), LogoURL: set.GetTheme().GetLogoUrl(), FaviconURL: set.GetTheme().GetFaviconUrl(),
+	}
+	for _, l := range set.GetNav() {
+		theme.Nav = append(theme.Nav, templates.NavLink{Label: l.GetLabel(), URL: l.GetUrl(), Placement: l.GetPlacement(), Role: l.GetRole()})
+	}
+	return theme, nil
+}
 
 // DefaultTheme is gravel's own look: a green accent, system fonts, no logo, no extra links.
 // Every colour pair meets WCAG AA contrast on its scheme's background.
