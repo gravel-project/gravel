@@ -28,6 +28,7 @@ VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 export VERSION
 LDFLAGS := -s -w -X main.version=$(VERSION)
 IMAGE_REPO ?= localhost/gravel-hub
+BOT_IMAGE_REPO ?= localhost/gravel-bot
 IMAGE_TAG ?= dev
 # Host ports the compose stack publishes on 127.0.0.1 (override when 8080/9090 are taken).
 GRAVEL_PORT ?= 8080
@@ -85,8 +86,9 @@ a11y: ## Run axe over the rendered pages (needs node and Chrome; CI does too)
 	A11Y=1 AXE_CLI_VERSION=$(AXE_CLI_VERSION) $(GO) test -count=1 -run TestAccessibility ./internal/web/
 
 .PHONY: build
-build: ## Build the hub binary into .bin/
+build: ## Build the hub and bot binaries into .bin/
 	$(GO) build -trimpath -ldflags '$(LDFLAGS)' -o $(BIN)/gravel-hub ./cmd/gravel-hub
+	$(GO) build -trimpath -ldflags '$(LDFLAGS)' -o $(BIN)/gravel-bot ./cmd/gravel-bot
 
 .PHONY: fmt-check
 fmt-check: ## Fail on unformatted Go
@@ -130,6 +132,10 @@ check: fmt-check vet proto-lint lint vuln generate-check test quadlet-check ## E
 image: $(BIN)/ko ## Build the hub image with ko and load it into podman as $(IMAGE_REPO):$(IMAGE_TAG)
 	KO_DOCKER_REPO=$(IMAGE_REPO) $(BIN)/ko build --bare --push=false --tarball $(BIN)/gravel-hub.tar -t $(IMAGE_TAG) ./cmd/gravel-hub
 	podman load -i $(BIN)/gravel-hub.tar
+.PHONY: bot-image
+bot-image: $(BIN)/ko ## Build the bot image with ko and load it into podman as $(BOT_IMAGE_REPO):$(IMAGE_TAG)
+	KO_DOCKER_REPO=$(BOT_IMAGE_REPO) $(BIN)/ko build --bare --push=false --tarball $(BIN)/gravel-bot.tar -t $(IMAGE_TAG) ./cmd/gravel-bot
+	podman load -i $(BIN)/gravel-bot.tar
 
 .PHONY: postgres-image
 postgres-image: ## Build the hub's Postgres image (Postgres 17 + WAL-G) as $(POSTGRES_IMAGE_REPO):$(IMAGE_TAG)

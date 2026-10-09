@@ -25,6 +25,7 @@ again; a tag can't be re-run against a different workflow file.
 | `ghcr.io/gravel-project/gravel-hub:X.Y.Z` and `:latest` (multi-arch index; note: no `v` in the tag) | ghcr, public |
 | cosign signature (keyless, GitHub OIDC) and an SBOM, attached to the image | ghcr, beside the image |
 | `ghcr.io/gravel-project/gravel-postgres:X.Y.Z` and `:latest` (Postgres 17 plus WAL-G, multi-arch; `deploy/postgres/Containerfile`), cosign-signed | ghcr, public |
+| `gravel-bot_X.Y.Z_linux_{amd64,arm64}.tar.gz` + `.sbom.json` each, and `ghcr.io/gravel-project/gravel-bot:X.Y.Z` and `:latest` (multi-arch, cosign-signed): the Discord bot with the stock modules (docs/bot.md) | the GitHub release; ghcr, public |
 
 ## Verify an image
 
