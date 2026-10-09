@@ -318,3 +318,18 @@ auth:
 		t.Errorf("no secret resolved for disabled providers: %+v %+v", cfg.Auth.Discord, cfg.Auth.Steam)
 	}
 }
+
+func TestAppsValidation(t *testing.T) {
+	cfg := Default()
+	if cfg.Apps.TokenTTL != time.Hour || cfg.RateLimit.PerApp.RequestsPerMinute != 600 {
+		t.Errorf("defaults: %+v %+v", cfg.Apps, cfg.RateLimit.PerApp)
+	}
+	cfg.Organization.Name = "x"
+	cfg.Database.URL = "postgres://u:p@h/db"
+	cfg.Apps.TokenTTL = 0
+	cfg.RateLimit.PerApp.RequestsPerMinute = 0
+	err := cfg.Validate()
+	if err == nil || !strings.Contains(err.Error(), "apps.token_ttl") || !strings.Contains(err.Error(), "rate_limit.per_app") {
+		t.Errorf("validation: %v", err)
+	}
+}

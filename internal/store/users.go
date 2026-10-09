@@ -271,8 +271,10 @@ func (s *Store) UnlinkIdentity(ctx context.Context, userID uuid.UUID, provider, 
 	return nil
 }
 
-// IdentityEvent is a row of identity_events.
+// IdentityEvent is a row of identity_events. ID is the append-only log's position: a reader
+// that remembers the last id it saw resumes from there (ListIdentityEventsAfter).
 type IdentityEvent struct {
+	ID       int64
 	UserID   uuid.UUID
 	Provider string
 	Subject  string
@@ -280,24 +282,109 @@ type IdentityEvent struct {
 	At       time.Time
 }
 
-// ListIdentityEvents returns a user's identity log, oldest first.
-func (s *Store) ListIdentityEvents(ctx context.Context, userID uuid.UUID) ([]IdentityEvent, error) {
-	rows, err := s.pool.Query(ctx,
-		`SELECT user_id, provider, subject, event, at FROM identity_events WHERE user_id = $1 ORDER BY id`, userID)
-	if err != nil {
-		return nil, fmt.Errorf("store: list identity events: %w", err)
-	}
+const identityEventColumns = `id, user_id, provider, subject, event, at`
+
+func scanIdentityEvents(rows pgx.Rows) ([]IdentityEvent, error) {
 	defer rows.Close()
 	var out []IdentityEvent
 	for rows.Next() {
 		var e IdentityEvent
-		if err := rows.Scan(&e.UserID, &e.Provider, &e.Subject, &e.Event, &e.At); err != nil {
-			return nil, fmt.Errorf("store: list identity events: %w", err)
+		if err := rows.Scan(&e.ID, &e.UserID, &e.Provider, &e.Subject, &e.Event, &e.At); err != nil {
+			return nil, err
 		}
 		out = append(out, e)
 	}
-	if err := rows.Err(); err != nil {
+	return out, rows.Err()
+}
+
+// ListIdentityEvents returns a user's identity log, oldest first.
+func (s *Store) ListIdentityEvents(ctx context.Context, userID uuid.UUID) ([]IdentityEvent, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT `+identityEventColumns+` FROM identity_events WHERE user_id = $1 ORDER BY id`, userID)
+	if err != nil {
 		return nil, fmt.Errorf("store: list identity events: %w", err)
+	}
+	out, err := scanIdentityEvents(rows)
+	if err != nil {
+		return nil, fmt.Errorf("store: list identity events: %w", err)
+	}
+	return out, nil
+}
+
+// ListIdentityEventsAfter returns up to limit events with an id greater than afterID, oldest
+// first: the incremental read a role-sync reconciler makes (ADR-0008).
+func (s *Store) ListIdentityEventsAfter(ctx context.Context, afterID int64, limit int) ([]IdentityEvent, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT `+identityEventColumns+` FROM identity_events WHERE id > $1 ORDER BY id LIMIT $2`, afterID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("store: list identity events after: %w", err)
+	}
+	out, err := scanIdentityEvents(rows)
+	if err != nil {
+		return nil, fmt.Errorf("store: list identity events after: %w", err)
+	}
+	return out, nil
+}
+
+// UserCursor is a position in the users list: the (created_at, id) of the last user seen.
+type UserCursor struct {
+	CreatedAt time.Time
+	ID        uuid.UUID
+}
+
+// ListUsers pages through an organization's users, oldest first, by (created_at, id); after is
+// the previous page's last user, nil for the first page.
+func (s *Store) ListUsers(ctx context.Context, orgID uuid.UUID, after *UserCursor, limit int) ([]User, error) {
+	var rows pgx.Rows
+	var err error
+	if after == nil {
+		rows, err = s.pool.Query(ctx,
+			`SELECT `+userColumns+` FROM users WHERE organization_id = $1 ORDER BY created_at, id LIMIT $2`, orgID, limit)
+	} else {
+		rows, err = s.pool.Query(ctx,
+			`SELECT `+userColumns+` FROM users WHERE organization_id = $1 AND (created_at, id) > ($2, $3) ORDER BY created_at, id LIMIT $4`,
+			orgID, after.CreatedAt, after.ID, limit)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("store: list users: %w", err)
+	}
+	defer rows.Close()
+	var out []User
+	for rows.Next() {
+		u, err := scanUser(rows)
+		if err != nil {
+			return nil, fmt.Errorf("store: list users: %w", err)
+		}
+		out = append(out, u)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("store: list users: %w", err)
+	}
+	return out, nil
+}
+
+// ListIdentitiesForUsers returns the identities of the given users, ordered by user then by
+// when they were linked, so a page of users needs one query for its identities.
+func (s *Store) ListIdentitiesForUsers(ctx context.Context, userIDs []uuid.UUID) ([]Identity, error) {
+	if len(userIDs) == 0 {
+		return nil, nil
+	}
+	rows, err := s.pool.Query(ctx,
+		`SELECT `+identityColumns+` FROM identities WHERE user_id = ANY($1) ORDER BY user_id, linked_at, provider, subject`, userIDs)
+	if err != nil {
+		return nil, fmt.Errorf("store: list identities for users: %w", err)
+	}
+	defer rows.Close()
+	var out []Identity
+	for rows.Next() {
+		i, err := scanIdentity(rows)
+		if err != nil {
+			return nil, fmt.Errorf("store: list identities for users: %w", err)
+		}
+		out = append(out, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("store: list identities for users: %w", err)
 	}
 	return out, nil
 }

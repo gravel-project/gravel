@@ -2,7 +2,7 @@
 
 One Go binary, `gravel-hub`, beside Postgres. This page is the operator reference: configuration,
 endpoints, login, the owner claim, migrations, running it, observability and tests. ADR-0001 is the
-why, ADR-0004 the login design; `deploy/README.md` is the container how-to.
+why, ADR-0004 the login design, ADR-0008 the app credentials; `deploy/README.md` is the container how-to.
 
 ## Commands
 
@@ -15,6 +15,9 @@ why, ADR-0004 the login design; `deploy/README.md` is the container how-to.
 | `gravel-hub healthcheck [--url …]` | GET `/healthz` and exit 0 when it answers 200. The container healthcheck. |
 | `gravel-hub settings export` | Print the Organization settings as a YAML manifest. |
 | `gravel-hub settings apply <manifest.yaml> [--dry-run]` | Validate and store a manifest; "unchanged" or "applied". With `--dry-run`, exit 3 when it would change something. |
+| `gravel-hub apps create --name NAME --scopes SCOPES` | Register a first-party app (ADR-0008) and print its client id and secret once; the hub keeps the secret's hash. |
+| `gravel-hub apps list` | The registered apps: client id, name, scopes, created, revoked. |
+| `gravel-hub apps revoke --client-id ID` | Revoke an app: its tokens are deleted and no new one is issued. |
 | `gravel-hub version` | Print the build version. |
 
 The config path is `--config`, else `$GRAVEL_CONFIG`, else `/etc/gravel/hub.yaml`.
@@ -60,6 +63,9 @@ auth:
 rate_limit:
   per_ip:   {requests_per_minute: 120, burst: 40}    # anonymous requests, per client address
   per_user: {requests_per_minute: 600, burst: 100}   # authenticated requests, per user
+  per_app:  {requests_per_minute: 600, burst: 100}   # requests carrying an app's bearer token, per app
+apps:
+  token_ttl: 1h                  # how long a bearer token from /oauth/token lives
 ```
 
 **Secrets.** Three, each with the same precedence: the environment variable, then the `*_file`
@@ -90,11 +96,14 @@ Public listener (`server.listen`), HTTP/1.1 and unencrypted HTTP/2 so gRPC works
 | `/gravel.hub.v1.IdentityService/UnlinkIdentity` | `{"provider": "steam", "subject": "…"}`; the last identity is refused (`failed_precondition`) |
 | `/gravel.hub.v1.IdentityService/Logout` | end the calling session and clear its cookie |
 | `/gravel.hub.v1.IdentityService/RevokeSessions` | log out everywhere; answers how many sessions ended and clears the cookie |
-| `/gravel.hub.v1.IdentityService/LookupUser` | `{"provider": "discord", "subject": "…"}` → the user and their identities, for role sync; the owner only until #6 |
+| `/gravel.hub.v1.IdentityService/LookupUser` | `{"provider": "discord", "subject": "…"}` → the user and their identities, for role sync; an app with `identity:read`, or the owner |
+| `/gravel.hub.v1.IdentityService/ListUsers` | `{"page_size": 100, "page_token": "…"}` → members with their identities, oldest first, and the next page's token; role sync's full pass; `identity:read` or the owner |
+| `/gravel.hub.v1.IdentityService/ListIdentityEvents` | `{"after_id": 0, "limit": 100}` → the identity log after a position, oldest first, and the id to continue from; role sync's incremental pass; `identity:read` or the owner |
 | `/grpc.health.v1.Health/Check` | gRPC health |
 | `/grpc.reflection.v1.ServerReflection/…` (and v1alpha) | gRPC reflection, so `grpcurl` and `buf curl` discover the API |
 | `GET /healthz` | 200 `{"status":"ok","version":"…"}` while the process runs |
 | `GET /readyz` | 200 `{"status":"ready"}` when Postgres answers and no migration is pending, else 503 with a reason |
+| `POST /oauth/token` | the token endpoint for first-party apps (ADR-0008): client credentials in, a Bearer token out; see [Service credentials](#service-credentials-adr-0008) |
 
 Pages and flows, on the same listener (ADR-0005: the pages are templ components that call the
 procedures above in process; htmx, served from the binary, swaps the main content on forms, and
@@ -178,6 +187,38 @@ podman exec gravel-hub /ko-app/gravel-hub settings export --config /etc/gravel/h
 converge can check before writing. An invalid manifest is refused with every problem named, and
 nothing is stored. The default tokens meet WCAG AA contrast in both schemes; a host's tokens are
 the host's responsibility (`make a11y` checks the defaults only).
+
+## Service credentials (ADR-0008)
+
+A first-party service (a host's Discord bot, later Muster) calls the API as an **app**, not as a
+member: a registered client id and secret, traded at the token endpoint for a short-lived opaque
+bearer token that carries the app's scopes. The secret and every token are stored as SHA-256
+hashes, like session tokens. This is the client-credentials slice of #6; the authorization-code
+flow for people comes when a first-party web app needs it.
+
+```sh
+# Register (on the hub's host, no API credential needed; the secret is printed once)
+gravel-hub apps create --name htg-bot --scopes identity:read --config /etc/gravel/hub.yaml
+# Trade the credentials for a token (RFC 6749 §4.4; the id and secret go through HTTP Basic)
+curl -u "$CLIENT_ID:$CLIENT_SECRET" -d grant_type=client_credentials https://app.example.com/oauth/token
+# {"access_token":"…","token_type":"Bearer","expires_in":3600,"scope":"identity:read"}
+# Call the API with it
+curl -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{"provider":"discord","subject":"1234"}' \
+  https://app.example.com/gravel.hub.v1.IdentityService/LookupUser
+```
+
+| Scope | Admits |
+|---|---|
+| `identity:read` | `LookupUser`, `ListUsers`, `ListIdentityEvents`: members and their identities, for role sync |
+
+Rules: a token lives `apps.token_ttl` (an hour by default) and is pruned after; `scope` at the
+token endpoint may narrow a token to a subset of the app's scopes, never widen it; an unknown,
+expired or revoked token is answered 401 with `WWW-Authenticate: Bearer error="invalid_token"`
+before any procedure runs; a procedure an app may not call answers `permission_denied`, and one a
+member may not call still does. The owner's session is admitted wherever a scope is, so the owner
+can do by hand what the app does. Requests carrying a token are rate-limited per app
+(`rate_limit.per_app`), the token endpoint per client address. To rotate a secret, create a new
+app and revoke the old one once the service has moved; `apps revoke` deletes the tokens at once.
 
 ## Login (ADR-0004)
 

@@ -48,6 +48,13 @@ type Config struct {
 	Auth         Auth         `yaml:"auth"`
 	RateLimit    RateLimit    `yaml:"rate_limit"`
 	Backup       Backup       `yaml:"backup"`
+	Apps         Apps         `yaml:"apps"`
+}
+
+// Apps tunes first-party app credentials (ADR-0008).
+type Apps struct {
+	// TokenTTL is how long a bearer token issued at /oauth/token lives.
+	TokenTTL time.Duration `yaml:"token_ttl"`
 }
 
 // Organization names the built-in organization.
@@ -147,6 +154,8 @@ type Backup struct {
 type RateLimit struct {
 	PerIP   Limit `yaml:"per_ip"`
 	PerUser Limit `yaml:"per_user"`
+	// PerApp applies to requests carrying an app's bearer token, per app.
+	PerApp Limit `yaml:"per_app"`
 }
 
 // Limit is a sustained rate with a burst allowance.
@@ -180,7 +189,9 @@ func Default() Config {
 		RateLimit: RateLimit{
 			PerIP:   Limit{RequestsPerMinute: 120, Burst: 40},
 			PerUser: Limit{RequestsPerMinute: 600, Burst: 100},
+			PerApp:  Limit{RequestsPerMinute: 600, Burst: 100},
 		},
+		Apps: Apps{TokenTTL: time.Hour},
 	}
 }
 
@@ -335,7 +346,10 @@ func (c Config) Validate() error {
 	} else if c.Auth.Discord.Enabled || c.Auth.Steam.Enabled {
 		bad("auth: every enabled provider is link-only, so nobody can log in; set login: true on one")
 	}
-	for name, l := range map[string]Limit{"rate_limit.per_ip": c.RateLimit.PerIP, "rate_limit.per_user": c.RateLimit.PerUser} {
+	if c.Apps.TokenTTL <= 0 {
+		bad("apps.token_ttl: must be positive")
+	}
+	for name, l := range map[string]Limit{"rate_limit.per_ip": c.RateLimit.PerIP, "rate_limit.per_user": c.RateLimit.PerUser, "rate_limit.per_app": c.RateLimit.PerApp} {
 		if l.RequestsPerMinute < 1 {
 			bad("%s.requests_per_minute: must be at least 1", name)
 		}

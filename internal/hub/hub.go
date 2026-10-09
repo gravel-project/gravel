@@ -21,6 +21,7 @@ import (
 
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
 	"github.com/gravel-project/gravel/internal/api"
+	"github.com/gravel-project/gravel/internal/apps"
 	"github.com/gravel-project/gravel/internal/backup"
 	"github.com/gravel-project/gravel/internal/config"
 	"github.com/gravel-project/gravel/internal/httpx"
@@ -53,9 +54,11 @@ type Hub struct {
 	org        *org.Service
 	ids        *identity.Service
 	sess       *session.Manager
+	apps       *apps.Service
 	web        *web.Handler
 	perIP      *ratelimit.Limiter
 	perUser    *ratelimit.Limiter
+	perApp     *ratelimit.Limiter
 	claimToken string
 
 	registry     *prometheus.Registry
@@ -122,8 +125,10 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 	}
 	h.ids = identity.New(st, o.ID, regs, cfg.Auth.AttemptTTL, logger)
 	h.sess = session.New(st, cfg.Auth.SessionTTL, cfg.Auth.Secure(), logger)
+	h.apps = apps.New(st, o.ID, cfg.Apps.TokenTTL, logger)
 	h.perIP = ratelimit.New(cfg.RateLimit.PerIP.RequestsPerMinute, cfg.RateLimit.PerIP.Burst)
 	h.perUser = ratelimit.New(cfg.RateLimit.PerUser.RequestsPerMinute, cfg.RateLimit.PerUser.Burst)
+	h.perApp = ratelimit.New(cfg.RateLimit.PerApp.RequestsPerMinute, cfg.RateLimit.PerApp.Burst)
 
 	h.registry = prometheus.NewRegistry()
 	h.registry.MustRegister(
@@ -138,7 +143,7 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 		Name: "gravel_auth_completions_total", Help: "Finished login and link attempts by provider, intent and result.",
 	}, []string{"provider", "intent", "result"})
 	h.limitedTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "gravel_rate_limited_total", Help: "Requests refused by a rate limit, by scope (ip or user).",
+		Name: "gravel_rate_limited_total", Help: "Requests refused by a rate limit, by scope (ip, user or app).",
 	}, []string{"scope"})
 	h.registry.MustRegister(buildInfo, h.authTotal, h.limitedTotal, backup.NewCollector(cfg.Backup.StatusFile, st, logger))
 	h.metrics = httpx.NewMetrics(h.registry)
@@ -198,10 +203,17 @@ func (h *Hub) OwnerClaimToken() string { return h.claimToken }
 // Close releases the database pool. Run calls it; call it yourself when you only used Handler.
 func (h *Hub) Close() { h.st.Close() }
 
-// scopes are the rate-limit buckets: per user when logged in, else per client address. An API
-// call a page makes in process is not counted again: the page request was.
+// scopes are the rate-limit buckets: per app when a bearer token is carried, per user when
+// logged in, else per client address. An API call a page makes in process is not counted
+// again: the page request was.
 func (h *Hub) scopes() []ratelimit.Scoped {
 	return []ratelimit.Scoped{
+		{Scope: "app", Limiter: h.perApp, Key: func(r *http.Request) string {
+			if a, ok := apps.FromContext(r.Context()); ok {
+				return a.ClientID
+			}
+			return ""
+		}},
 		{Scope: "user", Limiter: h.perUser, Key: func(r *http.Request) string {
 			if web.IsInProcess(r.Context()) {
 				return ""
@@ -244,6 +256,9 @@ func (h *Hub) buildPublic() http.Handler {
 	mux.Handle(grpcreflect.NewHandlerV1Alpha(reflector))
 	mux.Handle("GET /healthz", h.metrics.HTTP("healthz", http.HandlerFunc(h.healthz)))
 	mux.Handle("GET /readyz", h.metrics.HTTP("readyz", http.HandlerFunc(h.readyz)))
+	// The token endpoint (ADR-0008): a service trades its client credentials for a bearer token.
+	// Limited per client address, like anything anonymous.
+	mux.Handle("/oauth/token", h.metrics.HTTP("oauth_token", ratelimit.Middleware(scopes, h.rejected)(h.apps.TokenHandler())))
 
 	// The pages, rate-limited as HTTP; the procedures above are limited by the interceptor.
 	pages := http.NewServeMux()
@@ -265,6 +280,7 @@ func (h *Hub) buildPublic() http.Handler {
 		httpx.Logging(h.logger, "/healthz", "/readyz"),
 		csrf.Handler,
 		h.sess.Middleware,
+		h.apps.Middleware,
 	)
 }
 
@@ -306,8 +322,12 @@ func (h *Hub) Prune(ctx context.Context) {
 	if err != nil {
 		h.logger.Warn("could not prune auth attempts", "error", err.Error())
 	}
-	ips, users := h.perIP.Sweep(), h.perUser.Sweep()
-	h.logger.Debug("pruned", "sessions", sessions, "attempts", attempts, "ip_buckets", ips, "user_buckets", users)
+	tokens, err := h.apps.Prune(ctx)
+	if err != nil {
+		h.logger.Warn("could not prune app tokens", "error", err.Error())
+	}
+	ips, users, appsSwept := h.perIP.Sweep(), h.perUser.Sweep(), h.perApp.Sweep()
+	h.logger.Debug("pruned", "sessions", sessions, "attempts", attempts, "app_tokens", tokens, "ip_buckets", ips, "user_buckets", users, "app_buckets", appsSwept)
 }
 
 func writeJSON(w http.ResponseWriter, code int, v any) {

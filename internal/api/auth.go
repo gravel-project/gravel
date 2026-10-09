@@ -3,11 +3,13 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 
 	"connectrpc.com/connect"
 	"github.com/google/uuid"
 
+	"github.com/gravel-project/gravel/internal/apps"
 	"github.com/gravel-project/gravel/internal/httpx"
 	"github.com/gravel-project/gravel/internal/identity"
 	"github.com/gravel-project/gravel/internal/org"
@@ -39,6 +41,19 @@ func requireOwner(ctx context.Context, orgSvc *org.Service, logger *slog.Logger)
 		return connect.NewError(connect.CodePermissionDenied, errors.New("the owner only"))
 	}
 	return nil
+}
+
+// requireScope admits an app whose token carries the scope, or the organization's owner.
+// CodeUnauthenticated without any credential, CodePermissionDenied for an app without the
+// scope or for a member.
+func requireScope(ctx context.Context, orgSvc *org.Service, logger *slog.Logger, scope string) error {
+	if a, ok := apps.FromContext(ctx); ok {
+		if a.Has(scope) {
+			return nil
+		}
+		return connect.NewError(connect.CodePermissionDenied, fmt.Errorf("the app %s lacks the scope %q", a.Name, scope))
+	}
+	return requireOwner(ctx, orgSvc, logger)
 }
 
 // mapError turns a domain error into a Connect error. Anything unmapped is logged with the

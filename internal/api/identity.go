@@ -2,9 +2,11 @@ package api
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"log/slog"
 	"strings"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/google/uuid"
@@ -12,6 +14,7 @@ import (
 
 	hubv1 "github.com/gravel-project/gravel/gen/gravel/hub/v1"
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
+	"github.com/gravel-project/gravel/internal/apps"
 	"github.com/gravel-project/gravel/internal/identity"
 	"github.com/gravel-project/gravel/internal/org"
 	"github.com/gravel-project/gravel/internal/session"
@@ -96,10 +99,10 @@ func (s *IdentityServer) RevokeSessions(ctx context.Context, _ *connect.Request[
 	return resp, nil
 }
 
-// LookupUser resolves a (provider, subject) pair to its user. Owner only until first-party
-// apps have their own credentials (gravel#6).
+// LookupUser resolves a (provider, subject) pair to its user: an app with identity:read (a
+// role-sync reconciler), or the owner.
 func (s *IdentityServer) LookupUser(ctx context.Context, req *connect.Request[hubv1.LookupUserRequest]) (*connect.Response[hubv1.LookupUserResponse], error) {
-	if err := requireOwner(ctx, s.org, s.logger); err != nil {
+	if err := requireScope(ctx, s.org, s.logger, apps.ScopeIdentityRead); err != nil {
 		return nil, err
 	}
 	o, err := s.org.Get(ctx)
@@ -115,6 +118,115 @@ func (s *IdentityServer) LookupUser(ctx context.Context, req *connect.Request[hu
 		return nil, mapError(ctx, s.logger, err)
 	}
 	return connect.NewResponse(&hubv1.LookupUserResponse{User: toProtoUser(u, o)}), nil
+}
+
+// Page bounds for the listings.
+const (
+	defaultPageSize  = 100
+	maxPageSize      = 500
+	defaultEventPage = 100
+	maxEventPage     = 1000
+)
+
+// ListUsers pages through the members with their identities, oldest first. The page token is
+// the last user's (created_at, id), opaque to callers.
+func (s *IdentityServer) ListUsers(ctx context.Context, req *connect.Request[hubv1.ListUsersRequest]) (*connect.Response[hubv1.ListUsersResponse], error) {
+	if err := requireScope(ctx, s.org, s.logger, apps.ScopeIdentityRead); err != nil {
+		return nil, err
+	}
+	size := int(req.Msg.GetPageSize())
+	switch {
+	case size < 0:
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("page_size must not be negative"))
+	case size == 0:
+		size = defaultPageSize
+	case size > maxPageSize:
+		size = maxPageSize
+	}
+	after, err := decodePageToken(req.Msg.GetPageToken())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	o, err := s.org.Get(ctx)
+	if err != nil {
+		return nil, mapError(ctx, s.logger, err)
+	}
+	// One more than the page says whether there is a next page.
+	users, err := s.ids.ListUsers(ctx, after, size+1)
+	if err != nil {
+		return nil, mapError(ctx, s.logger, err)
+	}
+	resp := &hubv1.ListUsersResponse{}
+	if len(users) > size {
+		users = users[:size]
+		last := users[len(users)-1]
+		resp.NextPageToken = encodePageToken(store.UserCursor{CreatedAt: last.CreatedAt, ID: last.ID})
+	}
+	for _, u := range users {
+		resp.Users = append(resp.Users, toProtoUser(u, o))
+	}
+	return connect.NewResponse(resp), nil
+}
+
+// ListIdentityEvents returns the identity log after a position, oldest first.
+func (s *IdentityServer) ListIdentityEvents(ctx context.Context, req *connect.Request[hubv1.ListIdentityEventsRequest]) (*connect.Response[hubv1.ListIdentityEventsResponse], error) {
+	if err := requireScope(ctx, s.org, s.logger, apps.ScopeIdentityRead); err != nil {
+		return nil, err
+	}
+	after := req.Msg.GetAfterId()
+	if after < 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("after_id must not be negative"))
+	}
+	limit := int(req.Msg.GetLimit())
+	switch {
+	case limit < 0:
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("limit must not be negative"))
+	case limit == 0:
+		limit = defaultEventPage
+	case limit > maxEventPage:
+		limit = maxEventPage
+	}
+	events, err := s.ids.ListEvents(ctx, after, limit)
+	if err != nil {
+		return nil, mapError(ctx, s.logger, err)
+	}
+	resp := &hubv1.ListIdentityEventsResponse{NextAfterId: after}
+	for _, e := range events {
+		resp.Events = append(resp.Events, &hubv1.IdentityEvent{
+			Id: e.ID, UserId: e.UserID.String(), Provider: e.Provider, Subject: e.Subject, Event: e.Event, At: timestamppb.New(e.At),
+		})
+		resp.NextAfterId = e.ID
+	}
+	return connect.NewResponse(resp), nil
+}
+
+// A page token is the base64 of "<created_at RFC 3339 nano>|<user id>", nothing a caller
+// should build; an unparseable one is an invalid argument.
+func encodePageToken(c store.UserCursor) string {
+	return base64.RawURLEncoding.EncodeToString([]byte(c.CreatedAt.UTC().Format(time.RFC3339Nano) + "|" + c.ID.String()))
+}
+
+func decodePageToken(token string) (*store.UserCursor, error) {
+	if token == "" {
+		return nil, nil
+	}
+	raw, err := base64.RawURLEncoding.DecodeString(token)
+	if err != nil {
+		return nil, errors.New("page_token is not one this hub issued")
+	}
+	at, id, ok := strings.Cut(string(raw), "|")
+	if !ok {
+		return nil, errors.New("page_token is not one this hub issued")
+	}
+	created, err := time.Parse(time.RFC3339Nano, at)
+	if err != nil {
+		return nil, errors.New("page_token is not one this hub issued")
+	}
+	uid, err := uuid.Parse(id)
+	if err != nil {
+		return nil, errors.New("page_token is not one this hub issued")
+	}
+	return &store.UserCursor{CreatedAt: created, ID: uid}, nil
 }
 
 func (s *IdentityServer) user(ctx context.Context, uid uuid.UUID) (*hubv1.User, error) {

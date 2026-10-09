@@ -46,6 +46,12 @@ const (
 	// IdentityServiceLookupUserProcedure is the fully-qualified name of the IdentityService's
 	// LookupUser RPC.
 	IdentityServiceLookupUserProcedure = "/gravel.hub.v1.IdentityService/LookupUser"
+	// IdentityServiceListUsersProcedure is the fully-qualified name of the IdentityService's ListUsers
+	// RPC.
+	IdentityServiceListUsersProcedure = "/gravel.hub.v1.IdentityService/ListUsers"
+	// IdentityServiceListIdentityEventsProcedure is the fully-qualified name of the IdentityService's
+	// ListIdentityEvents RPC.
+	IdentityServiceListIdentityEventsProcedure = "/gravel.hub.v1.IdentityService/ListIdentityEvents"
 )
 
 // IdentityServiceClient is a client for the gravel.hub.v1.IdentityService service.
@@ -62,6 +68,12 @@ type IdentityServiceClient interface {
 	// LookupUser resolves a (provider, subject) pair to its user, for role sync. Owner only until
 	// first-party apps get their own credentials (gravel#6).
 	LookupUser(context.Context, *connect.Request[v1.LookupUserRequest]) (*connect.Response[v1.LookupUserResponse], error)
+	// ListUsers pages through the members with their identities, oldest first: a role-sync
+	// reconciler's full pass. An app with identity:read, or the owner.
+	ListUsers(context.Context, *connect.Request[v1.ListUsersRequest]) (*connect.Response[v1.ListUsersResponse], error)
+	// ListIdentityEvents returns the identity log after a position, oldest first: a reconciler's
+	// incremental pass. An app with identity:read, or the owner.
+	ListIdentityEvents(context.Context, *connect.Request[v1.ListIdentityEventsRequest]) (*connect.Response[v1.ListIdentityEventsResponse], error)
 }
 
 // NewIdentityServiceClient constructs a client for the gravel.hub.v1.IdentityService service. By
@@ -105,16 +117,30 @@ func NewIdentityServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 			connect.WithSchema(identityServiceMethods.ByName("LookupUser")),
 			connect.WithClientOptions(opts...),
 		),
+		listUsers: connect.NewClient[v1.ListUsersRequest, v1.ListUsersResponse](
+			httpClient,
+			baseURL+IdentityServiceListUsersProcedure,
+			connect.WithSchema(identityServiceMethods.ByName("ListUsers")),
+			connect.WithClientOptions(opts...),
+		),
+		listIdentityEvents: connect.NewClient[v1.ListIdentityEventsRequest, v1.ListIdentityEventsResponse](
+			httpClient,
+			baseURL+IdentityServiceListIdentityEventsProcedure,
+			connect.WithSchema(identityServiceMethods.ByName("ListIdentityEvents")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // identityServiceClient implements IdentityServiceClient.
 type identityServiceClient struct {
-	getMe          *connect.Client[v1.GetMeRequest, v1.GetMeResponse]
-	unlinkIdentity *connect.Client[v1.UnlinkIdentityRequest, v1.UnlinkIdentityResponse]
-	logout         *connect.Client[v1.LogoutRequest, v1.LogoutResponse]
-	revokeSessions *connect.Client[v1.RevokeSessionsRequest, v1.RevokeSessionsResponse]
-	lookupUser     *connect.Client[v1.LookupUserRequest, v1.LookupUserResponse]
+	getMe              *connect.Client[v1.GetMeRequest, v1.GetMeResponse]
+	unlinkIdentity     *connect.Client[v1.UnlinkIdentityRequest, v1.UnlinkIdentityResponse]
+	logout             *connect.Client[v1.LogoutRequest, v1.LogoutResponse]
+	revokeSessions     *connect.Client[v1.RevokeSessionsRequest, v1.RevokeSessionsResponse]
+	lookupUser         *connect.Client[v1.LookupUserRequest, v1.LookupUserResponse]
+	listUsers          *connect.Client[v1.ListUsersRequest, v1.ListUsersResponse]
+	listIdentityEvents *connect.Client[v1.ListIdentityEventsRequest, v1.ListIdentityEventsResponse]
 }
 
 // GetMe calls gravel.hub.v1.IdentityService.GetMe.
@@ -142,6 +168,16 @@ func (c *identityServiceClient) LookupUser(ctx context.Context, req *connect.Req
 	return c.lookupUser.CallUnary(ctx, req)
 }
 
+// ListUsers calls gravel.hub.v1.IdentityService.ListUsers.
+func (c *identityServiceClient) ListUsers(ctx context.Context, req *connect.Request[v1.ListUsersRequest]) (*connect.Response[v1.ListUsersResponse], error) {
+	return c.listUsers.CallUnary(ctx, req)
+}
+
+// ListIdentityEvents calls gravel.hub.v1.IdentityService.ListIdentityEvents.
+func (c *identityServiceClient) ListIdentityEvents(ctx context.Context, req *connect.Request[v1.ListIdentityEventsRequest]) (*connect.Response[v1.ListIdentityEventsResponse], error) {
+	return c.listIdentityEvents.CallUnary(ctx, req)
+}
+
 // IdentityServiceHandler is an implementation of the gravel.hub.v1.IdentityService service.
 type IdentityServiceHandler interface {
 	// GetMe returns the caller and their linked identities.
@@ -156,6 +192,12 @@ type IdentityServiceHandler interface {
 	// LookupUser resolves a (provider, subject) pair to its user, for role sync. Owner only until
 	// first-party apps get their own credentials (gravel#6).
 	LookupUser(context.Context, *connect.Request[v1.LookupUserRequest]) (*connect.Response[v1.LookupUserResponse], error)
+	// ListUsers pages through the members with their identities, oldest first: a role-sync
+	// reconciler's full pass. An app with identity:read, or the owner.
+	ListUsers(context.Context, *connect.Request[v1.ListUsersRequest]) (*connect.Response[v1.ListUsersResponse], error)
+	// ListIdentityEvents returns the identity log after a position, oldest first: a reconciler's
+	// incremental pass. An app with identity:read, or the owner.
+	ListIdentityEvents(context.Context, *connect.Request[v1.ListIdentityEventsRequest]) (*connect.Response[v1.ListIdentityEventsResponse], error)
 }
 
 // NewIdentityServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -195,6 +237,18 @@ func NewIdentityServiceHandler(svc IdentityServiceHandler, opts ...connect.Handl
 		connect.WithSchema(identityServiceMethods.ByName("LookupUser")),
 		connect.WithHandlerOptions(opts...),
 	)
+	identityServiceListUsersHandler := connect.NewUnaryHandler(
+		IdentityServiceListUsersProcedure,
+		svc.ListUsers,
+		connect.WithSchema(identityServiceMethods.ByName("ListUsers")),
+		connect.WithHandlerOptions(opts...),
+	)
+	identityServiceListIdentityEventsHandler := connect.NewUnaryHandler(
+		IdentityServiceListIdentityEventsProcedure,
+		svc.ListIdentityEvents,
+		connect.WithSchema(identityServiceMethods.ByName("ListIdentityEvents")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/gravel.hub.v1.IdentityService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case IdentityServiceGetMeProcedure:
@@ -207,6 +261,10 @@ func NewIdentityServiceHandler(svc IdentityServiceHandler, opts ...connect.Handl
 			identityServiceRevokeSessionsHandler.ServeHTTP(w, r)
 		case IdentityServiceLookupUserProcedure:
 			identityServiceLookupUserHandler.ServeHTTP(w, r)
+		case IdentityServiceListUsersProcedure:
+			identityServiceListUsersHandler.ServeHTTP(w, r)
+		case IdentityServiceListIdentityEventsProcedure:
+			identityServiceListIdentityEventsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -234,4 +292,12 @@ func (UnimplementedIdentityServiceHandler) RevokeSessions(context.Context, *conn
 
 func (UnimplementedIdentityServiceHandler) LookupUser(context.Context, *connect.Request[v1.LookupUserRequest]) (*connect.Response[v1.LookupUserResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.IdentityService.LookupUser is not implemented"))
+}
+
+func (UnimplementedIdentityServiceHandler) ListUsers(context.Context, *connect.Request[v1.ListUsersRequest]) (*connect.Response[v1.ListUsersResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.IdentityService.ListUsers is not implemented"))
+}
+
+func (UnimplementedIdentityServiceHandler) ListIdentityEvents(context.Context, *connect.Request[v1.ListIdentityEventsRequest]) (*connect.Response[v1.ListIdentityEventsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.IdentityService.ListIdentityEvents is not implemented"))
 }
