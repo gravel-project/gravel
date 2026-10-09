@@ -8,6 +8,7 @@ All notable changes to gravel are documented here. The format follows
 
 ### Fixed
 
+- `go.mod`'s `toolchain` moves to Go 1.26.9 (the `go` directive stays 1.26.0): govulncheck flagged GO-2026-6617 in `net/http` at 1.26.8 (reached from the hub's server, the health check and pgx), which turned every PR's `vuln` job red until the toolchain moved. `actions/setup-go` installs exactly the version `go.mod` names, so the bump is the fix.
 - `deploy/quadlet/gravel-hub.container`'s health check is the exec form: the string form runs through `/bin/sh -c`, which the distroless image lacks, so podman reported the hub unhealthy while it served fine (found on Hidden Token Gaming's first converge) (#33).
 
 ### Added
