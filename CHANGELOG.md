@@ -1,13 +1,16 @@
 # Changelog
 
 All notable changes to gravel are documented here. The format follows
-[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions will follow
-[Semantic Versioning](https://semver.org/) from the first release.
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
+[Semantic Versioning](https://semver.org/), with the 0.x rule in `docs/releasing.md` ("Versions"):
+before 1.0, a minor release breaks something a host depends on (its entries say **Breaking:**), and a
+patch release is everything else.
 
 ## [Unreleased]
 
 ### Changed
 
+- `docs/releasing.md` "Versions": what a version number means before 1.0 (#68). A minor release (0.Y.0) breaks a public surface (the Go packages under `discord/`, the API, the configuration, metric names, unit and secret names, migrations, the command lines; each listed with what breaks it), and its entries say **Breaking:**; a patch release (0.Y.Z) is everything else, features included. The release steps pick the version by it, and the CHANGELOG header points at it.
 - The quadlet units pin the 0.6.0 images by index digest, all three verified with cosign against the release workflow at `v0.6.0`, and the hub and bot report `0.6.0` from `768e711`: `ghcr.io/gravel-project/gravel-hub@sha256:bee1bf32fe0a5149d333f69bb070e18035a3acefdf76f4271e0ff35d06a4bc0f` in `gravel-hub.container`, `ghcr.io/gravel-project/gravel-bot@sha256:95eead44c3cd4029678035635ac29c7106344d45d5083441837065b267a358e3` in `gravel-bot.container`, and `ghcr.io/gravel-project/gravel-postgres@sha256:4a68eda56a109a795bb684d3c6e8a16a5753c8be4a5268ba80d1fd4ff6fce2d5` in the backup set (the same Containerfile, rebuilt at the tag). `docs/hub.md` names 0.6.0 as the tag example.
 
 ## [0.6.0] - 2026-10-09
