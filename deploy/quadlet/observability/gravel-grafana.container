@@ -1,0 +1,39 @@
+# Grafana for gravel's dashboards (ADR-0009), pinned by index digest: docker.io/grafana/grafana
+# 13.2.3 (amd64, arm64). Provisioning: ~/.config/gravel/grafana/provisioning and the dashboards in
+# ~/.config/gravel/grafana/dashboards, copies of deploy/observability/grafana/ at the release you
+# run. Loopback only; log in as admin. Secret: gravel-grafana-admin-password. Grafana reads it
+# only when it creates the admin user, so changing the secret later needs
+# `grafana cli admin reset-admin-password` (deploy/quadlet/observability/README.md).
+[Unit]
+Description=gravel Grafana
+Wants=gravel-prometheus.service
+After=gravel-prometheus.service
+
+[Container]
+Image=docker.io/grafana/grafana@sha256:b28bae15e219c998fb0e0424ed724930cc61b1f61fb404d47c862f9a23f9e572
+ContainerName=gravel-grafana
+Network=gravel.network
+PublishPort=127.0.0.1:3000:3000
+Volume=%h/.config/gravel/grafana/provisioning:/etc/grafana/provisioning:ro,Z
+Volume=%h/.config/gravel/grafana/dashboards:/etc/grafana/dashboards/gravel:ro,Z
+Volume=gravel-grafana.volume:/var/lib/grafana
+Secret=gravel-grafana-admin-password
+Environment=GF_SECURITY_ADMIN_PASSWORD__FILE=/run/secrets/gravel-grafana-admin-password
+Environment=GRAVEL_PROMETHEUS_URL=http://gravel-prometheus:9090
+Environment=GF_AUTH_ANONYMOUS_ENABLED=false
+Environment=GF_USERS_ALLOW_SIGN_UP=false
+Environment=GF_ANALYTICS_REPORTING_ENABLED=false
+Environment=GF_ANALYTICS_CHECK_FOR_UPDATES=false
+Environment=GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES=false
+Environment=GF_NEWS_NEWS_FEED_ENABLED=false
+HealthCmd=["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3000/api/health"]
+HealthInterval=30s
+HealthTimeout=3s
+HealthRetries=3
+
+[Service]
+Restart=always
+TimeoutStartSec=120
+
+[Install]
+WantedBy=default.target

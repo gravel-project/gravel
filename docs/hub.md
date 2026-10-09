@@ -404,7 +404,8 @@ command and the digest-pin procedure.
   and internal-error log.
 - **Metrics:** on the internal listener (`server.internal_listen`), `GET /metrics`. Every series
   gravel adds is below; the Go (`go_*`) and process (`process_*`) collectors come on top. Label
-  values are bounded: none comes from a request unless the hub knows it.
+  values are bounded: none comes from a request unless the hub knows it. The `gravel hub`
+  dashboard shows every one of them (ADR-0009, `deploy/README.md` "Dashboards").
 - **Secrets in logs:** the owner-claim token is the only secret the hub ever logs, once, at WARN.
   Provider secrets are logged by source only.
 - **Panics** become a 500 and an error log line with the stack; the server stays up.

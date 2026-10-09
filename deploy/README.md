@@ -119,9 +119,32 @@ Restore: `docs/hub.md` "Restore". Rehearse it with `make backup-drill` before yo
 Health checks on the hub's image must be the exec form (`HealthCmd=["CMD", …]`): the string form
 runs through `/bin/sh -c`, and distroless has no shell, so it reports unhealthy while the hub is fine.
 
+## Dashboards
+
+gravel ships Prometheus and Grafana with a dashboard each for the hub and the bot (ADR-0009). All
+of it lives in `observability/`: the scrape configs, Grafana's provisioning, and the dashboards,
+which are generated from `internal/tools/dashboards` by `make generate` and read-only in Grafana.
+
+- **Development:** `make up-observability` is `make up` plus the `observability` profile:
+  Grafana on <http://127.0.0.1:3000> (admin; the password is in `secrets/grafana-admin-password`)
+  and Prometheus on 127.0.0.1:9092 (`GRAVEL_GRAFANA_PORT` and `GRAVEL_PROMETHEUS_PORT` move them).
+  Add `--profile bot` for the bot's targets.
+- **Production:** `quadlet/observability/` (its README): create `gravel-grafana-admin-password`,
+  then `make quadlet-install-observability`, which also installs the configuration and the
+  dashboards under `~/.config/gravel/`.
+- **Check them:** `go run ./internal/tools/dashboards check --grafana <url> --password-file <file>`
+  asks Grafana for every panel's data and fails on an empty panel that isn't marked optional
+  (each optional panel says why it may be empty). `make observability-check` does it against a
+  throwaway hub in a pod; CI runs it on every PR.
+
+Neither Prometheus's data nor Grafana's state is backed up: the first is 30 days of history, the
+second only the admin user, since everything shown is provisioned.
+
 ## Upgrading
 
 Change `Image=` to the new digest, `systemctl --user daemon-reload`, then
 `systemctl --user restart gravel-hub`. Migrations run at start (`database.migrate: auto`); with
 `manual`, run `podman exec gravel-hub /ko-app/gravel-hub migrate --config /etc/gravel/hub.yaml`
-first. Back up Postgres before a release that adds migrations.
+first. Back up Postgres before a release that adds migrations. With the observability set,
+reinstall it from the new release (`make quadlet-install-observability`) so the dashboards match
+the metrics.

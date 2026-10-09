@@ -105,6 +105,28 @@ jobs:
       - run: sudo apt-get update -q && sudo apt-get install -y -q podman
       - run: make backup-drill
 
+  observability:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - run: sudo apt-get update -q && sudo apt-get install -y -q podman
+      # promtool from the pinned Prometheus image: both scrape configs, then every panel's query
+      # as a recording rule (internal/tools/dashboards rules), so a PromQL typo fails here.
+      - name: promtool
+        run: |
+          image="$(sed -n 's/^Image=//p' deploy/quadlet/observability/gravel-prometheus.container)"
+          for f in deploy/observability/prometheus/*.yml; do
+            podman run --rm -v "$PWD/$f:/p.yml:ro" --entrypoint promtool "$image" check config /p.yml
+          done
+          go run ./internal/tools/dashboards rules > "$RUNNER_TEMP/dashboards.rules.yml"
+          podman run --rm -v "$RUNNER_TEMP/dashboards.rules.yml:/r.yml:ro" --entrypoint promtool "$image" check rules /r.yml
+      # Postgres, the hub, Prometheus and Grafana in a pod: provisioning loads cleanly and every
+      # hub panel has data or is marked optional (deploy/observability/check.sh).
+      - run: make observability-check
+
   a11y:
     runs-on: ubuntu-latest # ships Chrome, which @axe-core/cli drives
     steps:

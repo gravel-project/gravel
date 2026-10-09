@@ -44,7 +44,9 @@ from this repository's pipeline.
 
 `deploy/quadlet/gravel-hub.container` pins the hub image by the index digest, and
 `deploy/quadlet/backup/` pins the Postgres image the same way, so a deployment never changes
-under a floating tag. After verifying a new release, put its digests in `Image=` by PR;
+under a floating tag. `deploy/quadlet/observability/` and the `observability` profile in
+`deploy/compose.yaml` pin Prometheus and Grafana by index digest too; they are upstream images, so
+moving them is a deliberate PR after reading their release notes, not part of every release. After verifying a new release, put its digests in `Image=` by PR;
 consumers (Hidden Token Gaming's `deploy` repository) pin the same way. The Postgres image's
 identity for `cosign verify` is the same workflow at the same tag.
 
