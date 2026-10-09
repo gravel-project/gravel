@@ -175,11 +175,13 @@ quadlet-install: ## Copy the quadlet units into ~/.config/containers/systemd/ an
 	@echo "units installed; see deploy/README.md for secrets and start order"
 
 .PHONY: quadlet-install-backup
-quadlet-install-backup: ## Copy the backup drop-ins, unit and timer beside the installed units and reload (edit the bucket lines first)
-	install -d $(HOME)/.config/containers/systemd/gravel-postgres.container.d $(HOME)/.config/containers/systemd/gravel-hub.container.d
+quadlet-install-backup: ## Copy the backup drop-ins and unit beside the installed units, the timer into the user unit directory, and reload (edit the bucket lines first)
+	install -d $(HOME)/.config/containers/systemd/gravel-postgres.container.d $(HOME)/.config/containers/systemd/gravel-hub.container.d $(HOME)/.config/systemd/user
 	install -m 0644 $(CURDIR)/deploy/quadlet/backup/gravel-postgres.container.d/* $(HOME)/.config/containers/systemd/gravel-postgres.container.d/
 	install -m 0644 $(CURDIR)/deploy/quadlet/backup/gravel-hub.container.d/* $(HOME)/.config/containers/systemd/gravel-hub.container.d/
-	install -m 0644 $(CURDIR)/deploy/quadlet/backup/gravel-backup.container $(CURDIR)/deploy/quadlet/backup/gravel-backup.volume $(CURDIR)/deploy/quadlet/backup/gravel-backup.timer $(HOME)/.config/containers/systemd/
+	install -m 0644 $(CURDIR)/deploy/quadlet/backup/gravel-backup.container $(CURDIR)/deploy/quadlet/backup/gravel-backup.volume $(HOME)/.config/containers/systemd/
+	# The timer is a plain systemd unit: systemd never reads the quadlet directory itself.
+	install -m 0644 $(CURDIR)/deploy/quadlet/backup/gravel-backup.timer $(HOME)/.config/systemd/user/
 	systemctl --user daemon-reload
 	@echo "backup units installed; restart gravel-postgres and gravel-hub, then: systemctl --user enable --now gravel-backup.timer"
 

@@ -6,6 +6,10 @@ All notable changes to gravel are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- `make quadlet-install-backup` put `gravel-backup.timer` in the quadlet directory, which systemd never reads, so the timer could not be enabled; it now goes into `~/.config/systemd/user/`, and the backup README and `deploy/README.md` say so. Found on Hidden Token Gaming's first converge with backups (#28).
+
 ## [0.4.0] - 2026-10-09
 
 ### Added
