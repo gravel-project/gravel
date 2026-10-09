@@ -21,6 +21,7 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/disgoorg/disgo/discord"
+	"github.com/disgoorg/disgo/gateway"
 	"github.com/disgoorg/disgo/handler"
 
 	"github.com/gravel-project/gravel/discord/bot"
@@ -58,6 +59,12 @@ func newFakeDiscord(t *testing.T) *fakeDiscord {
 			}
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(cmds)
+			return
+		}
+		// With the gateway on, building the client asks for the gateway URL; nothing dials it.
+		if r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/gateway") {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = io.WriteString(w, `{"url":"wss://gateway.invalid"}`)
 			return
 		}
 		http.Error(w, "unexpected: "+r.Method+" "+r.URL.Path, http.StatusNotFound)
@@ -251,7 +258,9 @@ func TestRuntime(t *testing.T) {
 	rec = httptest.NewRecorder()
 	rt.InternalHandler().ServeHTTP(rec, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/metrics", nil))
 	body := rec.Body.String()
-	for _, want := range []string{`gravel_bot_interactions_total{result="ok",route="/whoami"} 2`, `gravel_bot_interactions_total{result="ok",route="/link"} 1`, `gravel_bot_build_info{`} {
+	for _, want := range []string{`gravel_bot_interactions_total{result="ok",route="/whoami"} 2`, `gravel_bot_interactions_total{result="ok",route="/link"} 1`, `gravel_bot_build_info{`,
+		`gravel_bot_interaction_duration_seconds_count{route="/whoami"} 2`, `gravel_bot_interaction_duration_seconds_bucket{route="/link",le="3"} 1`,
+		"gravel_bot_gateway_connected 0"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("metrics lack %q", want)
 		}
@@ -353,4 +362,91 @@ func TestRegistryAndRun(t *testing.T) {
 	case <-time.After(10 * time.Second):
 		t.Fatal("Run did not stop")
 	}
+}
+
+type failModule struct{}
+
+func (failModule) Name() string { return "fail" }
+func (failModule) Register(r *bot.Registry) error {
+	return r.SlashCommand(discord.SlashCommandCreate{Name: "boom", Description: "fails"}, func(e *handler.CommandEvent) error {
+		return errors.New("boom")
+	})
+}
+
+// The gateway's live status drives readiness and both gateway metrics: a dropped session reads
+// as not ready and disconnected at once, and a resumed one as ready again.
+func TestGatewayStateDrivesReadinessAndMetrics(t *testing.T) {
+	s := newSigner(t)
+	discordAPI := newFakeDiscord(t)
+	hubSrv := newFakeHub(t)
+	cfg := testConfig(s, hubSrv)
+	cfg.Discord.Gateway = true
+	rt, err := bot.New(bot.Options{Config: cfg, Logger: quiet(), Version: "test", RESTURL: discordAPI.srv.URL + "/api/"}, failModule{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { rt.Close(context.Background()) })
+	bot.MarkReady(rt)
+
+	var (
+		mu      sync.Mutex
+		status  = gateway.StatusReady
+		latency = 42 * time.Millisecond
+	)
+	bot.SetGatewayState(rt, func() (gateway.Status, time.Duration) {
+		mu.Lock()
+		defer mu.Unlock()
+		return status, latency
+	})
+	set := func(st gateway.Status, l time.Duration) {
+		mu.Lock()
+		status, latency = st, l
+		mu.Unlock()
+	}
+	readyz := func() int {
+		rec := httptest.NewRecorder()
+		rt.Handler().ServeHTTP(rec, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/readyz", nil))
+		return rec.Code
+	}
+	metrics := func() string {
+		rec := httptest.NewRecorder()
+		rt.InternalHandler().ServeHTTP(rec, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/metrics", nil))
+		return rec.Body.String()
+	}
+
+	if code, m := readyz(), metrics(); code != http.StatusOK || !strings.Contains(m, "gravel_bot_gateway_connected 1") || !strings.Contains(m, "gravel_bot_gateway_latency_seconds 0.042") {
+		t.Errorf("ready session: readyz %d\n%s", code, grepLines(m, "gravel_bot_gateway"))
+	}
+	for _, st := range []gateway.Status{gateway.StatusDisconnected, gateway.StatusResuming, gateway.StatusUnconnected, gateway.StatusWaitingForReady} {
+		set(st, 42*time.Millisecond)
+		if code, m := readyz(), metrics(); code != http.StatusServiceUnavailable || !strings.Contains(m, "gravel_bot_gateway_connected 0") || strings.Contains(m, "gravel_bot_gateway_latency_seconds") {
+			t.Errorf("%s: readyz %d\n%s", st, code, grepLines(m, "gravel_bot_gateway"))
+		}
+	}
+	// A heartbeat in flight: ready, but disgo's latency is negative, so no latency sample.
+	set(gateway.StatusReady, -time.Second)
+	if code, m := readyz(), metrics(); code != http.StatusOK || !strings.Contains(m, "gravel_bot_gateway_connected 1") || strings.Contains(m, "gravel_bot_gateway_latency_seconds") {
+		t.Errorf("heartbeat in flight: readyz %d\n%s", code, grepLines(m, "gravel_bot_gateway"))
+	}
+
+	// A failing handler is timed and counted as an error.
+	if code, _ := s.post(t, rt.Handler(), slash("boom", "42"), true); code == 0 {
+		t.Fatal("no answer")
+	}
+	m := metrics()
+	for _, want := range []string{`gravel_bot_interactions_total{result="error",route="/boom"} 1`, `gravel_bot_interaction_duration_seconds_count{route="/boom"} 1`} {
+		if !strings.Contains(m, want) {
+			t.Errorf("metrics lack %q", want)
+		}
+	}
+}
+
+func grepLines(s, sub string) string {
+	var out []string
+	for _, l := range strings.Split(s, "\n") {
+		if strings.Contains(l, sub) {
+			out = append(out, l)
+		}
+	}
+	return strings.Join(out, "\n")
 }

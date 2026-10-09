@@ -212,6 +212,10 @@ func TestHubEndToEnd(t *testing.T) {
 		`gravel_auth_completions_total{intent="login",provider="discord",result="ok"} 1`,
 		`gravel_wal_archiver_readable 1`,
 		`gravel_wal_archived_total 0`,
+		`gravel_store_stats_readable 1`,
+		`gravel_users 1`,
+		`gravel_identities{provider="discord"} 1`,
+		`gravel_database_size_bytes `,
 		`go_goroutines`,
 	} {
 		if !strings.Contains(string(metrics), want) {

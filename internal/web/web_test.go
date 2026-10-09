@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -371,6 +372,20 @@ func TestCallbackFailures(t *testing.T) {
 	}
 	if got := strings.Join(r.results, " "); !strings.Contains(got, "discord/unknown/invalid") || !strings.Contains(got, "discord/unknown/mismatch") || !strings.Contains(got, "discord/unknown/denied") || !strings.Contains(got, "steam/unknown/taken") {
 		t.Errorf("observed: %s", got)
+	}
+
+	// Callbacks for providers the hub doesn't have are all reported as "other": the path is the
+	// requester's, so it must not become a metric label.
+	before := len(r.results)
+	for i := range 50 {
+		get(t, browser(t), r.srv.URL+"/auth/junk"+strconv.Itoa(i)+"/callback?code=x&state=y")
+	}
+	labels := map[string]bool{}
+	for _, got := range r.results[before:] {
+		labels[strings.SplitN(got, "/", 2)[0]] = true
+	}
+	if len(r.results)-before != 50 || len(labels) != 1 || !labels["other"] {
+		t.Errorf("junk providers: %d results, providers %v", len(r.results)-before, labels)
 	}
 }
 

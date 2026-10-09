@@ -332,10 +332,6 @@ backup:
 | `gravel_wal_archive_failed_total`, `gravel_wal_last_failed_timestamp_seconds` | `pg_stat_archiver` | `increase(…[1h]) > 0`: an upload failed |
 | `gravel_wal_archiver_readable` | the database | `== 0`: Postgres did not answer at scrape |
 
-In a quadlet unit the archive command is written `wal-g wal-push %%p`: systemd expands `%` specifiers
-in the generated service, and `%%` is how a literal percent reaches Postgres (the compose file and
-the drill, which hand the command to podman directly, write `%p`).
-
 In a quadlet unit the archive command is written `wal-g wal-push %%p`: systemd expands `%`
 specifiers in the generated service, and `%%` is how a literal percent reaches Postgres (the
 compose file and the drill, which hand the command to podman directly, write `%p`).
@@ -406,14 +402,28 @@ command and the digest-pin procedure.
 - **Request ids:** `X-Request-ID` is honoured when well-formed (up to 128 of `A-Za-z0-9._:-`),
   otherwise a UUIDv7 is generated; it is echoed on the response and attached to every log line
   and internal-error log.
-- **Metrics:** `gravel_http_requests_total{handler,method,code}` (`handler` is `healthz`, `readyz`
-  or `pages`), `gravel_http_request_duration_seconds{handler}`,
-  `gravel_rpc_requests_total{procedure,code}` (`code` is the Connect code, `ok` on success),
-  `gravel_rpc_request_duration_seconds{procedure}`,
-  `gravel_auth_completions_total{provider,intent,result}` (`intent` is `login`, `link`, `roles` or
-  `unknown`; `result` is `ok`, `denied`, `failed`,
-  `invalid`, `mismatch`, `taken` or `error`), `gravel_rate_limited_total{scope}` (`ip` or `user`),
-  `gravel_build_info{version,go_version}`, plus the Go and process collectors.
+- **Metrics:** on the internal listener (`server.internal_listen`), `GET /metrics`. Every series
+  gravel adds is below; the Go (`go_*`) and process (`process_*`) collectors come on top. Label
+  values are bounded: none comes from a request unless the hub knows it.
+- **Secrets in logs:** the owner-claim token is the only secret the hub ever logs, once, at WARN.
+  Provider secrets are logged by source only.
+- **Panics** become a 500 and an error log line with the stack; the server stays up.
+
+| Metric | Type | Labels | What it says | Absent when |
+|---|---|---|---|---|
+| `gravel_build_info` | gauge, always 1 | `version`, `go_version` | the running build | never |
+| `gravel_http_requests_total` | counter | `handler` (`healthz`, `readyz`, `oauth_token`, `pages`), `method`, `code` | HTTP requests by status | until the first request |
+| `gravel_http_request_duration_seconds` | histogram (default buckets) | `handler` | HTTP latency | until the first request |
+| `gravel_rpc_requests_total` | counter | `procedure`, `code` (`ok` or the Connect code) | API calls, the pages' in-process calls included (ADR-0005) | until the first call |
+| `gravel_rpc_request_duration_seconds` | histogram (default buckets) | `procedure` | API latency | until the first call |
+| `gravel_auth_completions_total` | counter | `provider` (a configured provider, or `other`), `intent` (`login`, `link`, `roles`, `unknown` on a failure), `result` (`ok`, `denied`, `failed`, `invalid`, `mismatch`, `taken`, `error`) | how login, link and Linked Roles attempts ended | until the first callback |
+| `gravel_rate_limited_total` | counter | `scope` (`ip`, `user`, `app`) | requests a rate limit refused | until the first refusal |
+| `gravel_users` | gauge | | members registered | when `gravel_store_stats_readable` is 0 |
+| `gravel_identities` | gauge | `provider` (each configured provider, 0 included; `other` for rows of a provider no longer configured) | linked identities | when `gravel_store_stats_readable` is 0 |
+| `gravel_database_size_bytes` | gauge | | `pg_database_size` of the hub's database | when `gravel_store_stats_readable` is 0 |
+| `gravel_store_stats_readable` | gauge | | 1 when the three above were read at this scrape (2 s limit), 0 when the database did not answer | never |
+| `gravel_backup_*`, `gravel_wal_*` | | | the backup status file and `pg_stat_archiver` | see [Backups](#backups-adr-0006) |
+
 - **Secrets in logs:** the owner-claim token is the only secret the hub ever logs, once, at WARN.
   Provider secrets are logged by source only.
 - **Panics** become a 500 and an error log line with the stack; the server stays up.

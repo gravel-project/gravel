@@ -57,8 +57,9 @@ type Handler struct {
 	idAPI  hubv1connect.IdentityServiceClient
 
 	// Observe, when set, is told how every callback ended: result is "ok", "denied", "failed",
-	// "invalid", "mismatch", "taken" or "error"; intent is "unknown" on a failure, because the
-	// attempt that knew it is consumed by then. The hub counts them.
+	// "invalid", "mismatch", "taken" or "error"; provider is a configured provider or "other";
+	// intent is "unknown" on a failure, because the attempt that knew it is consumed by then. The
+	// hub counts them.
 	Observe func(provider string, intent identity.Intent, result string)
 }
 
@@ -310,10 +311,16 @@ func (h *Handler) rolesFlash(w http.ResponseWriter, provider string, done identi
 	h.setFlash(w, "ok", name+" now knows your linked accounts: "+strings.Join(others, ", ")+". Roles that need them update in "+name+".")
 }
 
+// observe reports a callback's end. The provider comes from the request path, so a name the
+// hub doesn't have is reported as "other": anonymous requests can't mint new metric series.
 func (h *Handler) observe(provider string, intent identity.Intent, result string) {
-	if h.Observe != nil {
-		h.Observe(provider, intent, result)
+	if h.Observe == nil {
+		return
 	}
+	if _, ok := h.ids.Provider(provider); !ok {
+		provider = "other"
+	}
+	h.Observe(provider, intent, result)
 }
 
 // authResult names a callback failure for the metrics.
