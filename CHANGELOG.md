@@ -16,6 +16,10 @@ All notable changes to gravel are documented here. The format follows
 
 - The quadlet units pin the 0.3.0 images by index digest, both verified against the release workflow at `v0.3.0`: `ghcr.io/gravel-project/gravel-hub@sha256:95c16cd9a8789019977f4e2057edd1180469c08df2bab7177e5cd5b77e3b2ce0` in `gravel-hub.container`, and `ghcr.io/gravel-project/gravel-postgres@sha256:f9bd60a531e1fc8e1d78935b972ef4b2f3c51543c60b9eb3308282d04c4f75df` in the backup set, which no longer carries a placeholder; `docs/hub.md` names 0.3.0 as the tag example.
 
+### Fixed
+
+- The backup drop-in's archive command wrote `%p`, which systemd expands as a specifier in the generated `ExecStart` (to the unit's prefix name), so a quadlet deployment with the drop-in installed would have archived nothing; it is `%%p` now, and `docs/hub.md` says why. The compose stack and the drill hand the command to podman directly and were unaffected (#49).
+
 ## [0.3.0] - 2026-10-09
 
 ### Added
