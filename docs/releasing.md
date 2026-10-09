@@ -4,10 +4,37 @@ A release is a signed tag on `main`. The pipeline (`.github/workflows/release.ym
 `.goreleaser.yaml`) does the rest: binaries, checksums and SBOMs on the GitHub release, and the hub
 image on ghcr, signed. `v0.1.0` (2026-10-08) was the first run.
 
+## Versions
+
+gravel follows [Semantic Versioning](https://semver.org/). Before 1.0, SemVer itself promises
+nothing, so gravel uses the common 0.x rule (#68):
+
+- **0.Y.0** when the release breaks something a host depends on, any of the public surfaces
+  below. Each such CHANGELOG entry starts with **Breaking:** and says how to move.
+- **0.Y.Z** for everything else: features, fixes, docs, a new metric, a new optional key.
+
+Adding is never breaking: a new package, route, metric, command or optional key with a default.
+Removing or renaming is, and so is changing what an existing one means. When unsure, it is
+breaking. The public surfaces:
+
+| Surface | Breaking when |
+|---|---|
+| Go packages a host imports: `discord/…` (the bot runtime, `cli`, `stock`, the modules, `hubclient`, `rolemeta`). `internal/` is not public | an exported name is removed, renamed or changes its signature or behaviour |
+| The hub's API: `proto/gravel/hub/v1` (CI's `proto-breaking` guards the wire), the routes in `docs/hub.md` "Endpoints", `/oauth/token` | a procedure, field, route or scope goes or changes meaning |
+| Configuration: `hub.yaml` and `bot.yaml` (parsed strictly, so a removed key stops a host's start), the Organization settings document | a key is removed or renamed, a default changes what a host gets, a value is newly refused |
+| Metric names and labels (ADR-0009) | a series is renamed, loses a label or changes meaning; the dashboards change with it |
+| Deployment: quadlet unit, volume, network and secret names, compose service names, image names | a name a host's units or scripts use changes |
+| The database: migrations | a migration a host must run by hand, or one that can't be rolled back from |
+| The command lines of `gravel-hub` and `gravel-bot` | a command, flag or exit code a host's scripts rely on changes |
+
+0.1.0 to 0.6.0 were cut as minors under strict SemVer, one per feature; the rule above applies
+from the release after 0.6.0. What 1.0 means is a separate decision.
+
 ## Cut a release
 
-1. On `main`, move the `## [Unreleased]` entries in `CHANGELOG.md` under `## [X.Y.Z] - date` and
-   add the comparison links at the end, by PR.
+1. Pick the version by the rule above: 0.Y.0 if any `[Unreleased]` entry is **Breaking:**,
+   else 0.Y.Z. On `main`, move the `## [Unreleased]` entries in `CHANGELOG.md` under
+   `## [X.Y.Z] - date` and add the comparison links at the end, by PR.
 2. Tag that commit: `git tag -s vX.Y.Z -m vX.Y.Z && git push origin vX.Y.Z`. The tag must point at a
    commit that contains the workflow you expect to run: a workflow runs at the tag's commit, not
    at `main`.
