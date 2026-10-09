@@ -103,8 +103,8 @@ Backups are opt-in per deployment (ADR-0006; `docs/hub.md` "Backups"). To turn t
    printf 'gravel-postgres:5432:gravel:gravel:%s\n' "$(cat /path/to/db-password)" | podman secret create gravel-backup-pgpass -
    ```
 
-3. Edit the `Image=` (the release's `gravel-postgres` digest, `docs/releasing.md`),
-   `WALG_S3_PREFIX` and `AWS_ENDPOINT` lines in `deploy/quadlet/backup/gravel-postgres.container.d/10-backup.conf`
+3. Edit the `WALG_S3_PREFIX` and `AWS_ENDPOINT` lines (the `Image=` lines pin the release's
+   `gravel-postgres` digest, `docs/releasing.md`) in `deploy/quadlet/backup/gravel-postgres.container.d/10-backup.conf`
    and `deploy/quadlet/backup/gravel-backup.container` (`AWS_REGION=auto` is R2's; others name a
    region), and set `backup.status_file: /var/lib/gravel/backup/status.json` in `hub.yaml`.
 4. `make quadlet-install-backup`, then `systemctl --user restart gravel-postgres gravel-hub`
