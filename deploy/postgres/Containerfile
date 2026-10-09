@@ -1,0 +1,32 @@
+# The hub's Postgres: the official image plus WAL-G, so archive_command can push WAL to object
+# storage and the backup job can take base backups (ADR-0006). Built by `make postgres-image`
+# for development and by the release workflow for ghcr.io/gravel-project/gravel-postgres.
+# Postgres 17.11 (Debian trixie); WAL-G's Ubuntu 22.04 build runs on it (glibc 2.35 or later).
+FROM docker.io/library/postgres:17@sha256:2d2b8998d31037bf721cfdf764d76ba74171b4fab3431b7f72c27c56ddbdf9e3
+
+ARG TARGETARCH
+ARG WALG_VERSION=v3.0.9
+# Published beside the release assets (<asset>.sha256); amd64 and aarch64 tarballs of the pg build.
+ARG WALG_SHA256_AMD64=4f03ee4679db7f660bfd1b2b8291ac5df247cd2ec48074b60c112f4897299f24
+ARG WALG_SHA256_ARM64=20191a37ad091a880c25f4cc907e6f0deb7f12bdd8a53fd62dbc7fcbf2eac712
+
+RUN set -eu; \
+    case "${TARGETARCH:-amd64}" in \
+      amd64) arch=amd64; sum="$WALG_SHA256_AMD64" ;; \
+      arm64) arch=aarch64; sum="$WALG_SHA256_ARM64" ;; \
+      *) echo "unsupported TARGETARCH ${TARGETARCH}" >&2; exit 1 ;; \
+    esac; \
+    apt-get update -q && apt-get install -y -q --no-install-recommends ca-certificates curl && rm -rf /var/lib/apt/lists/*; \
+    curl -sfL "https://github.com/wal-g/wal-g/releases/download/${WALG_VERSION}/wal-g-pg-22.04-${arch}.tar.gz" -o /tmp/wal-g.tar.gz; \
+    echo "${sum}  /tmp/wal-g.tar.gz" | sha256sum -c -; \
+    tar -xzf /tmp/wal-g.tar.gz -C /tmp; \
+    install -m 0755 "/tmp/wal-g-pg-22.04-${arch}" /usr/local/bin/wal-g; \
+    rm -f /tmp/wal-g.tar.gz "/tmp/wal-g-pg-22.04-${arch}"; \
+    /usr/local/bin/wal-g --version
+
+COPY --chmod=0755 gravel-backup.sh /usr/local/bin/gravel-backup
+COPY --chmod=0755 gravel-restore.sh /usr/local/bin/gravel-restore
+
+LABEL org.opencontainers.image.source="https://github.com/gravel-project/gravel" \
+      org.opencontainers.image.description="Postgres 17 with WAL-G for the gravel hub" \
+      org.opencontainers.image.licenses="Apache-2.0"

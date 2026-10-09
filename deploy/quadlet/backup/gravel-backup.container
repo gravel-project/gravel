@@ -1,0 +1,27 @@
+# A base backup of the hub's Postgres with WAL-G, run by gravel-backup.timer: the same image and
+# settings as Postgres, the data volume read-only, the status file on gravel-backup.volume. Edit
+# the prefix and endpoint to match the Postgres drop-in.
+[Unit]
+Description=gravel hub base backup
+Requires=gravel-postgres.service
+After=gravel-postgres.service
+
+[Container]
+Image=ghcr.io/gravel-project/gravel-postgres@sha256:REPLACE_WITH_THE_RELEASE_DIGEST
+ContainerName=gravel-backup
+Network=gravel.network
+Volume=gravel-postgres.volume:/var/lib/postgresql/data:ro
+Volume=gravel-backup.volume:/var/lib/gravel/backup
+Environment=PGHOST=gravel-postgres PGUSER=gravel PGDATABASE=gravel PGPASSFILE=/run/secrets/gravel-backup-pgpass
+Environment=WALG_S3_PREFIX=s3://my-bucket/gravel
+Environment=AWS_ENDPOINT=https://ACCOUNT_ID.r2.cloudflarestorage.com
+Environment=AWS_REGION=auto
+Environment=AWS_S3_FORCE_PATH_STYLE=true
+Environment=AWS_SHARED_CREDENTIALS_FILE=/run/secrets/gravel-backup-credentials
+Environment=GRAVEL_BACKUP_RETAIN_FULL=30
+Secret=gravel-backup-credentials
+Secret=gravel-backup-pgpass,mode=0400
+Exec=gravel-backup
+
+[Service]
+Type=oneshot

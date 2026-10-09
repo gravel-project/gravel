@@ -21,6 +21,8 @@ TEMPL_VERSION ?= v0.3.1070
 HTMX_VERSION ?= 2.0.11
 # The accessibility check (`make a11y`) runs this through npx; CI pins it the same way.
 AXE_CLI_VERSION ?= 4.13.0
+# The hub's Postgres image: the official image plus WAL-G (deploy/postgres/Containerfile).
+POSTGRES_IMAGE_REPO ?= localhost/gravel-postgres
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 export VERSION
@@ -31,7 +33,8 @@ IMAGE_TAG ?= dev
 GRAVEL_PORT ?= 8080
 GRAVEL_INTERNAL_PORT ?= 9090
 export GRAVEL_PORT GRAVEL_INTERNAL_PORT
-COMPOSE := podman compose -f $(CURDIR)/deploy/compose.yaml
+# The dev store (versitygw) takes its root key from the environment; the compose file reads it from here.
+COMPOSE := GRAVEL_STORE_SECRET="$$(cat $(CURDIR)/deploy/secrets/store-secret 2>/dev/null || echo unset)" podman compose -f $(CURDIR)/deploy/compose.yaml
 QUADLET := $(firstword $(wildcard /usr/libexec/podman/quadlet /usr/lib/podman/quadlet /usr/lib/systemd/system-generators/podman-system-generator))
 
 ## ---- tools -------------------------------------------------------------------------------------
@@ -128,8 +131,13 @@ image: $(BIN)/ko ## Build the hub image with ko and load it into podman as $(IMA
 	KO_DOCKER_REPO=$(IMAGE_REPO) $(BIN)/ko build --bare --push=false --tarball $(BIN)/gravel-hub.tar -t $(IMAGE_TAG) ./cmd/gravel-hub
 	podman load -i $(BIN)/gravel-hub.tar
 
+.PHONY: postgres-image
+postgres-image: ## Build the hub's Postgres image (Postgres 17 + WAL-G) as $(POSTGRES_IMAGE_REPO):$(IMAGE_TAG)
+	podman build -t $(POSTGRES_IMAGE_REPO):$(IMAGE_TAG) -f $(CURDIR)/deploy/postgres/Containerfile $(CURDIR)/deploy/postgres
+	podman run --rm $(POSTGRES_IMAGE_REPO):$(IMAGE_TAG) wal-g --version
+
 .PHONY: up
-up: image ## Run hub + Postgres with podman compose (dev secrets generated on first run)
+up: image postgres-image ## Run hub + Postgres (+ a local backup store) with podman compose (dev secrets generated on first run)
 	$(CURDIR)/deploy/dev-secrets.sh $(CURDIR)/deploy/secrets
 	$(COMPOSE) up -d
 	@for i in $$(seq 1 90); do \
@@ -143,17 +151,37 @@ up: image ## Run hub + Postgres with podman compose (dev secrets generated on fi
 down: ## Stop the compose stack (keeps the Postgres volume)
 	$(COMPOSE) down
 
+.PHONY: backup
+backup: ## Take a base backup of the compose stack's Postgres into the local store
+	$(COMPOSE) --profile tools run --rm backup
+
+.PHONY: backup-drill
+backup-drill: build postgres-image ## The restore drill: archive, back up, restore to a point in time, verify, timed (podman)
+	HUB=$(BIN)/gravel-hub IMAGE=$(POSTGRES_IMAGE_REPO):$(IMAGE_TAG) $(CURDIR)/deploy/backup-drill.sh
+
 .PHONY: quadlet-check
-quadlet-check: ## Dry-run the quadlet units
+quadlet-check: ## Dry-run the quadlet units, with and without the backup drop-ins
 	@[[ -n "$(QUADLET)" ]] || { echo "quadlet generator not found (install podman)"; exit 1; }
 	QUADLET_UNIT_DIRS=$(CURDIR)/deploy/quadlet $(QUADLET) -dryrun -user >/dev/null && echo "quadlet units OK"
+	@tmp="$$(mktemp -d)"; cp -r $(CURDIR)/deploy/quadlet/*.container $(CURDIR)/deploy/quadlet/*.volume $(CURDIR)/deploy/quadlet/*.network "$$tmp/"; \
+	  cp -r $(CURDIR)/deploy/quadlet/backup/. "$$tmp/"; rm -f "$$tmp/README.md"; \
+	  QUADLET_UNIT_DIRS="$$tmp" $(QUADLET) -dryrun -user >/dev/null && echo "quadlet units with backups OK"; rm -rf "$$tmp"
 
 .PHONY: quadlet-install
 quadlet-install: ## Copy the quadlet units into ~/.config/containers/systemd/ and reload
 	install -d $(HOME)/.config/containers/systemd
-	install -m 0644 $(CURDIR)/deploy/quadlet/* $(HOME)/.config/containers/systemd/
+	install -m 0644 $(CURDIR)/deploy/quadlet/*.container $(CURDIR)/deploy/quadlet/*.volume $(CURDIR)/deploy/quadlet/*.network $(HOME)/.config/containers/systemd/
 	systemctl --user daemon-reload
 	@echo "units installed; see deploy/README.md for secrets and start order"
+
+.PHONY: quadlet-install-backup
+quadlet-install-backup: ## Copy the backup drop-ins, unit and timer beside the installed units and reload (edit the bucket lines first)
+	install -d $(HOME)/.config/containers/systemd/gravel-postgres.container.d $(HOME)/.config/containers/systemd/gravel-hub.container.d
+	install -m 0644 $(CURDIR)/deploy/quadlet/backup/gravel-postgres.container.d/* $(HOME)/.config/containers/systemd/gravel-postgres.container.d/
+	install -m 0644 $(CURDIR)/deploy/quadlet/backup/gravel-hub.container.d/* $(HOME)/.config/containers/systemd/gravel-hub.container.d/
+	install -m 0644 $(CURDIR)/deploy/quadlet/backup/gravel-backup.container $(CURDIR)/deploy/quadlet/backup/gravel-backup.volume $(CURDIR)/deploy/quadlet/backup/gravel-backup.timer $(HOME)/.config/containers/systemd/
+	systemctl --user daemon-reload
+	@echo "backup units installed; restart gravel-postgres and gravel-hub, then: systemctl --user enable --now gravel-backup.timer"
 
 .PHONY: clean
 clean: ## Remove build outputs (not the tools)

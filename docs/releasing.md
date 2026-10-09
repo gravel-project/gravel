@@ -24,6 +24,7 @@ again; a tag can't be re-run against a different workflow file.
 | `gravel-hub_X.Y.Z_linux_{amd64,arm64}.tar.gz` + `.sbom.json` each, `checksums.txt` | the GitHub release |
 | `ghcr.io/gravel-project/gravel-hub:X.Y.Z` and `:latest` (multi-arch index; note: no `v` in the tag) | ghcr, public |
 | cosign signature (keyless, GitHub OIDC) and an SBOM, attached to the image | ghcr, beside the image |
+| `ghcr.io/gravel-project/gravel-postgres:X.Y.Z` and `:latest` (Postgres 17 plus WAL-G, multi-arch; `deploy/postgres/Containerfile`), cosign-signed | ghcr, public |
 
 ## Verify an image
 
@@ -40,9 +41,11 @@ from this repository's pipeline.
 
 ## Move the digest pin
 
-`deploy/quadlet/gravel-hub.container` pins the image by the index digest, so a deployment never
-changes under a floating tag. After verifying a new release, put its digest in `Image=` by PR;
-consumers (Hidden Token Gaming's `deploy` repository) pin the same way.
+`deploy/quadlet/gravel-hub.container` pins the hub image by the index digest, and
+`deploy/quadlet/backup/` pins the Postgres image the same way, so a deployment never changes
+under a floating tag. After verifying a new release, put its digests in `Image=` by PR;
+consumers (Hidden Token Gaming's `deploy` repository) pin the same way. The Postgres image's
+identity for `cosign verify` is the same workflow at the same tag.
 
 ## One-time setup, done for v0.1.0
 

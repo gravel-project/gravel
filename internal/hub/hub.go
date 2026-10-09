@@ -21,6 +21,7 @@ import (
 
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
 	"github.com/gravel-project/gravel/internal/api"
+	"github.com/gravel-project/gravel/internal/backup"
 	"github.com/gravel-project/gravel/internal/config"
 	"github.com/gravel-project/gravel/internal/httpx"
 	"github.com/gravel-project/gravel/internal/identity"
@@ -139,7 +140,7 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 	h.limitedTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "gravel_rate_limited_total", Help: "Requests refused by a rate limit, by scope (ip or user).",
 	}, []string{"scope"})
-	h.registry.MustRegister(buildInfo, h.authTotal, h.limitedTotal)
+	h.registry.MustRegister(buildInfo, h.authTotal, h.limitedTotal, backup.NewCollector(cfg.Backup.StatusFile, st, logger))
 	h.metrics = httpx.NewMetrics(h.registry)
 
 	// The API, once: the public listener serves it, and the pages call it in process through

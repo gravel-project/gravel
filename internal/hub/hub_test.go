@@ -210,6 +210,8 @@ func TestHubEndToEnd(t *testing.T) {
 		`gravel_http_requests_total{code="200",handler="healthz",method="GET"} 1`,
 		`gravel_http_requests_total{code="303",handler="pages",method="GET"} 2`,
 		`gravel_auth_completions_total{intent="login",provider="discord",result="ok"} 1`,
+		`gravel_wal_archiver_readable 1`,
+		`gravel_wal_archived_total 0`,
 		`go_goroutines`,
 	} {
 		if !strings.Contains(string(metrics), want) {

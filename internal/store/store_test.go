@@ -110,3 +110,14 @@ func TestOpenWaitsThenFails(t *testing.T) {
 		t.Errorf("should have retried before giving up: %v after %s", err, time.Since(start))
 	}
 }
+
+func TestArchiverWithArchivingOff(t *testing.T) {
+	st := storetest.Open(t)
+	a, err := st.Archiver(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.ArchivedCount != 0 || a.FailedCount != 0 || a.LastArchivedTime != nil || a.LastFailedTime != nil || a.LastArchivedWAL != "" {
+		t.Errorf("a test database archives nothing: %+v", a)
+	}
+}

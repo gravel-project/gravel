@@ -47,6 +47,7 @@ type Config struct {
 	Claim        Claim        `yaml:"claim"`
 	Auth         Auth         `yaml:"auth"`
 	RateLimit    RateLimit    `yaml:"rate_limit"`
+	Backup       Backup       `yaml:"backup"`
 }
 
 // Organization names the built-in organization.
@@ -130,6 +131,15 @@ type Steam struct {
 	Login bool `yaml:"login"`
 
 	keySource string
+}
+
+// Backup is what the hub watches of its own backups (ADR-0006): the status file the backup job
+// writes after every base backup. The WAL archiver's statistics come from Postgres itself.
+type Backup struct {
+	// StatusFile is where gravel-backup writes its status (the gravel-backup volume, mounted
+	// read-only in the hub). Empty means no backup job is configured; only the archiver metrics
+	// are exposed.
+	StatusFile string `yaml:"status_file"`
 }
 
 // RateLimit bounds request rates: per client IP for anonymous requests, per user for
@@ -219,11 +229,17 @@ func (c *Config) resolveSecrets(env Env) error {
 	if c.Database.URL, c.Database.source, err = resolveSecret(env, EnvDatabaseURL, c.Database.URLFile, c.Database.URL, "database.url"); err != nil {
 		return err
 	}
-	if c.Auth.Discord.ClientSecret, c.Auth.Discord.secretSource, err = resolveSecret(env, EnvDiscordClientSecret, c.Auth.Discord.ClientSecretFile, c.Auth.Discord.ClientSecret, "auth.discord.client_secret"); err != nil {
-		return err
+	// A disabled provider's secret is not read: the file need not exist (the development
+	// stack keeps the keys in hub.yaml with the providers off).
+	if c.Auth.Discord.Enabled {
+		if c.Auth.Discord.ClientSecret, c.Auth.Discord.secretSource, err = resolveSecret(env, EnvDiscordClientSecret, c.Auth.Discord.ClientSecretFile, c.Auth.Discord.ClientSecret, "auth.discord.client_secret"); err != nil {
+			return err
+		}
 	}
-	if c.Auth.Steam.APIKey, c.Auth.Steam.keySource, err = resolveSecret(env, EnvSteamAPIKey, c.Auth.Steam.APIKeyFile, c.Auth.Steam.APIKey, "auth.steam.api_key"); err != nil {
-		return err
+	if c.Auth.Steam.Enabled {
+		if c.Auth.Steam.APIKey, c.Auth.Steam.keySource, err = resolveSecret(env, EnvSteamAPIKey, c.Auth.Steam.APIKeyFile, c.Auth.Steam.APIKey, "auth.steam.api_key"); err != nil {
+			return err
+		}
 	}
 	return nil
 }
