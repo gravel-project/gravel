@@ -1,0 +1,87 @@
+syntax = "proto3";
+
+package gravel.hub.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/gravel-project/gravel/gen/gravel/hub/v1;hubv1";
+
+// User is a member: what their linked identities resolve to. Stats are keyed by identity, never
+// by this id.
+message User {
+  // Stable identifier (UUID).
+  string id = 1;
+  // Display name, taken from the first identity at registration.
+  string display_name = 2;
+  // Whether this user owns the organization.
+  bool owner = 3;
+  google.protobuf.Timestamp created_at = 4;
+  google.protobuf.Timestamp last_login_at = 5;
+  // The linked identities, oldest link first.
+  repeated Identity identities = 6;
+}
+
+// Identity is one provider account linked to a user: a (provider, subject) pair, unique across
+// the hub, with mutable display attributes and a record of how control was proven.
+message Identity {
+  // The provider key: "discord", "steam".
+  string provider = 1;
+  // The stable id at the provider: a Discord user id, a SteamID64.
+  string subject = 2;
+  // Display attributes refreshed at every login; may be empty.
+  string display_name = 3;
+  string avatar_url = 4;
+  // How control was proven: "oauth2" or "openid".
+  string verification_method = 5;
+  google.protobuf.Timestamp verified_at = 6;
+  google.protobuf.Timestamp linked_at = 7;
+  // When this identity was last used to log in; unset for one that was only linked.
+  google.protobuf.Timestamp last_login_at = 8;
+}
+
+message GetMeRequest {}
+
+message GetMeResponse {
+  User user = 1;
+}
+
+message UnlinkIdentityRequest {
+  string provider = 1;
+  string subject = 2;
+}
+
+message UnlinkIdentityResponse {
+  // The caller, after the unlink.
+  User user = 1;
+}
+
+message RevokeSessionsRequest {}
+
+message RevokeSessionsResponse {
+  // How many sessions were ended, the caller's included.
+  int32 revoked = 1;
+}
+
+message LookupUserRequest {
+  string provider = 1;
+  string subject = 2;
+}
+
+message LookupUserResponse {
+  User user = 1;
+}
+
+// IdentityService is the logged-in member's account and the lookups role sync needs. Every
+// procedure needs a session cookie; login itself is the browser flow under /auth/.
+service IdentityService {
+  // GetMe returns the caller and their linked identities.
+  rpc GetMe(GetMeRequest) returns (GetMeResponse);
+  // UnlinkIdentity removes one of the caller's identities. The last one is refused
+  // (failed_precondition): a provider-only account would be unreachable.
+  rpc UnlinkIdentity(UnlinkIdentityRequest) returns (UnlinkIdentityResponse);
+  // RevokeSessions logs the caller out everywhere, this session included.
+  rpc RevokeSessions(RevokeSessionsRequest) returns (RevokeSessionsResponse);
+  // LookupUser resolves a (provider, subject) pair to its user, for role sync. Owner only until
+  // first-party apps get their own credentials (gravel#6).
+  rpc LookupUser(LookupUserRequest) returns (LookupUserResponse);
+}

@@ -5,9 +5,11 @@ package httpx
 import (
 	"context"
 	"log/slog"
+	"net"
 	"net/http"
 	"regexp"
 	"runtime/debug"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -145,4 +147,25 @@ func (r *recorder) status() int {
 		return http.StatusOK
 	}
 	return r.code
+}
+
+// RealIP takes the client address from a trusted reverse proxy's header (CF-Connecting-IP
+// behind cloudflared) and puts it in RemoteAddr, where access logs and rate limits read it.
+// Use it only when nothing but that proxy can reach the listener: the header is trusted as
+// given. An empty header name leaves requests untouched.
+func RealIP(header string) func(http.Handler) http.Handler {
+	if header == "" {
+		return func(next http.Handler) http.Handler { return next }
+	}
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if ip := net.ParseIP(strings.TrimSpace(r.Header.Get(header))); ip != nil {
+				r2 := new(http.Request)
+				*r2 = *r
+				r2.RemoteAddr = net.JoinHostPort(ip.String(), "0")
+				r = r2
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
 }

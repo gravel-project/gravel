@@ -2,7 +2,7 @@
 
 > Open-source, Kubernetes-native framework for hosting many game servers across many games, with one control interface and cross-game statistics. Each server is a grain; the fleet is the gravel.
 
-**Status:** design complete (2026-09-25); build order revised by [ADR-0001](docs/adr/0001-hub-first-kubernetes-later.md) on 2026-10-08: **hub first, Kubernetes later.** [ADR-0003](docs/adr/0003-cloud-vm-driver-behind-a-cloud-provider-interface.md) (2026-10-08) adds the **cloud-VM driver**: a VM gravel owns through a cloud provider interface, DigitalOcean first. The hub skeleton is in (#12): Connect API, Postgres with migrations, the owner claim, health, metrics, podman compose and quadlets. `make up` runs it; [docs/hub.md](docs/hub.md) is the operator reference.
+**Status:** design complete (2026-09-25); build order revised by [ADR-0001](docs/adr/0001-hub-first-kubernetes-later.md) on 2026-10-08: **hub first, Kubernetes later.** [ADR-0003](docs/adr/0003-cloud-vm-driver-behind-a-cloud-provider-interface.md) (2026-10-08) adds the **cloud-VM driver**: a VM gravel owns through a cloud provider interface, DigitalOcean first. The hub skeleton is in (#12): Connect API, Postgres with migrations, the owner claim, health, metrics, podman compose and quadlets; so is login (#13, [ADR-0004](docs/adr/0004-sessions-login-and-the-owner-claim.md)): Discord sign-in, Steam linking, server-side sessions, the account page and rate limits. `make up` runs it; [docs/hub.md](docs/hub.md) is the operator reference.
 **Design doc (full, block-level detail):** https://claude.ai/code/artifact/e559420c-d087-4f74-8829-853cafbb5eb8 (private Claude Docs; this README is the distilled version)
 **License:** Apache 2.0
 
@@ -87,19 +87,19 @@ One protobuf definition serves gRPC, gRPC-Web, and plain HTTP-JSON. No separate 
 - gRPC/protobuf earns its place on three paths only: heavy service-to-service traffic, a schema-first contract for **third-party-written stats adapters**, and native **streaming** (stats events, hub↔spoke link).
 - **The CLI consumes the HTTP-JSON API, not gRPC.** Smaller binary, and it proves the public surface is complete. Live log tailing is one-way server-streaming, which Connect covers over HTTP — no gRPC needed.
 - Versioning rides the protobuf package; OpenAPI is emitted for the JSON side.
-- Rate limits: per-identity on authenticated calls, per-IP on the public surface; public leaderboard pages are cached and scraping is bounded, not blocked.
+- Rate limits: per-user on authenticated calls, per-IP on the public surface (in since #13, with a trusted-proxy header for the client address); public leaderboard pages are cached and scraping is bounded, not blocked.
 
 ### Identity & accounts
 
-- Internal user ID is the primary key. External providers (Steam, Xbox, Apple, Google, Discord, Patreon) are rows in a **linked-identities** table.
-- **Goth** (markbates/goth) for provider login. Ory Kratos/Hydra rejected as too heavy.
+- Internal user ID is the primary key. External providers (Steam, Xbox, Apple, Google, Discord, Patreon) are rows in a **linked-identities** table; the `(provider, subject)` pair is unique across the hub, and an append-only log records every registration, login, link and unlink.
+- **Goth** (markbates/goth) for provider login. Ory Kratos/Hydra rejected as too heavy. Discord is the primary login (scope `identify` only) and Steam links by default; a provider's `login` flag is configuration. Sessions are server-side rows behind an opaque cookie, with no signing key; an attempt in progress is a row too, bound to the browser and consumed once ([ADR-0004](docs/adr/0004-sessions-login-and-the-owner-claim.md)).
 - Two verification layers: provider login (Steam OpenID) and the **RCON code handshake** (player types a one-time code in-game; the adapter watching over RCON confirms the link).
 - RCON code hardening: CSPRNG token, minutes-long expiry, single-use, two-layer rate limits (requests + attempts), bound to the exact identity + server it was issued for.
 - Account linking/merging: link while logged in (primary path); shared verified email; else RCON proof-of-control; **absorb, don't delete**; one transaction; immutable log.
 - Human roles: player / moderator / admin / owner, scoped to `organization`.
 - Machine identity: **SPIFFE/SPIRE all the way** — mTLS on internal gRPC, short-lived CLI tokens, behind a pluggable identity-provider interface. Deferred until the first second process (the first spoke); in-process drivers need no machine identity (ADR-0001).
 - Account recovery: provider-only identity means losing your only provider loses the account — an accepted, documented v1 tradeoff. Mitigation is multi-provider linking, not a recovery flow.
-- Day-zero bootstrap: the hub mints a one-time owner-claim token at start while it is unowned and prints it to its own log; `gravel claim <token>` (the CLI, step 5) consumes it over the API. Single-use, expiring, and never minted again once the hub is owned ([ADR-0002](docs/adr/0002-hub-mints-the-owner-claim-token.md)).
+- Day-zero bootstrap: the hub mints a one-time owner-claim token at start while it is unowned and prints it to its own log; the owner logs in and claims it on the account page, or `gravel claim <token>` (the CLI, step 5) does over the API with a session. Single-use, expiring, bound to the logged-in user, and never minted again once the hub is owned ([ADR-0002](docs/adr/0002-hub-mints-the-owner-claim-token.md), ADR-0004).
 
 ### Data layer
 
@@ -163,7 +163,7 @@ make check       # what CI runs: gofmt, vet, buf lint, golangci-lint, govulnchec
 make down
 ```
 
-The hub logs a one-time owner-claim token on first start; claim it with `ClaimOwnership` ([docs/hub.md](docs/hub.md)). Production runs the same image as rootless quadlet units ([deploy/README.md](deploy/README.md)).
+The hub logs a one-time owner-claim token on first start; log in and paste it on the account page, or call `ClaimOwnership` with the session cookie ([docs/hub.md](docs/hub.md)). Login needs a Discord application; the stack runs without one ([deploy/README.md](deploy/README.md)). Production runs the same image as rootless quadlet units.
 
 ## Local dev & runnability
 

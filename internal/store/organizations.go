@@ -18,7 +18,7 @@ type Organization struct {
 	Builtin   bool
 	CreatedAt time.Time
 	ClaimedAt *time.Time
-	// OwnerUserID is set by gravel#13 once claims are performed by a logged-in user.
+	// OwnerUserID is the user who claimed ownership; set together with ClaimedAt.
 	OwnerUserID         *uuid.UUID
 	ClaimTokenHash      []byte
 	ClaimTokenExpiresAt *time.Time
@@ -95,16 +95,16 @@ var ErrOwned = errors.New("organization is already owned")
 // ErrClaimRejected is returned when the token hash does not match or has expired.
 var ErrClaimRejected = errors.New("claim rejected")
 
-// ClaimOrganization marks the organization owned if, and only if, it is unowned and hash matches
-// the unexpired stored token. The token is cleared in the same statement, so it can't be used
-// twice. The caller compares hashes in constant time before calling; the predicate here is what
-// makes the claim atomic under concurrent attempts.
-func (s *Store) ClaimOrganization(ctx context.Context, id uuid.UUID, hash []byte, now time.Time) (Organization, error) {
+// ClaimOrganization marks the organization owned by ownerUserID if, and only if, it is unowned
+// and hash matches the unexpired stored token. The token is cleared in the same statement, so
+// it can't be used twice. The caller compares hashes in constant time before calling; the
+// predicate here is what makes the claim atomic under concurrent attempts.
+func (s *Store) ClaimOrganization(ctx context.Context, id uuid.UUID, hash []byte, ownerUserID uuid.UUID, now time.Time) (Organization, error) {
 	o, err := scanOrganization(s.pool.QueryRow(ctx,
 		`UPDATE organizations
-		    SET claimed_at = $3, claim_token_hash = NULL, claim_token_expires_at = NULL
+		    SET claimed_at = $3, owner_user_id = $4, claim_token_hash = NULL, claim_token_expires_at = NULL
 		  WHERE id = $1 AND claimed_at IS NULL AND claim_token_hash = $2 AND claim_token_expires_at > $3
-		 RETURNING `+organizationColumns, id, hash, now))
+		 RETURNING `+organizationColumns, id, hash, now, ownerUserID))
 	if err == nil {
 		return o, nil
 	}

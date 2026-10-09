@@ -2,7 +2,8 @@
 # index digest covers amd64 and arm64). docs/releasing.md says how to verify a release and move
 # the pin. For a local build use `make image` and Image=localhost/gravel-hub:dev.
 # Config: ~/.config/gravel/hub.yaml (docs/hub.md). Secret: gravel-db-url
-# (`podman secret create gravel-db-url <file>`, the file holding the postgres:// URL).
+# (`podman secret create gravel-db-url <file>`, the file holding the postgres:// URL). With login
+# enabled, also gravel-discord-client-secret and, optionally, gravel-steam-api-key.
 [Unit]
 Description=gravel hub
 Requires=gravel-postgres.service
@@ -16,6 +17,8 @@ PublishPort=127.0.0.1:8080:8080
 PublishPort=127.0.0.1:9090:9090
 Volume=%h/.config/gravel/hub.yaml:/etc/gravel/hub.yaml:ro,Z
 Secret=gravel-db-url
+# Secret=gravel-discord-client-secret
+# Secret=gravel-steam-api-key
 Exec=serve --config /etc/gravel/hub.yaml
 # Exec form on purpose: a plain string runs through /bin/sh -c, and the distroless image has no shell.
 HealthCmd=["CMD", "/ko-app/gravel-hub", "healthcheck"]

@@ -18,6 +18,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime/debug"
+	"strings"
 	"syscall"
 	"time"
 
@@ -175,9 +176,37 @@ func configCheck(args []string, stdout, stderr io.Writer) int {
 	if !ok {
 		return 1
 	}
-	fmt.Fprintf(stdout, "config OK: organization %q, listen %s, internal %s, database %s (from %s), migrate %s\n",
-		cfg.Organization.Name, cfg.Server.Listen, cfg.Server.InternalListen, cfg.Database.RedactedURL(), cfg.Database.Source(), cfg.Database.Migrate)
+	fmt.Fprintf(stdout, "config OK: organization %q, listen %s, internal %s, database %s (from %s), migrate %s, login %s\n",
+		cfg.Organization.Name, cfg.Server.Listen, cfg.Server.InternalListen, cfg.Database.RedactedURL(), cfg.Database.Source(), cfg.Database.Migrate, authSummary(cfg))
 	return 0
+}
+
+// authSummary describes the login providers without any secret: which are enabled, whether
+// they log in or only link, and where each secret came from.
+func authSummary(cfg config.Config) string {
+	var parts []string
+	role := func(login bool) string {
+		if login {
+			return "login"
+		}
+		return "link-only"
+	}
+	if cfg.Auth.Discord.Enabled {
+		parts = append(parts, fmt.Sprintf("discord (%s, secret from %s)", role(cfg.Auth.Discord.Login), cfg.Auth.Discord.SecretSource()))
+	}
+	if cfg.Auth.Steam.Enabled {
+		key := cfg.Auth.Steam.KeySource()
+		if key == "" {
+			key = "no api key"
+		} else {
+			key = "key from " + key
+		}
+		parts = append(parts, fmt.Sprintf("steam (%s, %s)", role(cfg.Auth.Steam.Login), key))
+	}
+	if len(parts) == 0 {
+		return "none"
+	}
+	return strings.Join(parts, ", ") + " at " + cfg.Auth.BaseURL
 }
 
 func healthcheck(ctx context.Context, args []string, stderr io.Writer) int {

@@ -1,8 +1,8 @@
 # The hub
 
 One Go binary, `gravel-hub`, beside Postgres. This page is the operator reference: configuration,
-endpoints, the owner claim, migrations, running it, observability and tests. ADR-0001 is the why;
-`deploy/README.md` is the container how-to.
+endpoints, login, the owner claim, migrations, running it, observability and tests. ADR-0001 is the
+why, ADR-0004 the login design; `deploy/README.md` is the container how-to.
 
 ## Commands
 
@@ -11,7 +11,7 @@ endpoints, the owner claim, migrations, running it, observability and tests. ADR
 | `gravel-hub serve` (default) | Serve the API. Stops cleanly on SIGINT/SIGTERM, draining for `server.shutdown_timeout`. |
 | `gravel-hub migrate` | Apply pending migrations, then print the schema version. |
 | `gravel-hub migrate --status` | Print the schema version and pending count; exit 3 when migrations are pending. |
-| `gravel-hub config check` | Load and validate the configuration, print a summary (never a secret). |
+| `gravel-hub config check` | Load and validate the configuration, print a summary with the login providers (never a secret). |
 | `gravel-hub healthcheck [--url …]` | GET `/healthz` and exit 0 when it answers 200. The container healthcheck. |
 | `gravel-hub version` | Print the build version. |
 
@@ -33,20 +33,46 @@ database:
   max_conns: 8
   connect_timeout: 60s           # how long to wait for Postgres to accept connections at start
 server:
-  listen: 127.0.0.1:8080         # API, /healthz, /readyz; put TLS termination (cloudflared) in front
+  listen: 127.0.0.1:8080         # API, pages, /healthz, /readyz; put TLS termination (cloudflared) in front
   internal_listen: 127.0.0.1:9090 # /metrics and /debug/pprof/; keep it off the public network
   shutdown_timeout: 15s
+  client_ip_header: ""           # CF-Connecting-IP behind cloudflared; see Login below
 log:
   level: info                    # debug · info · warn · error
   format: json                   # json · text
 claim:
   token_ttl: 15m                 # how long an owner-claim token lives
+auth:
+  base_url: https://app.example.com   # the origin members use; required once a provider is enabled
+  session_ttl: 720h              # a login lasts 30 days; no idle timeout
+  attempt_ttl: 10m               # how long a member has to come back from a provider
+  discord:
+    enabled: true
+    client_id: "1234567890"
+    client_secret_file: /run/secrets/gravel-discord-client-secret   # or GRAVEL_DISCORD_CLIENT_SECRET
+    login: true                  # Discord is the primary login
+  steam:
+    enabled: true
+    api_key_file: /run/secrets/gravel-steam-api-key   # optional: persona name and avatar; or GRAVEL_STEAM_API_KEY
+    login: false                 # link-only by default
+rate_limit:
+  per_ip:   {requests_per_minute: 120, burst: 40}    # anonymous requests, per client address
+  per_user: {requests_per_minute: 600, burst: 100}   # authenticated requests, per user
 ```
 
-**Secrets.** The database URL is the only secret. Precedence: the `GRAVEL_DATABASE_URL` environment
-variable, then `database.url_file`, then `database.url`. Production uses a podman secret
-(`Secret=gravel-db-url` in the quadlet unit, which lands at `/run/secrets/gravel-db-url`). The hub
-logs the URL with the password redacted and says which source it came from.
+**Secrets.** Three, each with the same precedence: the environment variable, then the `*_file`
+key (a podman secret mount), then the inline key, which is for development only.
+
+| Secret | Environment | File key | Inline key |
+|---|---|---|---|
+| Database URL | `GRAVEL_DATABASE_URL` | `database.url_file` | `database.url` |
+| Discord OAuth2 client secret | `GRAVEL_DISCORD_CLIENT_SECRET` | `auth.discord.client_secret_file` | `auth.discord.client_secret` |
+| Steam Web API key (optional) | `GRAVEL_STEAM_API_KEY` | `auth.steam.api_key_file` | `auth.steam.api_key` |
+
+Production uses podman secrets (`Secret=gravel-db-url` in the quadlet unit lands at
+`/run/secrets/gravel-db-url`, and so on). The hub logs the database URL with the password
+redacted and, for every secret, which source it came from. There is no session key: sessions are
+random tokens whose hashes live in Postgres (ADR-0004).
 
 ## Endpoints
 
@@ -55,11 +81,29 @@ Public listener (`server.listen`), HTTP/1.1 and unencrypted HTTP/2 so gRPC works
 | Path | What |
 |---|---|
 | `/gravel.hub.v1.OrganizationService/GetOrganization` | Connect procedure; POST JSON `{}` or call it over gRPC / gRPC-Web |
-| `/gravel.hub.v1.OrganizationService/ClaimOwnership` | Connect procedure; `{"token": "…"}` |
+| `/gravel.hub.v1.OrganizationService/ClaimOwnership` | Connect procedure; `{"token": "…"}`; needs a session, binds the caller as owner |
+| `/gravel.hub.v1.IdentityService/GetMe` | the caller and their linked identities; needs a session |
+| `/gravel.hub.v1.IdentityService/UnlinkIdentity` | `{"provider": "steam", "subject": "…"}`; the last identity is refused (`failed_precondition`) |
+| `/gravel.hub.v1.IdentityService/RevokeSessions` | log out everywhere; answers how many sessions ended and clears the cookie |
+| `/gravel.hub.v1.IdentityService/LookupUser` | `{"provider": "discord", "subject": "…"}` → the user and their identities, for role sync; the owner only until #6 |
 | `/grpc.health.v1.Health/Check` | gRPC health |
 | `/grpc.reflection.v1.ServerReflection/…` (and v1alpha) | gRPC reflection, so `grpcurl` and `buf curl` discover the API |
 | `GET /healthz` | 200 `{"status":"ok","version":"…"}` while the process runs |
 | `GET /readyz` | 200 `{"status":"ready"}` when Postgres answers and no migration is pending, else 503 with a reason |
+
+Pages and flows, on the same listener:
+
+| Path | What |
+|---|---|
+| `GET /` | to `/account`, or `/login` when anonymous |
+| `GET /login` | the login providers |
+| `GET /account` | the member's identities, link buttons, unlink forms, "log out everywhere", and the claim form while the hub is unowned |
+| `GET /auth/{provider}/start` | begin a login (providers with `login: true`) |
+| `GET /auth/{provider}/link` | begin a link, logged in |
+| `GET /auth/{provider}/callback` | the provider's return |
+| `POST /auth/logout` | this session, or every session with `everywhere=1` |
+| `POST /account/unlink`, `POST /account/claim` | forms; every POST carries the session's CSRF token in `_csrf` |
+| `GET /static/app.css` | the stylesheet |
 
 Internal listener (`server.internal_listen`): `GET /metrics` (Prometheus) and `GET /debug/pprof/`.
 
@@ -73,7 +117,35 @@ curl -X POST -H 'Content-Type: application/json' -d '{}' http://127.0.0.1:8080/g
 grpcurl -plaintext 127.0.0.1:8080 gravel.hub.v1.OrganizationService/GetOrganization
 ```
 
-## Owner claim (ADR-0002)
+## Login (ADR-0004)
+
+A member logs in with a provider whose `login` is true (Discord by default) and links the others
+(Steam by default) from the account page. Every attempt is a row bound to the browser by an auth
+cookie and to the provider's callback by a state value, consumed once: a replayed, forged or
+expired callback is refused, and a link must finish in the session that started it. A
+`(provider, subject)` pair belongs to one user; linking one another member holds is refused, and
+so is unlinking the last one (a provider-only account would be unreachable).
+
+- **Discord:** register `<auth.base_url>/auth/discord/callback` as a redirect in the Developer
+  Portal's OAuth2 settings; the scope is `identify` alone (no email, no connections).
+- **Steam:** nothing to register; the OpenID assertion proves the SteamID64. The Web API key only
+  fetches the persona name and avatar, and may be left out.
+- **Sessions:** server-side, `auth.session_ttl` long, no idle timeout. The cookie is `HttpOnly`,
+  `SameSite=Lax`, and `Secure` with the `__Host-` prefix when `auth.base_url` is `https://`. A
+  restart keeps everyone logged in; `RevokeSessions` or the page's "log out everywhere" ends every
+  session of the member.
+- **Cross-site requests:** `net/http`'s cross-origin protection refuses unsafe cross-origin
+  browser requests before any handler, the API included; forms also carry the session's CSRF
+  token. Clients that are not browsers send neither `Sec-Fetch-Site` nor `Origin` and pass.
+- **Rate limits:** anonymous requests are limited per client address, authenticated ones per
+  user (`rate_limit`); pages answer 429 with `Retry-After`, procedures `resource_exhausted`;
+  `/healthz` and `/readyz` are never limited. Behind a reverse proxy that is the only way in, set
+  `server.client_ip_header` to the header carrying the client's address (`CF-Connecting-IP` for
+  cloudflared); otherwise everyone shares the proxy's bucket. Set it only when nothing else can
+  reach the listener: the header is trusted as given.
+- Expired sessions and attempts are pruned every ten minutes.
+
+## Owner claim (ADR-0002, ADR-0004)
 
 A fresh hub is unowned. On each start while unowned it mints a one-time owner-claim token and logs
 it once at WARN level:
@@ -82,16 +154,18 @@ it once at WARN level:
 {"level":"WARN","msg":"the hub is unowned: claim it once with this token (it expires; a restart mints a new one)","token":"…","expires_at":"…"}
 ```
 
-Claim it within `claim.token_ttl`:
+Log in, then claim it within `claim.token_ttl` on the account page (the form shows while the hub
+is unowned) or over the API with the session cookie:
 
 ```sh
-curl -X POST -H 'Content-Type: application/json' -d '{"token":"<token>"}' http://127.0.0.1:8080/gravel.hub.v1.OrganizationService/ClaimOwnership
+curl -X POST -H 'Content-Type: application/json' -b '__Host-gravel_session=<cookie>' -d '{"token":"<token>"}' https://app.example.com/gravel.hub.v1.OrganizationService/ClaimOwnership
 ```
 
-The claim is single-use and atomic. A second call answers `failed_precondition` (the hub is
-owned), a wrong or expired token `permission_denied`, an empty token `invalid_argument`. An owned
-hub never mints a token again. Until the identity work (#13) lands, the claim records `claimed_at`
-and leaves the owner's user id empty.
+The caller becomes the owner (`owner_user_id`). The claim is single-use and atomic. A call without
+a session answers `unauthenticated`, a second call `failed_precondition` (the hub is owned), a
+wrong or expired token `permission_denied`, an empty token `invalid_argument`. An owned hub never
+mints a token again. A claim made by 0.1.0 bound no user; migration 2 reopens it, so such a hub
+logs a fresh token after the upgrade.
 
 ## Migrations
 
@@ -123,16 +197,23 @@ command and the digest-pin procedure.
 - **Request ids:** `X-Request-ID` is honoured when well-formed (up to 128 of `A-Za-z0-9._:-`),
   otherwise a UUIDv7 is generated; it is echoed on the response and attached to every log line
   and internal-error log.
-- **Metrics:** `gravel_http_requests_total{handler,method,code}`,
-  `gravel_http_request_duration_seconds{handler}`, `gravel_rpc_requests_total{procedure,code}`
-  (`code` is the Connect code, `ok` on success), `gravel_rpc_request_duration_seconds{procedure}`,
+- **Metrics:** `gravel_http_requests_total{handler,method,code}` (`handler` is `healthz`, `readyz`
+  or `pages`), `gravel_http_request_duration_seconds{handler}`,
+  `gravel_rpc_requests_total{procedure,code}` (`code` is the Connect code, `ok` on success),
+  `gravel_rpc_request_duration_seconds{procedure}`,
+  `gravel_auth_completions_total{provider,intent,result}` (`result` is `ok`, `denied`, `failed`,
+  `invalid`, `mismatch`, `taken` or `error`), `gravel_rate_limited_total{scope}` (`ip` or `user`),
   `gravel_build_info{version,go_version}`, plus the Go and process collectors.
+- **Secrets in logs:** the owner-claim token is the only secret the hub ever logs, once, at WARN.
+  Provider secrets are logged by source only.
 - **Panics** become a 500 and an error log line with the stack; the server stays up.
 
 ## Tests
 
-`make test` runs every package with the race detector. Packages that need Postgres (`store`,
-`hub`) skip unless `GRAVEL_TEST_DATABASE_URL` points at a server the user may create databases on;
+`make test` runs every package with the race detector. The login flows are tested against an
+in-memory store and a fake provider (`internal/identity/identitytest`); the Goth adapters against
+fake Discord and Steam endpoints. Packages that need Postgres (`store`, `hub`) skip unless
+`GRAVEL_TEST_DATABASE_URL` points at a server the user may create databases on;
 each test binary then drops and recreates its own database (`gravel_test_<package>`), so packages
 run in parallel. `make test-integration` insists on the variable. Locally:
 
