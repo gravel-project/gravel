@@ -1,0 +1,18 @@
+name: Task
+description: A specific, well-scoped piece of work (docs and chores included)
+type: Task
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What needs to be done
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: Done when
+      value: |
+        - [ ]
+    validations:
+      required: true

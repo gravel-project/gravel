@@ -1,0 +1,32 @@
+name: Bug
+description: Something is broken or behaves incorrectly
+type: Bug
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: Include exact error messages and log lines. Never paste tokens, passwords or a member's personal data.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      value: |
+        1.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The output of `gravel-hub version` (or `gravel-bot version`), an image digest or a commit, and how it runs (compose, quadlets, other).
+    validations:
+      required: true
