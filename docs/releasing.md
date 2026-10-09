@@ -67,6 +67,11 @@ cosign tree ghcr.io/gravel-project/gravel-hub:X.Y.Z   # shows the attached SBOM
 The identity is the release workflow at that tag; anything else means the image did not come
 from this repository's pipeline.
 
+Use cosign 3 or later. The release signs with `sigstore/cosign-installer@v4`, which installs cosign 3
+and stores the signature in the newer bundle format; cosign 2 does not look there and answers
+`no signatures found` for an image that is signed. Without a local install,
+`podman run --rm ghcr.io/sigstore/cosign/cosign:v3.1.2 verify …` takes the same arguments.
+
 ## Move the digest pin
 
 `deploy/quadlet/gravel-hub.container` pins the hub image by the index digest, and

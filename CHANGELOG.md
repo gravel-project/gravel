@@ -8,6 +8,10 @@ patch release is everything else.
 
 ## [Unreleased]
 
+### Changed
+
+- The quadlet units pin the 0.6.1 images by index digest, all three verified with cosign against the release workflow at `v0.6.1`: `ghcr.io/gravel-project/gravel-hub@sha256:054ed12ad43d9bbe0814517c11cbbbc0a64b24877d643be2b9fc5328ec049f47` in `gravel-hub.container`, `ghcr.io/gravel-project/gravel-bot@sha256:fc265d7a561233d47fb4fc6ed65894cfde3333e56c88f1e41a0be5d5a0083796` in `gravel-bot.container`, and `ghcr.io/gravel-project/gravel-postgres@sha256:8006cd947ead514b17ab8d76bdcd6bd0cf9cc1f395d0deee8c8406e9d08c1374` in the backup set (its base moved to ECR Public in #80). `docs/hub.md` names 0.6.1 as the tag example, and `docs/releasing.md` says verifying needs cosign 3: the release signs in cosign 3's bundle format, and cosign 2 reports a signed image as `no signatures found`.
+
 ## [0.6.1] - 2026-10-09
 
 ### Added

@@ -7,7 +7,7 @@ Requires=gravel-postgres.service
 After=gravel-postgres.service
 
 [Container]
-Image=ghcr.io/gravel-project/gravel-postgres@sha256:4a68eda56a109a795bb684d3c6e8a16a5753c8be4a5268ba80d1fd4ff6fce2d5
+Image=ghcr.io/gravel-project/gravel-postgres@sha256:8006cd947ead514b17ab8d76bdcd6bd0cf9cc1f395d0deee8c8406e9d08c1374
 ContainerName=gravel-backup
 Network=gravel.network
 Volume=gravel-postgres.volume:/var/lib/postgresql/data:ro
