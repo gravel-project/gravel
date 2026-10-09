@@ -66,8 +66,9 @@ jobs:
         with:
           go-version-file: go.mod
       - run: sudo apt-get update -q && sudo apt-get install -y -q podman
-      - run: make image
+      - run: make image bot-image
       - run: podman run --rm localhost/gravel-hub:dev version
+      - run: podman run --rm localhost/gravel-bot:dev version
 
   integration:
     runs-on: ubuntu-latest

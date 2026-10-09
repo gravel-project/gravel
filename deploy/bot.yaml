@@ -1,0 +1,26 @@
+# gravel-bot for the compose stack (`make up` with the `bot` profile: `podman compose --profile bot up`).
+# Fill the Discord application in (docs/bot.md, "The Discord application") and register the bot
+# with the hub first: `make bot-register` prints the client id and secret once. Reference:
+# docs/bot.md.
+version: 1
+
+discord:
+  application_id: "0"            # the application's id from the Developer Portal
+  public_key: "0000000000000000000000000000000000000000000000000000000000000000"   # its public key
+  token_file: /run/secrets/gravel-bot-discord-token
+  guild_ids: []                  # commands per guild (instant) when set; global otherwise
+  gateway: true                  # the staging application has no endpoint URL, so interactions arrive here
+
+hub:
+  url: http://hub:8080           # the hub on the stack's network
+  public_url: http://127.0.0.1:8080   # what members open
+  client_id: gravel_000000000000000000000000   # from `gravel-hub apps create`
+  client_secret_file: /run/secrets/gravel-bot-hub-client-secret
+
+server:
+  listen: 0.0.0.0:8081           # /interactions, /healthz, /readyz
+  internal_listen: 0.0.0.0:9091  # /metrics
+
+log:
+  level: info
+  format: text

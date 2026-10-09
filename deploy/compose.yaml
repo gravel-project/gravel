@@ -96,7 +96,24 @@ services:
       retries: 6
     restart: unless-stopped
 
+  # The Discord bot (docs/bot.md), opt-in: `podman compose --profile bot up`. Needs deploy/bot.yaml
+  # filled in and the two secrets below created (make bot-register prints the hub credentials).
+  bot:
+    image: localhost/gravel-bot:dev
+    profiles: ["bot"]
+    depends_on: [hub]
+    ports: ["127.0.0.1:8081:8081", "127.0.0.1:9091:9091"]
+    volumes: ["./bot.yaml:/etc/gravel/bot.yaml:ro,Z"]
+    command: ["serve", "--config", "/etc/gravel/bot.yaml"]
+    secrets:
+      - gravel-bot-discord-token
+      - gravel-bot-hub-client-secret
+
 secrets:
+  gravel-bot-discord-token:
+    external: true
+  gravel-bot-hub-client-secret:
+    external: true
   gravel-db-password:
     external: true
   gravel-db-url:

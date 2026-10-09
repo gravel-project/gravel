@@ -1,0 +1,31 @@
+# gravel's Discord bot (docs/bot.md): the stock modules against this stack's hub. Pin Image= to a
+# release digest of ghcr.io/gravel-project/gravel-bot once one exists (docs/releasing.md); for a
+# local build use `make bot-image`. Config: ~/.config/gravel/bot.yaml. Secrets: the bot token and
+# the hub client secret (`gravel-hub apps create`), both podman secrets mounted as files.
+[Unit]
+Description=gravel bot
+Requires=gravel-hub.service
+After=gravel-hub.service
+
+[Container]
+Image=localhost/gravel-bot:dev
+ContainerName=gravel-bot
+Network=gravel.network
+PublishPort=127.0.0.1:8081:8081
+PublishPort=127.0.0.1:9091:9091
+Volume=%h/.config/gravel/bot.yaml:/etc/gravel/bot.yaml:ro,Z
+Secret=gravel-bot-discord-token
+Secret=gravel-bot-hub-client-secret
+Exec=serve --config /etc/gravel/bot.yaml
+# Exec form on purpose: a plain string runs through /bin/sh -c, and the distroless image has no shell.
+HealthCmd=["CMD", "/ko-app/gravel-bot", "healthcheck"]
+HealthInterval=30s
+HealthTimeout=3s
+HealthRetries=3
+
+[Service]
+Restart=always
+TimeoutStartSec=120
+
+[Install]
+WantedBy=default.target

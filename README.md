@@ -203,7 +203,7 @@ A DigitalOcean droplet running Counter-Strike, deliberately cast as a **fake unt
 
 ## Repo layout (planned)
 
-- **This repo (`gravel`) is the monorepo for the core:** operator, core API, CLI, web UI, agent — everything that versions and releases together.
+- **This repo (`gravel`) is the monorepo for the core:** operator, core API, CLI, web UI, agent — everything that versions and releases together. Today: `cmd/gravel-hub` and `internal/` (the hub), `cmd/gravel-bot` and the public `discord/` tree (the bot runtime, the hub client and the stock modules a host's bot imports; ADR-0008), `proto/` with `gen/`, `deploy/`, `docs/`.
 - **Separate repos across the plugin seams:** stats adapters (one per game) and the community game catalog. The repo boundary is the plugin boundary. **Until the open-source cut, adapters and drivers live here** as packages behind the same interfaces (ADR-0001). Each game's client library (its RCON, feed or log protocol) lives under `games/<game>/` with no gravel imports, enforced by a lint rule, so it becomes a standalone Go module at the cut; `drivers/<game>/` and `adapters/<game>/` are the gravel-side packages that use it.
 - Name rationale: `gsf` rejected (one letter off LinuxGSM's `GSM`), `grain` taken (grain-lang ships a `grain` binary), `grit` crowded, `gman` is Half-Life's. `gravel` is meaningful and effectively free; the only namesake is a small, low-activity Go build tool. "Gravel Server Manager = GSM" is a docs wink only, never the official expansion.
 

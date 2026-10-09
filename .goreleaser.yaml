@@ -19,6 +19,20 @@ builds:
     ldflags:
       - -s -w -X main.version={{ .Version }}
 
+  - id: gravel-bot
+    main: ./cmd/gravel-bot
+    binary: gravel-bot
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
 archives:
   - id: gravel-hub
     ids:
@@ -26,6 +40,12 @@ archives:
     formats:
       - tar.gz
     name_template: "gravel-hub_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+  - id: gravel-bot
+    ids:
+      - gravel-bot
+    formats:
+      - tar.gz
+    name_template: "gravel-bot_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
 checksum:
   name_template: checksums.txt
@@ -57,6 +77,28 @@ kos:
       org.opencontainers.image.version: "{{ .Version }}"
       org.opencontainers.image.licenses: Apache-2.0
 
+  - id: gravel-bot
+    build: gravel-bot
+    main: ./cmd/gravel-bot
+    repositories:
+      - ghcr.io/gravel-project/gravel-bot
+    bare: true
+    base_image: gcr.io/distroless/static-debian12:nonroot
+    platforms:
+      - linux/amd64
+      - linux/arm64
+    tags:
+      - "{{ .Version }}"
+      - latest
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+    sbom: spdx
+    labels:
+      org.opencontainers.image.source: https://github.com/gravel-project/gravel
+      org.opencontainers.image.version: "{{ .Version }}"
+      org.opencontainers.image.licenses: Apache-2.0
 docker_signs:
   - cmd: cosign
     artifacts: all
