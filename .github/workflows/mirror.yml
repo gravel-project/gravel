@@ -1,0 +1,43 @@
+# Copies the images gravel needs that exist only on Docker Hub into gravel-project's own namespace
+# on ghcr.io (#79), so a deployment or a CI job never pulls from Docker Hub. The list is
+# deploy/mirror/images.txt; skopeo copies every architecture and keeps the digest, so a quadlet or
+# a compose file pinned by digest reads the same from either side. Weekly, on demand, and whenever
+# the list changes on main.
+name: mirror
+
+on:
+  schedule:
+    - cron: "17 6 * * 1" # Mondays, 06:17 UTC
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [deploy/mirror/images.txt, .github/workflows/mirror.yml]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Log in to ghcr.io
+        env:
+          TOKEN: ${{ github.token }}
+          USER: ${{ github.actor }}
+        run: printf '%s' "$TOKEN" | skopeo login ghcr.io --username "$USER" --password-stdin
+
+      - name: Copy every image in the list, and fail if a digest did not survive the copy
+        run: |
+          set -euo pipefail
+          while read -r src dst; do
+            [[ -z "$src" || "$src" == \#* ]] && continue
+            echo "== $src -> $dst"
+            skopeo copy --all --quiet "docker://$src" "docker://$dst"
+            s="$(skopeo inspect --no-tags --format '{{.Digest}}' "docker://$src")"
+            d="$(skopeo inspect --no-tags --format '{{.Digest}}' "docker://$dst")"
+            [[ "$s" == "$d" ]] || { echo "::error::the copy of $src has digest $d, the source $s"; exit 1; }
+            echo "$d"
+          done < deploy/mirror/images.txt

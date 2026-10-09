@@ -4,7 +4,7 @@
 Description=Postgres for the gravel hub
 
 [Container]
-Image=docker.io/library/postgres:17
+Image=public.ecr.aws/docker/library/postgres:17
 ContainerName=gravel-postgres
 Network=gravel.network
 Volume=gravel-postgres.volume:/var/lib/postgresql/data
