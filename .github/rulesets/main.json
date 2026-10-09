@@ -1,0 +1,109 @@
+{
+  "name": "main",
+  "target": "branch",
+  "enforcement": "active",
+  "bypass_actors": [],
+  "conditions": {
+    "ref_name": {
+      "exclude": [],
+      "include": [
+        "~DEFAULT_BRANCH"
+      ]
+    }
+  },
+  "rules": [
+    {
+      "type": "deletion"
+    },
+    {
+      "type": "non_fast_forward"
+    },
+    {
+      "type": "required_linear_history"
+    },
+    {
+      "type": "pull_request",
+      "parameters": {
+        "required_approving_review_count": 0,
+        "dismiss_stale_reviews_on_push": false,
+        "required_reviewers": [],
+        "require_code_owner_review": false,
+        "dismissal_restriction": {
+          "enabled": false,
+          "allowed_actors": []
+        },
+        "require_last_push_approval": false,
+        "required_review_thread_resolution": false,
+        "require_extra_approval_for_unattributed_changes": true,
+        "allowed_merge_methods": [
+          "squash"
+        ]
+      }
+    },
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": false,
+        "do_not_enforce_on_create": false,
+        "required_status_checks": [
+          {
+            "context": "go",
+            "integration_id": 15368
+          },
+          {
+            "context": "lint",
+            "integration_id": 15368
+          },
+          {
+            "context": "vuln",
+            "integration_id": 15368
+          },
+          {
+            "context": "proto",
+            "integration_id": 15368
+          },
+          {
+            "context": "quadlet",
+            "integration_id": 15368
+          },
+          {
+            "context": "image",
+            "integration_id": 15368
+          },
+          {
+            "context": "integration",
+            "integration_id": 15368
+          },
+          {
+            "context": "backup",
+            "integration_id": 15368
+          },
+          {
+            "context": "observability",
+            "integration_id": 15368
+          },
+          {
+            "context": "a11y",
+            "integration_id": 15368
+          },
+          {
+            "context": "release-config",
+            "integration_id": 15368
+          },
+          {
+            "context": "title / title",
+            "integration_id": 15368
+          },
+          {
+            "context": "changelog / changelog",
+            "integration_id": 15368
+          },
+          {
+            "context": "dco",
+            "integration_id": 15368
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,5 +1,7 @@
 # Every check `make check` runs locally, plus the integration job against Postgres. The Makefile
 # is the source of truth for tool versions; the lint job pins the same golangci-lint version.
+# Every job is a required check in .github/rulesets/main.json: a new or renamed job goes there too,
+# and the owner applies it: gh api -X PUT repos/gravel-project/gravel/rulesets/24379347 --input .github/rulesets/main.json
 name: ci
 
 on:
@@ -140,6 +142,7 @@ jobs:
       # axe bundles a ChromeDriver that drifts from the runner's Chrome; install a synced pair.
       - run: npx --yes browser-driver-manager@2.0.1 install chrome
       - run: |
+          # shellcheck source=/dev/null # written by the step above
           . ~/.browser-driver-manager/.env
           case "$CHROME_TEST_PATH" in /*) ;; *) CHROME_TEST_PATH="$HOME/$CHROME_TEST_PATH" ;; esac
           case "$CHROMEDRIVER_TEST_PATH" in /*) ;; *) CHROMEDRIVER_TEST_PATH="$HOME/$CHROMEDRIVER_TEST_PATH" ;; esac
