@@ -16,6 +16,17 @@ if [[ ! -s "$dir/db-url" || "$(cat "$dir/db-url")" != "$url" ]]; then
   printf '%s\n' "$url" > "$dir/db-url"
   echo "wrote $dir/db-url"
 fi
+# The backup store's root key pair (the local S3 store) and the AWS-style credentials file WAL-G
+# reads it from, plus a pgpass line for the backup job's connection.
+if [[ ! -s "$dir/store-secret" ]]; then
+  head -c 24 /dev/urandom | base64 | tr -d '/+=\n' > "$dir/store-secret"
+  echo "wrote $dir/store-secret"
+fi
+printf '[default]\naws_access_key_id = gravel\naws_secret_access_key = %s\n' "$(cat "$dir/store-secret")" > "$dir/backup-credentials"
+printf 'postgres:5432:gravel:gravel:%s\n' "$pw" > "$dir/backup-pgpass"
+mkdir -p "$(dirname "$dir")/store/gravel"   # the bucket: a directory for the posix store
 podman secret create --replace gravel-db-password "$dir/db-password" >/dev/null
 podman secret create --replace gravel-db-url "$dir/db-url" >/dev/null
-echo "podman secrets gravel-db-password and gravel-db-url are current"
+podman secret create --replace gravel-backup-credentials "$dir/backup-credentials" >/dev/null
+podman secret create --replace gravel-backup-pgpass "$dir/backup-pgpass" >/dev/null
+echo "podman secrets gravel-db-password, gravel-db-url, gravel-backup-credentials and gravel-backup-pgpass are current (the store's key stays in $dir/store-secret)"

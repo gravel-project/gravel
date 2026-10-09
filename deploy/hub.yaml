@@ -17,6 +17,10 @@ log:
   level: info
   format: json
 
+# The backup job's status file (compose mounts the gravel-backup volume; docs/hub.md "Backups").
+backup:
+  status_file: /var/lib/gravel/backup/status.json
+
 # Login (docs/hub.md "Login"). Disabled here so the stack runs with no Discord application; to
 # enable it, register http://127.0.0.1:8080/auth/discord/callback on your Discord app, load the
 # secrets (deploy/README.md) and turn the providers on.

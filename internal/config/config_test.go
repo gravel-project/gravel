@@ -297,3 +297,24 @@ func TestAuthValidation(t *testing.T) {
 		t.Errorf("steam-only login: %v", err)
 	}
 }
+
+func TestDisabledProviderSecretFilesAreNotRead(t *testing.T) {
+	doc := minimal + `
+auth:
+  base_url: https://a.example
+  discord:
+    enabled: false
+    client_secret_file: /run/secrets/missing
+  steam:
+    enabled: false
+    api_key_file: /run/secrets/missing
+`
+	env := noEnv() // every ReadFile fails
+	cfg, err := Parse(strings.NewReader(doc), env)
+	if err != nil {
+		t.Fatalf("a disabled provider's file must not be read: %v", err)
+	}
+	if cfg.Auth.Discord.ClientSecret != "" || cfg.Auth.Steam.APIKey != "" {
+		t.Errorf("no secret resolved for disabled providers: %+v %+v", cfg.Auth.Discord, cfg.Auth.Steam)
+	}
+}

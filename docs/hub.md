@@ -179,6 +179,63 @@ wrong or expired token `permission_denied`, an empty token `invalid_argument`. A
 mints a token again. A claim made by 0.1.0 bound no user; migration 2 reopens it, so such a hub
 logs a fresh token after the upgrade.
 
+## Backups (ADR-0006)
+
+The hub's Postgres runs from `ghcr.io/gravel-project/gravel-postgres`, the official image plus
+WAL-G: Postgres pushes every WAL segment to object storage as it is written
+(`archive_command='wal-g wal-push %p'`, `archive_timeout=60`), and `gravel-backup.timer` takes a
+base backup every night and keeps 30. The hub does not back up; it watches:
+
+```yaml
+backup:
+  status_file: /var/lib/gravel/backup/status.json   # written by gravel-backup after every run; empty = no job
+```
+
+| Metric | Source | Alert on |
+|---|---|---|
+| `gravel_backup_last_success_timestamp_seconds` | the status file | `time() - … > 36h`: no base backup for a day and a half |
+| `gravel_backup_last_run_ok`, `gravel_backup_last_run_timestamp_seconds` | the status file | `== 0`: the last run failed |
+| `gravel_backup_status_readable` | the status file | `== 0`: the file is configured but unreadable |
+| `gravel_wal_last_archived_timestamp_seconds`, `gravel_wal_archived_total` | `pg_stat_archiver` | `time() - … > 300`: the archive trails the database by more than `archive_timeout` allows |
+| `gravel_wal_archive_failed_total`, `gravel_wal_last_failed_timestamp_seconds` | `pg_stat_archiver` | `increase(…[1h]) > 0`: an upload failed |
+| `gravel_wal_archiver_readable` | the database | `== 0`: Postgres did not answer at scrape |
+
+Turning backups on for a quadlet deployment: edit the bucket lines in `deploy/quadlet/backup/`,
+create the two secrets, `make quadlet-install-backup`, restart `gravel-postgres` and `gravel-hub`
+(the drop-ins switch the image and mount the status volume), then
+`systemctl --user enable --now gravel-backup.timer`; `deploy/README.md` has the steps. The
+development stack archives into a local store (`make up`); `make backup` takes a base backup.
+
+## Restore
+
+`gravel-restore` runs in a container of the same image, with the same WAL-G settings, against an
+**empty** data volume, and prepares a point-in-time recovery; the next Postgres start on that
+volume replays WAL to the point and promotes:
+
+```sh
+systemctl --user stop gravel-hub gravel-postgres
+podman volume create gravel-restore
+podman run --rm --network gravel --secret gravel-backup-credentials \
+  -e WALG_S3_PREFIX=s3://my-bucket/gravel -e AWS_ENDPOINT=https://… -e AWS_REGION=auto -e AWS_S3_FORCE_PATH_STYLE=true \
+  -e AWS_SHARED_CREDENTIALS_FILE=/run/secrets/gravel-backup-credentials \
+  -v gravel-restore:/var/lib/postgresql/data ghcr.io/gravel-project/gravel-postgres@sha256:… \
+  gravel-restore --to 2026-10-09T02:00:00Z          # or --latest; --backup <name> picks a base backup
+# point gravel-postgres.volume at the restored data (or rename the volumes), then
+systemctl --user start gravel-postgres gravel-hub   # /readyz confirms the schema is current
+```
+
+Everything after the target is gone: sessions issued later, and a claim made later (the hub
+mints a token again if the restored organization is unowned). The restored database carries the
+password that was current when the backup was taken; rotate per the operator's runbook if it has
+changed since.
+
+**The drill.** `make backup-drill` runs `deploy/backup-drill.sh` with podman: a local S3 store, a
+Postgres from the image archiving into it, rows written, a base backup, more rows, a point in time
+from the database's own clock, more rows, a segment switch; the database is destroyed and
+restored to the point into a fresh volume; the script checks that exactly the rows before the
+point came back and that the hub's migrations are current, and prints the restore time. CI runs
+it on every pull request (the `backup` job).
+
 ## Migrations
 
 SQL migrations live in `internal/store/migrations/` and are embedded in the binary (goose). With
@@ -192,9 +249,9 @@ migration has a `-- +goose Down` section so tests can reset a database.
   store and starts hub + Postgres 17 with `podman compose` (`deploy/compose.yaml`). Host ports
   come from `GRAVEL_PORT` and `GRAVEL_INTERNAL_PORT` (8080 and 9090 by default). `make down` stops
   it and keeps the Postgres volume.
-- **Production:** the quadlet units in `deploy/quadlet/` as rootless systemd user units; see
-  `deploy/README.md`. The config file must be readable by uid 65532, the container's user (mode
-  0644 is fine: it holds no secrets).
+- **Production:** the quadlet units in `deploy/quadlet/` as rootless systemd user units, with
+  the backup set from `deploy/quadlet/backup/`; see `deploy/README.md`. The config file must be
+  readable by uid 65532, the container's user (mode 0644 is fine: it holds no secrets).
 
 The image is built by ko from `cmd/gravel-hub` on `gcr.io/distroless/static-debian12:nonroot`,
 runs as uid 65532, and has the binary at `/ko-app/gravel-hub` (`.ko.yaml`). Releases push it to

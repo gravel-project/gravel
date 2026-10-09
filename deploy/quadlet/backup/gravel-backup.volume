@@ -1,0 +1,5 @@
+# The backup job's status file, read by the hub.
+[Unit]
+Description=gravel backup status
+
+[Volume]

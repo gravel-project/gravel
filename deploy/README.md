@@ -8,7 +8,8 @@ podman 4.5 or later):
 | Files | `compose.yaml`, `hub.yaml` | `quadlet/*` |
 | Start | `make up` | `systemctl --user start gravel-hub` |
 | Secrets | `dev-secrets.sh` generates them into podman's secret store | `podman secret create` from your own files |
-| Image | `localhost/gravel-hub:dev`, built by `make image` | `ghcr.io/gravel-project/gravel-hub`, pinned by digest, signature verified |
+| Image | `localhost/gravel-hub:dev` and `localhost/gravel-postgres:dev`, built by `make image` and `make postgres-image` | `ghcr.io/gravel-project/gravel-hub` and, with backups, `ghcr.io/gravel-project/gravel-postgres`, pinned by digest, signatures verified |
+| Backups | always on, into a local S3 store (`store`); `make backup` takes a base backup; `make backup-drill` restores one | `deploy/quadlet/backup/`: drop-ins, a nightly timer, a real bucket (ADR-0006) |
 
 Secrets are never bind-mounted: podman copies each secret into the container's tmpfs, so SELinux
 labels and file ownership on the host don't matter and nothing readable is left in a working tree.
@@ -22,10 +23,12 @@ make down                                # keeps the gravel-postgres volume
 GRAVEL_PORT=18080 GRAVEL_INTERNAL_PORT=19090 make up   # when 8080/9090 are taken
 ```
 
-`deploy/secrets/` (gitignored) keeps the generated Postgres password and database URL;
-`dev-secrets.sh` loads them as the podman secrets `gravel-db-password` and `gravel-db-url`, the
-same names the quadlet units use. `hub.yaml` is the hub's configuration for the stack, mounted
-read-only.
+`deploy/secrets/` (gitignored) keeps the generated Postgres password and database URL, the
+local store's key and the backup job's credentials file and pgpass line; `dev-secrets.sh` loads
+them as the podman secrets `gravel-db-password`, `gravel-db-url`, `gravel-backup-credentials`
+and `gravel-backup-pgpass`, the same names the quadlet units use. `deploy/store/` (gitignored)
+is the local S3 store's data, one directory per bucket. `hub.yaml` is the hub's configuration
+for the stack, mounted read-only.
 
 Login is off in the stack's `hub.yaml`, so it runs with no Discord application. To try it:
 create a Discord application with `http://127.0.0.1:8080/auth/discord/callback` as an OAuth2
@@ -83,7 +86,34 @@ side, `gravel-cloudflared.container` runs a Cloudflare Tunnel whose origin is
 optional and wants the `gravel-tunnel-token` secret. Hidden Token Gaming's `deploy` repository
 parameterises these units for earth and adds the Tunnel hostnames.
 
-`make quadlet-check` dry-runs the units with the quadlet generator (CI does too).
+`make quadlet-check` dry-runs the units with the quadlet generator, with and without the backup
+set (CI does too).
+
+## Backups
+
+Backups are opt-in per deployment (ADR-0006; `docs/hub.md` "Backups"). To turn them on:
+
+1. A bucket on any S3-compatible store (Cloudflare R2, Backblaze B2, MinIO, …) and a key pair
+   that may read, write and delete in it.
+2. Two secrets: the credentials as an AWS shared credentials file, and a pgpass line for the
+   backup job's connection:
+
+   ```sh
+   printf '[default]\naws_access_key_id = %s\naws_secret_access_key = %s\n' "$KEY_ID" "$SECRET" | podman secret create gravel-backup-credentials -
+   printf 'gravel-postgres:5432:gravel:gravel:%s\n' "$(cat /path/to/db-password)" | podman secret create gravel-backup-pgpass -
+   ```
+
+3. Edit the `Image=` (the release's `gravel-postgres` digest, `docs/releasing.md`),
+   `WALG_S3_PREFIX` and `AWS_ENDPOINT` lines in `deploy/quadlet/backup/gravel-postgres.container.d/10-backup.conf`
+   and `deploy/quadlet/backup/gravel-backup.container` (`AWS_REGION=auto` is R2's; others name a
+   region), and set `backup.status_file: /var/lib/gravel/backup/status.json` in `hub.yaml`.
+4. `make quadlet-install-backup`, then `systemctl --user restart gravel-postgres gravel-hub`
+   (Postgres restarts once onto the new image with archiving on) and
+   `systemctl --user enable --now gravel-backup.timer`. `systemctl --user start gravel-backup`
+   takes the first base backup now; `journalctl --user -u gravel-backup` shows WAL-G's log and
+   `/metrics` the `gravel_backup_*` and `gravel_wal_*` gauges.
+
+Restore: `docs/hub.md` "Restore". Rehearse it with `make backup-drill` before you need it.
 
 Health checks on the hub's image must be the exec form (`HealthCmd=["CMD", …]`): the string form
 runs through `/bin/sh -c`, and distroless has no shell, so it reports unhealthy while the hub is fine.

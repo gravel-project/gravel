@@ -36,3 +36,6 @@ go.work.sum
 /dist/
 /deploy/secrets/
 /deploy/hub.local.yaml
+
+# The development stack: generated secrets and the local backup store.
+deploy/store/
