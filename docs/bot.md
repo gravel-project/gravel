@@ -131,12 +131,27 @@ Metric: `gravel_bot_linked_roles_schema_registered`.
 
 ## A host's bot
 
+A host's `main` is a `cli.Program` (`discord/bot/cli`): the same commands, config handling and
+stock modules as `gravel-bot`, with the host's name, paths and own modules.
+
 ```go
-rt, err := bot.New(bot.Options{Config: cfg, Logger: logger, Version: version},
-    core.New(hub, cfg.Hub.PublicURL),   // gravel's modules
-    mybot.NewGoLive(hub, ...),          // the host's, same interface
-)
+var version = "dev" // set by the linker
+
+func main() {
+    os.Exit(cli.Program{
+        Name: "my-bot", Version: version,
+        DefaultConfig: "/etc/my/bot.yaml", ConfigEnv: "MY_BOT_CONFIG",
+        Modules: func(cfg bot.Config, hub *hubclient.Client) []bot.Module {
+            return []bot.Module{mybot.NewGoLive(hub)} // registered after the stock set
+        },
+    }.Main())
+}
 ```
+
+The stock set comes from `stock.Modules` (`discord/bot/stock`): `core` always, `rolesync` and
+`linkedroles` as `bot.yaml` enables them, so a module gravel adds later reaches the host's bot at
+its next gravel upgrade without a code change. `config check` lists the modules it would run. A
+host that needs a different command line can call `stock.Modules` and `bot.New` itself.
 
 A module implements `Name()` and `Register(r *bot.Registry) error`; the registry takes slash
 commands with their handlers (disgo's `handler.CommandEvent`: reply with `CreateMessage`, or
