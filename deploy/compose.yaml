@@ -113,7 +113,7 @@ services:
   # The images are the ones deploy/quadlet/observability/ pins; Grafana logs in as admin with
   # the dev secret gravel-grafana-admin-password (deploy/secrets/grafana-admin-password).
   prometheus:
-    image: docker.io/prom/prometheus@sha256:efd719c99d83b060d9daefdcf00360461adf279f45ef5391f8d111892118753e # v3.15.0
+    image: quay.io/prometheus/prometheus@sha256:efd719c99d83b060d9daefdcf00360461adf279f45ef5391f8d111892118753e # v3.15.0; Quay, not Docker Hub (#79)
     profiles: ["observability"]
     command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.path=/prometheus", "--storage.tsdb.retention.time=30d", "--storage.tsdb.retention.size=2GB"]
     volumes:
@@ -128,7 +128,7 @@ services:
     restart: unless-stopped
 
   grafana:
-    image: docker.io/grafana/grafana@sha256:b28bae15e219c998fb0e0424ed724930cc61b1f61fb404d47c862f9a23f9e572 # 13.2.3
+    image: mirror.gcr.io/grafana/grafana@sha256:b28bae15e219c998fb0e0424ed724930cc61b1f61fb404d47c862f9a23f9e572 # 13.2.3; Google's cache until ghcr.io/gravel-project/mirror/grafana is public (#79)
     profiles: ["observability"]
     depends_on: [prometheus]
     environment:

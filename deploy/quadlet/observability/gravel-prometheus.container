@@ -1,4 +1,4 @@
-# Prometheus for gravel (ADR-0009), pinned by index digest: docker.io/prom/prometheus v3.15.0
+# Prometheus for gravel (ADR-0009), pinned by index digest: quay.io/prometheus/prometheus v3.15.0 (not Docker Hub, #79)
 # (amd64 and arm64 among its platforms). Config: ~/.config/gravel/prometheus.yml, a copy of
 # deploy/observability/prometheus/quadlet.yml. It scrapes gravel-hub:9090 and gravel-bot:9091 on
 # gravel.network; 127.0.0.1:9092 is for an operator's ad-hoc queries. 30 days or 2 GB, whichever
@@ -7,7 +7,7 @@
 Description=gravel Prometheus
 
 [Container]
-Image=docker.io/prom/prometheus@sha256:efd719c99d83b060d9daefdcf00360461adf279f45ef5391f8d111892118753e
+Image=quay.io/prometheus/prometheus@sha256:efd719c99d83b060d9daefdcf00360461adf279f45ef5391f8d111892118753e
 ContainerName=gravel-prometheus
 Network=gravel.network
 PublishPort=127.0.0.1:9092:9090

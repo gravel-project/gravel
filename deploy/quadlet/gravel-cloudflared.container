@@ -6,7 +6,7 @@ Description=Cloudflare Tunnel for the gravel hub
 After=gravel-hub.service
 
 [Container]
-Image=docker.io/cloudflare/cloudflared:latest
+Image=mirror.gcr.io/cloudflare/cloudflared:latest
 ContainerName=gravel-cloudflared
 Network=gravel.network
 Secret=gravel-tunnel-token,type=env,target=TUNNEL_TOKEN

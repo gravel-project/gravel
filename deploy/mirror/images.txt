@@ -1,0 +1,5 @@
+# Images that exist only on Docker Hub, copied weekly into gravel-project's namespace on ghcr.io by
+# .github/workflows/mirror.yml (#79). One per line: the source, then the copy. The digest is the
+# same on both sides, so the quadlets and compose pin it and name the copy.
+docker.io/grafana/grafana:13.2.3         ghcr.io/gravel-project/mirror/grafana:13.2.3
+docker.io/cloudflare/cloudflared:latest  ghcr.io/gravel-project/mirror/cloudflared:latest

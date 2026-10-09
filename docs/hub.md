@@ -453,7 +453,7 @@ each test binary then drops and recreates its own database (`gravel_test_<packag
 run in parallel. `make test-integration` insists on the variable. Locally:
 
 ```sh
-podman run -d --name gravel-test-pg -p 127.0.0.1:55432:5432 -e POSTGRES_USER=gravel -e POSTGRES_PASSWORD=test -e POSTGRES_DB=gravel docker.io/library/postgres:17
+podman run -d --name gravel-test-pg -p 127.0.0.1:55432:5432 -e POSTGRES_USER=gravel -e POSTGRES_PASSWORD=test -e POSTGRES_DB=gravel public.ecr.aws/docker/library/postgres:17
 GRAVEL_TEST_DATABASE_URL='postgres://gravel:test@127.0.0.1:55432/gravel?sslmode=disable' make test-integration
 ```
 

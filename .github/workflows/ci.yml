@@ -76,7 +76,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:17
+        image: public.ecr.aws/docker/library/postgres:17 # AWS's mirror of the official image, not Docker Hub (#79)
         env:
           POSTGRES_USER: gravel
           POSTGRES_PASSWORD: gravel
