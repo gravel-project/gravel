@@ -6,6 +6,10 @@ All notable changes to gravel are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The quadlet units pin the 0.6.0 images by index digest, all three verified with cosign against the release workflow at `v0.6.0`, and the hub and bot report `0.6.0` from `768e711`: `ghcr.io/gravel-project/gravel-hub@sha256:bee1bf32fe0a5149d333f69bb070e18035a3acefdf76f4271e0ff35d06a4bc0f` in `gravel-hub.container`, `ghcr.io/gravel-project/gravel-bot@sha256:95eead44c3cd4029678035635ac29c7106344d45d5083441837065b267a358e3` in `gravel-bot.container`, and `ghcr.io/gravel-project/gravel-postgres@sha256:4a68eda56a109a795bb684d3c6e8a16a5753c8be4a5268ba80d1fd4ff6fce2d5` in the backup set (the same Containerfile, rebuilt at the tag). `docs/hub.md` names 0.6.0 as the tag example.
+
 ## [0.6.0] - 2026-10-09
 
 ### Added
