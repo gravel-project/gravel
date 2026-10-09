@@ -250,6 +250,14 @@ backup:
 | `gravel_wal_archive_failed_total`, `gravel_wal_last_failed_timestamp_seconds` | `pg_stat_archiver` | `increase(…[1h]) > 0`: an upload failed |
 | `gravel_wal_archiver_readable` | the database | `== 0`: Postgres did not answer at scrape |
 
+In a quadlet unit the archive command is written `wal-g wal-push %%p`: systemd expands `%` specifiers
+in the generated service, and `%%` is how a literal percent reaches Postgres (the compose file and
+the drill, which hand the command to podman directly, write `%p`).
+
+In a quadlet unit the archive command is written `wal-g wal-push %%p`: systemd expands `%`
+specifiers in the generated service, and `%%` is how a literal percent reaches Postgres (the
+compose file and the drill, which hand the command to podman directly, write `%p`).
+
 Turning backups on for a quadlet deployment: edit the bucket lines in `deploy/quadlet/backup/`,
 create the two secrets, `make quadlet-install-backup`, restart `gravel-postgres` and `gravel-hub`
 (the drop-ins switch the image and mount the status volume), then
