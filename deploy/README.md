@@ -107,7 +107,8 @@ Backups are opt-in per deployment (ADR-0006; `docs/hub.md` "Backups"). To turn t
    `gravel-postgres` digest, `docs/releasing.md`) in `deploy/quadlet/backup/gravel-postgres.container.d/10-backup.conf`
    and `deploy/quadlet/backup/gravel-backup.container` (`AWS_REGION=auto` is R2's; others name a
    region), and set `backup.status_file: /var/lib/gravel/backup/status.json` in `hub.yaml`.
-4. `make quadlet-install-backup`, then `systemctl --user restart gravel-postgres gravel-hub`
+4. `make quadlet-install-backup` (the drop-ins and the unit beside the quadlet files, the timer into
+   `~/.config/systemd/user/`, where systemd reads plain units), then `systemctl --user restart gravel-postgres gravel-hub`
    (Postgres restarts once onto the new image with archiving on) and
    `systemctl --user enable --now gravel-backup.timer`. `systemctl --user start gravel-backup`
    takes the first base backup now; `journalctl --user -u gravel-backup` shows WAL-G's log and
