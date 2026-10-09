@@ -1,0 +1,75 @@
+# Pull request checks: a Conventional Commit title with a lower-case subject (the squash commit
+# inherits it), a CHANGELOG entry under [Unreleased] unless the PR carries the no-changelog label,
+# and a DCO sign-off on every commit (CONTRIBUTING.md). The ruleset in .github/rulesets/main.json
+# requires all three.
+#
+# The title and changelog checks call Hidden Token Gaming's public reusable workflows cross-org,
+# as project-add.yml already does: one org's checks in one place to change them, the same rules
+# the HTG repositories run. When the open-source cut gives gravel-project its own .github
+# repository, they move there and these two lines change.
+name: pr-checks
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  title:
+    uses: hidden-token-gaming/.github/.github/workflows/pr-title.yml@main
+  changelog:
+    uses: hidden-token-gaming/.github/.github/workflows/changelog.yml@main
+
+  # Every non-merge commit in the PR carries "Signed-off-by: <author name> <author email>". A
+  # script, not a marketplace action: it is a dozen lines and needs no token. Dependabot signs
+  # off as dependabot[bot] <support@github.com>, which never matches its author address, so its
+  # commits are exempt by author.
+  dco:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # the PR's commits and its base
+      - name: Every commit is signed off by its author
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          dependabot='49699333+dependabot[bot]@users.noreply.github.com'
+          # Fail loudly rather than check nothing: a missing object or an empty range is an error.
+          # The PR's own commits: reachable from its head, not from the base it was opened against
+          # nor from the base branch now (a merge of main into the branch brings main's commits).
+          git fetch -q --no-tags origin "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
+          git cat-file -e "$BASE^{commit}"
+          git cat-file -e "$HEAD^{commit}"
+          range=("$HEAD" --not "$BASE" "refs/remotes/origin/$BASE_REF")
+          total="$(git rev-list --count "${range[@]}")"
+          commits="$(git rev-list --no-merges "${range[@]}")"
+          if [ "$total" -eq 0 ]; then
+            echo "::error::No commits in the PR between $BASE and $HEAD; nothing to check."; exit 1
+          fi
+          bad=0
+          for c in $commits; do
+            name="$(git show -s --format=%an "$c")"
+            email="$(git show -s --format=%ae "$c")"
+            subject="$(git show -s --format=%s "$c")"
+            if [ "$email" = "$dependabot" ]; then
+              echo "skip ${c:0:12} (Dependabot): $subject"; continue
+            fi
+            if git show -s --format=%B "$c" | sed 's/[[:space:]]*$//' |
+                grep -Fxqi "Signed-off-by: $name <$email>"; then
+              echo "ok   ${c:0:12}: $subject"
+            else
+              echo "::error::${c:0:12} \"$subject\" has no 'Signed-off-by: $name <$email>'"
+              bad=1
+            fi
+          done
+          echo "Checked $(echo "$commits" | grep -c .) of $total commits (merge commits skipped)."
+          if [ "$bad" -ne 0 ]; then
+            echo "::error::Sign off every commit (git commit -s); to fix the last N, git rebase --signoff HEAD~N, then git push --force-with-lease. See CONTRIBUTING.md."
+            exit 1
+          fi

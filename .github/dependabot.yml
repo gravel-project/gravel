@@ -1,0 +1,31 @@
+# Weekly version updates for the Go modules and the workflow actions. Minor and patch bumps arrive
+# as one PR per ecosystem; a major bump gets its own. The PRs carry no-changelog, so the CHANGELOG
+# check passes, and a Conventional Commit prefix, so the title check does. Dependabot's commits are
+# exempt from the DCO check (pr-checks.yml).
+#
+# Not Dependabot's to bump: the tool pins at the top of the Makefile (buf, golangci-lint,
+# govulncheck, ko, templ, the protoc plugins, htmx, axe), installed by `go install …@version`, the
+# golangci-lint version in ci.yml that follows GOLANGCI_LINT_VERSION, goreleaser's version range,
+# and the image digests in deploy/. Bump those by hand.
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      go-minor-patch:
+        update-types: [minor, patch]
+    labels: [no-changelog, dependencies]
+    commit-message:
+      prefix: "build(deps)"
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions-minor-patch:
+        update-types: [minor, patch]
+    labels: [no-changelog, dependencies]
+    commit-message:
+      prefix: "ci(deps)"
