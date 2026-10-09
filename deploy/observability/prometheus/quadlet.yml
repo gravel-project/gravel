@@ -1,0 +1,17 @@
+# Prometheus for the quadlet units (deploy/quadlet/observability/): the hub, the bot and
+# Prometheus itself, by their container names on gravel.network. Install it as
+# ~/.config/gravel/prometheus.yml; a target that isn't running shows as down, nothing more.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: gravel-hub
+    static_configs:
+      - targets: ["gravel-hub:9090"]
+  - job_name: gravel-bot
+    static_configs:
+      - targets: ["gravel-bot:9091"]
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

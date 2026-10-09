@@ -180,7 +180,8 @@ gravel-bot config check --config bot.yaml
 
 Logs are slog, JSON by default. `GET /metrics` on the internal listener carries the series below,
 plus the Go (`go_*`) and process (`process_*`) collectors. The gateway series are read from the
-session at scrape time, never from a remembered event.
+session at scrape time, never from a remembered event. The `gravel bot` dashboard shows every one
+of them (ADR-0009, `deploy/README.md` "Dashboards").
 
 | Metric | Type | Labels | What it says | Absent when |
 |---|---|---|---|---|

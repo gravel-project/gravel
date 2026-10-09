@@ -1,0 +1,5 @@
+# Prometheus's time series. Disposable: losing it loses history, nothing else.
+[Unit]
+Description=gravel Prometheus data
+
+[Volume]

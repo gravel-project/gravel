@@ -27,6 +27,7 @@ import (
 	"github.com/gravel-project/gravel/internal/httpx"
 	"github.com/gravel-project/gravel/internal/identity"
 	"github.com/gravel-project/gravel/internal/identity/providers"
+	"github.com/gravel-project/gravel/internal/metricnames"
 	"github.com/gravel-project/gravel/internal/org"
 	"github.com/gravel-project/gravel/internal/ratelimit"
 	"github.com/gravel-project/gravel/internal/session"
@@ -61,7 +62,7 @@ type Hub struct {
 	perApp     *ratelimit.Limiter
 	claimToken string
 
-	registry     *prometheus.Registry
+	registry     *metricnames.Registry
 	metrics      *httpx.Metrics
 	authTotal    *prometheus.CounterVec
 	limitedTotal *prometheus.CounterVec
@@ -130,7 +131,7 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 	h.perUser = ratelimit.New(cfg.RateLimit.PerUser.RequestsPerMinute, cfg.RateLimit.PerUser.Burst)
 	h.perApp = ratelimit.New(cfg.RateLimit.PerApp.RequestsPerMinute, cfg.RateLimit.PerApp.Burst)
 
-	h.registry = prometheus.NewRegistry()
+	h.registry = metricnames.New()
 	h.registry.MustRegister(
 		collectors.NewGoCollector(),
 		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
@@ -343,3 +344,7 @@ func writeJSON(w http.ResponseWriter, code int, v any) {
 	w.WriteHeader(code)
 	_ = json.NewEncoder(w).Encode(v)
 }
+
+// MetricNames are the names of every metric the hub exposes on its internal listener, including
+// those with no sample yet (docs/hub.md, Observability; the dashboards' drift test reads them).
+func (h *Hub) MetricNames() []string { return h.registry.Names() }

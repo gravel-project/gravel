@@ -1,0 +1,16 @@
+# Prometheus for the compose stack (`make up-observability`): the hub, the bot when its profile
+# runs, and Prometheus itself, by their compose service names. The quadlet set uses quadlet.yml.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: gravel-hub
+    static_configs:
+      - targets: ["hub:9090"]
+  - job_name: gravel-bot
+    static_configs:
+      - targets: ["bot:9091"]
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

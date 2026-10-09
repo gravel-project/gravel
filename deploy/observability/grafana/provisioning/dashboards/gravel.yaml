@@ -1,0 +1,14 @@
+# gravel's dashboards, from files (ADR-0009): mount deploy/observability/grafana/dashboards at
+# /etc/grafana/dashboards/gravel. They change by a new gravel release, never in the UI; a file
+# removed here disappears from Grafana at the next scan.
+apiVersion: 1
+
+providers:
+  - name: gravel
+    folder: gravel
+    type: file
+    disableDeletion: false
+    allowUiUpdates: false
+    updateIntervalSeconds: 30
+    options:
+      path: /etc/grafana/dashboards/gravel

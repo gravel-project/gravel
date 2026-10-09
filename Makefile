@@ -33,7 +33,9 @@ IMAGE_TAG ?= dev
 # Host ports the compose stack publishes on 127.0.0.1 (override when 8080/9090 are taken).
 GRAVEL_PORT ?= 8080
 GRAVEL_INTERNAL_PORT ?= 9090
-export GRAVEL_PORT GRAVEL_INTERNAL_PORT
+GRAVEL_PROMETHEUS_PORT ?= 9092
+GRAVEL_GRAFANA_PORT ?= 3000
+export GRAVEL_PORT GRAVEL_INTERNAL_PORT GRAVEL_PROMETHEUS_PORT GRAVEL_GRAFANA_PORT
 # The dev store (versitygw) takes its root key from the environment; the compose file reads it from here.
 COMPOSE := GRAVEL_STORE_SECRET="$$(cat $(CURDIR)/deploy/secrets/store-secret 2>/dev/null || echo unset)" podman compose -f $(CURDIR)/deploy/compose.yaml
 QUADLET := $(firstword $(wildcard /usr/libexec/podman/quadlet /usr/lib/podman/quadlet /usr/lib/systemd/system-generators/podman-system-generator))
@@ -66,13 +68,15 @@ $(BIN)/templ: Makefile
 ## ---- code --------------------------------------------------------------------------------------
 
 .PHONY: generate
-generate: $(BIN)/buf $(BIN)/protoc-gen-go $(BIN)/protoc-gen-connect-go $(BIN)/protoc-gen-connect-openapi $(BIN)/templ ## Regenerate gen/ from proto/ and the pages' Go from their .templ files
+generate: $(BIN)/buf $(BIN)/protoc-gen-go $(BIN)/protoc-gen-connect-go $(BIN)/protoc-gen-connect-openapi $(BIN)/templ ## Regenerate gen/ from proto/, the pages' Go from their .templ files, and the dashboards
 	$(BIN)/buf generate
 	$(BIN)/templ generate -path internal/web/templates
+	go run ./internal/tools/dashboards gen
 
 .PHONY: generate-check
 generate-check: generate ## Fail if gen/ or a generated page is stale
-	git diff --exit-code -- gen/ internal/web/templates/ || { echo "generated code is stale: run make generate and commit"; exit 1; }
+	git diff --exit-code -- gen/ internal/web/templates/ deploy/observability/grafana/dashboards/ || { echo "generated code is stale: run make generate and commit"; exit 1; }
+	@[[ -z "$$(git status --porcelain -- deploy/observability/grafana/dashboards/)" ]] || { echo "a generated dashboard is not committed: run make generate and commit"; exit 1; }
 
 .PHONY: vendor-htmx
 vendor-htmx: ## Fetch htmx $(HTMX_VERSION) into internal/web/static/vendor/ (then commit it)
@@ -153,9 +157,19 @@ up: image postgres-image ## Run hub + Postgres (+ a local backup store) with pod
 	done
 	@echo "hub: http://127.0.0.1:$(GRAVEL_PORT)/healthz   metrics: http://127.0.0.1:$(GRAVEL_INTERNAL_PORT)/metrics   logs: podman compose -f deploy/compose.yaml logs -f hub"
 
+.PHONY: up-observability
+up-observability: up ## make up, plus Prometheus and Grafana with gravel's dashboards (Grafana: admin, password in deploy/secrets/grafana-admin-password)
+	$(COMPOSE) --profile observability up -d prometheus grafana
+	@for i in $$(seq 1 90); do \
+	  if curl -sf http://127.0.0.1:$(GRAVEL_GRAFANA_PORT)/api/health >/dev/null 2>&1; then echo "grafana ready after $$i s"; break; fi; \
+	  if [[ $$i -eq 90 ]]; then echo "grafana not ready after 90 s:"; $(COMPOSE) --profile observability logs --tail 20 grafana; exit 1; fi; \
+	  sleep 1; \
+	done
+	@echo "grafana: http://127.0.0.1:$(GRAVEL_GRAFANA_PORT) (admin)   prometheus: http://127.0.0.1:$(GRAVEL_PROMETHEUS_PORT)"
+
 .PHONY: down
-down: ## Stop the compose stack (keeps the Postgres volume)
-	$(COMPOSE) down
+down: ## Stop the compose stack, the bot and observability profiles included (keeps the volumes)
+	$(COMPOSE) --profile bot --profile observability down
 
 .PHONY: backup
 backup: ## Take a base backup of the compose stack's Postgres into the local store
@@ -166,12 +180,15 @@ backup-drill: build postgres-image ## The restore drill: archive, back up, resto
 	HUB=$(BIN)/gravel-hub IMAGE=$(POSTGRES_IMAGE_REPO):$(IMAGE_TAG) $(CURDIR)/deploy/backup-drill.sh
 
 .PHONY: quadlet-check
-quadlet-check: ## Dry-run the quadlet units, with and without the backup drop-ins
+quadlet-check: ## Dry-run the quadlet units: the base set, with the backup drop-ins, with the observability set
 	@[[ -n "$(QUADLET)" ]] || { echo "quadlet generator not found (install podman)"; exit 1; }
 	QUADLET_UNIT_DIRS=$(CURDIR)/deploy/quadlet $(QUADLET) -dryrun -user >/dev/null && echo "quadlet units OK"
 	@tmp="$$(mktemp -d)"; cp -r $(CURDIR)/deploy/quadlet/*.container $(CURDIR)/deploy/quadlet/*.volume $(CURDIR)/deploy/quadlet/*.network "$$tmp/"; \
 	  cp -r $(CURDIR)/deploy/quadlet/backup/. "$$tmp/"; rm -f "$$tmp/README.md"; \
 	  QUADLET_UNIT_DIRS="$$tmp" $(QUADLET) -dryrun -user >/dev/null && echo "quadlet units with backups OK"; rm -rf "$$tmp"
+	@tmp="$$(mktemp -d)"; cp -r $(CURDIR)/deploy/quadlet/*.container $(CURDIR)/deploy/quadlet/*.volume $(CURDIR)/deploy/quadlet/*.network "$$tmp/"; \
+	  cp $(CURDIR)/deploy/quadlet/observability/*.container $(CURDIR)/deploy/quadlet/observability/*.volume "$$tmp/"; \
+	  QUADLET_UNIT_DIRS="$$tmp" $(QUADLET) -dryrun -user >/dev/null && echo "quadlet units with observability OK"; rm -rf "$$tmp"
 
 .PHONY: quadlet-install
 quadlet-install: ## Copy the quadlet units into ~/.config/containers/systemd/ and reload
@@ -190,6 +207,25 @@ quadlet-install-backup: ## Copy the backup drop-ins and unit beside the installe
 	install -m 0644 $(CURDIR)/deploy/quadlet/backup/gravel-backup.timer $(HOME)/.config/systemd/user/
 	systemctl --user daemon-reload
 	@echo "backup units installed; restart gravel-postgres and gravel-hub, then: systemctl --user enable --now gravel-backup.timer"
+
+.PHONY: quadlet-install-observability
+quadlet-install-observability: ## Copy Prometheus, Grafana, their configuration and the dashboards beside the installed units, and reload (create gravel-grafana-admin-password first)
+	install -d $(HOME)/.config/containers/systemd $(HOME)/.config/gravel/grafana/dashboards $(addprefix $(HOME)/.config/gravel/grafana/provisioning/,datasources dashboards plugins alerting)
+	install -m 0644 $(CURDIR)/deploy/quadlet/observability/*.container $(CURDIR)/deploy/quadlet/observability/*.volume $(HOME)/.config/containers/systemd/
+	install -m 0644 $(CURDIR)/deploy/observability/prometheus/quadlet.yml $(HOME)/.config/gravel/prometheus.yml
+	install -m 0644 $(CURDIR)/deploy/observability/grafana/provisioning/datasources/*.yaml $(HOME)/.config/gravel/grafana/provisioning/datasources/
+	install -m 0644 $(CURDIR)/deploy/observability/grafana/provisioning/dashboards/*.yaml $(HOME)/.config/gravel/grafana/provisioning/dashboards/
+	install -m 0644 $(CURDIR)/deploy/observability/grafana/dashboards/*.json $(HOME)/.config/gravel/grafana/dashboards/
+	systemctl --user daemon-reload
+	@echo "observability units installed; then: systemctl --user start gravel-prometheus gravel-grafana (Grafana on http://127.0.0.1:3000)"
+
+.PHONY: dashboards
+dashboards: ## Regenerate the Grafana dashboards from internal/tools/dashboards
+	go run ./internal/tools/dashboards gen
+
+.PHONY: observability-check
+observability-check: image ## Run the dashboards against a live hub in a throwaway pod (podman); fails on a hub panel with no data
+	$(CURDIR)/deploy/observability/check.sh
 
 .PHONY: clean
 clean: ## Remove build outputs (not the tools)

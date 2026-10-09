@@ -1,0 +1,15 @@
+# The Prometheus Grafana reads, provisioned (ADR-0009). The address comes from the environment
+# (compose: http://prometheus:9090; quadlets: http://gravel-prometheus:9090), so one file serves
+# every deployment. The dashboards pick a datasource through their own variable, not this uid.
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    uid: gravel-prometheus
+    type: prometheus
+    access: proxy
+    url: ${GRAVEL_PROMETHEUS_URL}
+    isDefault: true
+    editable: false
+    jsonData:
+      timeInterval: 15s

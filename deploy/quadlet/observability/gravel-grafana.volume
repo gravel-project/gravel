@@ -1,0 +1,6 @@
+# Grafana's own state (its SQLite database: the admin user, sessions). Everything shown is
+# provisioned from files, so losing it costs a fresh admin login, nothing else.
+[Unit]
+Description=gravel Grafana data
+
+[Volume]

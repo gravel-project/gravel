@@ -25,8 +25,14 @@ fi
 printf '[default]\naws_access_key_id = gravel\naws_secret_access_key = %s\n' "$(cat "$dir/store-secret")" > "$dir/backup-credentials"
 printf 'postgres:5432:gravel:gravel:%s\n' "$pw" > "$dir/backup-pgpass"
 mkdir -p "$(dirname "$dir")/store/gravel"   # the bucket: a directory for the posix store
+# Grafana's admin password (make up-observability; log in as admin with this file's contents).
+if [[ ! -s "$dir/grafana-admin-password" ]]; then
+  head -c 24 /dev/urandom | base64 | tr -d '/+=\n' > "$dir/grafana-admin-password"
+  echo "wrote $dir/grafana-admin-password"
+fi
 podman secret create --replace gravel-db-password "$dir/db-password" >/dev/null
 podman secret create --replace gravel-db-url "$dir/db-url" >/dev/null
 podman secret create --replace gravel-backup-credentials "$dir/backup-credentials" >/dev/null
 podman secret create --replace gravel-backup-pgpass "$dir/backup-pgpass" >/dev/null
-echo "podman secrets gravel-db-password, gravel-db-url, gravel-backup-credentials and gravel-backup-pgpass are current (the store's key stays in $dir/store-secret)"
+podman secret create --replace gravel-grafana-admin-password "$dir/grafana-admin-password" >/dev/null
+echo "podman secrets gravel-db-password, gravel-db-url, gravel-backup-credentials, gravel-backup-pgpass and gravel-grafana-admin-password are current (the store's key stays in $dir/store-secret)"

@@ -34,6 +34,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+
+	"github.com/gravel-project/gravel/internal/metricnames"
 )
 
 // Module is a unit of bot behaviour. Register adds its commands, listeners and jobs to the
@@ -147,7 +149,7 @@ type Runtime struct {
 	// a test can stand in for disgo's gateway.
 	gatewayState func() (gateway.Status, time.Duration)
 
-	registry            *prometheus.Registry
+	registry            *metricnames.Registry
 	interactions        *prometheus.CounterVec
 	interactionDuration *prometheus.HistogramVec
 	jobResults          *prometheus.CounterVec
@@ -190,7 +192,7 @@ func New(opts Options, modules ...Module) (*Runtime, error) {
 		logger.Error("interaction failed", "error", err.Error(), "interaction", e.ID())
 	})
 
-	rt.registry = prometheus.NewRegistry()
+	rt.registry = metricnames.New()
 	rt.registry.MustRegister(collectors.NewGoCollector(), collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
 	buildInfo := prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "gravel_bot_build_info", Help: "Build information; always 1."}, []string{"version", "go_version"})
 	buildInfo.WithLabelValues(rt.version, runtime.Version()).Set(1)
@@ -495,3 +497,7 @@ func applicationIDFromToken(token string) (snowflake.ID, bool) {
 	id, err := snowflake.Parse(string(raw))
 	return id, err == nil
 }
+
+// MetricNames are the names of every metric the bot exposes, the modules' included, whether or
+// not they have a sample yet (docs/bot.md, Observability; the dashboards' drift test reads them).
+func (rt *Runtime) MetricNames() []string { return rt.registry.Names() }
