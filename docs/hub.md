@@ -84,6 +84,7 @@ Public listener (`server.listen`), HTTP/1.1 and unencrypted HTTP/2 so gRPC works
 | `/gravel.hub.v1.OrganizationService/ClaimOwnership` | Connect procedure; `{"token": "…"}`; needs a session, binds the caller as owner |
 | `/gravel.hub.v1.IdentityService/GetMe` | the caller and their linked identities; needs a session |
 | `/gravel.hub.v1.IdentityService/UnlinkIdentity` | `{"provider": "steam", "subject": "…"}`; the last identity is refused (`failed_precondition`) |
+| `/gravel.hub.v1.IdentityService/Logout` | end the calling session and clear its cookie |
 | `/gravel.hub.v1.IdentityService/RevokeSessions` | log out everywhere; answers how many sessions ended and clears the cookie |
 | `/gravel.hub.v1.IdentityService/LookupUser` | `{"provider": "discord", "subject": "…"}` → the user and their identities, for role sync; the owner only until #6 |
 | `/grpc.health.v1.Health/Check` | gRPC health |
@@ -91,7 +92,9 @@ Public listener (`server.listen`), HTTP/1.1 and unencrypted HTTP/2 so gRPC works
 | `GET /healthz` | 200 `{"status":"ok","version":"…"}` while the process runs |
 | `GET /readyz` | 200 `{"status":"ready"}` when Postgres answers and no migration is pending, else 503 with a reason |
 
-Pages and flows, on the same listener:
+Pages and flows, on the same listener (ADR-0005: the pages are templ components that call the
+procedures above in process; htmx, served from the binary, swaps the main content on forms, and
+every page works without it):
 
 | Path | What |
 |---|---|
@@ -101,9 +104,18 @@ Pages and flows, on the same listener:
 | `GET /auth/{provider}/start` | begin a login (providers with `login: true`) |
 | `GET /auth/{provider}/link` | begin a link, logged in |
 | `GET /auth/{provider}/callback` | the provider's return |
-| `POST /auth/logout` | this session, or every session with `everywhere=1` |
-| `POST /account/unlink`, `POST /account/claim` | forms; every POST carries the session's CSRF token in `_csrf` |
-| `GET /static/app.css` | the stylesheet |
+| `POST /auth/logout` | this session (`Logout`), or every session with `everywhere=1` (`RevokeSessions`) |
+| `POST /account/unlink`, `POST /account/claim` | forms; every POST carries the session's CSRF token in `_csrf`; with `HX-Request: true` the answer is the page's content, else a redirect |
+| `GET /theme.css` | the theme's tokens as custom properties, with an ETag |
+| `GET /static/app.css`, `GET /static/vendor/htmx.min.js` | the stylesheet and htmx |
+
+The pages send `Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self';
+img-src https: data:; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors
+'none'`: nothing inline, nothing from a third party. A host's look comes from a theme (tokens
+for the light and dark schemes, the font, a logo, a favicon, navigation links in the header or
+the footer, optionally owner-only); gravel#7 stores it on the Organization settings, and the
+defaults apply until then. Editing a page means editing its `.templ` file under
+`internal/web/templates/` and running `make generate`; the generated Go is committed.
 
 Internal listener (`server.internal_listen`): `GET /metrics` (Prometheus) and `GET /debug/pprof/`.
 
@@ -222,10 +234,15 @@ podman run -d --name gravel-test-pg -p 127.0.0.1:55432:5432 -e POSTGRES_USER=gra
 GRAVEL_TEST_DATABASE_URL='postgres://gravel:test@127.0.0.1:55432/gravel?sslmode=disable' make test-integration
 ```
 
+`make a11y` runs axe (`@axe-core/cli`, pinned in the Makefile, through npx) over the login page
+and fixtures of the account and error pages, driving Chrome; CI runs it too. It needs node and
+a browser, so it is not part of `make check`.
+
 ## Tooling
 
-`make tools` installs the pinned CLIs (buf, the protoc plugins, golangci-lint, govulncheck, ko)
-into `.bin/`; the versions live at the top of the Makefile and the CI workflow pins the same
-golangci-lint. `make check` runs what CI runs, except the integration job. `make lint` also enforces
-the `games/` boundary: packages under `games/` must not import gravel (depguard), because they
-become standalone modules at the open-source cut.
+`make tools` installs the pinned CLIs (buf, the protoc plugins, golangci-lint, govulncheck, ko,
+templ) into `.bin/`; the versions live at the top of the Makefile and the CI workflow pins the
+same golangci-lint. `make check` runs what CI runs, except the integration and accessibility
+jobs. `make lint` also enforces the `games/` boundary: packages under `games/` must not import
+gravel (depguard), because they become standalone modules at the open-source cut. `make
+vendor-htmx` refreshes the vendored htmx to `HTMX_VERSION`.

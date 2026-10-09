@@ -1,0 +1,71 @@
+package templates
+
+// Layout wraps a page's content: the head with the theme and app stylesheets and htmx, the
+// header with the organization, the host's links and the account menu, the main landmark the
+// htmx swaps target, and the footer.
+templ Layout(p Page) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<meta name="htmx-config" content={ HTMXConfig }/>
+			<title>{ p.Title } · { p.Org.Name }</title>
+			<link rel="stylesheet" href="/theme.css"/>
+			<link rel="stylesheet" href="/static/app.css"/>
+			if p.Theme.FaviconURL != "" {
+				<link rel="icon" href={ templ.URL(p.Theme.FaviconURL) }/>
+			}
+			<script src="/static/vendor/htmx.min.js" defer></script>
+		</head>
+		<body>
+			<a class="skip" href="#page">Skip to content</a>
+			<header class="top">
+				<a class="brand" href="/">
+					if p.Theme.LogoURL != "" {
+						<img class="logo" src={ templ.URL(p.Theme.LogoURL) } alt="" width="28" height="28"/>
+					}
+					{ p.Org.Name }
+				</a>
+				if len(p.HeaderNav) > 0 {
+					<nav aria-label="Site">
+						for _, l := range p.HeaderNav {
+							<a href={ templ.URL(l.URL) }>{ l.Label }</a>
+						}
+					</nav>
+				}
+				<nav aria-label="Account">
+					if p.User != nil {
+						<a href="/account">{ p.User.DisplayName }</a>
+						<form method="post" action="/auth/logout" class="inline" hx-post="/auth/logout">
+							<input type="hidden" name="_csrf" value={ p.CSRF }/>
+							<button type="submit" class="link">Log out</button>
+						</form>
+					} else {
+						<a href="/login">Log in</a>
+					}
+				</nav>
+			</header>
+			<main id="page" tabindex="-1">
+				{ children... }
+			</main>
+			<footer class="bottom">
+				if len(p.FooterNav) > 0 {
+					<nav aria-label="More">
+						for _, l := range p.FooterNav {
+							<a href={ templ.URL(l.URL) }>{ l.Label }</a>
+						}
+					</nav>
+				}
+				<p>Powered by gravel.</p>
+			</footer>
+		</body>
+	</html>
+}
+
+// FlashView shows a one-shot message, or nothing.
+templ FlashView(f *Flash) {
+	if f != nil {
+		<p class={ "flash", "flash-" + f.Kind } role="status">{ f.Text }</p>
+	}
+}

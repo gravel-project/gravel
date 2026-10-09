@@ -1,0 +1,127 @@
+package templates
+
+// Login is the whole login page.
+templ Login(p LoginPage) {
+	@Layout(p.Page) {
+		@LoginContent(p)
+	}
+}
+
+// LoginContent is the login page's main content; an htmx request gets only this.
+templ LoginContent(p LoginPage) {
+	@FlashView(p.Flash)
+	<h1>Log in</h1>
+	if len(p.Providers) > 0 {
+		<ul class="providers">
+			for _, pr := range p.Providers {
+				<li><a class="button" href={ templ.SafeURL("/auth/" + pr.Name + "/start") }>Log in with { pr.DisplayName }</a></li>
+			}
+		</ul>
+	} else {
+		<p>No login provider is configured on this hub yet.</p>
+	}
+}
+
+// Account is the whole account page.
+templ Account(p AccountPage) {
+	@Layout(p.Page) {
+		@AccountContent(p)
+	}
+}
+
+// AccountContent is the account page's main content; an htmx form targets it.
+templ AccountContent(p AccountPage) {
+	@FlashView(p.Flash)
+	<h1>
+		{ p.User.DisplayName }
+		if p.User.Owner {
+			<span class="badge">owner</span>
+		}
+	</h1>
+	<section aria-labelledby="identities-heading">
+		<h2 id="identities-heading">Linked accounts</h2>
+		<table>
+			<thead>
+				<tr>
+					<th scope="col">Provider</th>
+					<th scope="col">Account</th>
+					<th scope="col">Proven</th>
+					<th scope="col"><span class="visually-hidden">Actions</span></th>
+				</tr>
+			</thead>
+			<tbody>
+				for _, i := range p.Identities {
+					<tr>
+						<td>{ i.ProviderDisplay }</td>
+						<td>
+							if i.AvatarURL != "" {
+								<img class="avatar" src={ templ.URL(i.AvatarURL) } alt="" width="24" height="24"/>
+							}
+							{ i.Label() }
+						</td>
+						<td>{ i.VerifiedAt.Format("2006-01-02") } ({ i.Method })</td>
+						<td>
+							if i.CanUnlink {
+								<form method="post" action="/account/unlink" class="inline" hx-post="/account/unlink" hx-target="#page" hx-swap="innerHTML">
+									<input type="hidden" name="_csrf" value={ p.CSRF }/>
+									<input type="hidden" name="provider" value={ i.Provider }/>
+									<input type="hidden" name="subject" value={ i.Subject }/>
+									<button type="submit" class="link">Unlink { i.ProviderDisplay }</button>
+								</form>
+							} else {
+								<span class="muted">your only account</span>
+							}
+						</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+		if len(p.LinkProviders) > 0 {
+			<ul class="providers">
+				for _, pr := range p.LinkProviders {
+					<li><a class="button" href={ templ.SafeURL("/auth/" + pr.Name + "/link") }>Link { pr.DisplayName }</a></li>
+				}
+			</ul>
+		}
+	</section>
+	<section aria-labelledby="sessions-heading">
+		<h2 id="sessions-heading">Sessions</h2>
+		<form method="post" action="/auth/logout" hx-post="/auth/logout">
+			<input type="hidden" name="_csrf" value={ p.CSRF }/>
+			<input type="hidden" name="everywhere" value="1"/>
+			<button type="submit">Log out everywhere</button>
+		</form>
+	</section>
+	if !p.Org.Owned {
+		<section aria-labelledby="claim-heading">
+			<h2 id="claim-heading">Claim this hub</h2>
+			<p>This hub has no owner yet. Paste the owner-claim token from its log to become the owner.</p>
+			<form method="post" action="/account/claim" hx-post="/account/claim" hx-target="#page" hx-swap="innerHTML">
+				<input type="hidden" name="_csrf" value={ p.CSRF }/>
+				<label for="token">Owner-claim token</label>
+				<input id="token" name="token" type="text" autocomplete="off" required/>
+				<button type="submit">Claim ownership</button>
+			</form>
+		</section>
+	}
+}
+
+// Error is the whole error page.
+templ Error(p ErrorPage) {
+	@Layout(p.Page) {
+		@ErrorContent(p)
+	}
+}
+
+// ErrorContent explains a refusal or a failure; an htmx request gets only this.
+templ ErrorContent(p ErrorPage) {
+	<h1>{ p.Title }</h1>
+	<p>{ p.Message }</p>
+	<p>
+		if p.User != nil {
+			<a href="/account">Back to your account</a>
+		} else {
+			<a href="/login">Back to the login page</a>
+		}
+	</p>
+}

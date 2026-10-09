@@ -67,6 +67,20 @@ func (s *IdentityServer) UnlinkIdentity(ctx context.Context, req *connect.Reques
 	return connect.NewResponse(&hubv1.UnlinkIdentityResponse{User: u}), nil
 }
 
+// Logout ends the calling session and clears its cookie.
+func (s *IdentityServer) Logout(ctx context.Context, _ *connect.Request[hubv1.LogoutRequest]) (*connect.Response[hubv1.LogoutResponse], error) {
+	sess, ok := session.FromContext(ctx)
+	if !ok {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("log in first"))
+	}
+	if err := s.sess.Delete(ctx, sess); err != nil {
+		return nil, mapError(ctx, s.logger, err)
+	}
+	resp := connect.NewResponse(&hubv1.LogoutResponse{})
+	resp.Header().Add("Set-Cookie", s.sess.Cookie(session.CookieSession, "", 0).String())
+	return resp, nil
+}
+
 // RevokeSessions logs the caller out everywhere, this session included.
 func (s *IdentityServer) RevokeSessions(ctx context.Context, _ *connect.Request[hubv1.RevokeSessionsRequest]) (*connect.Response[hubv1.RevokeSessionsResponse], error) {
 	uid, err := caller(ctx)

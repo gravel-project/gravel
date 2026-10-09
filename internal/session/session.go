@@ -157,6 +157,12 @@ func (m *Manager) Revoke(ctx context.Context, w http.ResponseWriter, s store.Ses
 	return m.st.DeleteSession(ctx, s.ID)
 }
 
+// Delete ends one session without touching cookies; the caller clears the cookie itself (an
+// API procedure does it through a response header).
+func (m *Manager) Delete(ctx context.Context, s store.Session) error {
+	return m.st.DeleteSession(ctx, s.ID)
+}
+
 // RevokeAll ends every session of a user and reports how many there were. The caller clears
 // its own cookie.
 func (m *Manager) RevokeAll(ctx context.Context, userID uuid.UUID) (int64, error) {

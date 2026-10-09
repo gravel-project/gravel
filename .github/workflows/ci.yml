@@ -94,6 +94,18 @@ jobs:
           go-version-file: go.mod
       - run: make test-integration
 
+  a11y:
+    runs-on: ubuntu-latest # ships Chrome, which @axe-core/cli drives
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - run: make a11y
+
   release-config:
     runs-on: ubuntu-latest
     steps:

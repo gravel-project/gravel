@@ -6,6 +6,10 @@ All notable changes to gravel are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- The UI skeleton (#14, ADR-0005): the pages are templ components (`internal/web/templates/`, generated Go committed, `make generate` runs `templ generate`, CI fails on drift) that get their data from the hub's own Connect HTTP-JSON procedures, called in process through a transport that lends the page's cookie and request id and relays the cookies the API sets; a page can do only what the API allows. htmx 2.0.11 is vendored into the binary (`make vendor-htmx`, 0BSD) and swaps the main content on the account forms, with an `HX-Request` answered by the page's content and a plain request by a redirect, so every page works without JavaScript; it runs with `selfRequestsOnly`, no eval, no script tags from responses. The Content-Security-Policy allows nothing inline or third-party (`script-src 'self'`, `style-src 'self'`, `connect-src 'self'`). A theme (tokens for the light and dark schemes, the font, a logo, a favicon, navigation links in the header or footer, optionally owner-only) renders as `/theme.css` with an ETag and as layout attributes, from a `ThemeSource`; gravel#7 stores it on the Organization settings and the defaults, which meet WCAG AA contrast in both schemes, apply until then; a stored token that is not a plain CSS colour is replaced by the default. The layout has a skip link, landmarks and labelled forms; `make a11y` runs axe (`@axe-core/cli` 4.13.0 through npx, driving Chrome) over the login page and fixtures of the account and error pages, and CI runs it as the `a11y` job. `gravel.hub.v1.IdentityService.Logout` ends the calling session and clears its cookie, so the header's logout is an API call too.
+
 ### Changed
 
 - `deploy/quadlet/gravel-hub.container` pins `ghcr.io/gravel-project/gravel-hub` by the 0.2.0 index digest (`sha256:b286c5d693e36d0be734787c6c8b7c947a43b0ab3946655b769e8f5880eb140b`, verified against the release workflow at `v0.2.0`); `docs/hub.md` names 0.2.0 as the tag example.

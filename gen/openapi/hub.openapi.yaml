@@ -46,6 +46,45 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.GetMeResponse'
+  /gravel.hub.v1.IdentityService/Logout:
+    post:
+      tags:
+        - gravel.hub.v1.IdentityService
+      summary: Logout
+      description: Logout ends the calling session and clears its cookie.
+      operationId: gravel.hub.v1.IdentityService.Logout
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.LogoutRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.LogoutResponse'
   /gravel.hub.v1.IdentityService/LookupUser:
     post:
       tags:
@@ -406,6 +445,14 @@ components:
       description: |-
         Identity is one provider account linked to a user: a (provider, subject) pair, unique across
          the hub, with mutable display attributes and a record of how control was proven.
+    gravel.hub.v1.LogoutRequest:
+      type: object
+      title: LogoutRequest
+      additionalProperties: false
+    gravel.hub.v1.LogoutResponse:
+      type: object
+      title: LogoutResponse
+      additionalProperties: false
     gravel.hub.v1.LookupUserRequest:
       type: object
       properties:

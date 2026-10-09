@@ -16,6 +16,11 @@ PROTOC_GEN_CONNECT_OPENAPI_VERSION ?= v0.28.0
 GOLANGCI_LINT_VERSION ?= v2.14.0
 GOVULNCHECK_VERSION ?= v1.8.0
 KO_VERSION ?= v0.19.1
+TEMPL_VERSION ?= v0.3.1070
+# Vendored into internal/web/static/vendor/ by `make vendor-htmx`; the pages load it from the binary.
+HTMX_VERSION ?= 2.0.11
+# The accessibility check (`make a11y`) runs this through npx; CI pins it the same way.
+AXE_CLI_VERSION ?= 4.13.0
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 export VERSION
@@ -32,7 +37,7 @@ QUADLET := $(firstword $(wildcard /usr/libexec/podman/quadlet /usr/lib/podman/qu
 ## ---- tools -------------------------------------------------------------------------------------
 
 TOOLS := $(BIN)/buf $(BIN)/protoc-gen-go $(BIN)/protoc-gen-connect-go $(BIN)/protoc-gen-connect-openapi \
-         $(BIN)/golangci-lint $(BIN)/govulncheck $(BIN)/ko
+         $(BIN)/golangci-lint $(BIN)/govulncheck $(BIN)/ko $(BIN)/templ
 
 .PHONY: tools
 tools: $(TOOLS) ## Install the pinned CLIs into .bin/
@@ -51,16 +56,30 @@ $(BIN)/govulncheck: Makefile
 	GOBIN=$(BIN) $(GO) install golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION)
 $(BIN)/ko: Makefile
 	GOBIN=$(BIN) $(GO) install github.com/google/ko@$(KO_VERSION)
+$(BIN)/templ: Makefile
+	GOBIN=$(BIN) $(GO) install github.com/a-h/templ/cmd/templ@$(TEMPL_VERSION)
 
 ## ---- code --------------------------------------------------------------------------------------
 
 .PHONY: generate
-generate: $(BIN)/buf $(BIN)/protoc-gen-go $(BIN)/protoc-gen-connect-go $(BIN)/protoc-gen-connect-openapi ## Regenerate gen/ from proto/
+generate: $(BIN)/buf $(BIN)/protoc-gen-go $(BIN)/protoc-gen-connect-go $(BIN)/protoc-gen-connect-openapi $(BIN)/templ ## Regenerate gen/ from proto/ and the pages' Go from their .templ files
 	$(BIN)/buf generate
+	$(BIN)/templ generate -path internal/web/templates
 
 .PHONY: generate-check
-generate-check: generate ## Fail if gen/ is stale
-	git diff --exit-code -- gen/ || { echo "gen/ is stale: run make generate and commit"; exit 1; }
+generate-check: generate ## Fail if gen/ or a generated page is stale
+	git diff --exit-code -- gen/ internal/web/templates/ || { echo "generated code is stale: run make generate and commit"; exit 1; }
+
+.PHONY: vendor-htmx
+vendor-htmx: ## Fetch htmx $(HTMX_VERSION) into internal/web/static/vendor/ (then commit it)
+	curl -sfL https://unpkg.com/htmx.org@$(HTMX_VERSION)/dist/htmx.min.js -o internal/web/static/vendor/htmx.min.js
+	curl -sfL https://unpkg.com/htmx.org@$(HTMX_VERSION)/LICENSE -o internal/web/static/vendor/htmx.LICENSE
+	printf 'htmx.org %s\nsource: https://unpkg.com/htmx.org@%s/dist/htmx.min.js\nsha256: %s\nlicence: 0BSD (htmx.LICENSE)\nrefresh: make vendor-htmx (HTMX_VERSION in the Makefile)\n' \
+	  $(HTMX_VERSION) $(HTMX_VERSION) "$$(sha256sum internal/web/static/vendor/htmx.min.js | cut -d' ' -f1)" > internal/web/static/vendor/htmx.version
+
+.PHONY: a11y
+a11y: ## Run axe over the rendered pages (needs node and Chrome; CI does too)
+	A11Y=1 AXE_CLI_VERSION=$(AXE_CLI_VERSION) $(GO) test -count=1 -run TestAccessibility ./internal/web/
 
 .PHONY: build
 build: ## Build the hub binary into .bin/
