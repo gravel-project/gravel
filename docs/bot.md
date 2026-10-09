@@ -149,8 +149,9 @@ startup error. `hubclient.New` gives a module the hub's API as the app: `Identit
 
 The compose stack has a `bot` profile (`deploy/compose.yaml`, config `deploy/bot.yaml`): fill in
 the application, create the two secrets, register the bot with the hub, then
-`podman compose --profile bot up`. `deploy/quadlet/gravel-bot.container` is the quadlet unit;
-`make bot-image` builds `localhost/gravel-bot:dev`. The release ships `gravel-bot` binaries and
+`podman compose --profile bot up`. `deploy/quadlet/gravel-bot.container` is the quadlet unit,
+pinned by digest to the latest release; `make bot-image` builds `localhost/gravel-bot:dev` for a
+local one. The release ships `gravel-bot` binaries and
 `ghcr.io/gravel-project/gravel-bot` beside the hub's (docs/releasing.md).
 
 ```sh
