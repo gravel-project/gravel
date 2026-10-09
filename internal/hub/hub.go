@@ -145,7 +145,11 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 	h.limitedTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "gravel_rate_limited_total", Help: "Requests refused by a rate limit, by scope (ip, user or app).",
 	}, []string{"scope"})
-	h.registry.MustRegister(buildInfo, h.authTotal, h.limitedTotal, backup.NewCollector(cfg.Backup.StatusFile, st, logger))
+	providerNames := make([]string, 0, len(h.ids.Providers()))
+	for _, reg := range h.ids.Providers() {
+		providerNames = append(providerNames, reg.Provider.Name())
+	}
+	h.registry.MustRegister(buildInfo, h.authTotal, h.limitedTotal, backup.NewCollector(cfg.Backup.StatusFile, st, logger), newStatsCollector(st, providerNames, logger))
 	h.metrics = httpx.NewMetrics(h.registry)
 
 	// The API, once: the public listener serves it, and the pages call it in process through

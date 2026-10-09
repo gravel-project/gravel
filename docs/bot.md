@@ -83,8 +83,8 @@ router.
 |---|---|---|
 | `server.listen` | `POST /interactions` | Discord's outgoing webhook; a request with a bad signature is 401 |
 | | `GET /healthz` | 200 `{"status":"ok","version":"…"}` while the process runs |
-| | `GET /readyz` | 200 once the commands are registered and, with the gateway on, the session is up; else 503 with a reason |
-| `server.internal_listen` | `GET /metrics` | Prometheus: `gravel_bot_build_info`, `gravel_bot_interactions_total{route,result}`, `gravel_bot_gateway_connected`, `gravel_bot_jobs_total{job,result}`, and the modules' below |
+| | `GET /readyz` | 200 once the commands are registered and, with the gateway on, while the session is ready (read live, so a dropped session is 503 at once); else 503 with a reason |
+| `server.internal_listen` | `GET /metrics` | Prometheus; every series is in [Observability](#observability) |
 
 ## The stock modules
 
@@ -160,6 +160,25 @@ printf '%s' "$SECRET" | podman secret create gravel-bot-hub-client-secret -
 printf '%s' "$TOKEN"  | podman secret create gravel-bot-discord-token -
 gravel-bot config check --config bot.yaml
 ```
+
+## Observability
+
+Logs are slog, JSON by default. `GET /metrics` on the internal listener carries the series below,
+plus the Go (`go_*`) and process (`process_*`) collectors. The gateway series are read from the
+session at scrape time, never from a remembered event.
+
+| Metric | Type | Labels | What it says | Absent when |
+|---|---|---|---|---|
+| `gravel_bot_build_info` | gauge, always 1 | `version`, `go_version` | the running build | never |
+| `gravel_bot_gateway_connected` | gauge | | 1 while the gateway session is ready; 0 while it connects, resumes or is down, and when the gateway is off | never |
+| `gravel_bot_gateway_latency_seconds` | gauge | | the last heartbeat's round trip | the session is not ready, or a heartbeat is in flight before the first answer |
+| `gravel_bot_interactions_total` | counter | `route` (`/<command>`, or `other`), `result` (`ok`, `error`) | interactions handled | until the first interaction |
+| `gravel_bot_interaction_duration_seconds` | histogram (.025 to 10 s, dense around Discord's 3 s) | `route` | from arrival to the handler's return, which includes the first answer | until the first interaction |
+| `gravel_bot_jobs_total` | counter | `job` (`reconcile`, `register-metadata`, a host's own), `result` (`ok`, `error`) | background jobs that ended | until a job ends |
+| `gravel_bot_rolesync_passes_total` | counter | `result` (`ok`, `idle` = no mapping, `error`) | role sync passes | role sync off |
+| `gravel_bot_rolesync_changes_total` | counter | `action` (`add`, `remove`), `result` (`ok`, `dry_run`, `forbidden`, `gone`) | role changes made or, in a dry run, logged | role sync off, or until the first change |
+| `gravel_bot_rolesync_last_success_timestamp_seconds` | gauge | | when the last pass finished without error (an `idle` pass counts) | until the first pass |
+| `gravel_bot_linked_roles_schema_registered` | gauge | | 1 once the Linked Roles schema is on the application | Linked Roles off |
 
 ## Tests
 

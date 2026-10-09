@@ -256,3 +256,46 @@ func TestClaimBindsOwnerAndReopensOwnerless(t *testing.T) {
 		t.Errorf("an ownerless claim must be reopened by the migration: %+v", got)
 	}
 }
+
+func TestStats(t *testing.T) {
+	st := storetest.Open(t)
+	storetest.Reset(t, st)
+	ctx := context.Background()
+	o := newOrg(t, st)
+	now := time.Now().UTC().Truncate(time.Microsecond)
+
+	got, err := st.Stats(ctx)
+	if err != nil || got.Users != 0 || len(got.Identities) != 0 || got.DatabaseBytes <= 0 {
+		t.Fatalf("empty: %v %+v", err, got)
+	}
+	jo, err := st.RegisterUser(ctx, store.User{ID: uuid.New(), OrganizationID: o.ID, DisplayName: "Jo"}, ident("discord", "1", now))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.RegisterUser(ctx, store.User{ID: uuid.New(), OrganizationID: o.ID, DisplayName: "Sam"}, ident("discord", "2", now)); err != nil {
+		t.Fatal(err)
+	}
+	steam := ident("steam", "7656", now)
+	steam.UserID = jo.ID
+	if err := st.LinkIdentity(ctx, steam); err != nil {
+		t.Fatal(err)
+	}
+	got, err = st.Stats(ctx)
+	if err != nil || got.Users != 2 || got.Identities["discord"] != 2 || got.Identities["steam"] != 1 || len(got.Identities) != 2 {
+		t.Fatalf("after register and link: %v %+v", err, got)
+	}
+	if err := st.UnlinkIdentity(ctx, jo.ID, "steam", "7656", now.Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	got, err = st.Stats(ctx)
+	if err != nil || got.Users != 2 || got.Identities["steam"] != 0 || len(got.Identities) != 1 {
+		t.Fatalf("after unlink: %v %+v", err, got)
+	}
+
+	// A context that is already done fails rather than reporting stale numbers.
+	done, cancel := context.WithCancel(ctx)
+	cancel()
+	if _, err := st.Stats(done); err == nil {
+		t.Error("stats with a cancelled context: want error")
+	}
+}

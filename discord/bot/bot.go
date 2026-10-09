@@ -142,12 +142,15 @@ type Runtime struct {
 	public   http.Handler
 	internal http.Handler
 	ready    atomic.Bool
-	gateway  atomic.Bool
+	// gatewayState reads the session's live status and heartbeat latency. It is read on every
+	// readiness check and scrape, so neither can report a session that has dropped; a field so
+	// a test can stand in for disgo's gateway.
+	gatewayState func() (gateway.Status, time.Duration)
 
-	registry         *prometheus.Registry
-	interactions     *prometheus.CounterVec
-	gatewayConnected prometheus.Gauge
-	jobResults       *prometheus.CounterVec
+	registry            *prometheus.Registry
+	interactions        *prometheus.CounterVec
+	interactionDuration *prometheus.HistogramVec
+	jobResults          *prometheus.CounterVec
 
 	listeners listeners
 }
@@ -192,9 +195,19 @@ func New(opts Options, modules ...Module) (*Runtime, error) {
 	buildInfo := prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "gravel_bot_build_info", Help: "Build information; always 1."}, []string{"version", "go_version"})
 	buildInfo.WithLabelValues(rt.version, runtime.Version()).Set(1)
 	rt.interactions = prometheus.NewCounterVec(prometheus.CounterOpts{Name: "gravel_bot_interactions_total", Help: "Interactions handled, by route and result."}, []string{"route", "result"})
-	rt.gatewayConnected = prometheus.NewGauge(prometheus.GaugeOpts{Name: "gravel_bot_gateway_connected", Help: "1 while the gateway session is up."})
+	// Discord waits three seconds for the first answer, so the buckets are dense around it.
+	rt.interactionDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "gravel_bot_interaction_duration_seconds", Help: "Time from an interaction's arrival to its handler's return, by route.",
+		Buckets: []float64{.025, .05, .1, .25, .5, 1, 2, 2.5, 3, 5, 10},
+	}, []string{"route"})
 	rt.jobResults = prometheus.NewCounterVec(prometheus.CounterOpts{Name: "gravel_bot_jobs_total", Help: "Background jobs ended, by job and result."}, []string{"job", "result"})
-	rt.registry.MustRegister(buildInfo, rt.interactions, rt.gatewayConnected, rt.jobResults)
+	rt.gatewayState = func() (gateway.Status, time.Duration) {
+		if rt.client == nil || rt.client.Gateway == nil {
+			return gateway.StatusUnconnected, 0
+		}
+		return rt.client.Gateway.Status(), rt.client.Gateway.Latency()
+	}
+	rt.registry.MustRegister(buildInfo, rt.interactions, rt.interactionDuration, rt.jobResults, gatewayCollector{rt})
 
 	intents := defaultIntents
 	if opts.Intents != nil {
@@ -248,7 +261,9 @@ func (rt *Runtime) observe(next handler.Handler) handler.Handler {
 		if d, ok := e.Interaction.(discord.ApplicationCommandInteraction); ok {
 			route = "/" + d.Data.CommandName()
 		}
+		start := time.Now()
 		err := next(e)
+		rt.interactionDuration.WithLabelValues(route).Observe(time.Since(start).Seconds())
 		result := "ok"
 		if err != nil {
 			result = "error"
@@ -258,20 +273,48 @@ func (rt *Runtime) observe(next handler.Handler) handler.Handler {
 	}
 }
 
-// gatewayStatus keeps the connected gauge and the readiness flag in step with the session.
+// gatewayStatus logs the session coming up; readiness and the metrics read the live status.
 func (rt *Runtime) gatewayStatus() disgobot.EventListener {
 	return disgobot.NewListenerFunc(func(e disgobot.Event) {
 		switch e.(type) {
 		case *events.Ready:
-			rt.gateway.Store(true)
-			rt.gatewayConnected.Set(1)
 			rt.logger.Info("gateway ready")
 		case *events.Resumed:
-			rt.gateway.Store(true)
-			rt.gatewayConnected.Set(1)
 			rt.logger.Info("gateway resumed")
 		}
 	})
+}
+
+// gatewayReady reports whether the gateway session is up and has received its READY or RESUMED.
+func (rt *Runtime) gatewayReady() bool {
+	status, _ := rt.gatewayState()
+	return status == gateway.StatusReady
+}
+
+var (
+	gatewayConnectedDesc = prometheus.NewDesc("gravel_bot_gateway_connected", "1 while the gateway session is ready, 0 otherwise (also when the gateway is off).", nil, nil)
+	gatewayLatencyDesc   = prometheus.NewDesc("gravel_bot_gateway_latency_seconds", "The last heartbeat's round trip; absent while the session is down or before the first heartbeat.", nil, nil)
+)
+
+// gatewayCollector reads the session at scrape time, so a dropped session shows as 0 at once.
+type gatewayCollector struct{ rt *Runtime }
+
+func (c gatewayCollector) Describe(ch chan<- *prometheus.Desc) {
+	ch <- gatewayConnectedDesc
+	ch <- gatewayLatencyDesc
+}
+
+func (c gatewayCollector) Collect(ch chan<- prometheus.Metric) {
+	status, latency := c.rt.gatewayState()
+	connected := 0.0
+	if status == gateway.StatusReady {
+		connected = 1
+	}
+	ch <- prometheus.MustNewConstMetric(gatewayConnectedDesc, prometheus.GaugeValue, connected)
+	// A heartbeat in flight makes disgo's latency negative (sent after the last ack): skip it.
+	if status == gateway.StatusReady && latency > 0 {
+		ch <- prometheus.MustNewConstMetric(gatewayLatencyDesc, prometheus.GaugeValue, latency.Seconds())
+	}
 }
 
 func (rt *Runtime) buildPublic(key []byte) http.Handler {
@@ -284,7 +327,7 @@ func (rt *Runtime) buildPublic(key []byte) http.Handler {
 		switch {
 		case !rt.ready.Load():
 			writeJSON(w, http.StatusServiceUnavailable, map[string]any{"status": "starting", "reason": "commands not registered yet"})
-		case rt.cfg.Discord.Gateway && !rt.gateway.Load():
+		case rt.cfg.Discord.Gateway && !rt.gatewayReady():
 			writeJSON(w, http.StatusServiceUnavailable, map[string]any{"status": "connecting", "reason": "gateway not ready"})
 		default:
 			writeJSON(w, http.StatusOK, map[string]any{"status": "ready"})

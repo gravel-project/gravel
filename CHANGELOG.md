@@ -6,9 +6,19 @@ All notable changes to gravel are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Metrics a dashboard needs (#60): `gravel_bot_interaction_duration_seconds{route}`, a histogram dense around Discord's three seconds, and `gravel_bot_gateway_latency_seconds`, the last heartbeat's round trip; on the hub, `gravel_users`, `gravel_identities{provider}` (every configured provider, 0 included, and `other` for rows of one no longer configured) and `gravel_database_size_bytes`, read at scrape in one transaction with a two-second limit, with `gravel_store_stats_readable` 0 instead of numbers when the database doesn't answer. `docs/hub.md` and `docs/bot.md` list every metric in a table with its type, labels and when it is absent.
+
 ### Changed
 
 - The quadlet units pin the 0.5.0 images by index digest, all three verified with cosign against the release workflow at `v0.5.0` and built from `6d72c05`: `ghcr.io/gravel-project/gravel-hub@sha256:3756a1a67b9da3afe0eef1f67f0ae19fe1067275888fb0c2c16745edec43cc0a` in `gravel-hub.container`, `ghcr.io/gravel-project/gravel-bot@sha256:1b7d8a3704d5dc00df4ec63d6fad20053d3ae011a0e8eb9e1d70cca9d1bb2c58` in `gravel-bot.container` (its first release image, replacing `localhost/gravel-bot:dev`), and `ghcr.io/gravel-project/gravel-postgres@sha256:add3c457d2d4dc72f7474c85eac2592b5ffff30658da5dba7037f5085f0109fe` in the backup set (the same Containerfile as 0.3.0, rebuilt at the tag); `docs/hub.md` names 0.5.0 as the tag example.
+
+### Fixed
+
+- `gravel_bot_gateway_connected` and the bot's `/readyz` read the gateway session's live status (#60). Both were set when the session came up and never cleared, so a dropped gateway read as connected and ready until the process restarted.
+- The `provider` label on `gravel_auth_completions_total` is a configured provider or `other` (#60). It came from the request path, so any `/auth/<name>/callback` request minted a new series.
+- `docs/hub.md` repeated the paragraph about `%%p` in a quadlet's archive command.
 
 ## [0.5.0] - 2026-10-09
 
