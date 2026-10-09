@@ -6,6 +6,8 @@ All notable changes to gravel are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-09
+
 ### Added
 
 - Operator dashboards (#61, ADR-0009): `deploy/observability/` ships Prometheus scrape configs for compose and quadlets, Grafana provisioning (the datasource address from `GRAVEL_PROMETHEUS_URL`, a read-only file provider) and two dashboards, `gravel hub` and `gravel bot`, generated from `internal/tools/dashboards` by `make generate` and portable (datasource, job and instance variables). Every `gravel_*` metric is on a panel and every panel reads a registered name: the hub and the bot list their names through `MetricNames()` (`internal/metricnames`), and a test fails on either kind of drift. `make up-observability` adds the `observability` compose profile (Prometheus v3.15.0 and Grafana 13.2.3, pinned by index digest; a dev secret for Grafana's admin password); `deploy/quadlet/observability/` is the production set, installed with `make quadlet-install-observability` and dry-run by `make quadlet-check`. `dashboards check` runs every panel's query through a live Grafana and fails on an empty panel unless it is marked optional with its reason; a new CI job `observability` runs promtool over both scrape configs and every panel query, then `make observability-check` (Postgres, the hub, Prometheus and Grafana in a throwaway pod). `deploy/README.md` gains Dashboards.
@@ -112,7 +114,8 @@ All notable changes to gravel are documented here. The format follows
 
 - README and CLAUDE.md follow ADR-0001: status line, principle 2 (the resource lives in the hub's database), the hub and backup paragraphs, the adapter-repo rule, the local-dev default, and a seven-step build order with the issues behind each step. The launch games are the five Hidden Token Gaming plays, in three shapes, with War Dogs first; the open threads link the design-delta issues #2–#9 (#1).
 
-[Unreleased]: https://github.com/gravel-project/gravel/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/gravel-project/gravel/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/gravel-project/gravel/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/gravel-project/gravel/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/gravel-project/gravel/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/gravel-project/gravel/compare/v0.2.0...v0.3.0
