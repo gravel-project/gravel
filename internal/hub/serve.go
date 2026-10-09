@@ -68,7 +68,8 @@ func (h *Hub) Run(ctx context.Context) error {
 	errs := make(chan error, 2)
 	go func() { errs <- serve(ctx, publicSrv, publicLn, h.cfg.Server.ShutdownTimeout) }()
 	go func() { errs <- serve(ctx, internalSrv, internalLn, h.cfg.Server.ShutdownTimeout) }()
-	go h.pruneLoop(ctx)
+	jobsDone := make(chan struct{})
+	go func() { h.jobs.Run(ctx); close(jobsDone) }()
 
 	var first error
 	for range 2 {
@@ -77,6 +78,8 @@ func (h *Hub) Run(ctx context.Context) error {
 			cancel() // one listener failed: bring the other down too
 		}
 	}
+	cancel()
+	<-jobsDone // no job touches the store after Run returns and closes it
 	h.logger.Info("stopped")
 	return first
 }
@@ -109,18 +112,4 @@ func serve(ctx context.Context, srv *http.Server, ln net.Listener, timeout time.
 	}
 	<-served
 	return nil
-}
-
-// pruneLoop runs Prune every pruneEvery until ctx is cancelled.
-func (h *Hub) pruneLoop(ctx context.Context) {
-	t := time.NewTicker(pruneEvery)
-	defer t.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-t.C:
-			h.Prune(ctx)
-		}
-	}
 }

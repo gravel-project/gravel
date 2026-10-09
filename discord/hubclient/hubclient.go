@@ -90,6 +90,12 @@ func (c *Client) Organization() hubv1connect.OrganizationServiceClient {
 	return hubv1connect.NewOrganizationServiceClient(c.http, c.cfg.URL)
 }
 
+// Servers is the ServerService client, authenticated as the app: the games, the servers and
+// their last observation (public), and who is on (the servers:read scope).
+func (c *Client) Servers() hubv1connect.ServerServiceClient {
+	return hubv1connect.NewServerServiceClient(c.http, c.cfg.URL)
+}
+
 // Token returns a bearer token, fetching or refreshing one when needed.
 func (c *Client) Token(ctx context.Context) (string, error) {
 	c.mu.Lock()

@@ -1,0 +1,20 @@
+# The War Dogs Game spec gravel ships (ADR-0010). A deployment's servers.yaml names it by id and
+# may tighten a band, never loosen one. Bands are publisher guardrails (gravel#8): a config write
+# outside one is refused before it leaves the hub.
+id: wardogs
+name: War Dogs
+# Players are keyed by their SteamID64.
+identity_provider: steam
+# The driver that controls a War Dogs server: the RCON API through games/wardogs.
+drivers: [wardogs]
+bands:
+  # The server enforces 18–30 itself; 18, 21, 24, 27 and 30 pay the default rate.
+  - section: MatchState.Playing.KOTH
+    key: ScorePeriod
+    min: 18
+    max: 30
+  # Bulkhead bans the visitors of XP-farm servers; a floor of 1 is farm-shaped, and hosts seed
+  # at 20.
+  - section: MatchState.PreMatch.WaitingForPlayers.PlayerCount
+    key: MinimumRequiredPlayers
+    min: 20

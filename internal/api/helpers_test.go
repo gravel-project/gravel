@@ -19,6 +19,8 @@ import (
 	"github.com/gravel-project/gravel/internal/identity/identitytest"
 	"github.com/gravel-project/gravel/internal/org"
 	"github.com/gravel-project/gravel/internal/org/orgtest"
+	"github.com/gravel-project/gravel/internal/servers"
+	"github.com/gravel-project/gravel/internal/servers/serverstest"
 	"github.com/gravel-project/gravel/internal/session"
 	"github.com/gravel-project/gravel/internal/store"
 )
@@ -34,7 +36,19 @@ type rig struct {
 	ids   *identity.Service
 	sess  *session.Manager
 	apps  *apps.Service
+	srvs  *servers.Service
+	obs   *fakeObserver
 	token string
+}
+
+// fakeObserver is the monitor's observations, set by the test.
+type fakeObserver struct {
+	obs map[string]servers.Observation
+}
+
+func (f *fakeObserver) Observation(id string) (servers.Observation, bool) {
+	o, ok := f.obs[id]
+	return o, ok
 }
 
 func newRig(t *testing.T) *rig {
@@ -50,9 +64,12 @@ func newRig(t *testing.T) *rig {
 	r.ids = identity.New(r.idSt, o.ID, nil, 10*time.Minute, logger)
 	r.sess = session.New(r.idSt, time.Hour, false, logger)
 	r.apps = apps.New(r.appSt, o.ID, time.Hour, logger)
+	r.srvs = servers.New(serverstest.NewFakeStore(), o.ID, []string{"wardogs"}, logger)
+	r.obs = &fakeObserver{obs: map[string]servers.Observation{}}
 	mux := http.NewServeMux()
 	mux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(r.org, logger)))
 	mux.Handle(hubv1connect.NewIdentityServiceHandler(api.NewIdentityServer(r.ids, r.sess, r.org, logger)))
+	mux.Handle(hubv1connect.NewServerServiceHandler(api.NewServerServer(r.srvs, r.obs, r.ids, logger)))
 	r.srv = newH2CServer(r.sess.Middleware(r.apps.Middleware(mux)))
 	t.Cleanup(r.srv.Close)
 	return r

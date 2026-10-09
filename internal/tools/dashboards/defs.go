@@ -45,7 +45,7 @@ func runtimeRow() row {
 func hubDashboard() dashboard {
 	return dashboard{
 		UID: "gravel-hub", Title: "gravel hub", BuildInfo: "gravel_build_info",
-		Description: "The gravel hub: members, HTTP and API traffic, logins, backups and the Go runtime (gravel docs/hub.md, Observability).",
+		Description: "The gravel hub: members, HTTP and API traffic, logins, backups, the servers it polls, its background jobs and the Go runtime (gravel docs/hub.md, Observability).",
 		Rows: []row{
 			{Title: "Overview", Panels: []panel{
 				{Title: "Up", Kind: "stat", Width: 3, Mappings: upMap, Thresholds: []step{{Color: "red"}, {Value: 1, Color: "green"}}, Targets: []target{{Expr: `up{` + sel + `}`, Legend: "{{instance}}"}}},
@@ -105,6 +105,30 @@ func hubDashboard() dashboard {
 					Targets: []target{{Expr: `sum(increase(gravel_wal_archive_failed_total{` + sel + `}[$__rate_interval]))`, Legend: "failed"}}},
 				{Title: "Since the last WAL failure", Kind: "stat", Unit: "s", Width: 4, Optional: "no WAL upload has ever failed",
 					Targets: []target{{Expr: `time() - max(gravel_wal_last_failed_timestamp_seconds{` + sel + `})`}}},
+			}},
+			{Title: "Servers", Panels: []panel{
+				{Title: "Reachable", Kind: "stat", Width: 8, TextMode: "value_and_name", Mappings: upMap, Thresholds: []step{{Color: "red"}, {Value: 1, Color: "green"}},
+					Description: "Down after two failed polls in a row (ADR-0010); the hub's log says why.", Optional: "no server is registered (servers.yaml)",
+					Targets: []target{{Expr: `gravel_server_reachable{` + sel + `}`, Legend: "{{server}}"}}},
+				{Title: "Since the last good poll", Kind: "stat", Unit: "s", Width: 8, TextMode: "value_and_name", Optional: "no server is registered, or none has answered yet",
+					Thresholds: []step{{Color: "green"}, {Value: 120, Color: "orange"}, {Value: 600, Color: "red"}},
+					Targets:    []target{{Expr: `time() - gravel_server_last_observed_timestamp_seconds{` + sel + `}`, Legend: "{{server}}"}}},
+				{Title: "Players now", Kind: "stat", Width: 8, TextMode: "value_and_name", Optional: "no server is registered, or none has answered yet",
+					Targets: []target{{Expr: `gravel_server_players{` + sel + `}`, Legend: "{{server}}"}}},
+				{Title: "Players over time", Kind: "timeseries", Width: 24, Optional: "no server is registered, or none has answered yet",
+					Description: "The max line is the public slots (War Dogs: MaxPlayers less MaxReservedSlots).",
+					Targets: []target{
+						{Expr: `gravel_server_players{` + sel + `}`, Legend: "{{server}}"},
+						{Expr: `gravel_server_max_players{` + sel + `}`, Legend: "{{server}} max"},
+					}},
+			}},
+			{Title: "Background jobs", Panels: []panel{
+				{Title: "Job runs by result", Kind: "timeseries", Width: 16,
+					Description: "A failed run is retried with backoff and never stops the hub; server_poll failures are a server that did not answer.",
+					Targets:     []target{{Expr: `sum by (job, result) (increase(gravel_hub_jobs_total{` + sel + `}[$__rate_interval]))`, Legend: "{{job}} {{result}}"}}},
+				{Title: "Since each job last succeeded", Kind: "stat", Unit: "s", Width: 8, TextMode: "value_and_name",
+					Description: "prune runs every 10 minutes, servers_reconcile every 30 seconds, server_poll at each server's interval.",
+					Targets:     []target{{Expr: `time() - max by (job) (gravel_hub_job_last_success_timestamp_seconds{` + sel + `})`, Legend: "{{job}}"}}},
 			}},
 			runtimeRow(),
 		},

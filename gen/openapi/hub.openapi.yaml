@@ -450,6 +450,164 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.UpdateOrganizationSettingsResponse'
+  /gravel.hub.v1.ServerService/GetServerStatus:
+    post:
+      tags:
+        - gravel.hub.v1.ServerService
+      summary: GetServerStatus
+      description: GetServerStatus is one server; public. not_found for an unknown id.
+      operationId: gravel.hub.v1.ServerService.GetServerStatus
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.GetServerStatusRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.GetServerStatusResponse'
+  /gravel.hub.v1.ServerService/ListGames:
+    post:
+      tags:
+        - gravel.hub.v1.ServerService
+      summary: ListGames
+      description: ListGames is the enabled games; public.
+      operationId: gravel.hub.v1.ServerService.ListGames
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.ListGamesRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.ListGamesResponse'
+  /gravel.hub.v1.ServerService/ListServerPlayers:
+    post:
+      tags:
+        - gravel.hub.v1.ServerService
+      summary: ListServerPlayers
+      description: |-
+        ListServerPlayers is who was on at the last poll: names and provider identities, so a
+         logged-in member, the owner, or an app with the servers:read scope.
+      operationId: gravel.hub.v1.ServerService.ListServerPlayers
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.ListServerPlayersRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.ListServerPlayersResponse'
+  /gravel.hub.v1.ServerService/ListServers:
+    post:
+      tags:
+        - gravel.hub.v1.ServerService
+      summary: ListServers
+      description: ListServers is every server with its last observation; public, no personal data.
+      operationId: gravel.hub.v1.ServerService.ListServers
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.ListServersRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.ListServersResponse'
 components:
   schemas:
     connect-protocol-version:
@@ -518,6 +676,10 @@ components:
           description: Deserialized error detail payload. The 'type' field indicates the schema. This field is for easier debugging and should not be relied upon for application logic.
       additionalProperties: true
       description: Contains an arbitrary serialized message along with a @type that describes the type of the serialized message, with an additional debug field for ConnectRPC error details.
+    google.protobuf.Duration:
+      type: string
+      format: duration
+      description: A signed duration in seconds, with up to nine fractional digits and an `s` suffix (for example, `3s` or `-0.001s`).
     google.protobuf.Timestamp:
       type: string
       examples:
@@ -525,6 +687,32 @@ components:
         - "2024-12-25T12:00:00Z"
       format: date-time
       description: A point in time in RFC 3339 format, with up to nanosecond precision. Output uses UTC (`Z`); input may use an offset from UTC.
+    gravel.hub.v1.Band:
+      type: object
+      properties:
+        section:
+          type: string
+          title: section
+        key:
+          type: string
+          title: key
+        min:
+          type:
+            - string
+            - "null"
+          title: min
+          format: int64
+        max:
+          type:
+            - string
+            - "null"
+          title: max
+          format: int64
+      title: Band
+      additionalProperties: false
+      description: |-
+        Band is the range a game's configuration key may take (a publisher guardrail); an unset bound
+         is open.
     gravel.hub.v1.ClaimOwnershipRequest:
       type: object
       properties:
@@ -599,6 +787,30 @@ components:
       description: |-
         DiscordSettings is the guild role sync manages and the roles it maps (ADR-0008). Ids are
          Discord snowflakes as strings; empty means role sync has nothing to do.
+    gravel.hub.v1.Game:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+          description: '"wardogs".'
+        name:
+          type: string
+          title: name
+        identityProvider:
+          type: string
+          title: identity_provider
+          description: 'The provider its players are keyed by: "steam".'
+        bands:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.Band'
+          title: bands
+      title: Game
+      additionalProperties: false
+      description: |-
+        Game is a game this hub's servers run: a Game spec gravel ships, with the deployment's
+         tightenings of its bands applied.
     gravel.hub.v1.GetMeRequest:
       type: object
       title: GetMeRequest
@@ -637,6 +849,23 @@ components:
             - $ref: '#/components/schemas/gravel.hub.v1.OrganizationSettings'
           title: settings
       title: GetOrganizationSettingsResponse
+      additionalProperties: false
+    gravel.hub.v1.GetServerStatusRequest:
+      type: object
+      properties:
+        serverId:
+          type: string
+          title: server_id
+      title: GetServerStatusRequest
+      additionalProperties: false
+    gravel.hub.v1.GetServerStatusResponse:
+      type: object
+      properties:
+        server:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.Server'
+          title: server
+      title: GetServerStatusResponse
       additionalProperties: false
     gravel.hub.v1.Identity:
       type: object
@@ -708,6 +937,20 @@ components:
       description: |-
         IdentityEvent is one line of the append-only identity log: a registration, a login, a link or
          an unlink of one (provider, subject) pair.
+    gravel.hub.v1.ListGamesRequest:
+      type: object
+      title: ListGamesRequest
+      additionalProperties: false
+    gravel.hub.v1.ListGamesResponse:
+      type: object
+      properties:
+        games:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.Game'
+          title: games
+      title: ListGamesResponse
+      additionalProperties: false
     gravel.hub.v1.ListIdentityEventsRequest:
       type: object
       properties:
@@ -744,6 +987,43 @@ components:
             The newest id in the log when it was read; 0 for an empty log. A reader that starts with a
              full pass begins its incremental reads here instead of paging through the history.
       title: ListIdentityEventsResponse
+      additionalProperties: false
+    gravel.hub.v1.ListServerPlayersRequest:
+      type: object
+      properties:
+        serverId:
+          type: string
+          title: server_id
+      title: ListServerPlayersRequest
+      additionalProperties: false
+    gravel.hub.v1.ListServerPlayersResponse:
+      type: object
+      properties:
+        players:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.ServerPlayer'
+          title: players
+        observedAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: observed_at
+          description: The poll the list is from; unset when there was none.
+      title: ListServerPlayersResponse
+      additionalProperties: false
+    gravel.hub.v1.ListServersRequest:
+      type: object
+      title: ListServersRequest
+      additionalProperties: false
+    gravel.hub.v1.ListServersResponse:
+      type: object
+      properties:
+        servers:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.Server'
+          title: servers
+      title: ListServersResponse
       additionalProperties: false
     gravel.hub.v1.ListUsersRequest:
       type: object
@@ -900,6 +1180,191 @@ components:
           description: How many sessions were ended, the caller's included.
       title: RevokeSessionsResponse
       additionalProperties: false
+    gravel.hub.v1.Seeding:
+      type: object
+      properties:
+        threshold:
+          type: integer
+          title: threshold
+          format: int32
+        hours:
+          type: string
+          title: hours
+        quiet:
+          type: string
+          title: quiet
+        timezone:
+          type: string
+          title: timezone
+          description: 'An IANA zone: "America/Chicago".'
+        cooldown:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Duration'
+          title: cooldown
+      title: Seeding
+      additionalProperties: false
+      description: |-
+        Seeding is when a server wants players: below threshold during hours (HH:MM-HH:MM in
+         timezone), at most once per cooldown, never during quiet.
+    gravel.hub.v1.Server:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+          description: '"htg-wardogs-1".'
+        name:
+          type: string
+          title: name
+        gameId:
+          type: string
+          title: game_id
+        location:
+          type: string
+          title: location
+          description: 'Where it runs: "qonzer-slc".'
+        trust:
+          type: string
+          title: trust
+          description: '"official" or "community".'
+        seeding:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.Seeding'
+          title: seeding
+          description: Unset when the server does not seed.
+        status:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.ServerStatus'
+          title: status
+      title: Server
+      additionalProperties: false
+      description: |-
+        Server is a server a driver controls (ManagedServer), as the public sees it: never its control
+         address or where its credential is.
+    gravel.hub.v1.ServerPlayer:
+      type: object
+      properties:
+        name:
+          type: string
+          title: name
+        provider:
+          type: string
+          title: provider
+          description: 'The player''s identity at the game''s provider: ("steam", a SteamID64).'
+        subject:
+          type: string
+          title: subject
+        team:
+          type: string
+          title: team
+        kills:
+          type: integer
+          title: kills
+          format: int32
+        deaths:
+          type: integer
+          title: deaths
+          format: int32
+        pingMs:
+          type: integer
+          title: ping_ms
+          format: int32
+        userId:
+          type: string
+          title: user_id
+          description: The member that identity is linked to, resolved now; empty for a player who is not one.
+      title: ServerPlayer
+      additionalProperties: false
+      description: ServerPlayer is one connected player at the last successful poll.
+    gravel.hub.v1.ServerStatus:
+      type: object
+      properties:
+        state:
+          type: string
+          title: state
+          description: |-
+            "unknown" (not polled yet), "ok", "unreachable", "credential_refused", "credential_missing",
+             "rate_limited" or "error". The cause of a failure is in the hub's log, never here.
+        reachable:
+          type: boolean
+          title: reachable
+          description: False after two failed polls in a row; true again on the next success.
+        observedAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: observed_at
+          description: The last successful poll; unset when there was none. The fields below are from it.
+        build:
+          type: string
+          title: build
+          description: The server's build string.
+        capabilities:
+          type: array
+          items:
+            type: string
+          title: capabilities
+          description: |-
+            What the server lets the hub do right now: "status", "players", "kick", "ban", … An absent
+             capability is shown as not available.
+        players:
+          type: integer
+          title: players
+          format: int32
+        maxPlayers:
+          type: integer
+          title: max_players
+          format: int32
+        map:
+          type: string
+          title: map
+          description: 'The map as the game names it in play (War Dogs: the level, "Ozeti").'
+        experiences:
+          type: array
+          items:
+            type: string
+          title: experiences
+        lighting:
+          type: string
+          title: lighting
+        teams:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.TeamScore'
+          title: teams
+        scoreTick:
+          type: integer
+          title: score_tick
+          format: int32
+          description: The score period in force; 0 when the game has none.
+        rotationIndex:
+          type: integer
+          title: rotation_index
+          format: int32
+          description: The map rotation's position; -1 when unknown.
+        nextRotationIndex:
+          type: integer
+          title: next_rotation_index
+          format: int32
+      title: ServerStatus
+      additionalProperties: false
+      description: ServerStatus is the hub's last observation of a server. It carries no personal data.
+    gravel.hub.v1.TeamScore:
+      type: object
+      properties:
+        name:
+          type: string
+          title: name
+        color:
+          type: string
+          title: color
+          description: A CSS colour, "#4CB1EF"; empty when the game has none.
+        score:
+          type: string
+          title: score
+          format: int64
+      title: TeamScore
+      additionalProperties: false
+      description: TeamScore is one team's (faction's) score.
     gravel.hub.v1.Theme:
       type: object
       properties:
@@ -1034,3 +1499,8 @@ tags:
        procedure needs a session cookie; login itself is the browser flow under /auth/.
   - name: gravel.hub.v1.OrganizationService
     description: OrganizationService reads the built-in organization and claims its ownership once.
+  - name: gravel.hub.v1.ServerService
+    description: |-
+      ServerService reads the games and servers the hub controls (ADR-0010). They are applied from a
+       deployment's servers.yaml by `gravel-hub servers apply`; the hub polls each server through its
+       driver and answers from the last observation, so a caller never reaches a game server.

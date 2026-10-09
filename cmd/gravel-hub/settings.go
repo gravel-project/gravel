@@ -78,24 +78,7 @@ func settingsApply(ctx context.Context, args []string, stdout, stderr io.Writer)
 	fs := newFlagSet("settings apply", stderr)
 	path := configFlag(fs)
 	dryRun := fs.Bool("dry-run", false, "validate and say whether the manifest differs from the stored settings; change nothing (exit 3 when it would)")
-	// The manifest may come before or after the flags; --config's value is not the manifest.
-	var rest []string
-	manifest := ""
-	configValueNext := false
-	for _, a := range args {
-		switch {
-		case configValueNext:
-			rest = append(rest, a)
-			configValueNext = false
-		case a == "--config" || a == "-config":
-			rest = append(rest, a)
-			configValueNext = true
-		case manifest == "" && !isFlag(a):
-			manifest = a
-		default:
-			rest = append(rest, a)
-		}
-	}
+	manifest, rest := manifestArg(args)
 	if err := fs.Parse(rest); err != nil {
 		return 2
 	}

@@ -28,9 +28,14 @@ import (
 // ListUsers and ListIdentityEvents.
 const ScopeIdentityRead = "identity:read"
 
+// ScopeServersRead admits who is on a server (ListServerPlayers); the rest of ServerService is
+// public (ADR-0010).
+const ScopeServersRead = "servers:read"
+
 // Scopes is every scope an app may hold, with what it admits.
 var Scopes = map[string]string{
 	ScopeIdentityRead: "look up members and their identities (LookupUser, ListUsers, ListIdentityEvents)",
+	ScopeServersRead:  "see who is on a server: names and provider identities (ListServerPlayers)",
 }
 
 // Limits.
