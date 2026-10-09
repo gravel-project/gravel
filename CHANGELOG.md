@@ -6,6 +6,8 @@ All notable changes to gravel are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-09
+
 ### Added
 
 - ADR-0008: gravel's Discord features run as a separate bot process built from public `discord/` packages (`cmd/gravel-bot` the stock binary, a host's binary beside it), services call the hub with client credentials (the slice of #6 the bot needs: registered apps, short-lived bearer tokens, an app principal with scopes), the Discord guild and role mapping lives in the Organization settings and is applied from the manifest, role sync is a reconciler, and Linked Roles metadata is written by the hub's own verification flow without storing a token (#15).
@@ -93,7 +95,8 @@ All notable changes to gravel are documented here. The format follows
 
 - README and CLAUDE.md follow ADR-0001: status line, principle 2 (the resource lives in the hub's database), the hub and backup paragraphs, the adapter-repo rule, the local-dev default, and a seven-step build order with the issues behind each step. The launch games are the five Hidden Token Gaming plays, in three shapes, with War Dogs first; the open threads link the design-delta issues #2–#9 (#1).
 
-[Unreleased]: https://github.com/gravel-project/gravel/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/gravel-project/gravel/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/gravel-project/gravel/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/gravel-project/gravel/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/gravel-project/gravel/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/gravel-project/gravel/compare/v0.1.0...v0.2.0
