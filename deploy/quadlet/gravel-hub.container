@@ -1,4 +1,4 @@
-# The gravel hub, pinned by digest to a release of ghcr.io/gravel-project/gravel-hub (0.4.0; the
+# The gravel hub, pinned by digest to a release of ghcr.io/gravel-project/gravel-hub (0.5.0; the
 # index digest covers amd64 and arm64). docs/releasing.md says how to verify a release and move
 # the pin. For a local build use `make image` and Image=localhost/gravel-hub:dev.
 # Config: ~/.config/gravel/hub.yaml (docs/hub.md). Secret: gravel-db-url
@@ -10,7 +10,7 @@ Requires=gravel-postgres.service
 After=gravel-postgres.service
 
 [Container]
-Image=ghcr.io/gravel-project/gravel-hub@sha256:8255099405c8683ac7482a740d2b043561689d9d775991a4e7712d875b4cc84d
+Image=ghcr.io/gravel-project/gravel-hub@sha256:3756a1a67b9da3afe0eef1f67f0ae19fe1067275888fb0c2c16745edec43cc0a
 ContainerName=gravel-hub
 Network=gravel.network
 PublishPort=127.0.0.1:8080:8080
