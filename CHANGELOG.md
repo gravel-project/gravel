@@ -6,6 +6,10 @@ All notable changes to gravel are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- `deploy/quadlet/gravel-hub.container` pins `ghcr.io/gravel-project/gravel-hub` by the 0.2.0 index digest (`sha256:b286c5d693e36d0be734787c6c8b7c947a43b0ab3946655b769e8f5880eb140b`, verified against the release workflow at `v0.2.0`); `docs/hub.md` names 0.2.0 as the tag example.
+
 ## [0.2.0] - 2026-10-09
 
 ### Added
