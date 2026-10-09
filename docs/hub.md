@@ -236,7 +236,10 @@ GRAVEL_TEST_DATABASE_URL='postgres://gravel:test@127.0.0.1:55432/gravel?sslmode=
 
 `make a11y` runs axe (`@axe-core/cli`, pinned in the Makefile, through npx) over the login page
 and fixtures of the account and error pages, driving Chrome; CI runs it too. It needs node and
-a browser, so it is not part of `make check`.
+a browser, so it is not part of `make check`. axe bundles a ChromeDriver that must match the
+Chrome it drives: CI installs a synced pair with `browser-driver-manager` and names them in
+`AXE_CHROME_PATH` and `AXE_CHROMEDRIVER_PATH`; locally, leave both unset and keep Chrome
+current, or set them the same way.
 
 ## Tooling
 

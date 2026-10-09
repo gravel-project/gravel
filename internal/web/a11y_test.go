@@ -19,7 +19,10 @@ import (
 // TestAccessibility runs axe (@axe-core/cli through npx, driving Chrome) over the rendered
 // pages: the login page from the real handler, and the account and error pages from fixtures
 // so no session is needed. It runs only with A11Y=1 (`make a11y`; CI does), because it needs
-// node and a browser.
+// node and a browser. AXE_CHROME_PATH and AXE_CHROMEDRIVER_PATH, when set, name a matching
+// Chrome and ChromeDriver pair (CI installs one with browser-driver-manager, because the
+// driver axe bundles and the runner's Chrome drift apart); unset, axe uses its own driver and
+// the Chrome it finds.
 func TestAccessibility(t *testing.T) {
 	if os.Getenv("A11Y") == "" {
 		t.Skip("set A11Y=1 (make a11y) to run axe over the pages")
@@ -27,6 +30,13 @@ func TestAccessibility(t *testing.T) {
 	version := os.Getenv("AXE_CLI_VERSION")
 	if version == "" {
 		version = "4.13.0"
+	}
+	var browserArgs []string
+	if p := os.Getenv("AXE_CHROME_PATH"); p != "" {
+		browserArgs = append(browserArgs, "--chrome-path", p)
+	}
+	if p := os.Getenv("AXE_CHROMEDRIVER_PATH"); p != "" {
+		browserArgs = append(browserArgs, "--chromedriver-path", p)
 	}
 	r := newRig(t)
 	theme := web.DefaultTheme()
@@ -96,7 +106,8 @@ func TestAccessibility(t *testing.T) {
 		t.Run(strings.TrimPrefix(path, "/"), func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 			defer cancel()
-			cmd := exec.CommandContext(ctx, "npx", "--yes", "@axe-core/cli@"+version, srv.URL+path, "--exit")
+			args := append([]string{"--yes", "@axe-core/cli@" + version, srv.URL + path, "--exit"}, browserArgs...)
+			cmd := exec.CommandContext(ctx, "npx", args...)
 			out, err := cmd.CombinedOutput()
 			if err != nil {
 				t.Fatalf("axe found violations on %s:\n%s", path, out)
