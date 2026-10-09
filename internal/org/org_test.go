@@ -73,6 +73,49 @@ func TestEnsureBuiltinRenames(t *testing.T) {
 	}
 }
 
+func TestCreateBuiltinIfAbsentCreatesOnly(t *testing.T) {
+	f := &orgtest.FakeStore{}
+	s, _ := newTestService(f)
+	o, err := s.CreateBuiltinIfAbsent(context.Background(), " Hidden Token Gaming ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if o.Name != "Hidden Token Gaming" || !o.Builtin || o.Owned() || o.ClaimTokenHash != nil {
+		t.Errorf("org: %+v", o)
+	}
+	if got := f.Writes; len(got) != 1 || got[0] != "create" {
+		t.Errorf("a fresh database gets the row and nothing else: %v", got)
+	}
+}
+
+func TestCreateBuiltinIfAbsentKeepsTheClaimToken(t *testing.T) {
+	f := &orgtest.FakeStore{}
+	s, _ := newTestService(f)
+	_, token, err := s.EnsureBuiltin(context.Background(), "x") // what serve printed
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Writes = nil
+	o, err := s.CreateBuiltinIfAbsent(context.Background(), "another name")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(f.Writes) != 0 || o.Name != "x" {
+		t.Errorf("an existing organization is neither renamed nor re-tokened: writes %v, name %q", f.Writes, o.Name)
+	}
+	if _, err := s.Claim(context.Background(), token, owner); err != nil {
+		t.Errorf("the token serve printed must still claim: %v", err)
+	}
+}
+
+func TestCreateBuiltinIfAbsentPropagatesErrors(t *testing.T) {
+	f := &orgtest.FakeStore{ErrOn: "get"}
+	s, _ := newTestService(f)
+	if _, err := s.CreateBuiltinIfAbsent(context.Background(), "x"); err == nil || len(f.Writes) != 0 {
+		t.Errorf("want the error and no write: %v %v", err, f.Writes)
+	}
+}
+
 func TestClaimOnce(t *testing.T) {
 	f := &orgtest.FakeStore{}
 	s, _ := newTestService(f)

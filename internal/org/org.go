@@ -61,18 +61,8 @@ func New(st Store, ttl time.Duration, logger *slog.Logger) *Service {
 // returned exactly once, for the start-up log; it is empty when the hub is owned.
 func (s *Service) EnsureBuiltin(ctx context.Context, name string) (store.Organization, string, error) {
 	name = strings.TrimSpace(name)
-	o, err := s.st.GetBuiltinOrganization(ctx)
-	switch {
-	case errors.Is(err, store.ErrNotFound):
-		id, err := uuid.NewV7()
-		if err != nil {
-			return store.Organization{}, "", fmt.Errorf("org: new id: %w", err)
-		}
-		if o, err = s.st.CreateBuiltinOrganization(ctx, id, name); err != nil {
-			return store.Organization{}, "", err
-		}
-		s.logger.Info("created the built-in organization", "organization_id", o.ID, "name", o.Name)
-	case err != nil:
+	o, err := s.CreateBuiltinIfAbsent(ctx, name)
+	if err != nil {
 		return store.Organization{}, "", err
 	}
 	if o.Name != name {
@@ -100,6 +90,27 @@ func (s *Service) EnsureBuiltin(ctx context.Context, name string) (store.Organiz
 	o.ClaimTokenHash = hash
 	o.ClaimTokenExpiresAt = &expires
 	return o, token, nil
+}
+
+// CreateBuiltinIfAbsent creates the built-in organization with name if it does not exist and
+// returns it. It writes nothing else: an existing organization keeps its name, and the owner
+// claim is never touched, so a command that needs the row (`gravel-hub settings apply` on a
+// database that was migrated but never served) does not rotate the token `serve` printed. The
+// renaming and the token are EnsureBuiltin's, at start.
+func (s *Service) CreateBuiltinIfAbsent(ctx context.Context, name string) (store.Organization, error) {
+	o, err := s.st.GetBuiltinOrganization(ctx)
+	if !errors.Is(err, store.ErrNotFound) {
+		return o, err
+	}
+	id, err := uuid.NewV7()
+	if err != nil {
+		return store.Organization{}, fmt.Errorf("org: new id: %w", err)
+	}
+	if o, err = s.st.CreateBuiltinOrganization(ctx, id, strings.TrimSpace(name)); err != nil {
+		return store.Organization{}, err
+	}
+	s.logger.Info("created the built-in organization", "organization_id", o.ID, "name", o.Name)
+	return o, nil
 }
 
 // Get returns the built-in organization.
