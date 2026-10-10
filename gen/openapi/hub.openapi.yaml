@@ -294,8 +294,9 @@ paths:
         - gravel.hub.v1.ModerationService
       summary: BanPlayer
       description: |-
-        BanPlayer bans a connected player; not_found when they are not on (a ban of a player who is
-         not on goes in the server's configuration).
+        BanPlayer bans a player, on the server or not: the ban joins the hub's list, which the hub
+         writes into the server's configuration, and a player who is on is kicked. A server that does
+         not let the hub write its configuration bans only a player who is on (not_found otherwise).
       operationId: gravel.hub.v1.ModerationService.BanPlayer
       parameters:
         - name: Connect-Protocol-Version
@@ -764,6 +765,123 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.UpdateOrganizationSettingsResponse'
+  /gravel.hub.v1.ServerConfigService/ApplyServerConfig:
+    post:
+      tags:
+        - gravel.hub.v1.ServerConfigService
+      summary: ApplyServerConfig
+      description: ApplyServerConfig writes a planned document.
+      operationId: gravel.hub.v1.ServerConfigService.ApplyServerConfig
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.ApplyServerConfigRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.ApplyServerConfigResponse'
+  /gravel.hub.v1.ServerConfigService/GetServerConfig:
+    post:
+      tags:
+        - gravel.hub.v1.ServerConfigService
+      summary: GetServerConfig
+      description: GetServerConfig is the current document, redacted, with its schema.
+      operationId: gravel.hub.v1.ServerConfigService.GetServerConfig
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.GetServerConfigRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.GetServerConfigResponse'
+  /gravel.hub.v1.ServerConfigService/PlanServerConfig:
+    post:
+      tags:
+        - gravel.hub.v1.ServerConfigService
+      summary: PlanServerConfig
+      description: PlanServerConfig shows what applying a document would change; it writes nothing.
+      operationId: gravel.hub.v1.ServerConfigService.PlanServerConfig
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.PlanServerConfigRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.PlanServerConfigResponse'
   /gravel.hub.v1.ServerService/GetServerStatus:
     post:
       tags:
@@ -1016,6 +1134,42 @@ components:
       description: |-
         Actor is the person an app says it acts for: a Discord moderator behind a bot command. The
          hub records it as the app asserted it; a logged-in user acts as themselves and sends none.
+    gravel.hub.v1.ApplyServerConfigRequest:
+      type: object
+      properties:
+        serverId:
+          type: string
+          title: server_id
+        text:
+          type: string
+          title: text
+        revision:
+          type: string
+          title: revision
+          description: The revision PlanServerConfig answered; a server that moved since refuses (aborted).
+        reason:
+          type: string
+          title: reason
+          description: 'Recorded in the audit log: a commit, a change request.'
+        onBehalfOf:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.Actor'
+          title: on_behalf_of
+      title: ApplyServerConfigRequest
+      additionalProperties: false
+    gravel.hub.v1.ApplyServerConfigResponse:
+      type: object
+      properties:
+        auditId:
+          type: string
+          title: audit_id
+          format: int64
+        result:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.ConfigResult'
+          title: result
+      title: ApplyServerConfigResponse
+      additionalProperties: false
     gravel.hub.v1.AuditEntry:
       type: object
       properties:
@@ -1115,6 +1269,19 @@ components:
           type: string
           title: user_id
           description: The member the identity is linked to, resolved now; empty for a player who is not one.
+        hub:
+          type: boolean
+          title: hub
+          description: |-
+            Whether the hub holds this ban (its list, written into the server's configuration); false
+             for one only the server knows.
+        auditId:
+          type: string
+          title: audit_id
+          format: int64
+          description: |-
+            The audit entry of the BanPlayer call that made it; 0 for a hub ban imported when the hub
+             adopted the server's list, or a ban the hub does not hold.
       title: Ban
       additionalProperties: false
       description: Ban is one ban a server holds.
@@ -1214,6 +1381,170 @@ components:
           title: organization
       title: ClaimOwnershipResponse
       additionalProperties: false
+    gravel.hub.v1.ConfigChange:
+      type: object
+      properties:
+        section:
+          type: string
+          title: section
+        key:
+          type: string
+          title: key
+        before:
+          type: array
+          items:
+            type: string
+          title: before
+          description: The key's lines in order (array lines keep their prefix); empty when absent on that side.
+        after:
+          type: array
+          items:
+            type: string
+          title: after
+      title: ConfigChange
+      additionalProperties: false
+      description: ConfigChange is one key a plan changes; values are redacted.
+    gravel.hub.v1.ConfigOutcome:
+      type: object
+      properties:
+        section:
+          type: string
+          title: section
+        state:
+          type: string
+          title: state
+        detail:
+          type: string
+          title: detail
+      title: ConfigOutcome
+      additionalProperties: false
+      description: |-
+        ConfigOutcome is when a section's change takes effect: state "applied", "next-match",
+         "next-restart" or "pending".
+    gravel.hub.v1.ConfigProblem:
+      type: object
+      properties:
+        section:
+          type: string
+          title: section
+        key:
+          type: string
+          title: key
+        code:
+          type: string
+          title: code
+        message:
+          type: string
+          title: message
+      title: ConfigProblem
+      additionalProperties: false
+      description: |-
+        ConfigProblem is one reason a document is refused: by the hub (code "out_of_band",
+         "hub_owned", "not_a_number") or by the server (its own codes).
+    gravel.hub.v1.ConfigResult:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          title: ok
+        revision:
+          type: string
+          title: revision
+          description: The revision after an apply.
+        problems:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.ConfigProblem'
+          title: problems
+        changed:
+          type: array
+          items:
+            type: string
+          title: changed
+          description: The sections the document changes.
+        outcomes:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.ConfigOutcome'
+          title: outcomes
+        shadowed:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.ConfigShadowed'
+          title: shadowed
+        stripped:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.ConfigStripped'
+          title: stripped
+        warnings:
+          type: array
+          items:
+            type: string
+          title: warnings
+      title: ConfigResult
+      additionalProperties: false
+      description: ConfigResult is what the server said of a document it validated or applied.
+    gravel.hub.v1.ConfigSection:
+      type: object
+      properties:
+        name:
+          type: string
+          title: name
+        appliesWhen:
+          type: string
+          title: applies_when
+          description: 'When a change takes effect: "applied", "next-match", "next-restart".'
+        keys:
+          type: array
+          items:
+            type: string
+          title: keys
+        locked:
+          type: array
+          items:
+            type: string
+          title: locked
+          description: 'Keys that may not be written, with what locks them: "Port: RCONPort".'
+      title: ConfigSection
+      additionalProperties: false
+      description: ConfigSection is the server's schema for one section of its configuration.
+    gravel.hub.v1.ConfigShadowed:
+      type: object
+      properties:
+        section:
+          type: string
+          title: section
+        key:
+          type: string
+          title: key
+        declared:
+          type: string
+          title: declared
+        effective:
+          type: string
+          title: effective
+        branch:
+          type: string
+          title: branch
+      title: ConfigShadowed
+      additionalProperties: false
+      description: ConfigShadowed is a key whose value in force comes from elsewhere (a command-line switch).
+    gravel.hub.v1.ConfigStripped:
+      type: object
+      properties:
+        section:
+          type: string
+          title: section
+        key:
+          type: string
+          title: key
+        reason:
+          type: string
+          title: reason
+      title: ConfigStripped
+      additionalProperties: false
+      description: ConfigStripped is a key, or a whole section with no key, the server drops.
     gravel.hub.v1.DiscordRecognition:
       type: object
       properties:
@@ -1332,6 +1663,39 @@ components:
             - $ref: '#/components/schemas/gravel.hub.v1.OrganizationSettings'
           title: settings
       title: GetOrganizationSettingsResponse
+      additionalProperties: false
+    gravel.hub.v1.GetServerConfigRequest:
+      type: object
+      properties:
+        serverId:
+          type: string
+          title: server_id
+      title: GetServerConfigRequest
+      additionalProperties: false
+    gravel.hub.v1.GetServerConfigResponse:
+      type: object
+      properties:
+        revision:
+          type: string
+          title: revision
+        text:
+          type: string
+          title: text
+          description: 'The document with every secret redacted (War Dogs: INI).'
+        writable:
+          type: boolean
+          title: writable
+        sections:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.ConfigSection'
+          title: sections
+        warnings:
+          type: array
+          items:
+            type: string
+          title: warnings
+      title: GetServerConfigResponse
       additionalProperties: false
     gravel.hub.v1.GetServerStatusRequest:
       type: object
@@ -1788,6 +2152,39 @@ components:
         OrganizationSettings is the Organization settings resource: every host-configurable knob in
          one document (theme and navigation, the Discord role mapping; token lifetimes and layout
          overrides join it with their features). Version is the document format.
+    gravel.hub.v1.PlanServerConfigRequest:
+      type: object
+      properties:
+        serverId:
+          type: string
+          title: server_id
+        text:
+          type: string
+          title: text
+          description: |-
+            The deployment's document: secrets redacted, the sections and keys the hub owns left out
+             (War Dogs: the RCON and feed sections, DefaultBannedPlayerIds).
+      title: PlanServerConfigRequest
+      additionalProperties: false
+    gravel.hub.v1.PlanServerConfigResponse:
+      type: object
+      properties:
+        revision:
+          type: string
+          title: revision
+          description: The server's revision the plan was made against; ApplyServerConfig needs it.
+        changes:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.ConfigChange'
+          title: changes
+        result:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.ConfigResult'
+          title: result
+          description: The server's validation; not ok means applying would be refused.
+      title: PlanServerConfigResponse
+      additionalProperties: false
     gravel.hub.v1.RevokeSessionsRequest:
       type: object
       title: RevokeSessionsRequest
@@ -2143,10 +2540,6 @@ components:
          by this id.
 security: []
 tags:
-  - name: gravel.hub.v1.IdentityService
-    description: |-
-      IdentityService is the logged-in member's account and the lookups role sync needs. Every
-       procedure needs a session cookie; login itself is the browser flow under /auth/.
   - name: gravel.hub.v1.ModerationService
     description: |-
       ModerationService acts on the players of a server the hub controls (ADR-0010 §5): the owner,
@@ -2158,6 +2551,21 @@ tags:
        a player who is not on it or an unban with no ban; unavailable for a server the hub has not
        reached yet, cannot reach, or that refuses the hub's credential or asks it to wait;
        failed_precondition for an action the server does not offer now (its capabilities).
+  - name: gravel.hub.v1.ServerConfigService
+    description: |-
+      ServerConfigService reads and writes a server's configuration through its driver (ADR-0010
+       §6): the owner, or an app with the servers:configure scope. A deployment keeps its document in
+       its own repository without what the hub owns; the hub merges the server's secrets and its own
+       ban list in, checks the game's bands, has the server validate, and writes only against the
+       revision it planned on. An apply leaves an audit entry (action "apply_config").
+
+       The errors: invalid_argument for a document the hub refuses (the problems are in the message);
+       aborted for a server whose configuration moved since the plan; failed_precondition for a server
+       that does not let the hub read or write its configuration now; unavailable as for moderation.
+  - name: gravel.hub.v1.IdentityService
+    description: |-
+      IdentityService is the logged-in member's account and the lookups role sync needs. Every
+       procedure needs a session cookie; login itself is the browser flow under /auth/.
   - name: gravel.hub.v1.OrganizationService
     description: OrganizationService reads the built-in organization and claims its ownership once.
   - name: gravel.hub.v1.ServerService

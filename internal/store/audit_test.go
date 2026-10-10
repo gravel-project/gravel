@@ -93,7 +93,7 @@ func TestAuditLogIsAppendOnly(t *testing.T) {
 		`UPDATE audit_log SET outcome = 'error' WHERE id = ` + itoa(id1),
 		`UPDATE audit_log SET outcome = 'ok', finished_at = now(), reason = 'sneaky' WHERE id = ` + itoa(id2),
 		`DELETE FROM audit_log WHERE id = ` + itoa(id1),
-		`TRUNCATE audit_log`,
+		`TRUNCATE audit_log CASCADE`, // CASCADE: past the bans foreign key, to the trigger
 	} {
 		if _, err := conn.Exec(ctx, q); err == nil || !strings.Contains(err.Error(), "append-only") {
 			t.Errorf("%s: %v", q, err)

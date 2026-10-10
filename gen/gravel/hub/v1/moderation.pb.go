@@ -272,7 +272,13 @@ type Ban struct {
 	BannedBy string `protobuf:"bytes,4,opt,name=banned_by,json=bannedBy,proto3" json:"banned_by,omitempty"`
 	Reason   string `protobuf:"bytes,5,opt,name=reason,proto3" json:"reason,omitempty"`
 	// The member the identity is linked to, resolved now; empty for a player who is not one.
-	UserId        string `protobuf:"bytes,6,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	UserId string `protobuf:"bytes,6,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	// Whether the hub holds this ban (its list, written into the server's configuration); false
+	// for one only the server knows.
+	Hub bool `protobuf:"varint,7,opt,name=hub,proto3" json:"hub,omitempty"`
+	// The audit entry of the BanPlayer call that made it; 0 for a hub ban imported when the hub
+	// adopted the server's list, or a ban the hub does not hold.
+	AuditId       int64 `protobuf:"varint,8,opt,name=audit_id,json=auditId,proto3" json:"audit_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -347,6 +353,20 @@ func (x *Ban) GetUserId() string {
 		return x.UserId
 	}
 	return ""
+}
+
+func (x *Ban) GetHub() bool {
+	if x != nil {
+		return x.Hub
+	}
+	return false
+}
+
+func (x *Ban) GetAuditId() int64 {
+	if x != nil {
+		return x.AuditId
+	}
+	return 0
 }
 
 type KickPlayerRequest struct {
@@ -1262,14 +1282,16 @@ const file_gravel_hub_v1_moderation_proto_rawDesc = "" +
 	"request_id\x18\x0f \x01(\tR\trequestId\x12\x18\n" +
 	"\aoutcome\x18\x10 \x01(\tR\aoutcome\x12;\n" +
 	"\vfinished_at\x18\x11 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"finishedAt\"\xc2\x01\n" +
+	"finishedAt\"\xef\x01\n" +
 	"\x03Ban\x12\x1a\n" +
 	"\bprovider\x18\x01 \x01(\tR\bprovider\x12\x18\n" +
 	"\asubject\x18\x02 \x01(\tR\asubject\x127\n" +
 	"\tbanned_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\bbannedAt\x12\x1b\n" +
 	"\tbanned_by\x18\x04 \x01(\tR\bbannedBy\x12\x16\n" +
 	"\x06reason\x18\x05 \x01(\tR\x06reason\x12\x17\n" +
-	"\auser_id\x18\x06 \x01(\tR\x06userId\"\x9a\x01\n" +
+	"\auser_id\x18\x06 \x01(\tR\x06userId\x12\x10\n" +
+	"\x03hub\x18\a \x01(\bR\x03hub\x12\x19\n" +
+	"\baudit_id\x18\b \x01(\x03R\aauditId\"\x9a\x01\n" +
 	"\x11KickPlayerRequest\x12\x1b\n" +
 	"\tserver_id\x18\x01 \x01(\tR\bserverId\x12\x18\n" +
 	"\asubject\x18\x02 \x01(\tR\asubject\x12\x16\n" +

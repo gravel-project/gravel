@@ -112,9 +112,17 @@ func (s *ModerationServer) ListServerBans(ctx context.Context, req *connect.Requ
 	}
 	out := &hubv1.ListServerBansResponse{}
 	for _, b := range bans {
-		p := &hubv1.Ban{Provider: b.Identity.Provider, Subject: b.Identity.Subject, BannedBy: b.By, Reason: b.Reason}
+		p := &hubv1.Ban{Provider: b.Identity.Provider, Subject: b.Identity.Subject, BannedBy: b.By, Reason: b.Reason, Hub: b.Hub != nil}
 		if !b.At.IsZero() {
 			p.BannedAt = timestamppb.New(b.At)
+		}
+		if h := b.Hub; h != nil {
+			if p.Reason == "" {
+				p.Reason = h.Reason
+			}
+			if h.BanAuditID != nil {
+				p.AuditId = *h.BanAuditID
+			}
 		}
 		if b.Identity.Subject != "" {
 			u, err := s.members.Lookup(ctx, b.Identity.Provider, b.Identity.Subject)
@@ -186,6 +194,21 @@ func (s *ModerationServer) mapError(ctx context.Context, err error) error {
 	switch {
 	case errors.Is(err, servers.ErrInvalidModeration), errors.Is(err, drivers.ErrRejected):
 		return connect.NewError(connect.CodeInvalidArgument, publicError(err))
+	case errors.Is(err, drivers.ErrInvalidConfig):
+		var ie *drivers.InvalidConfigError
+		msg := "the document is not acceptable"
+		if errors.As(err, &ie) {
+			parts := make([]string, 0, len(ie.Problems))
+			for _, p := range ie.Problems {
+				parts = append(parts, strings.TrimSpace(p.Section+" "+p.Key)+": "+p.Code+": "+p.Message)
+			}
+			msg += ": " + strings.Join(parts, "; ")
+		}
+		return connect.NewError(connect.CodeInvalidArgument, errors.New(msg))
+	case errors.Is(err, drivers.ErrConfigRejected):
+		return connect.NewError(connect.CodeInvalidArgument, errors.New("the server rejected the document; plan it to see why"))
+	case errors.Is(err, drivers.ErrConfigConflict):
+		return connect.NewError(connect.CodeAborted, errors.New("the configuration changed since it was planned; plan again"))
 	case errors.Is(err, drivers.ErrNotSupported):
 		return connect.NewError(connect.CodeFailedPrecondition, errors.New("the server does not offer this now"))
 	case errors.Is(err, drivers.ErrPlayerNotFound):

@@ -5,8 +5,7 @@
 // ExternalReachable is the driver for a server gravel can reach but does not run (RCON, SSH).
 // Its capabilities are a set the server grants right now, never a constant: a game whose API
 // changes between builds loses a capability instead of failing, and the pages and the bot show
-// "not available". Moderation joined with its procedures (Moderator); configuration joins with
-// its own.
+// "not available". Moderation (Moderator) and configuration (Configurer) are part of it.
 package drivers
 
 import (
@@ -144,6 +143,7 @@ type Moderator interface {
 // ExternalReachable controls a server gravel reaches over the network and does not run.
 type ExternalReachable interface {
 	Moderator
+	Configurer
 	// Build is the server's build string, read from a route that needs no credential. A change
 	// re-reads the capabilities.
 	Build(ctx context.Context) (string, error)

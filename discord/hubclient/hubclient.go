@@ -103,6 +103,12 @@ func (c *Client) Moderation() hubv1connect.ModerationServiceClient {
 	return hubv1connect.NewModerationServiceClient(c.http, c.cfg.URL)
 }
 
+// ServerConfig is the ServerConfigService client, authenticated as the app (the
+// servers:configure scope): a server's configuration, planned and applied.
+func (c *Client) ServerConfig() hubv1connect.ServerConfigServiceClient {
+	return hubv1connect.NewServerConfigServiceClient(c.http, c.cfg.URL)
+}
+
 // Token returns a bearer token, fetching or refreshing one when needed.
 func (c *Client) Token(ctx context.Context) (string, error) {
 	c.mu.Lock()

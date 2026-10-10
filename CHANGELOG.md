@@ -8,6 +8,10 @@ patch release is everything else.
 
 ## [Unreleased]
 
+### Added
+
+- Configuration through the hub and the hub-owned ban list: ADR-0010's last step (#16, #8). `ServerConfigService` has `GetServerConfig` (the document redacted, with the schema), `PlanServerConfig` (what a deployment's document would change, key by key and redacted, with the server's validation; writes nothing) and `ApplyServerConfig` (writes it against the planned revision, `aborted` if the server moved; audited as `apply_config`), for the owner or an app with the new `servers:configure` scope. The deployment's document leaves out what the hub owns, which the driver merges in: War Dogs' RCON and feed sections and redacted secrets from the server's own document, and `DefaultBannedPlayerIds` from the hub's ban list (John, 2026-10-10); a document that sets them, or a value outside the Game spec's bands, is refused before anything is sent. Migration 8 adds `ban_lists` and `bans`: `BanPlayer` now bans a player who is not on by writing the hub's list into the configuration (the server's own route still runs, for the kick), adopting the server's existing list the first time so no ban is dropped; ban and unban both fail toward banned. `ListServerBans` carries the hub's record (`hub`, `audit_id`). `drivers.ExternalReachable` gains `drivers.Configurer`; `games/wardogs` gains `ParseDoc`/`DiffDocs`, an order-preserving reader and differ for the configuration document. `discord/hubclient` gains `ServerConfig()`. `docs/hub.md` (Configuration and the hub's ban list) and an ADR-0010 amendment.
+
 ## [0.6.4] - 2026-10-10
 
 ### Added

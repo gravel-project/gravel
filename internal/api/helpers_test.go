@@ -71,12 +71,13 @@ func newRig(t *testing.T) *rig {
 	r.obs = &fakeObserver{obs: map[string]servers.Observation{}}
 	r.drv = &fakeDriver{errs: map[string]error{}}
 	r.audit = serverstest.NewAuditStore()
-	mod := servers.NewModeration(r.srvs, r.drv, r.audit, o.ID, prometheus.NewRegistry(), logger)
+	mod := servers.NewModeration(r.srvs, r.drv, r.audit, serverstest.NewBanStore(), o.ID, prometheus.NewRegistry(), logger)
 	mux := http.NewServeMux()
 	mux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(r.org, logger)))
 	mux.Handle(hubv1connect.NewIdentityServiceHandler(api.NewIdentityServer(r.ids, r.sess, r.org, logger)))
 	mux.Handle(hubv1connect.NewServerServiceHandler(api.NewServerServer(r.srvs, r.obs, r.ids, logger)))
 	mux.Handle(hubv1connect.NewModerationServiceHandler(api.NewModerationServer(mod, r.org, r.ids, logger)))
+	mux.Handle(hubv1connect.NewServerConfigServiceHandler(api.NewConfigServer(mod, r.org, logger)))
 	r.srv = newH2CServer(r.sess.Middleware(r.apps.Middleware(mux)))
 	t.Cleanup(r.srv.Close)
 	return r
