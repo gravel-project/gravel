@@ -38,4 +38,8 @@ func TestModules(t *testing.T) {
 	if got := names(cfg); got != "core" {
 		t.Errorf("both off: %s", got)
 	}
+	cfg.Moderation.Enabled = true
+	if got := names(cfg); got != "core,moderation" {
+		t.Errorf("moderation on: %s", got)
+	}
 }

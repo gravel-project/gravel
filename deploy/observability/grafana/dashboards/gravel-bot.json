@@ -1172,6 +1172,84 @@
       },
       "id": 21,
       "panels": [],
+      "title": "Moderation command",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Actions moderators confirmed from Discord, by action and result: ok; refused (the hub said no: not a moderator, the player left, not offered); failed (the hub could not be reached); cancelled; expired (a confirmation answered after two minutes). Every confirmed action is also in the hub's audit log. No data is expected when the moderation command is off or nobody used it in the range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gravelOptional": "the moderation command is off or nobody used it in the range",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 41
+      },
+      "id": 22,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (action, result) (increase(gravel_bot_moderation_actions_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "{{action}} {{result}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Moderation commands",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 49
+      },
+      "id": 23,
+      "panels": [],
       "title": "Runtime",
       "type": "row"
     },
@@ -1209,9 +1287,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 41
+        "y": 50
       },
-      "id": 22,
+      "id": 24,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -1272,9 +1350,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 41
+        "y": 50
       },
-      "id": 23,
+      "id": 25,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -1335,9 +1413,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 41
+        "y": 50
       },
-      "id": 24,
+      "id": 26,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -1398,9 +1476,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 49
+        "y": 58
       },
-      "id": 25,
+      "id": 27,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -1461,9 +1539,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 49
+        "y": 58
       },
-      "id": 26,
+      "id": 28,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -1524,9 +1602,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 49
+        "y": 58
       },
-      "id": 27,
+      "id": 29,
       "options": {
         "legend": {
           "displayMode": "list",

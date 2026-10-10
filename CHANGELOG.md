@@ -10,6 +10,18 @@ patch release is everything else.
 
 ### Added
 
+- The moderation slash command, a stock bot module (`discord/modules/moderation`; hidden-token-gaming/htg#57).
+  - **Commands.** `/<moderation.command>` (`/mod` by default) `kick`, `ban`, `unban`, `message` and `broadcast`. A player is named in game or by their id; a ban works for a player who isn't on; the server is optional when there is one.
+  - **Confirmation.** Nothing is sent until the moderator who ran the command presses Confirm (private, two minutes, once).
+  - **The hub decides.** The bot calls `ModerationService` with its app credential and `on_behalf_of` the moderator's Discord account, which must be the hub's owner or a moderator (ADR-0013). Every action lands in the hub's audit log.
+  - **Config:** bot.yaml `moderation {enabled, command}`, off by default. The bot's app needs `servers:read` and `servers:moderate`.
+  - **Visibility:** hidden from members without Moderate Members.
+  - **Metric:** `gravel_bot_moderation_actions_total{action,result}`, on the bot dashboard's new Moderation command row.
+  - **Tests:** the whole flow over signed HTTP interactions (defer, question, a stranger's click refused, Confirm, the hub call for the moderator, single use, Cancel, the hub's refusal), the command's registration, the planning rules, escaping, and expiry.
+  - **Docs:** docs/bot.md "Moderation", deploy/bot.yaml.
+
+### Added
+
 - Member profiles, part two of #18.
   - **`/members/{id}`** (and **`/profile`** for your own) shows a member's totals over all time, this week, this month and each season running now, counting Official servers and every linked account, plus their 20 most recent matches. Your own profile has the switch that shows your name on leaderboards. A named member on a board links to their profile, and the account page links to yours.
   - **`StatsService.GetMemberProfile`** (additive): the member, the owner, an app with `stats:read`, or anyone when the member shows their name and stats are public. Every other refusal is `not_found`, so a profile never confirms who plays under a pseudonym.

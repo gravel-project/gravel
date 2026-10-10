@@ -40,6 +40,9 @@ role_sync:                       # the reconciler; what it maps is the Organizat
   dry_run: false                 # log the changes, make none
 linked_roles:
   enabled: true                  # register the Linked Roles metadata schema at start
+moderation:                      # the moderation command, off by default (below)
+  enabled: false
+  command: mod
 server_cards:                    # the status cards; which server goes where is the Organization settings' discord section
   enabled: true
   interval: 15s                  # how often the cards are read and edited where they changed; at least 5s
@@ -157,6 +160,30 @@ once. A Discord or hub failure is logged once while it lasts and retried at the 
 no card placed the module idles and says so once. Metrics:
 `gravel_bot_servercards_updates_total{result}` (`posted`, `edited`, `forbidden`, `error`) and
 `gravel_bot_servercards_last_success_timestamp_seconds`.
+
+### Moderation (`discord/modules/moderation`)
+
+The moderation slash command, `/<moderation.command>` (`/mod` by default), with a subcommand per
+action: `kick player reason`, `ban player reason`, `unban player [reason]`, `message player text`
+and `broadcast text`, each with an optional `server` (needed only when the hub has more than one).
+A player is an in-game name of someone on the server (an exact match, else the one whose name
+contains what was typed), or their id at the game's identity provider (a SteamID64), which is how
+to ban someone who isn't on and the only way to unban. Reasons and messages are capped at 256
+characters, the game's limit.
+
+Nothing is sent until the moderator confirms. The command answers privately with exactly what will
+be sent and Confirm and Cancel buttons; only the moderator who ran it can press them, within two
+minutes, once. On Confirm the bot calls the hub's `ModerationService` with its app credential and
+`on_behalf_of` the moderator's Discord account. **The hub decides:** the account must be linked to
+the hub's owner or a moderator (ADR-0013), or the call is refused and the moderator is told to link
+their account and ask for the role. Every confirmed action is in the hub's audit log, beside the
+web's. The command is hidden from members without Moderate Members (Discord's default member
+permissions), which a server can change per role. The hub's check is the one that counts.
+
+The bot's app needs **`servers:read`** (who is on, to resolve names) **and `servers:moderate`**.
+Names and reasons are escaped, so a player called `@everyone` pings no one. Metric:
+`gravel_bot_moderation_actions_total{action,result}` (`ok`, `refused`, `failed`, `cancelled`,
+`expired`).
 
 ## A host's bot
 

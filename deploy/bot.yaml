@@ -30,6 +30,10 @@ server_cards:                    # the status cards the Organization settings pl
   enabled: true
   interval: 15s
 
+moderation:                      # the moderation slash command (docs/bot.md); the bot's app needs servers:read and servers:moderate
+  enabled: false
+  command: mod                   # the command's name: /mod kick|ban|unban|message|broadcast
+
 server:
   listen: 0.0.0.0:8081           # /interactions, /healthz, /readyz
   internal_listen: 0.0.0.0:9091  # /metrics

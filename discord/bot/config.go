@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -23,6 +24,9 @@ const (
 	MinRoleSyncInterval = time.Minute
 	MinRoleSyncPoll     = 5 * time.Second
 )
+
+// commandName is a slash command name Discord accepts, in lower case.
+var commandName = regexp.MustCompile(`^[-_a-z0-9]{1,32}$`)
 
 // MinServerCardsInterval is the server cards' floor: each pass is two hub calls.
 const MinServerCardsInterval = 5 * time.Second
@@ -43,6 +47,7 @@ type Config struct {
 	RoleSync    RoleSync    `yaml:"role_sync"`
 	LinkedRoles LinkedRoles `yaml:"linked_roles"`
 	ServerCards ServerCards `yaml:"server_cards"`
+	Moderation  Moderation  `yaml:"moderation"`
 	Server      Server      `yaml:"server"`
 	Log         Log         `yaml:"log"`
 }
@@ -74,6 +79,15 @@ type ServerCards struct {
 	Enabled bool `yaml:"enabled"`
 	// Interval is how often the cards are read from the hub and edited where they changed.
 	Interval time.Duration `yaml:"interval"`
+}
+
+// Moderation is the moderation slash command (discord/modules/moderation): kick, ban, unban,
+// message and broadcast through the hub, each confirmed first. Off by default: the bot's app needs
+// servers:read and servers:moderate, and the hub admits only its owner and moderators (ADR-0013).
+type Moderation struct {
+	Enabled bool `yaml:"enabled"`
+	// Command is the slash command's name: lower-case letters, digits, - and _, at most 32.
+	Command string `yaml:"command"`
 }
 
 // Discord is the application the bot runs as.
@@ -144,6 +158,7 @@ func Default() Config {
 		RoleSync:    RoleSync{Enabled: true, Interval: 10 * time.Minute, PollInterval: 30 * time.Second},
 		LinkedRoles: LinkedRoles{Enabled: true},
 		ServerCards: ServerCards{Enabled: true, Interval: 15 * time.Second},
+		Moderation:  Moderation{Command: "mod"},
 		Server:      Server{Listen: "127.0.0.1:8081", InternalListen: "127.0.0.1:9091", ShutdownTimeout: 15 * time.Second},
 		Log:         Log{Level: "info", Format: "json"},
 	}
@@ -274,6 +289,9 @@ func (c Config) Validate() error {
 	}
 	if c.ServerCards.Interval < MinServerCardsInterval {
 		bad("server_cards.interval: %s is shorter than %s", c.ServerCards.Interval, MinServerCardsInterval)
+	}
+	if !commandName.MatchString(c.Moderation.Command) {
+		bad("moderation.command: %q must be 1 to 32 lower-case letters, digits, - or _", c.Moderation.Command)
 	}
 	if c.Server.Listen == "" || c.Server.InternalListen == "" {
 		bad("server.listen and server.internal_listen: required")
