@@ -8,6 +8,8 @@ patch release is everything else.
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-10-10
+
 ### Added
 
 - Moderation through the hub with an audit log: ADR-0010's third step (#16, #18's moderation half). `ModerationService` has `KickPlayer`, `BanPlayer`, `UnbanPlayer`, `MessagePlayer`, `Broadcast`, `MovePlayer` (with `respawn`), `ListServerBans` and `ListAuditLog`, for the owner or an app with the new `servers:moderate` scope; an app may name the person it acts for (`on_behalf_of`), a user acts as themselves, and a kick or ban needs a reason. Each call goes through the server's driver (the monitor's, so one client and one token per server) and is a row in `audit_log` (migration 7), written before the call (no row, no call) and finished once with an outcome word (`ok`, `player_not_found`, `ban_not_found`, `rejected`, `not_available`, `moved_not_respawned`, `unreachable`, `credential_refused`, …), never error text; a trigger refuses every other `UPDATE`, every `DELETE` and `TRUNCATE`. Errors say what happened and never where: a server's refusal shows the game's code (`message_too_long`), not the driver's text. `drivers.ExternalReachable` gains the `drivers.Moderator` calls (kick, kill, message, broadcast, move, ban, unban, bans) with `ErrPlayerNotFound`, `ErrBanNotFound`, `ErrRejected` and `RejectedError`; `drivers/wardogs` implements them. `discord/hubclient` gains `Moderation()`. New metric `gravel_moderation_actions_total{server,action,outcome}` on the hub dashboard's Servers row. `docs/hub.md` has a Moderation section; ADR-0010 gains a moderation as-built amendment (offline bans wait for the configuration step).
@@ -153,7 +155,8 @@ patch release is everything else.
 
 - README and CLAUDE.md follow ADR-0001: status line, principle 2 (the resource lives in the hub's database), the hub and backup paragraphs, the adapter-repo rule, the local-dev default, and a seven-step build order with the issues behind each step. The launch games are the five Hidden Token Gaming plays, in three shapes, with War Dogs first; the open threads link the design-delta issues #2–#9 (#1).
 
-[Unreleased]: https://github.com/gravel-project/gravel/compare/v0.6.2...HEAD
+[Unreleased]: https://github.com/gravel-project/gravel/compare/v0.6.3...HEAD
+[0.6.3]: https://github.com/gravel-project/gravel/compare/v0.6.2...v0.6.3
 [0.6.2]: https://github.com/gravel-project/gravel/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/gravel-project/gravel/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/gravel-project/gravel/compare/v0.5.0...v0.6.0
