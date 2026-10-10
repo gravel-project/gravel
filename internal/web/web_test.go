@@ -32,6 +32,8 @@ type rig struct {
 	steam   *identitytest.FakeProvider
 	token   string
 	results []string
+	servers *fakeServers
+	stats   *fakeStats
 }
 
 // testTheme has a logo, a favicon, header and footer links, an owner-only link and one bad
@@ -53,7 +55,7 @@ func testTheme() templates.Theme {
 func newRig(t *testing.T) *rig {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	r := &rig{idSt: identitytest.NewFakeStore()}
+	r := &rig{idSt: identitytest.NewFakeStore(), servers: newFakeServers(), stats: &fakeStats{}}
 	orgSvc := org.New(&orgtest.FakeStore{}, 15*time.Minute, logger)
 	o, token, err := orgSvc.EnsureBuiltin(context.Background(), "Hidden Token Gaming")
 	if err != nil {
@@ -72,6 +74,8 @@ func newRig(t *testing.T) *rig {
 	apiMux := http.NewServeMux()
 	apiMux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(orgSvc, logger)))
 	apiMux.Handle(hubv1connect.NewIdentityServiceHandler(api.NewIdentityServer(ids, sess, orgSvc, logger)))
+	apiMux.Handle(hubv1connect.NewServerServiceHandler(r.servers))
+	apiMux.Handle(hubv1connect.NewStatsServiceHandler(r.stats))
 	h, err := web.New(ids, sess, sess.Middleware(apiMux), web.StaticTheme{T: testTheme()}, logger)
 	if err != nil {
 		t.Fatal(err)
@@ -175,8 +179,8 @@ func TestLoginLinkUnlinkClaimLogout(t *testing.T) {
 	c := browser(t)
 
 	resp, _ := get(t, c, r.srv.URL+"/")
-	if resp.StatusCode != http.StatusSeeOther || resp.Header.Get("Location") != "/login" {
-		t.Errorf("home anonymous: %d %s", resp.StatusCode, resp.Header.Get("Location"))
+	if resp.StatusCode != http.StatusSeeOther || resp.Header.Get("Location") != "/servers" {
+		t.Errorf("home: %d %s", resp.StatusCode, resp.Header.Get("Location"))
 	}
 	resp, body := get(t, c, r.srv.URL+"/login")
 	if resp.StatusCode != http.StatusOK || !strings.Contains(body, "Log in with Discord") || strings.Contains(body, "Log in with Steam") {

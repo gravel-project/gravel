@@ -29,3 +29,23 @@ th, td { text-align: left; padding: .4rem .5rem; border-bottom: 1px solid var(--
 .flash-err { background: var(--err); }
 label { display: block; margin-top: .5rem; }
 input[type=text] { font: inherit; padding: .4rem; width: 100%; max-width: 32rem; margin: .25rem 0; color: inherit; background: transparent; border: 1px solid var(--line); border-radius: .25rem; }
+/* Servers and leaderboards (gravel#18). */
+.cards { list-style: none; padding: 0; display: grid; gap: .75rem; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); }
+.card { border: 1px solid var(--line); border-radius: .5rem; padding: .75rem 1rem; }
+.card h2 { font-size: 1.1rem; margin: 0 0 .25rem; }
+.meta { margin: 0 0 .25rem; color: var(--muted); }
+.state { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; margin: .25rem 0; }
+.dot { width: .6rem; height: .6rem; border-radius: 50%; background: var(--muted); display: inline-block; }
+.dot-on { background: var(--accent); }
+.badge-muted { border-color: var(--line); color: var(--muted); }
+.teams { list-style: none; padding: 0; display: flex; gap: 1.5rem; flex-wrap: wrap; }
+.team { color: var(--muted); }
+th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
+th a { color: inherit; text-decoration: none; }
+th a:hover, th a:focus-visible { text-decoration: underline; }
+.filters { display: flex; gap: .75rem; align-items: flex-end; flex-wrap: wrap; margin: .5rem 0 1rem; }
+.filters label { margin: 0 0 .25rem; }
+select { font: inherit; padding: .35rem; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: .25rem; }
+select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.board td:nth-child(2) { white-space: nowrap; }
+@media (max-width: 40rem) { .board th:nth-child(n+6), .board td:nth-child(n+6) { display: none; } }

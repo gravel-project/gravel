@@ -120,3 +120,105 @@ func (i Identity) Label() string {
 	}
 	return i.Subject
 }
+
+// ServerRow is one game server as the server list and page show it.
+type ServerRow struct {
+	ID         string
+	Name       string
+	Game       string
+	Location   string
+	Official   bool
+	State      string // the hub's state word: ok, unreachable, unknown, …
+	StateLabel string // what a reader sees: Online, Offline, Checking, Unavailable
+	Players    int
+	MaxPlayers int
+	Map        string
+}
+
+// Online reports whether the server answered its last poll.
+func (s ServerRow) Online() bool { return s.State == "ok" }
+
+// ServersPage lists the organization's servers.
+type ServersPage struct {
+	Page
+	Servers []ServerRow
+}
+
+// Team is a team's score on a server.
+type Team struct {
+	Name  string
+	Score int64
+}
+
+// PlayerRow is one player on a server, as members see them.
+type PlayerRow struct {
+	Name   string
+	Team   string
+	Kills  int
+	Deaths int
+	PingMs int
+	Member bool
+}
+
+// MatchRow is one match in a server's history.
+type MatchRow struct {
+	Started time.Time
+	Ended   *time.Time
+	Map     string
+	Players int
+	Kills   int
+}
+
+// ServerPage is one server: its status, who is on, its recent matches.
+type ServerPage struct {
+	Page
+	Server     ServerRow
+	ObservedAt *time.Time
+	Build      string
+	Teams      []Team
+	// Players is set for members; PlayersNote says why it is not, when it is not.
+	Players     []PlayerRow
+	PlayersNote string
+	Matches     []MatchRow
+	MatchesNote string
+	BoardURL    string
+}
+
+// Option is one choice of a select.
+type Option struct {
+	Value    string
+	Label    string
+	Selected bool
+}
+
+// BoardColumn is a board column: a metric, its header, and the link that ranks by it.
+type BoardColumn struct {
+	Metric string
+	Label  string
+	Sorted bool
+	URL    string
+}
+
+// BoardRow is one ranked player; Cells line up with the page's columns.
+type BoardRow struct {
+	Rank         int
+	Name         string
+	Pseudonymous bool
+	Cells        []string
+}
+
+// BoardsPage is a leaderboard with its scope, window and ranking.
+type BoardsPage struct {
+	Page
+	Heading string
+	Scopes  []Option
+	Windows []Option
+	Metric  string
+	Columns []BoardColumn
+	Rows    []BoardRow
+	// Range is the window's dates, empty for all time.
+	Range string
+	// Note explains an empty or private board.
+	Note    string
+	NextURL string
+}

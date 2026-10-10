@@ -33,6 +33,14 @@ message Game {
   // The publisher forbids any paid benefit (a supporter perk, a crowdfunding reward) that depends
   // on the game's data or features.
   bool no_paid_perks = 5;
+  // How the pages show the game (the Game spec's layout).
+  GameLayout layout = 6;
+}
+
+// GameLayout is a game's page layout, declarative data from its Game spec.
+message GameLayout {
+  // A board's columns in order, each a GetBoardRequest metric; the first is the default ranking.
+  repeated string board = 1;
 }
 
 // Seeding is when a server wants players: below threshold during hours (HH:MM-HH:MM in

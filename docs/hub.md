@@ -109,7 +109,7 @@ Public listener (`server.listen`), HTTP/1.1 and unencrypted HTTP/2 so gRPC works
 | `/gravel.hub.v1.IdentityService/LookupUser` | `{"provider": "discord", "subject": "…"}` → the user and their identities, for role sync; an app with `identity:read`, or the owner |
 | `/gravel.hub.v1.IdentityService/ListUsers` | `{"page_size": 100, "page_token": "…"}` → members with their identities, oldest first, and the next page's token; role sync's full pass; `identity:read` or the owner |
 | `/gravel.hub.v1.IdentityService/ListIdentityEvents` | `{"after_id": 0, "limit": 100}` → the identity log after a position, oldest first, the id to continue from, and the log's newest id (`head_id`, where a reader that just made a full pass starts); role sync's incremental pass; `identity:read` or the owner |
-| `/gravel.hub.v1.ServerService/ListGames` | the enabled games, their identity provider, bands and `no_paid_perks`; public |
+| `/gravel.hub.v1.ServerService/ListGames` | the enabled games, their identity provider, bands, layout and `no_paid_perks`; public |
 | `/gravel.hub.v1.ServerService/ListServers` | every server with its last observation (state, reachable, players and max, map, teams, capabilities, build, `observed_at`); public, no personal data, never a control address |
 | `/gravel.hub.v1.ServerService/GetServerStatus` | `{"server_id": "…"}` → one server; public; `not_found` for an unknown id |
 | `/gravel.hub.v1.StatsService/GetBoard` | `{"server_id"/"game_id", "window": "week", "metric": "kd"}` → a ranked page of players under pseudonyms or opted-in names ([Stats](#stats-adr-0012)); public when the settings make stats public, else the owner or `stats:read` |
@@ -301,6 +301,7 @@ game, but a server for one is refused. A spec's rules:
 |---|---|---|
 | `bands` | One per configuration key, of one kind: a range (`min`, `max`), a longest value (`max_length`, in characters) or the hosts a URL may point at (`hosts`: https, the host or a subdomain of one; an empty value passes). `unless_set` lifts a band while another key of its section has a value. | By the driver on every config plan and apply, before anything is sent (problems `out_of_band`, `too_long`, `host_not_allowed`). `servers.yaml` may tighten a band of the same kind (a narrower range, a shorter length, a subset of hosts), never loosen one or change its `unless_set` |
 | `plugins` | `deny`: rules, each a `match` and the publisher's `reason`; a plugin whose name contains a match is refused. `allow`: when set, the only plugins permitted. Names compare by letters and digits only, case-insensitively. The denylist wins over the allow list. | `Spec.CheckPlugins` refuses a set naming every refused plugin and why; the Counter-Strike 2 image build and driver call it (P4) |
+| `layout` | How the pages show the game, as data: `board` is a board's columns in order (`kills`, `deaths`, `kd`, `time`, `matches`), the first being what it ranks by. Shown by `ListGames` (`Game.layout`). | The pages ([Pages](#pages-gravel18)) |
 | `no_paid_perks` | The publisher forbids a paid benefit (a supporter perk, a crowdfunding reward) that depends on the game's data or features. Shown by `ListGames`. | The benefit logic honours it (P6) |
 
 War Dogs' bands: `ScorePeriod` 18–30, `MinimumRequiredPlayers` at least 20, `ServerName` at most 64
@@ -536,6 +537,28 @@ Metrics: `gravel_stats_matches_total{server,game}`, `gravel_stats_rows_written_t
 `gravel_stats_record_errors_total{server}`, `gravel_stats_rolled_rows_total`, and the rollup job's
 `gravel_hub_job_last_success_timestamp_seconds{job="stats_rollup"}` (stored by Prometheus as
 `exported_job`, since the scrape's own `job` label wins), on the hub dashboard's Stats row.
+
+## Pages (gravel#18)
+
+The web UI's community pages, each an API client like every page (ADR-0005): what a reader may see
+is the API's to decide, and a page says so in words when it is refused.
+
+| Page | Shows | Who sees what |
+|---|---|---|
+| `/servers` (also `/`) | every server: name, game, trust, state (Online, Offline, Checking, Unavailable), players and map | everyone |
+| `/servers/{id}` | the status with the team scores and when it was observed, who is on (in-game name, team, kills, deaths, ping, a member badge), the last 10 matches, a link to the server's board | the status: everyone; who is on: members and the owner ("Log in to see who's on" otherwise); matches: as the boards |
+| `/boards?scope=&window=&metric=&page=` | a leaderboard: scope `` (everyone, Official servers), `game:<id>` or `server:<id>`; window `all`, `week`, `month` or `season:<name>`; ranked by any column of the game's `layout.board`, 50 a page | everyone when `stats.public` is on, else the owner ("Leaderboards are private…" otherwise) |
+
+The forms and links work without JavaScript; htmx swaps only the main content. On a narrow screen a
+board drops its last two columns.
+
+**Caching.** Every board read is an aggregate, and a public board can be read by anyone as often as
+they like, while the numbers change only when someone plays. The hub caches each board answer in
+memory and keeps it while the stats store has not been written (the recorder and the rollup count
+their writes), up to 15 minutes; once something has been written, an answer is still served for a
+minute. An idle hub serves every board from memory, and a live match costs one read a minute per
+board, however many people watch. A member's name choice clears the cache. The API's per-IP rate
+limit applies in front of all of it.
 
 ## Login (ADR-0004)
 

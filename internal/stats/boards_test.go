@@ -80,6 +80,7 @@ func TestPseudonyms(t *testing.T) {
 // boardStore records the board query and answers canned rows.
 type boardStore struct {
 	*memStore
+	changes Changes
 	q       store.BoardQuery
 	rows    []store.BoardRow
 	members map[store.PlayerKey]store.BoardMember
@@ -104,9 +105,11 @@ func (b *boardStore) BoardMembers(_ context.Context, keys []store.PlayerKey) (ma
 	return out, nil
 }
 
+func (b *boardStore) SetShowNameOnBoards(context.Context, uuid.UUID, bool) error { return nil }
+
 func newBoards(set org.Stats, rows ...store.BoardRow) (*Boards, *boardStore) {
 	bs := &boardStore{memStore: newMemStore(), rows: rows, members: map[store.PlayerKey]store.BoardMember{}}
-	b := NewBoards(bs, uuid.New(), NewNamer(bs, uuid.New(), key, quiet()), func(context.Context) (org.Stats, error) { return set, nil })
+	b := NewBoards(bs, uuid.New(), NewNamer(bs, uuid.New(), key, quiet()), func(context.Context) (org.Stats, error) { return set, nil }, &bs.changes)
 	// Wednesday 2026-10-14 03:00 UTC is Tuesday evening in Chicago.
 	b.now = func() time.Time { return time.Date(2026, 10, 14, 3, 0, 0, 0, time.UTC) }
 	return b, bs
@@ -186,5 +189,52 @@ func TestBoardNamesAndPages(t *testing.T) {
 	}
 	if bs.q.Offset != 2 || next.Entries[0].Rank != 3 {
 		t.Errorf("the next page ranks from 3: %+v", next.Entries)
+	}
+}
+
+// A board is served from memory while the stats store is unwritten (up to BoardMaxTTL); after a
+// write it is still served for BoardLiveTTL; a member's name choice clears it.
+func TestBoardCache(t *testing.T) {
+	b, bs := newBoards(org.Stats{}, store.BoardRow{Provider: "steam", Subject: "1", Kills: 3, Matches: 1})
+	ctx := context.Background()
+	now := time.Date(2026, 10, 14, 3, 0, 0, 0, time.UTC)
+	b.now = func() time.Time { return now }
+	read := func(q Query) bool { // true when the store was read
+		bs.q = store.BoardQuery{}
+		if _, err := b.Board(ctx, q); err != nil {
+			t.Fatal(err)
+		}
+		return bs.q.Metric != ""
+	}
+	if !read(Query{}) || read(Query{}) {
+		t.Error("the second read went to the store")
+	}
+	if !read(Query{Metric: store.BoardDeaths}) {
+		t.Error("another query was served from the cache")
+	}
+	// Idle: nothing written, so the answer outlives BoardLiveTTL.
+	now = now.Add(10 * time.Minute)
+	if read(Query{}) {
+		t.Error("an idle hub re-read an unchanged board")
+	}
+	// A live match: a write is not seen until BoardLiveTTL has passed since the answer.
+	now = now.Add(BoardMaxTTL) // past the cap: re-read
+	if !read(Query{}) {
+		t.Error("an answer older than BoardMaxTTL was served")
+	}
+	bs.changes.Bump()
+	now = now.Add(BoardLiveTTL / 2)
+	if read(Query{}) {
+		t.Error("a write re-read the board inside BoardLiveTTL")
+	}
+	now = now.Add(BoardLiveTTL / 2)
+	if !read(Query{}) {
+		t.Error("a write was not seen after BoardLiveTTL")
+	}
+	if err := b.SetShowName(ctx, uuid.New(), true); err != nil {
+		t.Fatal(err)
+	}
+	if !read(Query{}) {
+		t.Error("a name choice left the cached board")
 	}
 }

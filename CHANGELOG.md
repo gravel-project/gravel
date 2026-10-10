@@ -8,6 +8,15 @@ patch release is everything else.
 
 ## [Unreleased]
 
+### Added
+
+- The community pages, part one of #18: servers and leaderboards.
+  - **`/servers`** (now also `/`) lists every server with its live state, players and map. **`/servers/{id}`** shows the status with team scores, who is on (members and the owner only), the last 10 matches and a link to the server's board. **`/boards`** is a leaderboard by scope (everyone, a game, a server), window (all time, this week, this month, a season) and any column, with paging. A refusal reads as words on the page ("Leaderboards are private…"), never an error. The header gains Servers and Leaderboards.
+  - **Game spec `layout`:** `layout.board` names a game's board columns in order, and the first is the default ranking. `ListGames` shows it (`Game.layout`, additive). War Dogs shows all five.
+  - **Board caching.** A board answer is kept while the stats store is unwritten, up to 15 minutes, and for a minute after a write. An idle hub serves boards from memory, and a live match costs one read a minute per board. The recorder and the rollup count their writes (`stats.Changes`), and a member's name choice clears the cache.
+  - **Tests:** the pages against stubbed API services (refusals, escaping, the request each control sends), axe over four new fixtures, the cache's rules, and the recorder's and rollup's write counts.
+  - **Docs:** docs/hub.md "Pages", plus the layout rule in "Game specs and publisher rules".
+
 ### Fixed
 
 - The dashboards' job panels group by `exported_job` (#114). The job runners' `job` label is stored by Prometheus as `exported_job`, because the scrape target's own `job` wins, so "Job runs by result" and "Since each job last succeeded" (hub) and "Background jobs ended" (bot) collapsed every job into the scrape job. A dashboards test refuses a panel that groups, labels or matches by `job` outside the shared selector. docs/hub.md and docs/bot.md say which label to query.

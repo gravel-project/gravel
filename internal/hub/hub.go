@@ -184,15 +184,18 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 	h.moderation = servers.NewModeration(h.servers, h.monitor, st, st, o.ID, h.registry, logger)
 	// The stats store (ADR-0012): every good poll becomes matches and player totals; boards read
 	// them with the Organization settings' stats section.
-	h.monitor.SetSink(stats.NewRecorder(st, o.ID, h.registry, logger))
+	// The recorder and the rollup count their writes, so the boards serve from memory while
+	// nobody plays.
+	changes := &stats.Changes{}
+	h.monitor.SetSink(stats.NewRecorder(st, o.ID, changes, h.registry, logger))
 	statsSettings := func(ctx context.Context) (org.Stats, error) {
 		set, _, err := h.org.Settings(ctx)
 		return set.Stats, err
 	}
-	h.stats = stats.NewBoards(st, o.ID, stats.NewNamer(st, o.ID, []byte(cfg.Stats.PseudonymKey), logger), statsSettings)
+	h.stats = stats.NewBoards(st, o.ID, stats.NewNamer(st, o.ID, []byte(cfg.Stats.PseudonymKey), logger), statsSettings, changes)
 	// Retention (ADR-0012 §6): raw rows past the window roll up into monthly totals.
 	h.jobs.Start(jobs.Job{Name: "stats_rollup", Every: stats.RollupEvery, Immediate: true,
-		Run: stats.NewRetention(st, o.ID, statsSettings, h.registry, logger).Run})
+		Run: stats.NewRetention(st, o.ID, statsSettings, changes, h.registry, logger).Run})
 	// Inbound ingestion (ADR-0011): the feed tokens are read from their files as the monitor reads
 	// the credentials, and the stored batches are pruned after their retention.
 	h.feeds = ingest.NewKeyring()

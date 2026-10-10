@@ -27,13 +27,13 @@ templ Layout(p Page) {
 					}
 					{ p.Org.Name }
 				</a>
-				if len(p.HeaderNav) > 0 {
-					<nav aria-label="Site">
-						for _, l := range p.HeaderNav {
-							<a href={ templ.URL(l.URL) }>{ l.Label }</a>
-						}
-					</nav>
-				}
+				<nav aria-label="Site">
+					<a href="/servers">Servers</a>
+					<a href="/boards">Leaderboards</a>
+					for _, l := range p.HeaderNav {
+						<a href={ templ.URL(l.URL) }>{ l.Label }</a>
+					}
+				</nav>
 				<nav aria-label="Account">
 					if p.User != nil {
 						<a href="/account">{ p.User.DisplayName }</a>

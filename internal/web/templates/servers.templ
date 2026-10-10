@@ -1,0 +1,254 @@
+package templates
+
+import (
+	"fmt"
+	"time"
+)
+
+// Servers is the whole server list.
+templ Servers(p ServersPage) {
+	@Layout(p.Page) {
+		@ServersContent(p)
+	}
+}
+
+// ServersContent lists every server with its live status.
+templ ServersContent(p ServersPage) {
+	@FlashView(p.Flash)
+	<h1>Servers</h1>
+	if len(p.Servers) == 0 {
+		<p>This hub has no game servers yet.</p>
+	} else {
+		<ul class="cards">
+			for _, s := range p.Servers {
+				<li class="card">
+					<h2><a href={ templ.SafeURL("/servers/" + s.ID) }>{ s.Name }</a></h2>
+					<p class="meta">
+						{ s.Game }
+						if s.Official {
+							<span class="badge">official</span>
+						} else {
+							<span class="badge badge-muted">community</span>
+						}
+					</p>
+					@StateLine(s)
+				</li>
+			}
+		</ul>
+	}
+}
+
+// StateLine is a server's state word, players and map on one line.
+templ StateLine(s ServerRow) {
+	<p class="state">
+		<span class={ "dot", templ.KV("dot-on", s.Online()) } aria-hidden="true"></span>
+		<span>{ s.StateLabel }</span>
+		if s.Online() {
+			<span>· { fmt.Sprintf("%d/%d players", s.Players, s.MaxPlayers) }</span>
+			if s.Map != "" {
+				<span>· { s.Map }</span>
+			}
+		}
+	</p>
+}
+
+// Server is the whole server page.
+templ Server(p ServerPage) {
+	@Layout(p.Page) {
+		@ServerContent(p)
+	}
+}
+
+// ServerContent is one server: status, scores, who is on, recent matches.
+templ ServerContent(p ServerPage) {
+	@FlashView(p.Flash)
+	<h1>{ p.Server.Name }</h1>
+	<p class="meta">
+		{ p.Server.Game } · { p.Server.Location }
+		if p.Server.Official {
+			<span class="badge">official</span>
+		} else {
+			<span class="badge badge-muted">community</span>
+		}
+	</p>
+	@StateLine(p.Server)
+	if p.ObservedAt != nil {
+		<p class="muted">As of { at(*p.ObservedAt) }</p>
+	}
+	if len(p.Teams) > 0 {
+		<section aria-labelledby="score-heading">
+			<h2 id="score-heading">Score</h2>
+			<ul class="teams">
+				for _, t := range p.Teams {
+					<li><span class="team">{ t.Name }</span> <strong>{ fmt.Sprint(t.Score) }</strong></li>
+				}
+			</ul>
+		</section>
+	}
+	<section aria-labelledby="players-heading">
+		<h2 id="players-heading">Who's on</h2>
+		if p.PlayersNote != "" {
+			<p class="muted">{ p.PlayersNote }</p>
+		} else if len(p.Players) == 0 {
+			<p class="muted">Nobody is on right now.</p>
+		} else {
+			<table>
+				<thead>
+					<tr>
+						<th scope="col">Player</th>
+						<th scope="col">Team</th>
+						<th scope="col" class="num">Kills</th>
+						<th scope="col" class="num">Deaths</th>
+						<th scope="col" class="num">Ping</th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, pl := range p.Players {
+						<tr>
+							<td>
+								{ pl.Name }
+								if pl.Member {
+									<span class="badge">member</span>
+								}
+							</td>
+							<td>{ pl.Team }</td>
+							<td class="num">{ fmt.Sprint(pl.Kills) }</td>
+							<td class="num">{ fmt.Sprint(pl.Deaths) }</td>
+							<td class="num">{ fmt.Sprintf("%d ms", pl.PingMs) }</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		}
+	</section>
+	<section aria-labelledby="matches-heading">
+		<h2 id="matches-heading">Recent matches</h2>
+		if p.MatchesNote != "" {
+			<p class="muted">{ p.MatchesNote }</p>
+		} else if len(p.Matches) == 0 {
+			<p class="muted">No match has been recorded yet.</p>
+		} else {
+			<table>
+				<thead>
+					<tr>
+						<th scope="col">Started</th>
+						<th scope="col">Map</th>
+						<th scope="col" class="num">Players</th>
+						<th scope="col" class="num">Kills</th>
+						<th scope="col">Length</th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, m := range p.Matches {
+						<tr>
+							<td>{ at(m.Started) }</td>
+							<td>{ m.Map }</td>
+							<td class="num">{ fmt.Sprint(m.Players) }</td>
+							<td class="num">{ fmt.Sprint(m.Kills) }</td>
+							<td>
+								if m.Ended != nil {
+									{ Duration(int(m.Ended.Sub(m.Started).Seconds())) }
+								} else {
+									<span class="badge">live</span>
+								}
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		}
+		<p><a href={ templ.SafeURL(p.BoardURL) }>This server's leaderboard</a></p>
+	</section>
+}
+
+// Boards is the whole leaderboard page.
+templ Boards(p BoardsPage) {
+	@Layout(p.Page) {
+		@BoardsContent(p)
+	}
+}
+
+// BoardsContent is a leaderboard with its selectors; the form works without htmx.
+templ BoardsContent(p BoardsPage) {
+	@FlashView(p.Flash)
+	<h1>{ p.Heading }</h1>
+	<form method="get" action="/boards" class="filters" hx-get="/boards" hx-target="#page" hx-push-url="true">
+		<input type="hidden" name="metric" value={ p.Metric }/>
+		<div>
+			<label for="scope">Board</label>
+			<select id="scope" name="scope">
+				for _, o := range p.Scopes {
+					<option value={ o.Value } selected?={ o.Selected }>{ o.Label }</option>
+				}
+			</select>
+		</div>
+		<div>
+			<label for="window">When</label>
+			<select id="window" name="window">
+				for _, o := range p.Windows {
+					<option value={ o.Value } selected?={ o.Selected }>{ o.Label }</option>
+				}
+			</select>
+		</div>
+		<button type="submit">Show</button>
+	</form>
+	if p.Range != "" {
+		<p class="muted">{ p.Range }</p>
+	}
+	if p.Note != "" {
+		<p class="muted">{ p.Note }</p>
+	} else if len(p.Rows) == 0 {
+		<p class="muted">Nobody has played in this window yet.</p>
+	} else {
+		<table class="board">
+			<thead>
+				<tr>
+					<th scope="col" class="num">#</th>
+					<th scope="col">Player</th>
+					for _, c := range p.Columns {
+						if c.Sorted {
+							<th scope="col" class="num" aria-sort="descending"><a href={ templ.SafeURL(c.URL) } hx-get={ c.URL } hx-target="#page" hx-push-url="true">{ c.Label } ▼</a></th>
+						} else {
+							<th scope="col" class="num"><a href={ templ.SafeURL(c.URL) } hx-get={ c.URL } hx-target="#page" hx-push-url="true">{ c.Label }</a></th>
+						}
+					}
+				</tr>
+			</thead>
+			<tbody>
+				for _, r := range p.Rows {
+					<tr>
+						<td class="num">{ fmt.Sprint(r.Rank) }</td>
+						<td>
+							{ r.Name }
+							if !r.Pseudonymous {
+								<span class="badge">member</span>
+							}
+						</td>
+						for _, cell := range r.Cells {
+							<td class="num">{ cell }</td>
+						}
+					</tr>
+				}
+			</tbody>
+		</table>
+		<p class="muted">Players who haven't linked an account, or chose not to show their name, appear under a pseudonym.</p>
+		if p.NextURL != "" {
+			<p><a href={ templ.SafeURL(p.NextURL) } hx-get={ p.NextURL } hx-target="#page" hx-push-url="true">Next page</a></p>
+		}
+	}
+}
+
+// at is a time as the pages show it, in UTC.
+func at(t time.Time) string { return t.UTC().Format("Jan 2, 15:04 UTC") }
+
+// Duration is seconds as "2h 05m" or "45m".
+func Duration(seconds int) string {
+	if seconds < 0 {
+		seconds = 0
+	}
+	h, m := seconds/3600, seconds%3600/60
+	if h == 0 {
+		return fmt.Sprintf("%dm", m)
+	}
+	return fmt.Sprintf("%dh %02dm", h, m)
+}

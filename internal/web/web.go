@@ -48,13 +48,15 @@ const csp = "default-src 'none'; script-src 'self'; style-src 'self'; img-src ht
 
 // Handler serves the pages and the flows.
 type Handler struct {
-	ids    *identity.Service
-	sess   *session.Manager
-	theme  ThemeSource
-	logger *slog.Logger
-	static http.Handler
-	orgAPI hubv1connect.OrganizationServiceClient
-	idAPI  hubv1connect.IdentityServiceClient
+	ids       *identity.Service
+	sess      *session.Manager
+	theme     ThemeSource
+	logger    *slog.Logger
+	static    http.Handler
+	orgAPI    hubv1connect.OrganizationServiceClient
+	idAPI     hubv1connect.IdentityServiceClient
+	serverAPI hubv1connect.ServerServiceClient
+	statsAPI  hubv1connect.StatsServiceClient
 
 	// Observe, when set, is told how every callback ended: result is "ok", "denied", "failed",
 	// "invalid", "mismatch", "taken" or "error"; provider is a configured provider or "other";
@@ -78,9 +80,11 @@ func New(ids *identity.Service, sess *session.Manager, api http.Handler, theme T
 	}
 	return &Handler{
 		ids: ids, sess: sess, theme: theme, logger: logger,
-		static: http.StripPrefix("/static/", http.FileServerFS(static)),
-		orgAPI: orgAPI,
-		idAPI:  hubv1connect.NewIdentityServiceClient(client, "http://hub", connect.WithProtoJSON()),
+		static:    http.StripPrefix("/static/", http.FileServerFS(static)),
+		orgAPI:    orgAPI,
+		idAPI:     hubv1connect.NewIdentityServiceClient(client, "http://hub", connect.WithProtoJSON()),
+		serverAPI: hubv1connect.NewServerServiceClient(client, "http://hub", connect.WithProtoJSON()),
+		statsAPI:  hubv1connect.NewStatsServiceClient(client, "http://hub", connect.WithProtoJSON()),
 	}, nil
 }
 
@@ -89,6 +93,9 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /{$}", h.home)
 	mux.HandleFunc("GET /login", h.login)
 	mux.HandleFunc("GET /account", h.account)
+	mux.HandleFunc("GET /servers", h.servers)
+	mux.HandleFunc("GET /servers/{id}", h.server)
+	mux.HandleFunc("GET /boards", h.boards)
 	mux.HandleFunc("GET /auth/{provider}/start", h.startLogin)
 	mux.HandleFunc("GET /auth/{provider}/link", h.startLink)
 	mux.HandleFunc("GET /auth/{provider}/roles", h.startRoles)
@@ -106,12 +113,9 @@ func (h *Handler) Register(mux *http.ServeMux) {
 // isHX reports whether htmx made the request; it then wants the page's content, not the page.
 func isHX(r *http.Request) bool { return r.Header.Get("HX-Request") == "true" }
 
+// home is the servers: what a visitor comes for, logged in or not.
 func (h *Handler) home(w http.ResponseWriter, r *http.Request) {
-	if _, ok := session.FromContext(r.Context()); ok {
-		http.Redirect(w, r, "/account", http.StatusSeeOther)
-		return
-	}
-	http.Redirect(w, r, "/login", http.StatusSeeOther)
+	http.Redirect(w, r, "/servers", http.StatusSeeOther)
 }
 
 func (h *Handler) login(w http.ResponseWriter, r *http.Request) {

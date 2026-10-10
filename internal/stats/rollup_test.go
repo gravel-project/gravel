@@ -99,9 +99,10 @@ func (r *rollupStore) EraseIdentity(_ context.Context, _ uuid.UUID, key store.Pl
 
 func TestRetentionRun(t *testing.T) {
 	set := org.Stats{Timezone: "America/Chicago", RawRetentionMonths: 6}
+	var changes Changes
 	newRun := func(st *rollupStore) (*Retention, *prometheus.Registry) {
 		reg := prometheus.NewRegistry()
-		r := NewRetention(st, uuid.New(), func(context.Context) (org.Stats, error) { return set, nil }, reg, slog.New(slog.NewTextHandler(io.Discard, nil)))
+		r := NewRetention(st, uuid.New(), func(context.Context) (org.Stats, error) { return set, nil }, &changes, reg, slog.New(slog.NewTextHandler(io.Discard, nil)))
 		r.now = func() time.Time { return time.Date(2026, 10, 10, 12, 0, 0, 0, time.UTC) }
 		return r, reg
 	}
@@ -126,6 +127,9 @@ func TestRetentionRun(t *testing.T) {
 	}
 	if n := testutil.ToFloat64(r.rows); n != 40 {
 		t.Errorf("rolled rows metric = %v", n)
+	}
+	if changes.Seen() != 1 {
+		t.Errorf("a rollup that moved rows bumped the change counter %d times", changes.Seen())
 	}
 	if _, err := reg.Gather(); err != nil {
 		t.Fatal(err)

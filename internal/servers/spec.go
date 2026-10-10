@@ -16,6 +16,7 @@ import (
 	"github.com/gravel-project/gravel/games/seaofthieves"
 	"github.com/gravel-project/gravel/games/starcitizen"
 	"github.com/gravel-project/gravel/games/wardogs"
+	"github.com/gravel-project/gravel/internal/store"
 )
 
 // Spec is a Game spec gravel ships (ADR-0010): what a game is, who its players are keyed by,
@@ -34,7 +35,19 @@ type Spec struct {
 	// NoPaidPerks is a publisher's rule that no paid benefit (a supporter perk, a crowdfunding
 	// reward) may depend on the game's data or features; the benefit logic honours it.
 	NoPaidPerks bool `yaml:"no_paid_perks"`
+	// Layout is how the pages show the game: declarative data, so the core stays game-agnostic.
+	Layout Layout `yaml:"layout"`
 }
+
+// Layout is a game's page layout (README, Leaderboards & UI).
+type Layout struct {
+	// Board is the columns a board of the game shows, in order; the first is what it ranks by
+	// unless the reader picks another. Each is a board metric: kills, deaths, kd, time, matches.
+	Board []string `yaml:"board,omitempty"`
+}
+
+// BoardMetrics are the metrics a board can rank by, which Layout.Board picks from.
+var BoardMetrics = []string{store.BoardKills, store.BoardDeaths, store.BoardKD, store.BoardTime, store.BoardMatches}
 
 // Band is a publisher guardrail on one configuration key (gravel#8), of one kind: a numeric
 // range (Min, Max; a nil bound is open), a longest value (MaxLength, in characters) or the hosts
@@ -230,6 +243,11 @@ func ParseSpec(b []byte) (Spec, error) {
 	for i, r := range s.Plugins.Deny {
 		if pluginKey(r.Match) == "" || strings.TrimSpace(r.Reason) == "" {
 			problems = append(problems, fmt.Sprintf("plugins.deny[%d]: match (with a letter or digit) and reason are required", i))
+		}
+	}
+	for i, m := range s.Layout.Board {
+		if !slices.Contains(BoardMetrics, m) || slices.Index(s.Layout.Board, m) != i {
+			problems = append(problems, fmt.Sprintf("layout.board[%d]: %q is not one of %s, or is listed twice", i, m, strings.Join(BoardMetrics, ", ")))
 		}
 	}
 	for i, a := range s.Plugins.Allow {
