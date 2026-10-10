@@ -92,7 +92,7 @@ func settingsToProto(set org.Settings, at time.Time) *hubv1.OrganizationSettings
 		p.Nav = append(p.Nav, &hubv1.NavLink{Label: l.Label, Url: l.URL, Placement: l.Placement, Role: l.Role})
 	}
 	if d := set.Discord; !d.IsZero() {
-		p.Discord = &hubv1.DiscordSettings{GuildId: d.GuildID, Roles: &hubv1.DiscordRoles{Linked: d.Roles.Linked, Providers: d.Roles.Providers}}
+		p.Discord = &hubv1.DiscordSettings{GuildId: d.GuildID, Roles: &hubv1.DiscordRoles{Linked: d.Roles.Linked, Providers: d.Roles.Providers}, ModLog: d.ModLog}
 		for _, r := range d.Recognition {
 			p.Discord.Recognition = append(p.Discord.Recognition, &hubv1.DiscordRecognition{Role: r.Role, Rule: r.Rule, Count: int32(r.Count)}) //nolint:gosec // bounded by validation
 		}
@@ -128,7 +128,7 @@ func settingsFromProto(p *hubv1.OrganizationSettings) org.Settings {
 		set.Nav = append(set.Nav, org.NavLink{Label: l.GetLabel(), URL: l.GetUrl(), Placement: l.GetPlacement(), Role: l.GetRole()})
 	}
 	d := p.GetDiscord()
-	set.Discord = org.Discord{GuildID: d.GetGuildId(), Roles: org.DiscordRoles{Linked: d.GetRoles().GetLinked(), Providers: d.GetRoles().GetProviders()}}
+	set.Discord = org.Discord{GuildID: d.GetGuildId(), Roles: org.DiscordRoles{Linked: d.GetRoles().GetLinked(), Providers: d.GetRoles().GetProviders()}, ModLog: d.GetModLog()}
 	for _, r := range d.GetRecognition() {
 		set.Discord.Recognition = append(set.Discord.Recognition, org.Recognition{Role: r.GetRole(), Rule: r.GetRule(), Count: int(r.GetCount())})
 	}

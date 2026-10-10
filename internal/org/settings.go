@@ -150,6 +150,9 @@ type Discord struct {
 	// ServerCards are the live status cards the bot keeps (discord/modules/servercards): one
 	// message per server, edited in place.
 	ServerCards []ServerCard `json:"server_cards,omitempty" yaml:"server_cards,omitempty"`
+	// ModLog is the channel the bot posts every moderation action to (discord/modules/modlog):
+	// the hub's audit log, from the web and from Discord alike. Empty is none.
+	ModLog string `json:"mod_log,omitempty" yaml:"mod_log,omitempty"`
 }
 
 // ServerCard places one server's status card in a channel of the guild.
@@ -187,7 +190,7 @@ var MappedProviders = []string{"discord", "steam"}
 
 // IsZero reports whether nothing is set.
 func (d Discord) IsZero() bool {
-	return d.GuildID == "" && d.Roles.IsZero() && len(d.Recognition) == 0 && len(d.ServerCards) == 0
+	return d.GuildID == "" && d.Roles.IsZero() && len(d.Recognition) == 0 && len(d.ServerCards) == 0 && d.ModLog == ""
 }
 
 // IsZero reports whether no role is mapped.
@@ -342,6 +345,9 @@ func validateDiscord(d Discord, bad func(string, ...any)) {
 		if r.Count < 1 || r.Count > MaxFirstMembers {
 			bad("%s.count: %d is not between 1 and %d", field, r.Count, MaxFirstMembers)
 		}
+	}
+	if d.ModLog != "" && !snowflakeOK(d.ModLog) {
+		bad("discord.mod_log: %q is not a Discord channel id", d.ModLog)
 	}
 	if len(d.ServerCards) > MaxServerCards {
 		bad("discord.server_cards: %d cards, at most %d", len(d.ServerCards), MaxServerCards)

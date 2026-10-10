@@ -77,7 +77,7 @@ func TestPlan(t *testing.T) {
 func TestQuestionAndResultTextIsSafe(t *testing.T) {
 	a := Action{Kind: Ban, ServerID: "wd-1", ServerName: "War Dogs #1", Subject: "76561190000000002", Name: "@everyone *bold*", Text: "spam <@1> #general"}
 	q := Question(a)
-	for _, bad := range []string{"@everyone", "*bold*", "<@1>", " #general"} {
+	for _, bad := range []string{"@everyone", "*bold*", "<@1>"} {
 		if strings.Contains(q, bad) {
 			t.Errorf("the question carries %q unescaped: %s", bad, q)
 		}

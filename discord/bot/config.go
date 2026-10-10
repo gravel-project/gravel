@@ -48,6 +48,7 @@ type Config struct {
 	LinkedRoles LinkedRoles `yaml:"linked_roles"`
 	ServerCards ServerCards `yaml:"server_cards"`
 	Moderation  Moderation  `yaml:"moderation"`
+	ModLog      ModLog      `yaml:"mod_log"`
 	Server      Server      `yaml:"server"`
 	Log         Log         `yaml:"log"`
 }
@@ -89,6 +90,18 @@ type Moderation struct {
 	// Command is the slash command's name: lower-case letters, digits, - and _, at most 32.
 	Command string `yaml:"command"`
 }
+
+// ModLog posts every moderation action, from the web or Discord, to the channel the Organization
+// settings name (discord.mod_log; discord/modules/modlog). Off by default: reading the audit log
+// needs servers:moderate on the bot's app.
+type ModLog struct {
+	Enabled bool `yaml:"enabled"`
+	// Interval is how often the audit log is read for new entries.
+	Interval time.Duration `yaml:"interval"`
+}
+
+// MinModLogInterval is the mod log's floor: each pass is one or two hub calls.
+const MinModLogInterval = 5 * time.Second
 
 // Discord is the application the bot runs as.
 type Discord struct {
@@ -159,6 +172,7 @@ func Default() Config {
 		LinkedRoles: LinkedRoles{Enabled: true},
 		ServerCards: ServerCards{Enabled: true, Interval: 15 * time.Second},
 		Moderation:  Moderation{Command: "mod"},
+		ModLog:      ModLog{Interval: 15 * time.Second},
 		Server:      Server{Listen: "127.0.0.1:8081", InternalListen: "127.0.0.1:9091", ShutdownTimeout: 15 * time.Second},
 		Log:         Log{Level: "info", Format: "json"},
 	}
@@ -292,6 +306,9 @@ func (c Config) Validate() error {
 	}
 	if !commandName.MatchString(c.Moderation.Command) {
 		bad("moderation.command: %q must be 1 to 32 lower-case letters, digits, - or _", c.Moderation.Command)
+	}
+	if c.ModLog.Interval < MinModLogInterval {
+		bad("mod_log.interval: %s is shorter than %s", c.ModLog.Interval, MinModLogInterval)
 	}
 	if c.Server.Listen == "" || c.Server.InternalListen == "" {
 		bad("server.listen and server.internal_listen: required")

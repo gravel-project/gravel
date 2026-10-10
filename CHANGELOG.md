@@ -10,6 +10,21 @@ patch release is everything else.
 
 ### Added
 
+- The mod log, a stock bot module (`discord/modules/modlog`; hidden-token-gaming/htg#57).
+  - **What it posts:** every moderation action, from the web or the moderation command, to the channel in the Organization settings' new `discord.mod_log`. One line per audit-log entry, in order: what, where, to whom, by whom, why, the result.
+  - **Running and stale entries:** an entry still running waits a pass; one left unfinished for two minutes posts as it stands.
+  - **No state in the hub:** it finds its place from the footer of its own posts, so a restart loses nothing, and turning it on never posts history.
+  - **Config:** bot.yaml `mod_log {enabled, interval}`, off by default; the bot's app needs `servers:moderate`. `DiscordSettings.mod_log` (additive).
+  - **Metrics:** `gravel_bot_modlog_posts_total{result}` and `gravel_bot_modlog_last_success_timestamp_seconds`, on the bot dashboard's new Mod log row.
+  - **Tests:** a fake hub and Discord covering the start without history, ordering, waiting on a running entry, a restart resuming from its own posts (ignoring other authors' markers), stale entries, a refusal counted then recovered, idle, and the line's escaping.
+  - **Docs:** docs/bot.md "Mod log", docs/hub.md settings, deploy/bot.yaml.
+
+### Changed
+
+- The moderation command no longer escapes `#` in names and reasons. It only formats at the start of a line, which these never are, and the escape put an invisible character into names like "War Dogs #1".
+
+### Added
+
 - The moderation slash command, a stock bot module (`discord/modules/moderation`; hidden-token-gaming/htg#57).
   - **Commands.** `/<moderation.command>` (`/mod` by default) `kick`, `ban`, `unban`, `message` and `broadcast`. A player is named in game or by their id; a ban works for a player who isn't on; the server is optional when there is one.
   - **Confirmation.** Nothing is sent until the moderator who ran the command presses Confirm (private, two minutes, once).

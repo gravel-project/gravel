@@ -711,11 +711,13 @@ func (x *DiscordServerCard) GetNote() string {
 // channels the server cards live in. Ids are Discord snowflakes as strings; empty means the bot
 // has nothing to do.
 type DiscordSettings struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	GuildId       string                 `protobuf:"bytes,1,opt,name=guild_id,json=guildId,proto3" json:"guild_id,omitempty"`
-	Roles         *DiscordRoles          `protobuf:"bytes,2,opt,name=roles,proto3" json:"roles,omitempty"`
-	Recognition   []*DiscordRecognition  `protobuf:"bytes,3,rep,name=recognition,proto3" json:"recognition,omitempty"`
-	ServerCards   []*DiscordServerCard   `protobuf:"bytes,4,rep,name=server_cards,json=serverCards,proto3" json:"server_cards,omitempty"`
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	GuildId     string                 `protobuf:"bytes,1,opt,name=guild_id,json=guildId,proto3" json:"guild_id,omitempty"`
+	Roles       *DiscordRoles          `protobuf:"bytes,2,opt,name=roles,proto3" json:"roles,omitempty"`
+	Recognition []*DiscordRecognition  `protobuf:"bytes,3,rep,name=recognition,proto3" json:"recognition,omitempty"`
+	ServerCards []*DiscordServerCard   `protobuf:"bytes,4,rep,name=server_cards,json=serverCards,proto3" json:"server_cards,omitempty"`
+	// The channel the bot posts every moderation action to (the audit log); empty is none.
+	ModLog        string `protobuf:"bytes,5,opt,name=mod_log,json=modLog,proto3" json:"mod_log,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -776,6 +778,13 @@ func (x *DiscordSettings) GetServerCards() []*DiscordServerCard {
 		return x.ServerCards
 	}
 	return nil
+}
+
+func (x *DiscordSettings) GetModLog() string {
+	if x != nil {
+		return x.ModLog
+	}
+	return ""
 }
 
 // StatsSeason is a named window of matches: from (included) to to (excluded), dates
@@ -1245,12 +1254,13 @@ const file_gravel_hub_v1_organization_proto_rawDesc = "" +
 	"\x11DiscordServerCard\x12\x16\n" +
 	"\x06server\x18\x01 \x01(\tR\x06server\x12\x18\n" +
 	"\achannel\x18\x02 \x01(\tR\achannel\x12\x12\n" +
-	"\x04note\x18\x03 \x01(\tR\x04note\"\xe9\x01\n" +
+	"\x04note\x18\x03 \x01(\tR\x04note\"\x82\x02\n" +
 	"\x0fDiscordSettings\x12\x19\n" +
 	"\bguild_id\x18\x01 \x01(\tR\aguildId\x121\n" +
 	"\x05roles\x18\x02 \x01(\v2\x1b.gravel.hub.v1.DiscordRolesR\x05roles\x12C\n" +
 	"\vrecognition\x18\x03 \x03(\v2!.gravel.hub.v1.DiscordRecognitionR\vrecognition\x12C\n" +
-	"\fserver_cards\x18\x04 \x03(\v2 .gravel.hub.v1.DiscordServerCardR\vserverCards\"Y\n" +
+	"\fserver_cards\x18\x04 \x03(\v2 .gravel.hub.v1.DiscordServerCardR\vserverCards\x12\x17\n" +
+	"\amod_log\x18\x05 \x01(\tR\x06modLog\"Y\n" +
 	"\vStatsSeason\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
 	"\x04game\x18\x02 \x01(\tR\x04game\x12\x12\n" +

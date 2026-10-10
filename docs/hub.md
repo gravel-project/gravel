@@ -210,6 +210,7 @@ discord:                     # what the bot manages (docs/bot.md); ids as quoted
     - server: htg-wardogs-1  # the server's id in servers.yaml, one card each
       channel: "…"           # the bot needs View Channel, Send Messages, Read Message History
       note: Matches start at 20 players.   # optional, one line of at most 200 characters
+  mod_log: "…"               # optional: the channel every moderation action is posted to (docs/bot.md "Mod log")
 stats:                       # the boards ([Stats](#stats-adr-0012))
   public: false              # true once the host's privacy policy covers stats; until then the owner and stats:read
   min_matches: 3             # a player's matches before a K/D board shows them (default 3)
