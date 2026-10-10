@@ -160,8 +160,20 @@ func (s *ModerationServer) ListAuditLog(ctx context.Context, req *connect.Reques
 		return nil, mapError(ctx, s.logger, err)
 	}
 	out := &hubv1.ListAuditLogResponse{}
+	names := map[uuid.UUID]string{} // each acting member's name, read once a page
 	for _, e := range entries {
-		out.Entries = append(out.Entries, auditEntry(e))
+		p := auditEntry(e)
+		if id := e.ActorUserID; id != nil {
+			if _, ok := names[*id]; !ok {
+				if u, err := s.members.Me(ctx, *id); err == nil {
+					names[*id] = u.DisplayName
+				} else {
+					names[*id] = ""
+				}
+			}
+			p.UserName = names[*id]
+		}
+		out.Entries = append(out.Entries, p)
 	}
 	if more && len(entries) > 0 {
 		out.NextPageToken = encodeAuditToken(entries[len(entries)-1].ID)

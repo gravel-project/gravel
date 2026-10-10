@@ -1,0 +1,100 @@
+package templates
+
+// Confirm is the whole confirmation page.
+templ Confirm(p ConfirmPage) {
+	@Layout(p.Page) {
+		@ConfirmContent(p)
+	}
+}
+
+// ConfirmContent says exactly what will be sent, and sends it only on Confirm.
+templ ConfirmContent(p ConfirmPage) {
+	<h1>{ p.Question }</h1>
+	<dl class="facts">
+		<dt>Server</dt>
+		<dd>{ p.ServerName }</dd>
+		if p.Name != "" || p.Subject != "" {
+			<dt>Player</dt>
+			<dd>
+				{ p.Name }
+				if p.Subject != "" {
+					<span class="muted">{ p.Subject }</span>
+				}
+			</dd>
+		}
+		if p.Reason != "" {
+			<dt>Reason</dt>
+			<dd>{ p.Reason }</dd>
+		}
+		if p.Message != "" {
+			<dt>Message</dt>
+			<dd>{ p.Message }</dd>
+		}
+	</dl>
+	<p class="muted">It is recorded in the moderation log with your name.</p>
+	<form method="post" action={ templ.SafeURL("/servers/" + p.ServerID + "/moderate") }>
+		<input type="hidden" name="_csrf" value={ p.CSRF }/>
+		<input type="hidden" name="action" value={ p.Action }/>
+		<input type="hidden" name="subject" value={ p.Subject }/>
+		<input type="hidden" name="name" value={ p.Name }/>
+		if p.Reason != "" {
+			<input type="hidden" name="text" value={ p.Reason }/>
+		} else {
+			<input type="hidden" name="text" value={ p.Message }/>
+		}
+		<input type="hidden" name="confirm" value="1"/>
+		<button type="submit">Confirm</button>
+		<a href={ templ.SafeURL("/servers/" + p.ServerID) }>Cancel</a>
+	</form>
+}
+
+// Audit is the whole moderation log page.
+templ Audit(p AuditPage) {
+	@Layout(p.Page) {
+		@AuditContent(p)
+	}
+}
+
+// AuditContent is a server's moderation log, newest first; nothing in it can be changed.
+templ AuditContent(p AuditPage) {
+	@FlashView(p.Flash)
+	<h1>Moderation log</h1>
+	<p class="meta"><a href={ templ.SafeURL("/servers/" + p.ServerID) }>{ p.ServerName }</a></p>
+	if len(p.Entries) == 0 {
+		<p class="muted">Nothing has been done on this server yet.</p>
+	} else {
+		<table>
+			<thead>
+				<tr>
+					<th scope="col">When</th>
+					<th scope="col">Who</th>
+					<th scope="col">Action</th>
+					<th scope="col">Player</th>
+					<th scope="col">Reason or message</th>
+					<th scope="col">Result</th>
+				</tr>
+			</thead>
+			<tbody>
+				for _, e := range p.Entries {
+					<tr>
+						<td>{ at(e.At) }</td>
+						<td>{ e.Actor }</td>
+						<td>{ e.Action }</td>
+						<td>{ e.Target }</td>
+						<td>{ e.Detail }</td>
+						<td>
+							if e.OK {
+								{ e.Outcome }
+							} else {
+								<span class="badge badge-muted">{ e.Outcome }</span>
+							}
+						</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+		if p.NextURL != "" {
+			<p><a href={ templ.SafeURL(p.NextURL) }>Older</a></p>
+		}
+	}
+}

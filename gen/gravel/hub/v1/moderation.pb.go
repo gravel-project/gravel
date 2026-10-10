@@ -106,8 +106,10 @@ type AuditEntry struct {
 	// "moved_not_respawned", "unreachable", "credential_refused", "credential_missing",
 	// "rate_limited" or "error"; empty while the call has no recorded result (the hub stopped
 	// mid-call). The cause of a failure is in the hub's log, never here.
-	Outcome       string                 `protobuf:"bytes,16,opt,name=outcome,proto3" json:"outcome,omitempty"`
-	FinishedAt    *timestamppb.Timestamp `protobuf:"bytes,17,opt,name=finished_at,json=finishedAt,proto3" json:"finished_at,omitempty"`
+	Outcome    string                 `protobuf:"bytes,16,opt,name=outcome,proto3" json:"outcome,omitempty"`
+	FinishedAt *timestamppb.Timestamp `protobuf:"bytes,17,opt,name=finished_at,json=finishedAt,proto3" json:"finished_at,omitempty"`
+	// The acting member's display name, when a member acted (user_id).
+	UserName      string `protobuf:"bytes,18,opt,name=user_name,json=userName,proto3" json:"user_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -259,6 +261,13 @@ func (x *AuditEntry) GetFinishedAt() *timestamppb.Timestamp {
 		return x.FinishedAt
 	}
 	return nil
+}
+
+func (x *AuditEntry) GetUserName() string {
+	if x != nil {
+		return x.UserName
+	}
+	return ""
 }
 
 // Ban is one ban a server holds.
@@ -1259,7 +1268,7 @@ const file_gravel_hub_v1_moderation_proto_rawDesc = "" +
 	"\x1egravel/hub/v1/moderation.proto\x12\rgravel.hub.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"=\n" +
 	"\x05Actor\x12\x1a\n" +
 	"\bprovider\x18\x01 \x01(\tR\bprovider\x12\x18\n" +
-	"\asubject\x18\x02 \x01(\tR\asubject\"\xa6\x04\n" +
+	"\asubject\x18\x02 \x01(\tR\asubject\"\xc3\x04\n" +
 	"\n" +
 	"AuditEntry\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12*\n" +
@@ -1282,7 +1291,8 @@ const file_gravel_hub_v1_moderation_proto_rawDesc = "" +
 	"request_id\x18\x0f \x01(\tR\trequestId\x12\x18\n" +
 	"\aoutcome\x18\x10 \x01(\tR\aoutcome\x12;\n" +
 	"\vfinished_at\x18\x11 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"finishedAt\"\xef\x01\n" +
+	"finishedAt\x12\x1b\n" +
+	"\tuser_name\x18\x12 \x01(\tR\buserName\"\xef\x01\n" +
 	"\x03Ban\x12\x1a\n" +
 	"\bprovider\x18\x01 \x01(\tR\bprovider\x12\x18\n" +
 	"\asubject\x18\x02 \x01(\tR\asubject\x127\n" +

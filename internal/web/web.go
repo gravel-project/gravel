@@ -58,6 +58,7 @@ type Handler struct {
 	idAPI     hubv1connect.IdentityServiceClient
 	serverAPI hubv1connect.ServerServiceClient
 	statsAPI  hubv1connect.StatsServiceClient
+	modAPI    hubv1connect.ModerationServiceClient
 
 	// Observe, when set, is told how every callback ended: result is "ok", "denied", "failed",
 	// "invalid", "mismatch", "taken" or "error"; provider is a configured provider or "other";
@@ -86,6 +87,7 @@ func New(ids *identity.Service, sess *session.Manager, api http.Handler, theme T
 		idAPI:     hubv1connect.NewIdentityServiceClient(client, "http://hub", connect.WithProtoJSON()),
 		serverAPI: hubv1connect.NewServerServiceClient(client, "http://hub", connect.WithProtoJSON()),
 		statsAPI:  hubv1connect.NewStatsServiceClient(client, "http://hub", connect.WithProtoJSON()),
+		modAPI:    hubv1connect.NewModerationServiceClient(client, "http://hub", connect.WithProtoJSON()),
 	}, nil
 }
 
@@ -100,6 +102,8 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /profile", h.profile)
 	mux.HandleFunc("GET /members/{id}", h.member)
 	mux.HandleFunc("POST /profile/name", h.setName)
+	mux.HandleFunc("POST /servers/{id}/moderate", h.moderate)
+	mux.HandleFunc("GET /servers/{id}/log", h.auditLog)
 	mux.HandleFunc("GET /members", h.members)
 	mux.HandleFunc("POST /members/role", h.setRole)
 	mux.HandleFunc("GET /auth/{provider}/start", h.startLogin)

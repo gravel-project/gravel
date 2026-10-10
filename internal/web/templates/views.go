@@ -155,14 +155,16 @@ type Team struct {
 	Score int64
 }
 
-// PlayerRow is one player on a server, as members see them.
+// PlayerRow is one player on a server, as members see them. Subject is their id at the game's
+// identity provider, which the moderation forms name them by.
 type PlayerRow struct {
-	Name   string
-	Team   string
-	Kills  int
-	Deaths int
-	PingMs int
-	Member bool
+	Name    string
+	Subject string
+	Team    string
+	Kills   int
+	Deaths  int
+	PingMs  int
+	Member  bool
 }
 
 // MatchRow is one match in a server's history.
@@ -187,6 +189,61 @@ type ServerPage struct {
 	Matches     []MatchRow
 	MatchesNote string
 	BoardURL    string
+	// Mod is set for the owner and moderators: the controls the server's driver offers.
+	Mod *ModControls
+}
+
+// ModControls are the moderation controls a server page shows a moderator; each is shown only
+// when the server's driver offers it.
+type ModControls struct {
+	Kick, Ban, Unban, Message, Broadcast bool
+	Bans                                 []BanRow
+	BansNote                             string
+}
+
+// Any reports whether a player row needs a moderation form.
+func (m *ModControls) Any() bool { return m != nil && (m.Kick || m.Ban || m.Message) }
+
+// BanRow is one ban a server holds.
+type BanRow struct {
+	Subject string
+	Name    string
+	Reason  string
+	By      string
+	At      time.Time
+}
+
+// ConfirmPage asks a moderator to confirm an action before it is sent.
+type ConfirmPage struct {
+	Page
+	ServerID   string
+	ServerName string
+	Action     string
+	Question   string
+	Subject    string
+	Name       string
+	Reason     string
+	Message    string
+}
+
+// AuditRow is one entry of a server's moderation log.
+type AuditRow struct {
+	At      time.Time
+	Actor   string
+	Action  string
+	Target  string
+	Detail  string
+	Outcome string
+	OK      bool
+}
+
+// AuditPage is a server's moderation log, newest first.
+type AuditPage struct {
+	Page
+	ServerID   string
+	ServerName string
+	Entries    []AuditRow
+	NextURL    string
 }
 
 // Option is one choice of a select.

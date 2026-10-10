@@ -119,6 +119,29 @@ func TestAccessibility(t *testing.T) {
 				{ID: "u2", DisplayName: "Sam", Accounts: "Discord", Joined: now, Moderator: true},
 				{ID: "u3", DisplayName: "Ana", Accounts: "Discord, Steam", Joined: now}}})
 		},
+		"/fixture/server-moderator": func() templ.Component {
+			p := base
+			p.Title, p.User, p.CSRF = online.Name, owner, "csrf"
+			p.Flash = &templates.Flash{Kind: "ok", Text: "Kicked Stranger."}
+			return templates.Server(templates.ServerPage{Page: p, Server: online, ObservedAt: &now, BoardURL: "/boards",
+				Players: []templates.PlayerRow{{Name: "Jo", Subject: "76561190000000001", Team: "Lonestar", Kills: 7, Deaths: 2, PingMs: 41, Member: true},
+					{Name: "Stranger", Subject: "76561190000000002", Team: "Boreal", Kills: 1, Deaths: 5, PingMs: 90}},
+				Mod: &templates.ModControls{Kick: true, Ban: true, Unban: true, Message: true, Broadcast: true,
+					Bans: []templates.BanRow{{Subject: "76561190000000009", Name: "76561190000000009", Reason: "cheating", By: "Jo", At: now}}}})
+		},
+		"/fixture/confirm": func() templ.Component {
+			p := base
+			p.Title, p.User, p.CSRF = "Confirm", owner, "csrf"
+			return templates.Confirm(templates.ConfirmPage{Page: p, ServerID: "htg-wardogs-1", ServerName: online.Name, Action: "ban",
+				Question: "Ban Stranger from " + online.Name + "?", Subject: "76561190000000002", Name: "Stranger", Reason: "cheating"})
+		},
+		"/fixture/log": func() templ.Component {
+			p := base
+			p.Title, p.User = "Moderation log", owner
+			return templates.Audit(templates.AuditPage{Page: p, ServerID: "htg-wardogs-1", ServerName: online.Name, NextURL: "/servers/htg-wardogs-1/log?page=x",
+				Entries: []templates.AuditRow{{At: now, Actor: "Jo", Action: "ban", Target: "76561190000000009", Detail: "cheating", Outcome: "ok", OK: true},
+					{At: now, Actor: "htg-bot for Discord 42", Action: "kick", Target: "76561190000000002", Detail: "afk", Outcome: "player not found"}}})
+		},
 		"/fixture/error": func() templ.Component {
 			p := base
 			p.Title = "Login attempt expired"
@@ -159,7 +182,8 @@ func TestAccessibility(t *testing.T) {
 	defer srv.Close()
 
 	for _, path := range []string{"/login", "/fixture/account-unowned", "/fixture/account-owner", "/fixture/error",
-		"/fixture/servers", "/fixture/server", "/fixture/server-anonymous", "/fixture/boards", "/fixture/member-self", "/fixture/member", "/fixture/members"} {
+		"/fixture/servers", "/fixture/server", "/fixture/server-anonymous", "/fixture/boards", "/fixture/member-self", "/fixture/member", "/fixture/members",
+		"/fixture/server-moderator", "/fixture/confirm", "/fixture/log"} {
 		t.Run(strings.TrimPrefix(path, "/"), func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 			defer cancel()

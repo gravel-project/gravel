@@ -139,7 +139,7 @@ func (h *Handler) server(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		for _, pl := range players.Msg.GetPlayers() {
-			sp.Players = append(sp.Players, templates.PlayerRow{Name: pl.GetName(), Team: pl.GetTeam(), Kills: int(pl.GetKills()),
+			sp.Players = append(sp.Players, templates.PlayerRow{Name: pl.GetName(), Subject: pl.GetSubject(), Team: pl.GetTeam(), Kills: int(pl.GetKills()),
 				Deaths: int(pl.GetDeaths()), PingMs: int(pl.GetPingMs()), Member: pl.GetUserId() != ""})
 		}
 	}
@@ -162,6 +162,9 @@ func (h *Handler) server(w http.ResponseWriter, r *http.Request) {
 			}
 			sp.Matches = append(sp.Matches, row)
 		}
+	}
+	if p.User.CanModerate() {
+		sp.Mod = h.modControls(r, id, s.GetStatus().GetCapabilities())
 	}
 	h.render(w, r, http.StatusOK, b, templates.Server(sp), templates.ServerContent(sp))
 }

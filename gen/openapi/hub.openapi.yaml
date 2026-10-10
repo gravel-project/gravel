@@ -1481,6 +1481,10 @@ components:
           allOf:
             - $ref: '#/components/schemas/google.protobuf.Timestamp'
           title: finished_at
+        userName:
+          type: string
+          title: user_name
+          description: The acting member's display name, when a member acted (user_id).
       title: AuditEntry
       additionalProperties: false
       description: |-
