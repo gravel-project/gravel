@@ -10,6 +10,12 @@ patch release is everything else.
 
 ### Added
 
+- A host's own app scopes, `host:<name>[:<more>]` (John, 2026-10-10; ADR-0008 amendment). A host's service beside the hub (hidden-token-gaming's Muster: `host:muster:read`, `host:muster:write`) can have the hub grant, issue and introspect scopes of its own.
+  - **What gravel does:** `apps create --scopes` takes them, checks only their shape (one to four lower-case segments after `host:`, at most 64 characters), stores them, issues them in client-credentials tokens, and returns them from `POST /oauth/introspect`.
+  - **What it doesn't:** gravel admits nothing by them. An app holding only host scopes calls only what is public. A member never grants one, since the authorization endpoint refuses it as an app's own scope.
+  - **Tests:** the shape, valid and malformed; creation, issue, narrowing and introspection; refusal at the authorization endpoint; and every scoped procedure refused to an app holding only host scopes.
+  - **Docs:** docs/hub.md, the scopes table and "A host's own scopes".
+
 - Members sign in to first-party apps with the authorization-code flow, and apps verify tokens by introspection (#6, ADR-0015, now accepted).
   - **What:** OAuth 2.0 authorization code with PKCE (`S256` only, required for every client), not OIDC: no ID token, no signing key. An app's pages send the member to `GET /oauth/authorize`; the app learns who signed in from `IdentityService.GetMe` with the member's token. First consumer: Muster (hidden-token-gaming/htg ADR-0002).
   - **Registration:** `gravel-hub apps create … --redirect-uri URL` (repeatable; https, or http on 127.0.0.1, `[::1]` or localhost; compared as exact strings); `apps list` shows them.

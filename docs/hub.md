@@ -337,6 +337,16 @@ curl -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{
 | `servers:configure` | `ServerConfigService`: read, plan and apply a server's configuration |
 | `stats:read` | `StatsService` `GetBoard`, `GetParticipationBoard` and `ListMatches` while the settings keep stats private |
 | `participation:write` | `StatsService` `RecordParticipation`: participation events from a first-party app ([Participation](#participation-adr-0014)); the only way to record them, the owner's session included |
+| `host:<name>[:<more>]` | nothing in gravel: a host's own scope, for a service beside the hub that checks it (below) |
+
+**A host's own scopes.** A host's service beside the hub (Hidden Token Gaming's Muster, say) can
+give its callers scopes of its own: `host:` followed by one to four lower-case segments joined by
+colons (`host:muster:read`, `host:muster:write`), at most 64 characters. The operator grants one
+with `apps create --scopes host:muster:write`; the hub stores it on the app, issues it in
+client-credentials tokens like any other, and returns it from introspection, where the service
+checks it. Gravel itself admits nothing by a host scope, so an app holding only host scopes may
+call only what is public. A member never grants one: the authorization endpoint refuses it like
+an app's own scope.
 
 Rules: a token lives `apps.token_ttl` (an hour by default) and is pruned after; `scope` at the
 token endpoint may narrow a token to a subset of the app's scopes, never widen it; an unknown,
@@ -386,7 +396,7 @@ curl -u "$CLIENT_ID:$CLIENT_SECRET" -d token="$TOKEN" https://app.example.com/oa
   Allow and Cancel (Cancel answers `access_denied`). The grant is remembered per member and app; the
   next sign-in is silent while the member's hub session lasts, and the member is asked again only
   when the app asks for more. An empty `scope` asks for sign-in only. A scope that is only an
-  app's own (`participation:write`) cannot be asked for.
+  app's own (`participation:write`, or a host's `host:…`) cannot be asked for.
 - **Codes and tokens.** A code is hashed, single use and lives 60 seconds, bound to the app, the
   redirect URI, the PKCE challenge and the member. Its first presentation spends it, whatever the
   outcome; a second one answers `invalid_grant` and revokes every token issued from it. A member's
