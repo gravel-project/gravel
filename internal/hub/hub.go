@@ -302,7 +302,7 @@ func (h *Hub) buildAPI() *http.ServeMux {
 	mux.Handle(hubv1connect.NewServerServiceHandler(api.NewServerServer(h.servers, h.monitor, h.ids, h.logger), interceptors))
 	mux.Handle(hubv1connect.NewModerationServiceHandler(api.NewModerationServer(h.moderation, h.org, h.ids, h.logger), interceptors))
 	mux.Handle(hubv1connect.NewServerConfigServiceHandler(api.NewConfigServer(h.moderation, h.org, h.logger), interceptors))
-	mux.Handle(hubv1connect.NewStatsServiceHandler(api.NewStatsServer(h.stats, h.org, h.logger), interceptors))
+	mux.Handle(hubv1connect.NewStatsServiceHandler(api.NewStatsServer(h.stats, h.org, h.ids, h.logger), interceptors))
 	return mux
 }
 

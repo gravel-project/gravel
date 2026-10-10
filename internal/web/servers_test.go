@@ -87,6 +87,9 @@ type fakeStats struct {
 	entries []*hubv1.BoardEntry
 	next    string
 	matches []*hubv1.MatchSummary
+	// self is the logged-in member's id the profile answers for ("" before login).
+	self     string
+	showName bool
 }
 
 func (f *fakeStats) GetBoard(_ context.Context, req *connect.Request[hubv1.GetBoardRequest]) (*connect.Response[hubv1.GetBoardResponse], error) {
@@ -111,6 +114,43 @@ func (f *fakeStats) ListMatches(context.Context, *connect.Request[hubv1.ListMatc
 		return nil, connect.NewError(f.err, errors.New("refused"))
 	}
 	return connect.NewResponse(&hubv1.ListMatchesResponse{Matches: f.matches}), nil
+}
+
+// GetMemberProfile answers for the session's member (an empty id), one other opted-in member
+// ("u2"), and not_found for anyone else, as the API's rule would.
+func (f *fakeStats) GetMemberProfile(ctx context.Context, req *connect.Request[hubv1.GetMemberProfileRequest]) (*connect.Response[hubv1.GetMemberProfileResponse], error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	totals := []*hubv1.ProfileTotals{
+		{Window: "all", Kills: 40, Deaths: 10, Kd: 4, SecondsOn: 7200, Matches: 6},
+		{Window: "week", Kills: 4, Deaths: 2, Kd: 2, SecondsOn: 900, Matches: 1},
+		{Window: "season", Season: "Season 02", Kills: 4, Deaths: 2, Kd: 2, SecondsOn: 900, Matches: 1},
+	}
+	recent := []*hubv1.PlayerMatch{{MatchId: "7", ServerId: "htg-wardogs-1", ServerName: "HTG WARDOGS | NA WEST | #1",
+		StartedAt: timestamppb.New(time.Date(2026, 10, 10, 20, 0, 0, 0, time.UTC)), Map: "Ozeti", Kills: 4, Deaths: 2, SecondsOn: 900}}
+	switch req.Msg.GetUserId() {
+	case "", f.self:
+		if f.self == "" {
+			return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("log in"))
+		}
+		return connect.NewResponse(&hubv1.GetMemberProfileResponse{UserId: f.self, DisplayName: "Jo", Self: true, ShowName: f.showName, Totals: totals, Recent: recent}), nil
+	case "u2":
+		return connect.NewResponse(&hubv1.GetMemberProfileResponse{UserId: "u2", DisplayName: "Sam", ShowName: true, Totals: totals}), nil
+	}
+	return nil, connect.NewError(connect.CodeNotFound, errors.New("no such profile"))
+}
+
+func (f *fakeStats) SetBoardName(_ context.Context, req *connect.Request[hubv1.SetBoardNameRequest]) (*connect.Response[hubv1.SetBoardNameResponse], error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.showName = req.Msg.GetShowName()
+	return connect.NewResponse(&hubv1.SetBoardNameResponse{ShowName: f.showName}), nil
+}
+
+func (f *fakeStats) shown() bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.showName
 }
 
 func (f *fakeStats) set(err connect.Code) {
@@ -246,5 +286,68 @@ func TestBoardsPage(t *testing.T) {
 		if resp, _ := get(t, browser(t), r.srv.URL+"/boards?scope="+url.QueryEscape(scope)); resp.StatusCode != http.StatusNotFound {
 			t.Errorf("scope %s: %d", scope, resp.StatusCode)
 		}
+	}
+}
+
+func TestMemberProfile(t *testing.T) {
+	r := newRig(t)
+	c := browser(t)
+
+	// Anonymous: /profile asks for a login, and a private profile is "no such profile".
+	if resp, _ := get(t, c, r.srv.URL+"/profile"); resp.StatusCode != http.StatusSeeOther || resp.Header.Get("Location") != "/login" {
+		t.Errorf("anonymous /profile: %d %s", resp.StatusCode, resp.Header.Get("Location"))
+	}
+	if resp, body := get(t, c, r.srv.URL+"/members/u9"); resp.StatusCode != http.StatusNotFound || !strings.Contains(body, "or it is private") {
+		t.Errorf("a private profile: %d", resp.StatusCode)
+	}
+
+	// Another member who shows their name: totals, no switch.
+	resp, body := get(t, c, r.srv.URL+"/members/u2")
+	if resp.StatusCode != http.StatusOK || !strings.Contains(body, "<h1>Sam") || !strings.Contains(body, "All time") || !strings.Contains(body, "Season 02") ||
+		!strings.Contains(body, "4.00") || !strings.Contains(body, "2h 00m") || strings.Contains(body, "/profile/name") {
+		t.Errorf("Sam's profile: %d %s", resp.StatusCode, body)
+	}
+
+	// Jo logs in: /profile is their page, with the switch.
+	r.loginAs(t, c, "jo")
+	_, acct := get(t, c, r.srv.URL+"/account")
+	if !strings.Contains(acct, `href="/profile"`) {
+		t.Error("the account page has no link to the profile")
+	}
+	r.stats.mu.Lock()
+	r.stats.self = "u1"
+	r.stats.mu.Unlock()
+	resp, _ = get(t, c, r.srv.URL+"/profile")
+	if resp.StatusCode != http.StatusSeeOther || !strings.HasPrefix(resp.Header.Get("Location"), "/members/") {
+		t.Fatalf("/profile: %d %s", resp.StatusCode, resp.Header.Get("Location"))
+	}
+	resp, body = get(t, c, r.srv.URL+"/members/u1")
+	if resp.StatusCode != http.StatusOK || !strings.Contains(body, ">you<") || !strings.Contains(body, "under a pseudonym") ||
+		!strings.Contains(body, "Show my name on leaderboards") || !strings.Contains(body, `href="/servers/htg-wardogs-1"`) {
+		t.Fatalf("own profile: %d %s", resp.StatusCode, body)
+	}
+
+	// The switch: htmx gets the page back with the flash; a form without the token is refused.
+	csrf := csrfOf(t, body)
+	resp, body = post(t, c, r.srv.URL+"/profile/name", url.Values{"_csrf": {csrf}, "show": {"1"}}, map[string]string{"HX-Request": "true"})
+	if resp.StatusCode != http.StatusOK || !strings.Contains(body, "Leaderboards now show your name.") || !strings.Contains(body, "Use my pseudonym instead") {
+		t.Errorf("show my name: %d %s", resp.StatusCode, body)
+	}
+	resp, _ = post(t, c, r.srv.URL+"/profile/name", url.Values{"_csrf": {csrf}, "show": {"0"}}, nil)
+	if resp.StatusCode != http.StatusSeeOther || resp.Header.Get("Location") != "/profile" || r.stats.shown() {
+		t.Errorf("use my pseudonym: %d %s %v", resp.StatusCode, resp.Header.Get("Location"), r.stats.shown())
+	}
+	if resp, _ = post(t, c, r.srv.URL+"/profile/name", url.Values{"show": {"1"}}, nil); resp.StatusCode != http.StatusForbidden || r.stats.shown() {
+		t.Errorf("a form without the token: %d", resp.StatusCode)
+	}
+}
+
+// A member shown by name on a board links to their profile; a pseudonym links nowhere.
+func TestBoardLinksNamedMembers(t *testing.T) {
+	r := newRig(t)
+	r.stats.entries = []*hubv1.BoardEntry{{Rank: 1, Name: "Brave Falcon", Pseudonymous: true, Kills: 9}, {Rank: 2, Name: "Jo", UserId: "u1", Kills: 3}}
+	_, body := get(t, browser(t), r.srv.URL+"/boards")
+	if !strings.Contains(body, `<a href="/members/u1">Jo</a>`) || strings.Contains(body, `">Brave Falcon</a>`) {
+		t.Errorf("board links: %s", body)
 	}
 }

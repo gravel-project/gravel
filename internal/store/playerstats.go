@@ -392,3 +392,97 @@ func splitKeys(keys []PlayerKey) (providers, subjects []string) {
 	}
 	return providers, subjects
 }
+
+// PlayerTotalsQuery sums one player's rows (all their identities) over a window, like a board:
+// raw rows by their match's start, rolled-up periods by their first day in Timezone.
+type PlayerTotalsQuery struct {
+	OrganizationID uuid.UUID
+	Keys           []PlayerKey
+	GameID         string // empty: every game
+	From, To       time.Time
+	Timezone       string
+	Trusts         []string
+}
+
+// PlayerTotals is a player's kills, deaths, time on and matches over the query's window.
+func (s *Store) PlayerTotals(ctx context.Context, q PlayerTotalsQuery) (BoardRow, error) {
+	var out BoardRow
+	if len(q.Keys) == 0 {
+		return out, nil
+	}
+	var from, to *time.Time
+	if !q.From.IsZero() {
+		from = &q.From
+	}
+	if !q.To.IsZero() {
+		to = &q.To
+	}
+	tz := q.Timezone
+	if tz == "" {
+		tz = "UTC"
+	}
+	providers, subjects := splitKeys(q.Keys)
+	err := s.pool.QueryRow(ctx, `
+		WITH k AS (SELECT * FROM unnest($2::text[], $3::text[]) AS k(provider, subject))
+		SELECT coalesce(sum(x.kills), 0)::int, coalesce(sum(x.deaths), 0)::int, coalesce(sum(x.seconds_on), 0)::int, coalesce(sum(x.matches), 0)::int
+		  FROM (
+		    SELECT ms.kills, ms.deaths, ms.seconds_on, 1 AS matches
+		      FROM match_stats ms JOIN matches m ON m.id = ms.match_id JOIN k ON k.provider = ms.provider AND k.subject = ms.subject
+		     WHERE m.organization_id = $1 AND ms.trust = ANY($6) AND ($8 = '' OR m.game_id = $8)
+		       AND ($4::timestamptz IS NULL OR m.started_at >= $4) AND ($5::timestamptz IS NULL OR m.started_at < $5)
+		    UNION ALL
+		    SELECT sm.kills, sm.deaths, sm.seconds_on, sm.matches
+		      FROM stats_monthly sm JOIN k ON k.provider = sm.provider AND k.subject = sm.subject
+		     WHERE sm.organization_id = $1 AND sm.trust = ANY($6) AND ($8 = '' OR sm.game_id = $8)
+		       AND ($4::timestamptz IS NULL OR sm.period_from >= ($4::timestamptz AT TIME ZONE $7)::date)
+		       AND ($5::timestamptz IS NULL OR sm.period_from < ($5::timestamptz AT TIME ZONE $7)::date)
+		  ) x`,
+		q.OrganizationID, providers, subjects, from, to, q.Trusts, tz, q.GameID).Scan(&out.Kills, &out.Deaths, &out.SecondsOn, &out.Matches)
+	if err != nil {
+		return BoardRow{}, fmt.Errorf("store: player totals: %w", err)
+	}
+	return out, nil
+}
+
+// PlayerMatch is one match a player played: the match, its server's name, and their row in it.
+type PlayerMatch struct {
+	Match
+	ServerName string
+	Kills      int
+	Deaths     int
+	SecondsOn  int
+	Trust      string
+}
+
+// PlayerMatches are a player's most recent matches (all their identities), newest first; matches
+// whose rows have rolled up are no longer listed.
+func (s *Store) PlayerMatches(ctx context.Context, orgID uuid.UUID, keys []PlayerKey, limit int) ([]PlayerMatch, error) {
+	if len(keys) == 0 {
+		return nil, nil
+	}
+	providers, subjects := splitKeys(keys)
+	rows, err := s.pool.Query(ctx, `
+		SELECT m.id, m.organization_id, m.server_id, m.game_id, m.started_at, m.ended_at, m.map, m.rotation_index,
+		       coalesce(srv.name, m.server_id), sum(ms.kills)::int, sum(ms.deaths)::int, sum(ms.seconds_on)::int, min(ms.trust)
+		  FROM match_stats ms
+		  JOIN unnest($2::text[], $3::text[]) AS k(provider, subject) ON k.provider = ms.provider AND k.subject = ms.subject
+		  JOIN matches m ON m.id = ms.match_id
+		  LEFT JOIN managed_servers srv ON srv.organization_id = m.organization_id AND srv.id = m.server_id
+		 WHERE m.organization_id = $1
+		 GROUP BY m.id, srv.name
+		 ORDER BY m.started_at DESC, m.id DESC
+		 LIMIT $4`, orgID, providers, subjects, limit)
+	if err != nil {
+		return nil, fmt.Errorf("store: player matches: %w", err)
+	}
+	out, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (PlayerMatch, error) {
+		var p PlayerMatch
+		err := r.Scan(&p.ID, &p.OrganizationID, &p.ServerID, &p.GameID, &p.StartedAt, &p.EndedAt, &p.Map, &p.RotationIndex,
+			&p.ServerName, &p.Kills, &p.Deaths, &p.SecondsOn, &p.Trust)
+		return p, err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("store: player matches: %w", err)
+	}
+	return out, nil
+}

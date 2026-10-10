@@ -86,6 +86,52 @@ message SetBoardNameResponse {
   bool show_name = 1;
 }
 
+// ProfileTotals is a member's totals over one window: "all", "week", "month", or "season" with
+// season naming one running now. from and to are unset for all time.
+message ProfileTotals {
+  string window = 1;
+  string season = 2;
+  google.protobuf.Timestamp from = 3;
+  google.protobuf.Timestamp to = 4;
+  int32 kills = 5;
+  int32 deaths = 6;
+  double kd = 7;
+  int32 seconds_on = 8;
+  int32 matches = 9;
+}
+
+// PlayerMatch is one match a member played, with their row in it.
+message PlayerMatch {
+  string match_id = 1;
+  string server_id = 2;
+  string server_name = 3;
+  google.protobuf.Timestamp started_at = 4;
+  // Unset while the match is open.
+  google.protobuf.Timestamp ended_at = 5;
+  string map = 6;
+  int32 kills = 7;
+  int32 deaths = 8;
+  int32 seconds_on = 9;
+}
+
+message GetMemberProfileRequest {
+  // The member; empty is the logged-in caller.
+  string user_id = 1;
+}
+
+message GetMemberProfileResponse {
+  string user_id = 1;
+  string display_name = 2;
+  // The member chose to be shown by name on boards.
+  bool show_name = 3;
+  // The caller is the member.
+  bool self = 4;
+  // All time, this week, this month and each season running now, counting Official servers.
+  repeated ProfileTotals totals = 5;
+  // Their most recent matches on any server, newest first.
+  repeated PlayerMatch recent = 6;
+}
+
 // StatsService is the stats boards (ADR-0012): counts from the hub's own polls of each server,
 // keyed by provider identity, unlinked players under pseudonyms.
 service StatsService {
@@ -98,4 +144,9 @@ service StatsService {
   rpc GetBoardName(GetBoardNameRequest) returns (GetBoardNameResponse);
   // SetBoardName changes it; a logged-in member, for themselves only.
   rpc SetBoardName(SetBoardNameRequest) returns (SetBoardNameResponse);
+  // GetMemberProfile is a member's stats across their linked identities: the member's own, the
+  // owner's, an app's with stats:read, or anyone's when the member shows their name on boards and
+  // the Organization settings make stats public. Anyone else gets not_found, so a profile
+  // doesn't reveal who is behind a pseudonym.
+  rpc GetMemberProfile(GetMemberProfileRequest) returns (GetMemberProfileResponse);
 }

@@ -1,0 +1,106 @@
+package templates
+
+import "fmt"
+
+// Member is the whole profile page.
+templ Member(p MemberPage) {
+	@Layout(p.Page) {
+		@MemberContent(p)
+	}
+}
+
+// MemberContent is a member's stats: totals by window, recent matches, and for the member
+// themselves the switch that shows their name on boards.
+templ MemberContent(p MemberPage) {
+	@FlashView(p.Flash)
+	<h1>
+		{ p.DisplayName }
+		if p.Self {
+			<span class="badge">you</span>
+		}
+	</h1>
+	if p.Self {
+		<section aria-labelledby="name-heading">
+			<h2 id="name-heading">Your name on leaderboards</h2>
+			if p.ShowName {
+				<p>Leaderboards show you as <strong>{ p.DisplayName }</strong>, and anyone can open this page when the hub's stats are public.</p>
+			} else {
+				<p>Leaderboards show you under a pseudonym, and only you, the hub's owner and its stats apps can open this page.</p>
+			}
+			<form method="post" action="/profile/name" hx-post="/profile/name" hx-target="#page" hx-swap="innerHTML">
+				<input type="hidden" name="_csrf" value={ p.CSRF }/>
+				if p.ShowName {
+					<input type="hidden" name="show" value="0"/>
+					<button type="submit">Use my pseudonym instead</button>
+				} else {
+					<input type="hidden" name="show" value="1"/>
+					<button type="submit">Show my name on leaderboards</button>
+				}
+			</form>
+		</section>
+	}
+	<section aria-labelledby="totals-heading">
+		<h2 id="totals-heading">Totals</h2>
+		<p class="muted">On official servers, from every account linked to this member.</p>
+		<table>
+			<thead>
+				<tr>
+					<th scope="col">When</th>
+					<th scope="col" class="num">Kills</th>
+					<th scope="col" class="num">Deaths</th>
+					<th scope="col" class="num">K/D</th>
+					<th scope="col" class="num">Time on</th>
+					<th scope="col" class="num">Matches</th>
+				</tr>
+			</thead>
+			<tbody>
+				for _, t := range p.Totals {
+					<tr>
+						<th scope="row">{ t.Label }</th>
+						<td class="num">{ fmt.Sprint(t.Kills) }</td>
+						<td class="num">{ fmt.Sprint(t.Deaths) }</td>
+						<td class="num">{ t.KD }</td>
+						<td class="num">{ t.Time }</td>
+						<td class="num">{ fmt.Sprint(t.Matches) }</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+	</section>
+	<section aria-labelledby="recent-heading">
+		<h2 id="recent-heading">Recent matches</h2>
+		if len(p.Recent) == 0 {
+			<p class="muted">No match yet. Link a game account on your account page if you have played.</p>
+		} else {
+			<table>
+				<thead>
+					<tr>
+						<th scope="col">Started</th>
+						<th scope="col">Server</th>
+						<th scope="col">Map</th>
+						<th scope="col" class="num">Kills</th>
+						<th scope="col" class="num">Deaths</th>
+						<th scope="col" class="num">Time on</th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, m := range p.Recent {
+						<tr>
+							<td>
+								{ at(m.Started) }
+								if m.Live {
+									<span class="badge">live</span>
+								}
+							</td>
+							<td><a href={ templ.SafeURL("/servers/" + m.ServerID) }>{ m.Server }</a></td>
+							<td>{ m.Map }</td>
+							<td class="num">{ fmt.Sprint(m.Kills) }</td>
+							<td class="num">{ fmt.Sprint(m.Deaths) }</td>
+							<td class="num">{ m.Time }</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		}
+	</section>
+}

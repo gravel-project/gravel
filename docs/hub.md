@@ -112,6 +112,7 @@ Public listener (`server.listen`), HTTP/1.1 and unencrypted HTTP/2 so gRPC works
 | `/gravel.hub.v1.ServerService/ListGames` | the enabled games, their identity provider, bands, layout and `no_paid_perks`; public |
 | `/gravel.hub.v1.ServerService/ListServers` | every server with its last observation (state, reachable, players and max, map, teams, capabilities, build, `observed_at`); public, no personal data, never a control address |
 | `/gravel.hub.v1.ServerService/GetServerStatus` | `{"server_id": "…"}` → one server; public; `not_found` for an unknown id |
+| `/gravel.hub.v1.StatsService/GetMemberProfile` | `{"user_id": "…"}` (empty: the caller) → a member's totals by window and recent matches ([Pages](#pages-gravel18)); the member, the owner, `stats:read`, or anyone when they show their name and stats are public; else `not_found` |
 | `/gravel.hub.v1.StatsService/GetBoard` | `{"server_id"/"game_id", "window": "week", "metric": "kd"}` → a ranked page of players under pseudonyms or opted-in names ([Stats](#stats-adr-0012)); public when the settings make stats public, else the owner or `stats:read` |
 | `/gravel.hub.v1.StatsService/ListMatches` | `{"server_id": "…"}` → a server's matches, newest first; the same access |
 | `/gravel.hub.v1.StatsService/GetBoardName`, `SetBoardName` | a logged-in member's choice to be shown by name on boards (off by default) |
@@ -547,6 +548,7 @@ is the API's to decide, and a page says so in words when it is refused.
 |---|---|---|
 | `/servers` (also `/`) | every server: name, game, trust, state (Online, Offline, Checking, Unavailable), players and map | everyone |
 | `/servers/{id}` | the status with the team scores and when it was observed, who is on (in-game name, team, kills, deaths, ping, a member badge), the last 10 matches, a link to the server's board | the status: everyone; who is on: members and the owner ("Log in to see who's on" otherwise); matches: as the boards |
+| `/members/{id}` (`/profile` is yours) | a member's totals over all time, this week, this month and each season running now (Official servers, every linked account), their 20 most recent matches on any server, and on your own profile the switch that shows your name on leaderboards (`SetBoardName`) | the member, the owner and apps with `stats:read`; anyone when the member shows their name and `stats.public` is on; otherwise "no such profile", so a page never says who plays under a pseudonym. A named member on a board links here |
 | `/boards?scope=&window=&metric=&page=` | a leaderboard: scope `` (everyone, Official servers), `game:<id>` or `server:<id>`; window `all`, `week`, `month` or `season:<name>`; ranked by any column of the game's `layout.board`, 50 a page | everyone when `stats.public` is on, else the owner ("Leaderboards are private…" otherwise) |
 
 The forms and links work without JavaScript; htmx swaps only the main content. On a narrow screen a
