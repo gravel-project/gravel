@@ -173,7 +173,10 @@ func merge(draft drivers.ConfigDraft, current string) (wardogs.Doc, error) {
 			{Key: "Token", Value: f.Token},
 		}})
 	}
-	if draft.Bans != nil {
+	curBans := cur.Section(sectionGameSession) != nil && len(cur.Section(sectionGameSession).Array(keyBannedIDs)) > 0
+	if draft.Bans != nil && (len(draft.Bans) > 0 || curBans) {
+		// An empty list is written only to clear one: the server drops an empty array when it
+		// saves, so writing it to a server with none would show as a change on every plan.
 		ids, err := steamIDs(draft.Bans)
 		if err != nil {
 			return wardogs.Doc{}, err
@@ -184,7 +187,7 @@ func merge(draft drivers.ConfigDraft, current string) (wardogs.Doc, error) {
 			s = &want.Sections[len(want.Sections)-1]
 		}
 		s.SetArray(keyBannedIDs, ids)
-	} else if cs := cur.Section(sectionGameSession); cs != nil && cs.HasKey(keyBannedIDs) {
+	} else if cs := cur.Section(sectionGameSession); draft.Bans == nil && cs != nil && cs.HasKey(keyBannedIDs) {
 		s := want.Section(sectionGameSession)
 		if s == nil {
 			want.Sections = append(want.Sections, wardogs.DocSection{Name: sectionGameSession})
