@@ -1,0 +1,37 @@
+package templates
+
+// Consent is the whole consent page of the authorization endpoint (ADR-0015 §3).
+templ Consent(p ConsentPage) {
+	@Layout(p.Page) {
+		@ConsentContent(p)
+	}
+}
+
+// ConsentContent asks the member whether an app may act as them, and with what. The form is a
+// plain POST, never htmx: the answer is a redirect to the app.
+templ ConsentContent(p ConsentPage) {
+	<h1>Sign in to { p.AppName }?</h1>
+	<p>{ p.AppName } asks to use your { p.Org.Name } account. It will be able to:</p>
+	<ul class="scopes">
+		<li>Know who you are: your name and the accounts you linked</li>
+		for _, s := range p.Scopes {
+			<li>{ s.Description } <span class="muted">({ s.Name })</span></li>
+		}
+	</ul>
+	if p.Wider {
+		<p class="muted">You allowed { p.AppName } before; it now asks for more.</p>
+	}
+	<p class="muted">After you answer, you go back to { p.ReturnHost }. You can revoke this on your account page at any time.</p>
+	<form method="post" action="/oauth/authorize" class="consent">
+		<input type="hidden" name="_csrf" value={ p.CSRF }/>
+		<input type="hidden" name="response_type" value={ p.Params.ResponseType }/>
+		<input type="hidden" name="client_id" value={ p.Params.ClientID }/>
+		<input type="hidden" name="redirect_uri" value={ p.Params.RedirectURI }/>
+		<input type="hidden" name="scope" value={ p.Params.Scope }/>
+		<input type="hidden" name="state" value={ p.Params.State }/>
+		<input type="hidden" name="code_challenge" value={ p.Params.CodeChallenge }/>
+		<input type="hidden" name="code_challenge_method" value={ p.Params.CodeChallengeMethod }/>
+		<button type="submit" name="decision" value="allow">Allow { p.AppName }</button>
+		<button type="submit" name="decision" value="deny">Cancel</button>
+	</form>
+}

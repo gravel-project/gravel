@@ -21,11 +21,17 @@ type FakeStore struct {
 	ErrOn  string
 	Apps   map[uuid.UUID]store.App
 	Tokens map[uuid.UUID]store.AppToken
+	Codes  map[uuid.UUID]store.AuthorizationCode
+	Grants map[GrantKey]store.AppGrant
 }
+
+// GrantKey is a member and an app.
+type GrantKey struct{ User, App uuid.UUID }
 
 // NewFakeStore returns an empty store.
 func NewFakeStore() *FakeStore {
-	return &FakeStore{Apps: map[uuid.UUID]store.App{}, Tokens: map[uuid.UUID]store.AppToken{}}
+	return &FakeStore{Apps: map[uuid.UUID]store.App{}, Tokens: map[uuid.UUID]store.AppToken{},
+		Codes: map[uuid.UUID]store.AuthorizationCode{}, Grants: map[GrantKey]store.AppGrant{}}
 }
 
 func (f *FakeStore) fail(method string) error {
@@ -113,6 +119,16 @@ func (f *FakeStore) RevokeApp(_ context.Context, id uuid.UUID, at time.Time) err
 	for tid, t := range f.Tokens {
 		if t.AppID == id {
 			delete(f.Tokens, tid)
+		}
+	}
+	for k := range f.Grants {
+		if k.App == id {
+			delete(f.Grants, k)
+		}
+	}
+	for cid, c := range f.Codes {
+		if c.AppID == id {
+			delete(f.Codes, cid)
 		}
 	}
 	return nil

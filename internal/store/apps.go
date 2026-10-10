@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // App is a row of apps: a registered first-party service (ADR-0008) that authenticates with
@@ -19,11 +20,16 @@ type App struct {
 	ClientID       string
 	SecretHash     []byte
 	Scopes         []string
-	CreatedAt      time.Time
-	RevokedAt      *time.Time
+	// RedirectURIs are where the authorization endpoint may send a member back (ADR-0015):
+	// exact strings, compared as strings.
+	RedirectURIs []string
+	CreatedAt    time.Time
+	RevokedAt    *time.Time
 }
 
-// AppToken is a row of app_tokens: a short-lived bearer token an app holds, stored hashed.
+// AppToken is a row of app_tokens: a short-lived bearer token an app holds, stored hashed. A
+// member's token (ADR-0015) carries the member's UserID and the authorization code it was issued
+// from; an app's own token has neither.
 type AppToken struct {
 	ID        uuid.UUID
 	AppID     uuid.UUID
@@ -31,13 +37,15 @@ type AppToken struct {
 	Scopes    []string
 	CreatedAt time.Time
 	ExpiresAt time.Time
+	UserID    *uuid.UUID
+	CodeID    *uuid.UUID
 }
 
-const appColumns = `id, organization_id, name, client_id, secret_hash, scopes, created_at, revoked_at`
+const appColumns = `id, organization_id, name, client_id, secret_hash, scopes, redirect_uris, created_at, revoked_at`
 
 func scanApp(row pgx.Row) (App, error) {
 	var a App
-	err := row.Scan(&a.ID, &a.OrganizationID, &a.Name, &a.ClientID, &a.SecretHash, &a.Scopes, &a.CreatedAt, &a.RevokedAt)
+	err := row.Scan(&a.ID, &a.OrganizationID, &a.Name, &a.ClientID, &a.SecretHash, &a.Scopes, &a.RedirectURIs, &a.CreatedAt, &a.RevokedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return App{}, ErrNotFound
 	}
@@ -49,9 +57,12 @@ func (s *Store) CreateApp(ctx context.Context, a App) error {
 	if a.Scopes == nil {
 		a.Scopes = []string{}
 	}
+	if a.RedirectURIs == nil {
+		a.RedirectURIs = []string{}
+	}
 	if _, err := s.pool.Exec(ctx,
-		`INSERT INTO apps (`+appColumns+`) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-		a.ID, a.OrganizationID, a.Name, a.ClientID, a.SecretHash, a.Scopes, a.CreatedAt, a.RevokedAt); err != nil {
+		`INSERT INTO apps (`+appColumns+`) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+		a.ID, a.OrganizationID, a.Name, a.ClientID, a.SecretHash, a.Scopes, a.RedirectURIs, a.CreatedAt, a.RevokedAt); err != nil {
 		return fmt.Errorf("store: create app: %w", err)
 	}
 	return nil
@@ -96,8 +107,9 @@ func (s *Store) ListApps(ctx context.Context, orgID uuid.UUID) ([]App, error) {
 	return out, nil
 }
 
-// RevokeApp marks an app revoked and deletes its tokens, in one transaction. ErrNotFound when
-// the app does not exist or is already revoked.
+// RevokeApp marks an app revoked and deletes its tokens (its own and its members'), the grants
+// members gave it and its authorization codes, in one transaction. ErrNotFound when the app does
+// not exist or is already revoked.
 func (s *Store) RevokeApp(ctx context.Context, id uuid.UUID, at time.Time) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -114,6 +126,12 @@ func (s *Store) RevokeApp(ctx context.Context, id uuid.UUID, at time.Time) error
 	if _, err := tx.Exec(ctx, `DELETE FROM app_tokens WHERE app_id = $1`, id); err != nil {
 		return fmt.Errorf("store: revoke app: delete tokens: %w", err)
 	}
+	if _, err := tx.Exec(ctx, `DELETE FROM app_grants WHERE app_id = $1`, id); err != nil {
+		return fmt.Errorf("store: revoke app: delete grants: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM authorization_codes WHERE app_id = $1`, id); err != nil {
+		return fmt.Errorf("store: revoke app: delete codes: %w", err)
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("store: revoke app: %w", err)
 	}
@@ -122,15 +140,24 @@ func (s *Store) RevokeApp(ctx context.Context, id uuid.UUID, at time.Time) error
 
 // CreateAppToken inserts a token.
 func (s *Store) CreateAppToken(ctx context.Context, t AppToken) error {
-	if t.Scopes == nil {
-		t.Scopes = []string{}
-	}
-	if _, err := s.pool.Exec(ctx,
-		`INSERT INTO app_tokens (id, app_id, token_hash, scopes, created_at, expires_at) VALUES ($1, $2, $3, $4, $5, $6)`,
-		t.ID, t.AppID, t.TokenHash, t.Scopes, t.CreatedAt, t.ExpiresAt); err != nil {
+	if err := insertAppToken(ctx, s.pool, t); err != nil {
 		return fmt.Errorf("store: create app token: %w", err)
 	}
 	return nil
+}
+
+type execer interface {
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+}
+
+func insertAppToken(ctx context.Context, db execer, t AppToken) error {
+	if t.Scopes == nil {
+		t.Scopes = []string{}
+	}
+	_, err := db.Exec(ctx,
+		`INSERT INTO app_tokens (id, app_id, token_hash, scopes, created_at, expires_at, user_id, code_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+		t.ID, t.AppID, t.TokenHash, t.Scopes, t.CreatedAt, t.ExpiresAt, t.UserID, t.CodeID)
+	return err
 }
 
 // GetAppTokenByHash returns an unexpired token of an unrevoked app, with the app, or ErrNotFound.
@@ -138,12 +165,12 @@ func (s *Store) GetAppTokenByHash(ctx context.Context, hash []byte, now time.Tim
 	var t AppToken
 	var a App
 	err := s.pool.QueryRow(ctx,
-		`SELECT t.id, t.app_id, t.token_hash, t.scopes, t.created_at, t.expires_at,
-		        a.id, a.organization_id, a.name, a.client_id, a.secret_hash, a.scopes, a.created_at, a.revoked_at
+		`SELECT t.id, t.app_id, t.token_hash, t.scopes, t.created_at, t.expires_at, t.user_id, t.code_id,
+		        a.id, a.organization_id, a.name, a.client_id, a.secret_hash, a.scopes, a.redirect_uris, a.created_at, a.revoked_at
 		   FROM app_tokens t JOIN apps a ON a.id = t.app_id
 		  WHERE t.token_hash = $1 AND t.expires_at > $2 AND a.revoked_at IS NULL`, hash, now).
-		Scan(&t.ID, &t.AppID, &t.TokenHash, &t.Scopes, &t.CreatedAt, &t.ExpiresAt,
-			&a.ID, &a.OrganizationID, &a.Name, &a.ClientID, &a.SecretHash, &a.Scopes, &a.CreatedAt, &a.RevokedAt)
+		Scan(&t.ID, &t.AppID, &t.TokenHash, &t.Scopes, &t.CreatedAt, &t.ExpiresAt, &t.UserID, &t.CodeID,
+			&a.ID, &a.OrganizationID, &a.Name, &a.ClientID, &a.SecretHash, &a.Scopes, &a.RedirectURIs, &a.CreatedAt, &a.RevokedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return AppToken{}, App{}, ErrNotFound
 	}

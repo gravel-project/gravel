@@ -59,12 +59,18 @@ type Handler struct {
 	serverAPI hubv1connect.ServerServiceClient
 	statsAPI  hubv1connect.StatsServiceClient
 	modAPI    hubv1connect.ModerationServiceClient
+	appAPI    hubv1connect.AppServiceClient
 
 	// Observe, when set, is told how every callback ended: result is "ok", "denied", "failed",
 	// "invalid", "mismatch", "taken" or "error"; provider is a configured provider or "other";
 	// intent is "unknown" on a failure, because the attempt that knew it is consumed by then. The
 	// hub counts them.
 	Observe func(provider string, intent identity.Intent, result string)
+	// ObserveAuthorization, when set, is told how every request at the authorization endpoint
+	// ended: "issued" (a code went back to the app), "denied" (the member pressed Cancel),
+	// "rejected" (an unknown app or redirect URI, or a request the app got an error for) or
+	// "error". The hub counts them.
+	ObserveAuthorization func(result string)
 }
 
 // New wires the pages. api is the hub's Connect API with the session middleware in front; the
@@ -88,6 +94,7 @@ func New(ids *identity.Service, sess *session.Manager, api http.Handler, theme T
 		serverAPI: hubv1connect.NewServerServiceClient(client, "http://hub", connect.WithProtoJSON()),
 		statsAPI:  hubv1connect.NewStatsServiceClient(client, "http://hub", connect.WithProtoJSON()),
 		modAPI:    hubv1connect.NewModerationServiceClient(client, "http://hub", connect.WithProtoJSON()),
+		appAPI:    hubv1connect.NewAppServiceClient(client, "http://hub", connect.WithProtoJSON()),
 	}, nil
 }
 
@@ -114,6 +121,9 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /auth/logout", h.logout)
 	mux.HandleFunc("POST /account/unlink", h.unlink)
 	mux.HandleFunc("POST /account/claim", h.claim)
+	mux.HandleFunc("POST /account/apps/revoke", h.revokeApp)
+	mux.HandleFunc("GET /oauth/authorize", h.authorize)
+	mux.HandleFunc("POST /oauth/authorize", h.authorizeDecision)
 	mux.HandleFunc("GET /theme.css", h.themeStylesheet)
 	mux.HandleFunc("GET "+MapPlaceholderPath, mapPlaceholderImage)
 	mux.HandleFunc("GET /static/", func(w http.ResponseWriter, r *http.Request) {
@@ -131,9 +141,21 @@ func (h *Handler) home(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
+	// return_to is where the login comes back to (the authorization endpoint, ADR-0015): only a
+	// path on this origin, never another site.
+	returnTo := r.URL.Query().Get("return_to")
+	if !SafeReturnPath(returnTo) {
+		returnTo = ""
+	}
 	if _, ok := session.FromContext(r.Context()); ok {
-		http.Redirect(w, r, "/account", http.StatusSeeOther)
+		if returnTo == "" {
+			returnTo = "/account"
+		}
+		http.Redirect(w, r, returnTo, http.StatusSeeOther)
 		return
+	}
+	if returnTo != "" {
+		h.rememberReturn(w, returnTo)
 	}
 	p, b, err := h.page(r, "Log in")
 	if err != nil {
@@ -179,6 +201,17 @@ func (h *Handler) accountPage(r *http.Request, flash *templates.Flash) (template
 	ap := templates.AccountPage{Page: p.Page}
 	if p.User == nil {
 		return ap, b, nil
+	}
+	grants, err := h.appAPI.ListAppGrants(withBrowserContext(r, b), connect.NewRequest(&hubv1.ListAppGrantsRequest{}))
+	if err != nil {
+		return ap, b, fmt.Errorf("ListAppGrants: %w", err)
+	}
+	for _, g := range grants.Msg.GetGrants() {
+		a := templates.AppGrant{ClientID: g.GetClientId(), Name: g.GetAppName(), GrantedAt: g.GetGrantedAt().AsTime()}
+		for _, s := range g.GetScopes() {
+			a.Scopes = append(a.Scopes, templates.Scope{Name: s.GetName(), Description: s.GetDescription()})
+		}
+		ap.Apps = append(ap.Apps, a)
 	}
 	linked := map[string]bool{}
 	for _, i := range p.identities {
@@ -253,6 +286,7 @@ func (h *Handler) callback(w http.ResponseWriter, r *http.Request) {
 		token = c.Value
 	}
 	http.SetCookie(w, h.sess.Cookie(session.CookieAuth, "", 0)) // one callback per attempt, whatever happens
+	returnTo := h.takeReturn(w, r)                              // a login started from the authorization endpoint goes back to it
 	current, loggedIn := session.FromContext(r.Context())
 	var sessionUser *uuid.UUID
 	if loggedIn {
@@ -296,6 +330,10 @@ func (h *Handler) callback(w http.ResponseWriter, r *http.Request) {
 		}
 		if _, err := h.sess.Issue(r.Context(), w, done.User.ID); err != nil {
 			h.serverError(w, r, err)
+			return
+		}
+		if returnTo != "" {
+			http.Redirect(w, r, returnTo, http.StatusSeeOther)
 			return
 		}
 		if done.Registered {
@@ -616,6 +654,11 @@ func (h *Handler) serverError(w http.ResponseWriter, r *http.Request, err error)
 
 // render writes a page, or only its content for htmx, after relaying what the API set.
 func (h *Handler) render(w http.ResponseWriter, r *http.Request, status int, b *browser, full, content templ.Component) {
+	h.renderWithPolicy(w, r, status, b, full, content, csp)
+}
+
+// renderWithPolicy is render with a page's own Content-Security-Policy.
+func (h *Handler) renderWithPolicy(w http.ResponseWriter, r *http.Request, status int, b *browser, full, content templ.Component, policy string) {
 	c := full
 	if isHX(r) {
 		c = content
@@ -633,7 +676,7 @@ func (h *Handler) render(w http.ResponseWriter, r *http.Request, status int, b *
 	}
 	hdr := w.Header()
 	hdr.Set("Content-Type", "text/html; charset=utf-8")
-	hdr.Set("Content-Security-Policy", csp)
+	hdr.Set("Content-Security-Policy", policy)
 	hdr.Set("Referrer-Policy", "same-origin")
 	hdr.Set("X-Content-Type-Options", "nosniff")
 	hdr.Set("Cache-Control", "no-store")

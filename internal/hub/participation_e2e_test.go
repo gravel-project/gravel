@@ -62,7 +62,7 @@ func TestParticipationFromAnApp(t *testing.T) {
 
 	// Jo is a member (Discord 1) who has not chosen to show their name.
 	b := browser(t)
-	cookie := loginAs(t, b, public.URL, "jo")
+	cookie := loginAs(t, b, public.URL)
 	asJo := hubv1connect.NewStatsServiceClient(&http.Client{Transport: cookieTransport{next: h2cClient().Transport, cookie: cookie}}, public.URL)
 	attended := &hubv1.ParticipationEvent{Key: "muster-event-7/jo", Kind: "attendance", Identity: &hubv1.PlayerIdentity{Provider: "discord", Subject: "1"},
 		Session: "muster-event-7", OccurredAt: timestamppb.New(time.Now().Add(-2 * time.Hour)), DurationSeconds: 5400}

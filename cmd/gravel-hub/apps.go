@@ -20,7 +20,7 @@ import (
 // settings. `create` prints the secret once; the hub keeps only its hash.
 func appsCmd(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
-		fmt.Fprintln(stderr, "usage: gravel-hub apps create --name NAME --scopes SCOPES | list | revoke --client-id ID  [--config hub.yaml]")
+		fmt.Fprintln(stderr, "usage: gravel-hub apps create --name NAME --scopes SCOPES [--redirect-uri URL]... | list | revoke --client-id ID  [--config hub.yaml]")
 		return 2
 	}
 	switch args[0] {
@@ -65,11 +65,19 @@ func appsCreate(ctx context.Context, args []string, stdout, stderr io.Writer) in
 	path := configFlag(fs)
 	name := fs.String("name", "", "the app's name, for the owner's eyes (required)")
 	scopes := fs.String("scopes", "", "comma-separated scopes the app may use (required): "+scopeNames())
+	var redirects []string
+	fs.Func("redirect-uri", "where the app's web pages receive a member who signed in (ADR-0015), exactly; https, or http on 127.0.0.1, [::1] or localhost; repeat for more", func(v string) error {
+		if err := apps.ValidateRedirectURI(v); err != nil {
+			return errors.New(strings.TrimPrefix(err.Error(), apps.ErrInvalidRedirectURI.Error()+": "))
+		}
+		redirects = append(redirects, v)
+		return nil
+	})
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
 	if strings.TrimSpace(*name) == "" || strings.TrimSpace(*scopes) == "" {
-		fmt.Fprintln(stderr, "usage: gravel-hub apps create --name NAME --scopes "+scopeNames()+" [--config hub.yaml]")
+		fmt.Fprintln(stderr, "usage: gravel-hub apps create --name NAME --scopes "+scopeNames()+" [--redirect-uri URL]... [--config hub.yaml]")
 		return 2
 	}
 	cfg, ok := load(*path, stderr)
@@ -81,16 +89,20 @@ func appsCreate(ctx context.Context, args []string, stdout, stderr io.Writer) in
 		return 1
 	}
 	defer closeStore()
-	created, err := svc.Create(ctx, *name, strings.Split(*scopes, ","))
+	created, err := svc.Create(ctx, *name, strings.Split(*scopes, ","), redirects...)
 	if err != nil {
 		fmt.Fprintln(stderr, err)
-		if errors.Is(err, apps.ErrInvalidName) || errors.Is(err, apps.ErrInvalidScope) {
+		if errors.Is(err, apps.ErrInvalidName) || errors.Is(err, apps.ErrInvalidScope) || errors.Is(err, apps.ErrInvalidRedirectURI) {
 			return 2
 		}
 		return 1
 	}
-	fmt.Fprintf(stdout, "app registered: %s\nclient_id: %s\nclient_secret: %s\nscopes: %s\n\nThe secret is shown once; the hub keeps its hash. Give it to the app as a secret file.\n",
+	fmt.Fprintf(stdout, "app registered: %s\nclient_id: %s\nclient_secret: %s\nscopes: %s\n",
 		created.App.Name, created.App.ClientID, created.Secret, strings.Join(created.App.Scopes, ","))
+	for _, u := range created.App.RedirectURIs {
+		fmt.Fprintf(stdout, "redirect_uri: %s\n", u)
+	}
+	fmt.Fprintln(stdout, "\nThe secret is shown once; the hub keeps its hash. Give it to the app as a secret file.")
 	return 0
 }
 
@@ -119,13 +131,17 @@ func appsList(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 		return 0
 	}
 	tw := tabwriter.NewWriter(stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "CLIENT_ID\tNAME\tSCOPES\tCREATED\tREVOKED")
+	fmt.Fprintln(tw, "CLIENT_ID\tNAME\tSCOPES\tREDIRECT_URIS\tCREATED\tREVOKED")
 	for _, a := range list {
 		revoked := "-"
 		if a.RevokedAt != nil {
 			revoked = a.RevokedAt.UTC().Format("2006-01-02 15:04")
 		}
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n", a.ClientID, a.Name, strings.Join(a.Scopes, ","), a.CreatedAt.UTC().Format("2006-01-02 15:04"), revoked)
+		redirects := "-"
+		if len(a.RedirectURIs) > 0 {
+			redirects = strings.Join(a.RedirectURIs, ",")
+		}
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n", a.ClientID, a.Name, strings.Join(a.Scopes, ","), redirects, a.CreatedAt.UTC().Format("2006-01-02 15:04"), revoked)
 	}
 	_ = tw.Flush()
 	return 0

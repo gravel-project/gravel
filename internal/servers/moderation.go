@@ -73,7 +73,8 @@ var (
 	ErrRespawnFailed = errors.New("servers: the player was moved, but the respawn failed")
 )
 
-// Actor is who asks for a moderation action: a logged-in user or an app, exactly one.
+// Actor is who asks for a moderation action: a logged-in user, an app, or a user through an app's
+// token (ADR-0015), recorded with both.
 type Actor struct {
 	UserID *uuid.UUID
 	AppID  *uuid.UUID
@@ -306,11 +307,11 @@ func needs(a Action, caps []string) []string {
 
 func validate(actor Actor, a Action) error {
 	var errs []string
-	if (actor.UserID == nil) == (actor.AppID == nil) {
-		errs = append(errs, "exactly one of a user and an app must ask")
+	if actor.UserID == nil && actor.AppID == nil {
+		errs = append(errs, "a user or an app must ask")
 	}
 	if o := actor.OnBehalfOf; o != nil {
-		if actor.AppID == nil {
+		if actor.AppID == nil || actor.UserID != nil {
 			errs = append(errs, "on_behalf_of is an app's; a user acts as themselves")
 		}
 		if !text(o.Provider, MaxIdentityLength) || !text(o.Subject, MaxIdentityLength) {

@@ -174,6 +174,9 @@ func (h *Handler) auditLog(w http.ResponseWriter, r *http.Request) {
 	ap := templates.AuditPage{Page: p.Page, ServerID: id, ServerName: serverName}
 	for _, e := range resp.Msg.GetEntries() {
 		actor := e.GetUserName()
+		if actor != "" && e.GetAppName() != "" { // a member through an app's token (ADR-0015)
+			actor += " via " + e.GetAppName()
+		}
 		if actor == "" && e.GetAppName() != "" {
 			actor = e.GetAppName()
 			if ob := e.GetOnBehalfOf(); ob != nil {

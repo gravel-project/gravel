@@ -68,6 +68,24 @@ func TestAccessibility(t *testing.T) {
 			p.Flash = &templates.Flash{Kind: "err", Text: "You cannot unlink your only account."}
 			return templates.Account(templates.AccountPage{Page: p, Identities: identities, RoleProviders: []templates.Provider{{Name: "discord", DisplayName: "Discord"}}})
 		},
+		// A member's apps (ADR-0015) on the account page, and the consent page.
+		"/fixture/account-apps": func() templ.Component {
+			p := base
+			p.Title, p.User, p.CSRF = "Account", jo, "csrf"
+			p.Flash = &templates.Flash{Kind: "ok", Text: "Revoked. The app can no longer act as you, and must ask again."}
+			return templates.Account(templates.AccountPage{Page: p, Identities: identities[:1], Apps: []templates.AppGrant{
+				{ClientID: "gravel_a", Name: "Muster", GrantedAt: now, Scopes: []templates.Scope{{Name: "stats:read", Description: "Read leaderboards, match lists and members' stats"}}},
+				{ClientID: "gravel_b", Name: "Seeding tracker", GrantedAt: now}}})
+		},
+		"/fixture/consent": func() templ.Component {
+			p := base
+			p.Title, p.User, p.CSRF = "Sign in to Muster", jo, "csrf"
+			return templates.Consent(templates.ConsentPage{Page: p, AppName: "Muster", Wider: true, ReturnHost: "muster.hiddentoken.com",
+				Scopes: []templates.Scope{{Name: "stats:read", Description: "Read leaderboards, match lists and members' stats"},
+					{Name: "identity:read", Description: "See the members of this hub and the accounts they linked"}},
+				Params: templates.AuthorizationParams{ResponseType: "code", ClientID: "gravel_a", RedirectURI: "https://muster.hiddentoken.com/auth/callback",
+					Scope: "stats:read identity:read", State: "s", CodeChallenge: "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM", CodeChallengeMethod: "S256"}})
+		},
 		"/fixture/servers": func() templ.Component {
 			p := base
 			p.Title = "Servers"
@@ -218,7 +236,7 @@ func TestAccessibility(t *testing.T) {
 	paths := []string{"/login", "/fixture/account-unowned", "/fixture/account-owner", "/fixture/error",
 		"/fixture/servers", "/fixture/server", "/fixture/server-anonymous", "/fixture/server-game-overlay", "/fixture/boards", "/fixture/member-self", "/fixture/member", "/fixture/members",
 		"/fixture/participation", "/fixture/participation-empty", "/fixture/member-participation",
-		"/fixture/server-moderator", "/fixture/confirm", "/fixture/log"}
+		"/fixture/server-moderator", "/fixture/confirm", "/fixture/log", "/fixture/account-apps", "/fixture/consent"}
 	// A fixture left out of the list would never be scanned and the run would still pass.
 	for path := range fixtures {
 		if !slices.Contains(paths, path) {

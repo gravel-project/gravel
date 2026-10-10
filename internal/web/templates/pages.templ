@@ -91,6 +91,45 @@ templ AccountContent(p AccountPage) {
 		}
 	</section>
 	<p><a href="/profile">Your stats and leaderboard name</a></p>
+	if len(p.Apps) > 0 {
+		<section aria-labelledby="apps-heading">
+			<h2 id="apps-heading">Apps you allowed</h2>
+			<p class="muted">These apps can act as you, within what you allowed. Revoking one signs you out of it and it must ask again.</p>
+			<table>
+				<thead>
+					<tr>
+						<th scope="col">App</th>
+						<th scope="col">Allowed to</th>
+						<th scope="col">Since</th>
+						<th scope="col"><span class="visually-hidden">Actions</span></th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, a := range p.Apps {
+						<tr>
+							<td>{ a.Name }</td>
+							<td>
+								<ul class="scopes">
+									<li>Know who you are</li>
+									for _, s := range a.Scopes {
+										<li>{ s.Description }</li>
+									}
+								</ul>
+							</td>
+							<td>{ a.GrantedAt.Format("2006-01-02") }</td>
+							<td>
+								<form method="post" action="/account/apps/revoke" class="inline" hx-post="/account/apps/revoke" hx-target="#page" hx-swap="innerHTML">
+									<input type="hidden" name="_csrf" value={ p.CSRF }/>
+									<input type="hidden" name="client_id" value={ a.ClientID }/>
+									<button type="submit" class="link">Revoke { a.Name }</button>
+								</form>
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</section>
+	}
 	<section aria-labelledby="sessions-heading">
 		<h2 id="sessions-heading">Sessions</h2>
 		<form method="post" action="/auth/logout" hx-post="/auth/logout">

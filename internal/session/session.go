@@ -31,6 +31,9 @@ const (
 	CookieSession = "session"
 	CookieAuth    = "auth"
 	CookieFlash   = "flash"
+	// CookieReturn holds the same-origin path a login returns to (the authorization endpoint
+	// that sent the member to log in, ADR-0015).
+	CookieReturn = "return"
 )
 
 // CSRFField is the form field (and header) that carries the session's CSRF token.

@@ -349,6 +349,9 @@ func Line(e *hubv1.AuditEntry, server string) string {
 // as a mention, which pings no one under noMentions).
 func actor(e *hubv1.AuditEntry) string {
 	if n := e.GetUserName(); n != "" {
+		if a := e.GetAppName(); a != "" { // a member through an app's token (gravel ADR-0015)
+			return "**" + escape(n) + "** (via " + escape(a) + ")"
+		}
 		return "**" + escape(n) + "**"
 	}
 	if e.GetUserId() != "" {

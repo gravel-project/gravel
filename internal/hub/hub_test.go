@@ -90,8 +90,10 @@ func get(t *testing.T, c *http.Client, u string) reply {
 	return reply{StatusCode: resp.StatusCode, Header: resp.Header, Cookies: resp.Cookies()}
 }
 
-// loginAs runs the fake Discord flow in the browser and returns the session cookie.
-func loginAs(t *testing.T, c *http.Client, base, code string) *http.Cookie {
+// loginAs runs the fake Discord flow in the browser as Jo, the fake's one account, and returns the
+// session cookie.
+func loginAs(t *testing.T, c *http.Client, base string) *http.Cookie {
+	const code = "jo"
 	t.Helper()
 	resp := get(t, c, base+"/auth/discord/start")
 	loc, _ := url.Parse(resp.Header.Get("Location"))
@@ -160,7 +162,7 @@ func TestHubEndToEnd(t *testing.T) {
 
 	// Log in through the pages, then claim over gRPC with the session cookie.
 	b := browser(t)
-	cookie := loginAs(t, b, public.URL, "jo")
+	cookie := loginAs(t, b, public.URL)
 	authed := &http.Client{Transport: cookieTransport{next: h2cClient().Transport, cookie: cookie}}
 	grpc := hubv1connect.NewOrganizationServiceClient(authed, public.URL, connect.WithGRPC())
 	if _, err := grpc.ClaimOwnership(ctx, connect.NewRequest(&hubv1.ClaimOwnershipRequest{Token: "wrong"})); connect.CodeOf(err) != connect.CodePermissionDenied {

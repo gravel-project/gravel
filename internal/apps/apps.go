@@ -1,7 +1,10 @@
-// Package apps is the service-credentials slice of first-party app support (ADR-0008, the part
-// of gravel#6 a bot needs): registered apps that authenticate with a client id and a secret,
-// hold short-lived opaque bearer tokens, and act within scopes. The secret and the tokens are
-// stored as SHA-256 hashes, like session tokens, so a copy of the tables yields no credential.
+// Package apps is first-party app support (gravel#6). Registered apps authenticate with a client
+// id and a secret, hold short-lived opaque bearer tokens and act within scopes: for themselves
+// through client credentials (ADR-0008), or as a member who signed in to them through the
+// authorization-code flow with PKCE (ADR-0015), and they check a token they are handed through
+// introspection (RFC 7662). The secret, the codes and the tokens are stored as SHA-256 hashes,
+// like session tokens, so a copy of the tables yields no credential, and the hub keeps no
+// signing key.
 package apps
 
 import (
@@ -49,7 +52,7 @@ const ScopeStatsRead = "stats:read"
 // session is not admitted in its place.
 const ScopeParticipationWrite = "participation:write"
 
-// Scopes is every scope an app may hold, with what it admits.
+// Scopes is every scope an app may hold, with what it admits: the operator's words.
 var Scopes = map[string]string{
 	ScopeIdentityRead:       "look up members and their identities (LookupUser, ListUsers, ListIdentityEvents)",
 	ScopeServersRead:        "see who is on a server: names and provider identities (ListServerPlayers)",
@@ -57,6 +60,17 @@ var Scopes = map[string]string{
 	ScopeServersConfigure:   "read, plan and apply a server's configuration (ServerConfigService)",
 	ScopeStatsRead:          "read the stats and participation boards and match lists while stats are not public (StatsService GetBoard, GetParticipationBoard, ListMatches)",
 	ScopeParticipationWrite: "record participation events from a first-party app (StatsService RecordParticipation)",
+}
+
+// MemberScopes says what each scope lets an app do as a member, in the member's words: the
+// consent page and the account page show these. A scope missing here is an app's own
+// (participation:write) and is never granted by a member: the authorization endpoint refuses it.
+var MemberScopes = map[string]string{
+	ScopeIdentityRead:     "See the members of this hub and the accounts they linked",
+	ScopeServersRead:      "See who is playing on this hub's servers",
+	ScopeServersModerate:  "Moderate servers as you: kick, ban, message and move players, and read the moderation log, if you are a moderator",
+	ScopeServersConfigure: "Change servers' configuration as you, if you own this hub",
+	ScopeStatsRead:        "Read leaderboards, match lists and members' stats",
 }
 
 // Limits.
@@ -76,6 +90,9 @@ var (
 	ErrInvalidToken = errors.New("apps: invalid token")
 	// ErrInvalidName is an empty or over-long app name.
 	ErrInvalidName = errors.New("apps: invalid name")
+	// ErrInvalidRedirectURI is a redirect URI an app may not register (ADR-0015), or one the app
+	// did not register.
+	ErrInvalidRedirectURI = errors.New("apps: invalid redirect uri")
 )
 
 // Store is what the service needs from the database.
@@ -88,6 +105,14 @@ type Store interface {
 	CreateAppToken(ctx context.Context, t store.AppToken) error
 	GetAppTokenByHash(ctx context.Context, hash []byte, now time.Time) (store.AppToken, store.App, error)
 	DeleteExpiredAppTokens(ctx context.Context, now time.Time) (int64, error)
+
+	CreateAuthorizationCode(ctx context.Context, c store.AuthorizationCode) error
+	RedeemAuthorizationCode(ctx context.Context, hash []byte, now time.Time, issue func(store.AuthorizationCode) (store.AppToken, error)) (store.AuthorizationCode, error)
+	DeleteExpiredAuthorizationCodes(ctx context.Context, before time.Time) (int64, error)
+	GetAppGrant(ctx context.Context, userID, appID uuid.UUID) (store.AppGrant, error)
+	SaveAppGrant(ctx context.Context, g store.AppGrant) error
+	ListAppGrants(ctx context.Context, userID uuid.UUID) ([]store.AppGrant, error)
+	DeleteAppGrant(ctx context.Context, userID, appID uuid.UUID) (int64, error)
 }
 
 // Service registers apps, issues their tokens and resolves a token to its app.
@@ -96,6 +121,7 @@ type Service struct {
 	orgID    uuid.UUID
 	tokenTTL time.Duration
 	logger   *slog.Logger
+	metrics  *metrics
 
 	now  func() time.Time
 	rand io.Reader
@@ -122,9 +148,10 @@ type Created struct {
 	Secret string
 }
 
-// Create registers an app with a name and scopes. The client id and the secret are random; the
-// secret comes back once, in Created, and only its hash is kept.
-func (s *Service) Create(ctx context.Context, name string, scopes []string) (Created, error) {
+// Create registers an app with a name, scopes and the redirect URIs its web pages sign members
+// in through (none for a service that only uses client credentials). The client id and the
+// secret are random; the secret comes back once, in Created, and only its hash is kept.
+func (s *Service) Create(ctx context.Context, name string, scopes []string, redirectURIs ...string) (Created, error) {
 	name = strings.TrimSpace(name)
 	if name == "" || len(name) > MaxNameLength {
 		return Created{}, fmt.Errorf("%w: a name is required, at most %d characters", ErrInvalidName, MaxNameLength)
@@ -132,6 +159,18 @@ func (s *Service) Create(ctx context.Context, name string, scopes []string) (Cre
 	scopes, err := normalizeScopes(scopes, nil)
 	if err != nil {
 		return Created{}, err
+	}
+	var uris []string
+	for _, u := range redirectURIs {
+		if err := ValidateRedirectURI(u); err != nil {
+			return Created{}, err
+		}
+		if !slices.Contains(uris, u) {
+			uris = append(uris, u)
+		}
+	}
+	if len(uris) > maxRedirectURIs {
+		return Created{}, fmt.Errorf("%w: at most %d redirect URIs", ErrInvalidRedirectURI, maxRedirectURIs)
 	}
 	idBytes := make([]byte, 12)
 	if _, err := io.ReadFull(s.rand, idBytes); err != nil {
@@ -143,12 +182,12 @@ func (s *Service) Create(ctx context.Context, name string, scopes []string) (Cre
 	}
 	a := store.App{
 		ID: uuid.New(), OrganizationID: s.orgID, Name: name, ClientID: clientIDPrefix + hex.EncodeToString(idBytes),
-		SecretHash: hash(secret), Scopes: scopes, CreatedAt: s.now(),
+		SecretHash: hash(secret), Scopes: scopes, RedirectURIs: uris, CreatedAt: s.now(),
 	}
 	if err := s.st.CreateApp(ctx, a); err != nil {
 		return Created{}, err
 	}
-	s.logger.Info("app registered", "app", a.Name, "client_id", a.ClientID, "scopes", a.Scopes)
+	s.logger.Info("app registered", "app", a.Name, "client_id", a.ClientID, "scopes", a.Scopes, "redirect_uris", a.RedirectURIs)
 	return Created{App: a, Secret: secret}, nil
 }
 
@@ -157,8 +196,9 @@ func (s *Service) List(ctx context.Context) ([]store.App, error) {
 	return s.st.ListApps(ctx, s.orgID)
 }
 
-// Revoke ends an app: its tokens are deleted and no new one is issued. store.ErrNotFound for an
-// unknown client id or one already revoked.
+// Revoke ends an app: its tokens (its own and its members'), the grants members gave it and its
+// unexchanged codes are deleted, and no new token is issued. store.ErrNotFound for an unknown
+// client id or one already revoked.
 func (s *Service) Revoke(ctx context.Context, clientID string) error {
 	a, err := s.st.GetAppByClientID(ctx, clientID)
 	if err != nil {
@@ -183,15 +223,9 @@ type Token struct {
 // app's scopes when none are requested. ErrInvalidClient for an unknown or revoked app or a
 // wrong secret; ErrInvalidScope for a scope the app does not hold.
 func (s *Service) Issue(ctx context.Context, clientID, secret string, requested []string) (Token, error) {
-	a, err := s.st.GetAppByClientID(ctx, clientID)
-	if errors.Is(err, store.ErrNotFound) {
-		return Token{}, ErrInvalidClient
-	}
+	a, err := s.authenticateClient(ctx, clientID, secret)
 	if err != nil {
 		return Token{}, err
-	}
-	if a.RevokedAt != nil || subtle.ConstantTimeCompare(hash(secret), a.SecretHash) != 1 {
-		return Token{}, ErrInvalidClient
 	}
 	scopes := slices.Clone(a.Scopes)
 	if len(requested) > 0 {
@@ -211,7 +245,24 @@ func (s *Service) Issue(ctx context.Context, clientID, secret string, requested 
 	return Token{Value: value, IssuedAt: now, ExpiresAt: t.ExpiresAt, Scopes: scopes}, nil
 }
 
-// App is the principal a bearer token resolves to: the app and the scopes of that token.
+// authenticateClient checks a client's credentials: ErrInvalidClient for an unknown client, a
+// revoked app, an app of another organization or a wrong secret, one error so a caller cannot
+// tell which.
+func (s *Service) authenticateClient(ctx context.Context, clientID, secret string) (store.App, error) {
+	a, err := s.st.GetAppByClientID(ctx, clientID)
+	if errors.Is(err, store.ErrNotFound) {
+		return store.App{}, ErrInvalidClient
+	}
+	if err != nil {
+		return store.App{}, err
+	}
+	if a.RevokedAt != nil || a.OrganizationID != s.orgID || subtle.ConstantTimeCompare(hash(secret), a.SecretHash) != 1 {
+		return store.App{}, ErrInvalidClient
+	}
+	return a, nil
+}
+
+// App is the principal an app's own token resolves to: the app and the scopes of that token.
 type App struct {
 	ID       uuid.UUID
 	ClientID string
@@ -222,37 +273,97 @@ type App struct {
 // Has reports whether the token carries a scope.
 func (a App) Has(scope string) bool { return slices.Contains(a.Scopes, scope) }
 
-// Authenticate resolves a bearer token to its app, or ErrInvalidToken.
-func (s *Service) Authenticate(ctx context.Context, token string) (App, error) {
+// Member is the principal a member's token resolves to (ADR-0015 §4): the member, acting through
+// the app, within the token's scopes (App.Scopes). It is never an App in a context: what a member
+// may do is the member's own right, narrowed by the token, never the app's.
+type Member struct {
+	UserID uuid.UUID
+	App    App
+}
+
+// Has reports whether the token carries a scope.
+func (m Member) Has(scope string) bool { return m.App.Has(scope) }
+
+// Principal is what a bearer token resolves to: the app, and the member when it is a member's
+// token (UserID is uuid.Nil for an app's own).
+type Principal struct {
+	App
+	UserID uuid.UUID
+}
+
+// IsMember reports whether the token is a member's.
+func (p Principal) IsMember() bool { return p.UserID != uuid.Nil }
+
+// Authenticate resolves a bearer token to its principal, or ErrInvalidToken for an unknown or
+// expired token, a revoked app's, or another organization's.
+func (s *Service) Authenticate(ctx context.Context, token string) (Principal, error) {
+	t, a, err := s.lookupToken(ctx, token)
+	if err != nil {
+		return Principal{}, err
+	}
+	p := Principal{App: App{ID: a.ID, ClientID: a.ClientID, Name: a.Name, Scopes: t.Scopes}}
+	if t.UserID != nil {
+		p.UserID = *t.UserID
+	}
+	return p, nil
+}
+
+// lookupToken finds a live token of this organization, or ErrInvalidToken.
+func (s *Service) lookupToken(ctx context.Context, token string) (store.AppToken, store.App, error) {
 	if token == "" {
-		return App{}, ErrInvalidToken
+		return store.AppToken{}, store.App{}, ErrInvalidToken
 	}
 	t, a, err := s.st.GetAppTokenByHash(ctx, hash(token), s.now())
 	if errors.Is(err, store.ErrNotFound) {
-		return App{}, ErrInvalidToken
+		return store.AppToken{}, store.App{}, ErrInvalidToken
 	}
 	if err != nil {
-		return App{}, err
+		return store.AppToken{}, store.App{}, err
 	}
-	return App{ID: a.ID, ClientID: a.ClientID, Name: a.Name, Scopes: t.Scopes}, nil
+	if a.OrganizationID != s.orgID {
+		return store.AppToken{}, store.App{}, ErrInvalidToken
+	}
+	return t, a, nil
 }
 
-// Prune deletes expired tokens and reports how many.
+// Prune deletes expired tokens, and the codes no token issued from can still be alive, and
+// reports how many tokens went.
 func (s *Service) Prune(ctx context.Context) (int64, error) {
-	return s.st.DeleteExpiredAppTokens(ctx, s.now())
+	n, err := s.st.DeleteExpiredAppTokens(ctx, s.now())
+	if err != nil {
+		return n, err
+	}
+	if _, err := s.st.DeleteExpiredAuthorizationCodes(ctx, s.now().Add(-MemberTokenTTL)); err != nil {
+		return n, err
+	}
+	return n, nil
 }
 
 type ctxKey struct{}
+
+type memberKey struct{}
 
 // NewContext returns ctx carrying an app principal.
 func NewContext(ctx context.Context, a App) context.Context {
 	return context.WithValue(ctx, ctxKey{}, a)
 }
 
-// FromContext returns the app principal Middleware resolved, if any.
+// FromContext returns the app principal Middleware resolved, if any. A member's token is never
+// one: see MemberFromContext.
 func FromContext(ctx context.Context) (App, bool) {
 	a, ok := ctx.Value(ctxKey{}).(App)
 	return a, ok
+}
+
+// NewMemberContext returns ctx carrying a member's-token principal.
+func NewMemberContext(ctx context.Context, m Member) context.Context {
+	return context.WithValue(ctx, memberKey{}, m)
+}
+
+// MemberFromContext returns the member's-token principal Middleware resolved, if any.
+func MemberFromContext(ctx context.Context) (Member, bool) {
+	m, ok := ctx.Value(memberKey{}).(Member)
+	return m, ok
 }
 
 func (s *Service) random() (string, error) {

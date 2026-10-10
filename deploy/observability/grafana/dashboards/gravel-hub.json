@@ -1123,6 +1123,214 @@
       },
       "id": 21,
       "panels": [],
+      "title": "First-party apps",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "The authorization endpoint (ADR-0015): issued (a code went back to the app), denied (the member pressed Cancel), rejected (an unknown app or redirect URI, or a request the app got an error for), error. No data is expected when no app signed a member in during the range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gravelOptional": "no app signed a member in during the range",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 41
+      },
+      "id": 22,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (result) (increase(gravel_oauth_authorizations_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "{{result}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Sign-ins to apps",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "By grant type and result. replayed is an authorization code presented twice: its tokens were revoked; investigate the app. No data is expected when no token was asked for in the range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gravelOptional": "no token was asked for in the range",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 41
+      },
+      "id": 23,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (grant_type, result) (increase(gravel_oauth_token_grants_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "{{grant_type}} {{result}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Token endpoint",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Apps checking a token they were handed (RFC 7662); an app may cache an answer for up to 60 s. No data is expected when no app introspected a token in the range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gravelOptional": "no app introspected a token in the range",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 41
+      },
+      "id": 24,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (result) (increase(gravel_oauth_introspections_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "{{result}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Introspections",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 49
+      },
+      "id": 25,
+      "panels": [],
       "title": "Backups",
       "type": "row"
     },
@@ -1159,9 +1367,9 @@
         "h": 4,
         "w": 4,
         "x": 0,
-        "y": 41
+        "y": 50
       },
-      "id": 22,
+      "id": 26,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -1219,9 +1427,9 @@
         "h": 4,
         "w": 4,
         "x": 4,
-        "y": 41
+        "y": 50
       },
-      "id": 23,
+      "id": 27,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -1300,9 +1508,9 @@
         "h": 4,
         "w": 4,
         "x": 8,
-        "y": 41
+        "y": 50
       },
-      "id": 24,
+      "id": 28,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -1381,9 +1589,9 @@
         "h": 4,
         "w": 4,
         "x": 12,
-        "y": 41
+        "y": 50
       },
-      "id": 25,
+      "id": 29,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -1445,9 +1653,9 @@
         "h": 4,
         "w": 4,
         "x": 16,
-        "y": 41
+        "y": 50
       },
-      "id": 26,
+      "id": 30,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -1524,9 +1732,9 @@
         "h": 4,
         "w": 4,
         "x": 20,
-        "y": 41
+        "y": 50
       },
-      "id": 27,
+      "id": 31,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -1591,9 +1799,9 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 45
+        "y": 54
       },
-      "id": 28,
+      "id": 32,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -1654,9 +1862,9 @@
         "h": 8,
         "w": 8,
         "x": 12,
-        "y": 45
+        "y": 54
       },
-      "id": 29,
+      "id": 33,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -1712,9 +1920,9 @@
         "h": 4,
         "w": 4,
         "x": 20,
-        "y": 45
+        "y": 54
       },
-      "id": 30,
+      "id": 34,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -1749,9 +1957,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 53
+        "y": 62
       },
-      "id": 31,
+      "id": 35,
       "panels": [],
       "title": "Servers",
       "type": "row"
@@ -1806,9 +2014,9 @@
         "h": 4,
         "w": 8,
         "x": 0,
-        "y": 54
+        "y": 63
       },
-      "id": 32,
+      "id": 36,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -1875,9 +2083,9 @@
         "h": 4,
         "w": 8,
         "x": 8,
-        "y": 54
+        "y": 63
       },
-      "id": 33,
+      "id": 37,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -1936,9 +2144,9 @@
         "h": 4,
         "w": 8,
         "x": 16,
-        "y": 54
+        "y": 63
       },
-      "id": 34,
+      "id": 38,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -2004,9 +2212,9 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 58
+        "y": 67
       },
-      "id": 35,
+      "id": 39,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2072,9 +2280,9 @@
         "h": 4,
         "w": 12,
         "x": 0,
-        "y": 66
+        "y": 75
       },
-      "id": 36,
+      "id": 40,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -2140,9 +2348,9 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 66
+        "y": 75
       },
-      "id": 37,
+      "id": 41,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2205,9 +2413,9 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 74
+        "y": 83
       },
-      "id": 38,
+      "id": 42,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2240,9 +2448,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 82
+        "y": 91
       },
-      "id": 39,
+      "id": 43,
       "panels": [],
       "title": "Stats",
       "type": "row"
@@ -2283,9 +2491,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 83
+        "y": 92
       },
-      "id": 40,
+      "id": 44,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2348,9 +2556,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 83
+        "y": 92
       },
-      "id": 41,
+      "id": 45,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2413,9 +2621,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 83
+        "y": 92
       },
-      "id": 42,
+      "id": 46,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2477,9 +2685,9 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 91
+        "y": 100
       },
-      "id": 43,
+      "id": 47,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2534,9 +2742,9 @@
         "h": 4,
         "w": 12,
         "x": 12,
-        "y": 91
+        "y": 100
       },
-      "id": 44,
+      "id": 48,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -2601,9 +2809,9 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 99
+        "y": 108
       },
-      "id": 45,
+      "id": 49,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2636,9 +2844,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 107
+        "y": 116
       },
-      "id": 46,
+      "id": 50,
       "panels": [],
       "title": "Ingestion",
       "type": "row"
@@ -2680,9 +2888,9 @@
         "h": 4,
         "w": 8,
         "x": 0,
-        "y": 108
+        "y": 117
       },
-      "id": 47,
+      "id": 51,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -2748,9 +2956,9 @@
         "h": 8,
         "w": 16,
         "x": 8,
-        "y": 108
+        "y": 117
       },
-      "id": 48,
+      "id": 52,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2783,9 +2991,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 116
+        "y": 125
       },
-      "id": 49,
+      "id": 53,
       "panels": [],
       "title": "Background jobs",
       "type": "row"
@@ -2825,9 +3033,9 @@
         "h": 8,
         "w": 16,
         "x": 0,
-        "y": 117
+        "y": 126
       },
-      "id": 50,
+      "id": 54,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2882,9 +3090,9 @@
         "h": 4,
         "w": 8,
         "x": 16,
-        "y": 117
+        "y": 126
       },
-      "id": 51,
+      "id": 55,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -2920,9 +3128,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 125
+        "y": 134
       },
-      "id": 52,
+      "id": 56,
       "panels": [],
       "title": "Runtime",
       "type": "row"
@@ -2961,9 +3169,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 126
+        "y": 135
       },
-      "id": 53,
+      "id": 57,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3024,9 +3232,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 126
+        "y": 135
       },
-      "id": 54,
+      "id": 58,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3087,9 +3295,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 126
+        "y": 135
       },
-      "id": 55,
+      "id": 59,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3150,9 +3358,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 134
+        "y": 143
       },
-      "id": 56,
+      "id": 60,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3213,9 +3421,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 134
+        "y": 143
       },
-      "id": 57,
+      "id": 61,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3276,9 +3484,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 134
+        "y": 143
       },
-      "id": 58,
+      "id": 62,
       "options": {
         "legend": {
           "displayMode": "list",

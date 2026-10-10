@@ -14,8 +14,12 @@ import (
 	"testing"
 	"time"
 
+	"connectrpc.com/connect"
+
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
 	"github.com/gravel-project/gravel/internal/api"
+	"github.com/gravel-project/gravel/internal/apps"
+	"github.com/gravel-project/gravel/internal/apps/appstest"
 	"github.com/gravel-project/gravel/internal/identity"
 	"github.com/gravel-project/gravel/internal/identity/identitytest"
 	"github.com/gravel-project/gravel/internal/org"
@@ -35,6 +39,11 @@ type rig struct {
 	servers *fakeServers
 	stats   *fakeStats
 	mod     *fakeMod
+	sess    *session.Manager
+	apps    *apps.Service
+	appSt   *appstest.FakeStore
+	// authz is how each request at the authorization endpoint ended (ObserveAuthorization).
+	authz []string
 }
 
 // testTheme has a logo, a favicon, header and footer links, an owner-only link and one bad
@@ -85,12 +94,18 @@ func newRigWithTheme(t *testing.T, theme templates.Theme) *rig {
 	}}
 	ids := identity.New(r.idSt, o.ID, []identity.Registration{{Provider: r.discord, Login: true}, {Provider: r.steam}}, 10*time.Minute, logger)
 	sess := session.New(r.idSt, time.Hour, false, logger)
+	r.sess = sess
+	r.appSt = appstest.NewFakeStore()
+	r.apps = apps.New(r.appSt, o.ID, time.Hour, logger)
+	// As the hub wires it: a member's token is held to its scopes on every service.
+	member := connect.WithInterceptors(api.MemberTokens())
 	apiMux := http.NewServeMux()
-	apiMux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(orgSvc, logger)))
-	apiMux.Handle(hubv1connect.NewIdentityServiceHandler(api.NewIdentityServer(ids, sess, orgSvc, logger)))
-	apiMux.Handle(hubv1connect.NewServerServiceHandler(r.servers))
-	apiMux.Handle(hubv1connect.NewStatsServiceHandler(r.stats))
-	apiMux.Handle(hubv1connect.NewModerationServiceHandler(r.mod))
+	apiMux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(orgSvc, logger), member))
+	apiMux.Handle(hubv1connect.NewIdentityServiceHandler(api.NewIdentityServer(ids, sess, orgSvc, logger), member))
+	apiMux.Handle(hubv1connect.NewServerServiceHandler(r.servers, member))
+	apiMux.Handle(hubv1connect.NewStatsServiceHandler(r.stats, member))
+	apiMux.Handle(hubv1connect.NewModerationServiceHandler(r.mod, member))
+	apiMux.Handle(hubv1connect.NewAppServiceHandler(api.NewAppServer(r.apps, logger), member))
 	h, err := web.New(ids, sess, sess.Middleware(apiMux), web.StaticTheme{T: theme}, logger)
 	if err != nil {
 		t.Fatal(err)
@@ -98,9 +113,20 @@ func newRigWithTheme(t *testing.T, theme templates.Theme) *rig {
 	h.Observe = func(provider string, intent identity.Intent, result string) {
 		r.results = append(r.results, provider+"/"+string(intent)+"/"+result)
 	}
+	h.ObserveAuthorization = func(result string) { r.authz = append(r.authz, result) }
+	pages := http.NewServeMux()
+	h.Register(pages)
+	// The public listener as the hub has it: the API for bearer tokens, the token and
+	// introspection endpoints, and the pages.
 	mux := http.NewServeMux()
-	h.Register(mux)
-	r.srv = httptest.NewServer(http.NewCrossOriginProtection().Handler(sess.Middleware(mux)))
+	for _, svc := range []string{hubv1connect.OrganizationServiceName, hubv1connect.IdentityServiceName, hubv1connect.ServerServiceName,
+		hubv1connect.StatsServiceName, hubv1connect.ModerationServiceName, hubv1connect.AppServiceName} {
+		mux.Handle("/"+svc+"/", apiMux)
+	}
+	mux.Handle("/oauth/token", r.apps.TokenHandler())
+	mux.Handle("/oauth/introspect", r.apps.IntrospectHandler())
+	mux.Handle("/", pages)
+	r.srv = httptest.NewServer(http.NewCrossOriginProtection().Handler(sess.Middleware(r.apps.Middleware(mux))))
 	t.Cleanup(r.srv.Close)
 	return r
 }

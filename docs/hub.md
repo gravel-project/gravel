@@ -16,9 +16,9 @@ why, ADR-0004 the login design, ADR-0008 the app credentials; `deploy/README.md`
 | `gravel-hub settings export` | Print the Organization settings as a YAML manifest. |
 | `gravel-hub settings apply <manifest.yaml> [--dry-run]` | Validate and store a manifest; "unchanged" or "applied". With `--dry-run`, exit 3 when it would change something. |
 | `gravel-hub settings check <manifest.yaml>` | Validate a manifest with no configuration and no database: exit 0 and print its summary, 1 with every problem named, 2 on a usage error. |
-| `gravel-hub apps create --name NAME --scopes SCOPES` | Register a first-party app (ADR-0008) and print its client id and secret once; the hub keeps the secret's hash. |
-| `gravel-hub apps list` | The registered apps: client id, name, scopes, created, revoked. |
-| `gravel-hub apps revoke --client-id ID` | Revoke an app: its tokens are deleted and no new one is issued. |
+| `gravel-hub apps create --name NAME --scopes SCOPES [--redirect-uri URL]...` | Register a first-party app (ADR-0008) and print its client id and secret once; the hub keeps the secret's hash. `--redirect-uri` (repeatable) is where its web pages receive a member who signed in ([Members sign in to apps](#members-sign-in-to-apps-adr-0015)): https, or http on 127.0.0.1, `[::1]` or localhost, compared as an exact string. |
+| `gravel-hub apps list` | The registered apps: client id, name, scopes, redirect URIs, created, revoked. |
+| `gravel-hub apps revoke --client-id ID` | Revoke an app: its tokens (its own and its members'), the grants members gave it and its unexchanged codes are deleted, and no new token is issued. |
 | `gravel-hub servers export` | Print the games and servers as a `servers.yaml` manifest ([Servers](#servers-adr-0010)). |
 | `gravel-hub servers apply <servers.yaml> [--dry-run]` | Validate a manifest, check each credential file is readable where it runs, and store it; prints each change. With `--dry-run`, exit 3 when something would change. A running hub picks it up within 30 s. |
 | `gravel-hub servers check <servers.yaml>` | Validate a manifest with no configuration, no database and no secret: exit 0 with its summary, 1 with every problem named, 2 on a usage error. |
@@ -102,7 +102,7 @@ Public listener (`server.listen`), HTTP/1.1 and unencrypted HTTP/2 so gRPC works
 | `/gravel.hub.v1.OrganizationService/ClaimOwnership` | Connect procedure; `{"token": "…"}`; needs a session, binds the caller as owner |
 | `/gravel.hub.v1.OrganizationService/GetOrganizationSettings` | the Organization settings (theme, navigation, the Discord mapping, stats, the games' overlays); public |
 | `/gravel.hub.v1.OrganizationService/UpdateOrganizationSettings` | replace them; the owner only; `invalid_argument` names every invalid field |
-| `/gravel.hub.v1.IdentityService/GetMe` | the caller and their linked identities; needs a session |
+| `/gravel.hub.v1.IdentityService/GetMe` | the caller and their linked identities; needs a session, or a member's token from an app (no scope needed: how an app learns who signed in, ADR-0015) |
 | `/gravel.hub.v1.IdentityService/UnlinkIdentity` | `{"provider": "steam", "subject": "…"}`; the last identity is refused (`failed_precondition`) |
 | `/gravel.hub.v1.IdentityService/Logout` | end the calling session and clear its cookie |
 | `/gravel.hub.v1.IdentityService/RevokeSessions` | log out everywhere; answers how many sessions ended and clears the cookie |
@@ -124,7 +124,10 @@ Public listener (`server.listen`), HTTP/1.1 and unencrypted HTTP/2 so gRPC works
 | `/grpc.reflection.v1.ServerReflection/…` (and v1alpha) | gRPC reflection, so `grpcurl` and `buf curl` discover the API |
 | `GET /healthz` | 200 `{"status":"ok","version":"…"}` while the process runs |
 | `GET /readyz` | 200 `{"status":"ready"}` when Postgres answers and no migration is pending, else 503 with a reason |
-| `POST /oauth/token` | the token endpoint for first-party apps (ADR-0008): client credentials in, a Bearer token out; see [Service credentials](#service-credentials-adr-0008) |
+| `/gravel.hub.v1.AppService/PrepareAuthorization`, `Authorize` | the authorization endpoint's checks and consent, which the `/oauth/authorize` page calls ([Members sign in to apps](#members-sign-in-to-apps-adr-0015)); a session only, never a bearer token |
+| `/gravel.hub.v1.AppService/ListAppGrants`, `RevokeAppGrant` | `{}` → the apps the member allowed (name, scopes, when); `{"client_id": "…"}` → revoke one with the member's tokens for it; a session only |
+| `POST /oauth/token` | the token endpoint for first-party apps: client credentials (ADR-0008), or an authorization code with its PKCE verifier (ADR-0015), in; a Bearer token out; see [Service credentials](#service-credentials-adr-0008) |
+| `POST /oauth/introspect` | RFC 7662 for apps: with the app's client credentials and a form `token`, whether that token is active, and whose ([Members sign in to apps](#members-sign-in-to-apps-adr-0015)) |
 
 Pages and flows, on the same listener (ADR-0005: the pages are templ components that call the
 procedures above in process; htmx, served from the binary, swaps the main content on forms, and
@@ -133,14 +136,16 @@ every page works without it):
 | Path | What |
 |---|---|
 | `GET /` | to `/account`, or `/login` when anonymous |
-| `GET /login` | the login providers |
-| `GET /account` | the member's identities, link buttons, unlink forms, "log out everywhere", and the claim form while the hub is unowned |
+| `GET /login` | the login providers; `?return_to=/path` comes back to that path on this hub after the login (anything but a same-origin path is ignored) |
+| `GET /account` | the member's identities, link buttons, unlink forms, "Apps you allowed" with a Revoke for each (`POST /account/apps/revoke`), "log out everywhere", and the claim form while the hub is unowned |
+| `GET /oauth/authorize` | the authorization endpoint (ADR-0015): checks the app's request, sends a visitor through the login and back, shows the consent page unless a remembered grant covers the request, and redirects to the app with a code |
+| `POST /oauth/authorize` | the consent page's form: Allow or Cancel, with the CSRF token |
 | `GET /auth/{provider}/start` | begin a login (providers with `login: true`) |
 | `GET /auth/{provider}/link` | begin a link, logged in |
 | `GET /auth/{provider}/roles` | begin Discord's Linked Roles verification: a login that also publishes the member's linked accounts to Discord (below) |
 | `GET /auth/{provider}/callback` | the provider's return |
 | `POST /auth/logout` | this session (`Logout`), or every session with `everywhere=1` (`RevokeSessions`) |
-| `POST /account/unlink`, `POST /account/claim` | forms; every POST carries the session's CSRF token in `_csrf`; with `HX-Request: true` the answer is the page's content, else a redirect |
+| `POST /account/unlink`, `POST /account/claim`, `POST /account/apps/revoke` | forms; every POST carries the session's CSRF token in `_csrf`; with `HX-Request: true` the answer is the page's content, else a redirect |
 | `GET /theme.css` | the theme's tokens as custom properties, with an ETag |
 | `GET /static/map-placeholder.png` | gravel's generic map picture (1280×720, no text), for a server card's map without an image of its own |
 | `GET /static/app.css`, `GET /static/vendor/htmx.min.js` | the stylesheet and htmx |
@@ -310,8 +315,8 @@ the server page shows the next one.
 A first-party service (a host's Discord bot, later Muster) calls the API as an **app**, not as a
 member: a registered client id and secret, traded at the token endpoint for a short-lived opaque
 bearer token that carries the app's scopes. The secret and every token are stored as SHA-256
-hashes, like session tokens. This is the client-credentials slice of #6; the authorization-code
-flow for people comes when a first-party web app needs it.
+hashes, like session tokens. An app's web pages can also sign a member in and act as them:
+[Members sign in to apps](#members-sign-in-to-apps-adr-0015).
 
 ```sh
 # Register (on the hub's host, no API credential needed; the secret is printed once)
@@ -341,6 +346,71 @@ member may not call still does. The owner's session is admitted wherever a scope
 can do by hand what the app does. Requests carrying a token are rate-limited per app
 (`rate_limit.per_app`), the token endpoint per client address. To rotate a secret, create a new
 app and revoke the old one once the service has moved; `apps revoke` deletes the tokens at once.
+
+## Members sign in to apps (ADR-0015)
+
+A first-party app's web pages (Muster, first) sign a member in with their hub account through the
+OAuth 2.0 authorization-code flow with PKCE (RFC 6749 §4.1, RFC 7636 `S256` only, RFC 9700), and
+the app then calls the API **as that member**. It is not OpenID Connect: there is no ID token and
+the hub keeps no signing key. The app learns who signed in from `IdentityService.GetMe` with the
+member's token, and a service checks a token it is handed by introspection.
+
+```sh
+# Register with the URI the app's callback lives at (exact; https, or http on a loopback host)
+gravel-hub apps create --name Muster --scopes stats:read --redirect-uri https://muster.example.com/auth/callback
+# The app sends the member's browser to (golang.org/x/oauth2: AuthCodeURL with S256ChallengeOption):
+#   https://app.example.com/oauth/authorize?response_type=code&client_id=$CLIENT_ID
+#     &redirect_uri=https%3A%2F%2Fmuster.example.com%2Fauth%2Fcallback&scope=stats%3Aread
+#     &state=$STATE&code_challenge=$CHALLENGE&code_challenge_method=S256
+# and receives https://muster.example.com/auth/callback?code=…&state=$STATE. It trades the code:
+curl -u "$CLIENT_ID:$CLIENT_SECRET" -d grant_type=authorization_code -d code="$CODE" \
+  -d redirect_uri=https://muster.example.com/auth/callback -d code_verifier="$VERIFIER" https://app.example.com/oauth/token
+# {"access_token":"…","token_type":"Bearer","expires_in":3600,"scope":"stats:read"}
+# Who signed in (no scope needed)
+curl -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{}' \
+  https://app.example.com/gravel.hub.v1.IdentityService/GetMe
+# Is a token live, and whose? (any app of the hub, with its own credentials)
+curl -u "$CLIENT_ID:$CLIENT_SECRET" -d token="$TOKEN" https://app.example.com/oauth/introspect
+# {"active":true,"sub":"<member's user id>","client_id":"gravel_…","scope":"stats:read","exp":1791700000,"token_type":"Bearer"}
+# {"active":false} for an expired, revoked, unknown or another organization's token: nothing else
+```
+
+- **The authorization endpoint** is a page of the hub, `GET /oauth/authorize`. `redirect_uri` is
+  required and must be one the app registered, as an exact string: a trailing slash, another port,
+  http for https or an extra query is a different URI. An unknown or revoked client, or a redirect
+  URI the app did not register, shows an error page and never redirects. Anything else wrong goes
+  back to the app with `error` (`invalid_request`, for example missing PKCE or `plain`;
+  `unsupported_response_type`; `invalid_scope`) and its `state`. A parameter sent twice is
+  `invalid_request`. A visitor without a session goes through the login and comes back.
+- **Consent.** The first time, the member sees the app's name and what each scope lets it do, with
+  Allow and Cancel (Cancel answers `access_denied`). The grant is remembered per member and app; the
+  next sign-in is silent while the member's hub session lasts, and the member is asked again only
+  when the app asks for more. An empty `scope` asks for sign-in only. A scope that is only an
+  app's own (`participation:write`) cannot be asked for.
+- **Codes and tokens.** A code is hashed, single use and lives 60 seconds, bound to the app, the
+  redirect URI, the PKCE challenge and the member. Its first presentation spends it, whatever the
+  outcome; a second one answers `invalid_grant` and revokes every token issued from it. A member's
+  token lives one hour, carries scopes no wider than the app's, and has no refresh token: the app
+  sends the member through the flow again.
+- **What a member's token may do.** What the member may do, narrowed to the token's scopes: `GetMe`
+  needs no scope; every other procedure needs the scope in [Service credentials](#service-credentials-adr-0008)
+  as well as the member's own right (an owner's token with `servers:configure` configures, a
+  member's with the same scope is refused). The public reads that do not look at the caller need
+  none. Unlinking, logging out, roles, settings, the owner claim, the leaderboard name and the apps
+  a member allowed are refused to any token. A member's token never acts `on_behalf_of` anyone and
+  is never the app on an app-only procedure (`RecordParticipation`). Moderation through it is
+  recorded with the member and the app ("Jo via Muster"). Requests with it are rate-limited per
+  member (`rate_limit.per_user`).
+- **Introspection** (`POST /oauth/introspect`, RFC 7662) is for apps: without valid client
+  credentials it answers 401 `invalid_client`. An app may cache an answer until `exp` or for 60
+  seconds, whichever is sooner; revoking an app, a grant or a member's sessions takes effect within
+  that window. The token and introspection endpoints are rate-limited per client address.
+- **Revocation.** The member revokes an app on the account page ("Apps you allowed"): the grant,
+  the member's tokens for it and its unexchanged codes go at once. "Log out everywhere" ends the
+  member's tokens in every app too. `gravel-hub apps revoke` ends everything the app holds.
+- **Privacy.** A remembered grant (member, app, scopes, when) is data about the member: the account
+  page shows it, revoking deletes it, and it goes with the account. Nothing else of the flow is
+  kept past its use: codes once no token issued from them can be alive, tokens at expiry.
 
 ## Servers (ADR-0010)
 
@@ -855,12 +925,15 @@ command and the digest-pin procedure.
 | Metric | Type | Labels | What it says | Absent when |
 |---|---|---|---|---|
 | `gravel_build_info` | gauge, always 1 | `version`, `go_version` | the running build | never |
-| `gravel_http_requests_total` | counter | `handler` (`healthz`, `readyz`, `oauth_token`, `pages`), `method`, `code` | HTTP requests by status | until the first request |
+| `gravel_http_requests_total` | counter | `handler` (`healthz`, `readyz`, `oauth_token`, `oauth_introspect`, `pages`), `method`, `code` | HTTP requests by status | until the first request |
 | `gravel_http_request_duration_seconds` | histogram (default buckets) | `handler` | HTTP latency | until the first request |
 | `gravel_rpc_requests_total` | counter | `procedure`, `code` (`ok` or the Connect code) | API calls, the pages' in-process calls included (ADR-0005) | until the first call |
 | `gravel_rpc_request_duration_seconds` | histogram (default buckets) | `procedure` | API latency | until the first call |
 | `gravel_auth_completions_total` | counter | `provider` (a configured provider, or `other`), `intent` (`login`, `link`, `roles`, `unknown` on a failure), `result` (`ok`, `denied`, `failed`, `invalid`, `mismatch`, `taken`, `error`) | how login, link and Linked Roles attempts ended | until the first callback |
 | `gravel_rate_limited_total` | counter | `scope` (`ip`, `user`, `app`) | requests a rate limit refused | until the first refusal |
+| `gravel_oauth_authorizations_total` | counter | `result` (`issued`, `denied`, `rejected`, `error`) | how requests at the authorization endpoint ended (ADR-0015): a code went back, the member pressed Cancel, an unknown app or redirect URI or a request the app got an error for | until the first request there |
+| `gravel_oauth_token_grants_total` | counter | `grant_type` (`client_credentials`, `authorization_code`, `other`), `result` (`issued`, `invalid_client`, `invalid_grant`, `replayed`, `invalid_scope`, `invalid_request`, `unsupported_grant_type`, `error`) | token endpoint requests; `replayed` is a code presented twice, whose tokens were revoked | until the first request |
+| `gravel_oauth_introspections_total` | counter | `result` (`active`, `inactive`, `invalid_client`, `invalid_request`, `error`) | introspection requests | until the first request |
 | `gravel_users` | gauge | | members registered | when `gravel_store_stats_readable` is 0 |
 | `gravel_identities` | gauge | `provider` (each configured provider, 0 included; `other` for rows of a provider no longer configured) | linked identities | when `gravel_store_stats_readable` is 0 |
 | `gravel_database_size_bytes` | gauge | | `pg_database_size` of the hub's database | when `gravel_store_stats_readable` is 0 |
