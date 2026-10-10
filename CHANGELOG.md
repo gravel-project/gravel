@@ -8,6 +8,19 @@ patch release is everything else.
 
 ## [Unreleased]
 
+### Added
+
+- ADR-0012: the stats store keeps match totals from the poll and events from the feed, and boards are queries (#17, #3).
+  - **The counts:** a board counts `match_stats`, one row per player per match, written from the poll the hub already makes. It is complete while the hub is up and needs no feed.
+  - **The detail:** the feed's `stats_events` add who killed whom and with what. When the feed counts more than the poll (the hub was down), the row takes the higher number and a gap says so.
+  - **Matches** are found from the poll (counts reset, the rotation moves, the server restarts).
+  - **The interface:** `stats.Store` is in domain terms.
+  - **Filters:** trust and windows are filters. Seasons are named windows in the Organization settings, never deletions.
+  - **Names:** pseudonyms are persisted from a keyed hash, and a linked member opts in to their own name.
+  - **Retention:** a nightly rollup into monthly aggregates before raw rows age out (13 months, pending counsel).
+  - **Erasure** re-keys every stats table.
+  - **Exposure:** boards stay owner-only until the privacy policy's stats rows are live.
+
 ## [0.6.6] - 2026-10-10
 
 ### Fixed
