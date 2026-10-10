@@ -41,18 +41,17 @@ func TestJobsRunCountAndSurviveFailures(t *testing.T) {
 	r.Start(Job{Name: "ok", Every: 5 * time.Millisecond, Immediate: true, Run: func(context.Context) error { ok.Add(1); return nil }})
 	r.Start(Job{Name: "bad", Every: 5 * time.Millisecond, Run: func(context.Context) error { bad.Add(1); return errors.New("nope") }})
 	r.Start(Job{Name: "boom", Label: "panics", Every: 5 * time.Millisecond, Run: func(context.Context) error { boom.Add(1); panic("boom") }})
-	eventually(t, "three runs each", func() bool { return ok.Load() >= 3 && bad.Load() >= 3 && boom.Load() >= 3 })
-	if v := testutil.ToFloat64(r.total.WithLabelValues("ok", "ok")); v < 3 {
-		t.Errorf("ok runs counted %v", v)
-	}
-	if v := testutil.ToFloat64(r.total.WithLabelValues("bad", "error")); v < 3 {
-		t.Errorf("failed runs counted %v", v)
-	}
-	if v := testutil.ToFloat64(r.total.WithLabelValues("panics", "error")); v < 3 {
-		t.Errorf("a panic was not counted under its label: %v", v)
-	}
-	if v := testutil.ToFloat64(r.lastSuccess.WithLabelValues("ok")); v <= 0 {
-		t.Errorf("last success = %v", v)
+	// The runner counts a run after its function returns (or panics), so wait for the counts
+	// themselves, not only the runs (#115). A run that is never counted times this out.
+	eventually(t, "three runs of each job, each counted under its label", func() bool {
+		return ok.Load() >= 3 && bad.Load() >= 3 && boom.Load() >= 3 &&
+			testutil.ToFloat64(r.total.WithLabelValues("ok", "ok")) >= 3 &&
+			testutil.ToFloat64(r.total.WithLabelValues("bad", "error")) >= 3 &&
+			testutil.ToFloat64(r.total.WithLabelValues("panics", "error")) >= 3 &&
+			testutil.ToFloat64(r.lastSuccess.WithLabelValues("ok")) > 0
+	})
+	if v := testutil.ToFloat64(r.total.WithLabelValues("boom", "error")); v != 0 {
+		t.Errorf("a labelled job was counted under its name: %v", v)
 	}
 	if got := r.Names(); len(got) != 3 {
 		t.Errorf("running = %v", got)
