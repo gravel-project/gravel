@@ -8,6 +8,10 @@ patch release is everything else.
 
 ## [Unreleased]
 
+### Changed
+
+- The quadlet units pin the 0.6.2 images by index digest, all three verified with cosign 3 against the release workflow at `v0.6.2` (the 0.6.1 hub as a control, a wrong-tag identity refused): `ghcr.io/gravel-project/gravel-hub@sha256:ed81e6e1fb2e0c0a7b73c6204a5c07ce1e54a1145ee2365e52106e70d76490e3` in `gravel-hub.container`, `ghcr.io/gravel-project/gravel-bot@sha256:58086e3a7abb12c0268d9ce0e3dc8c70011cfe6f46a7fdb917d3e825c9416153` in `gravel-bot.container`, and `ghcr.io/gravel-project/gravel-postgres@sha256:f97ddfe1db9c20548dd42f9c20013548ba993b9ef08ac0b394dd0bad1c482cb6` in the backup set (rebuilt at the tag). `docs/hub.md` names 0.6.2 as the tag example.
+
 ## [0.6.2] - 2026-10-10
 
 ### Added
