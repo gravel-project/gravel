@@ -572,7 +572,8 @@ logs a fresh token after the upgrade.
 ## Backups (ADR-0006)
 
 The hub's Postgres runs from `ghcr.io/gravel-project/gravel-postgres`, the official image plus
-WAL-G: Postgres pushes every WAL segment to object storage as it is written
+WAL-G, published by the release that last changed `deploy/postgres/` (`:latest`; docs/releasing.md
+"The Postgres image has its own version line"): Postgres pushes every WAL segment to object storage as it is written
 (`archive_command='wal-g wal-push %p'`, `archive_timeout=60`), and `gravel-backup.timer` takes a
 base backup every night and keeps 30. The hub does not back up; it watches:
 
