@@ -856,10 +856,13 @@ type StatsSettings struct {
 	// Matches a player needs before a K/D board shows them; 0 is the default, 3.
 	MinMatches int32 `protobuf:"varint,2,opt,name=min_matches,json=minMatches,proto3" json:"min_matches,omitempty"`
 	// The IANA zone weeks, months and season dates are in; empty is UTC.
-	Timezone      string         `protobuf:"bytes,3,opt,name=timezone,proto3" json:"timezone,omitempty"`
-	Seasons       []*StatsSeason `protobuf:"bytes,4,rep,name=seasons,proto3" json:"seasons,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Timezone string         `protobuf:"bytes,3,opt,name=timezone,proto3" json:"timezone,omitempty"`
+	Seasons  []*StatsSeason `protobuf:"bytes,4,rep,name=seasons,proto3" json:"seasons,omitempty"`
+	// Months a player's per-match rows are kept before they roll up into monthly totals; 0 is the
+	// default, 13.
+	RawRetentionMonths int32 `protobuf:"varint,5,opt,name=raw_retention_months,json=rawRetentionMonths,proto3" json:"raw_retention_months,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *StatsSettings) Reset() {
@@ -918,6 +921,13 @@ func (x *StatsSettings) GetSeasons() []*StatsSeason {
 		return x.Seasons
 	}
 	return nil
+}
+
+func (x *StatsSettings) GetRawRetentionMonths() int32 {
+	if x != nil {
+		return x.RawRetentionMonths
+	}
+	return 0
 }
 
 // OrganizationSettings is the Organization settings resource: every host-configurable knob in
@@ -1245,13 +1255,14 @@ const file_gravel_hub_v1_organization_proto_rawDesc = "" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
 	"\x04game\x18\x02 \x01(\tR\x04game\x12\x12\n" +
 	"\x04from\x18\x03 \x01(\tR\x04from\x12\x0e\n" +
-	"\x02to\x18\x04 \x01(\tR\x02to\"\x9a\x01\n" +
+	"\x02to\x18\x04 \x01(\tR\x02to\"\xcc\x01\n" +
 	"\rStatsSettings\x12\x16\n" +
 	"\x06public\x18\x01 \x01(\bR\x06public\x12\x1f\n" +
 	"\vmin_matches\x18\x02 \x01(\x05R\n" +
 	"minMatches\x12\x1a\n" +
 	"\btimezone\x18\x03 \x01(\tR\btimezone\x124\n" +
-	"\aseasons\x18\x04 \x03(\v2\x1a.gravel.hub.v1.StatsSeasonR\aseasons\"\xaf\x02\n" +
+	"\aseasons\x18\x04 \x03(\v2\x1a.gravel.hub.v1.StatsSeasonR\aseasons\x120\n" +
+	"\x14raw_retention_months\x18\x05 \x01(\x05R\x12rawRetentionMonths\"\xaf\x02\n" +
 	"\x14OrganizationSettings\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\x05R\aversion\x12*\n" +
 	"\x05theme\x18\x02 \x01(\v2\x14.gravel.hub.v1.ThemeR\x05theme\x12(\n" +

@@ -124,6 +124,9 @@ message StatsSettings {
   // The IANA zone weeks, months and season dates are in; empty is UTC.
   string timezone = 3;
   repeated StatsSeason seasons = 4;
+  // Months a player's per-match rows are kept before they roll up into monthly totals; 0 is the
+  // default, 13.
+  int32 raw_retention_months = 5;
 }
 
 // OrganizationSettings is the Organization settings resource: every host-configurable knob in

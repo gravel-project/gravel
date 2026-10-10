@@ -20,6 +20,9 @@ import (
 // name is made up without one, since a pseudonym is kept forever.
 const Unnamed = "Unnamed player"
 
+// Deleted is how an erased player is shown (ADR-0012 §7): their numbers stay, their identity does not.
+const Deleted = "Deleted player"
+
 // maxSuffix is how far a pseudonym taken by another identity is numbered ("Brave Falcon 2").
 const maxSuffix = 99
 
@@ -40,13 +43,18 @@ func NewNamer(st Store, orgID uuid.UUID, key []byte, logger *slog.Logger) *Namer
 	return &Namer{st: st, orgID: orgID, key: key, now: time.Now, logger: logger}
 }
 
-// Names returns every identity's pseudonym, storing one for an identity that has none yet.
+// Names returns every identity's pseudonym, storing one for an identity that has none yet. An
+// erased identity is shown as Deleted and never gets one.
 func (n *Namer) Names(ctx context.Context, keys []store.PlayerKey) (map[store.PlayerKey]string, error) {
 	got, err := n.st.Pseudonyms(ctx, n.orgID, keys)
 	if err != nil {
 		return nil, err
 	}
 	for _, k := range keys {
+		if k.Provider == store.ErasedProvider {
+			got[k] = Deleted
+			continue
+		}
 		if _, ok := got[k]; ok {
 			continue
 		}

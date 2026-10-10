@@ -2443,14 +2443,137 @@
       "type": "timeseries"
     },
     {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Per-match player rows past stats.raw_retention_months, moved into monthly totals and deleted (ADR-0012 §6). Boards keep their numbers.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 91
+      },
+      "id": 43,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(increase(gravel_stats_rolled_rows_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "rows",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Rows rolled up",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "The rollup job runs every 6 hours; much over that means it is failing (gravel_hub_jobs_total{job=\"stats_rollup\",result=\"error\"}).",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 12,
+        "x": 12,
+        "y": 91
+      },
+      "id": 44,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "time() - max(gravel_hub_job_last_success_timestamp_seconds{job=\"stats_rollup\",job=\"$job\", instance=~\"$instance\"})",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Since the last rollup",
+      "type": "stat"
+    },
+    {
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 91
+        "y": 99
       },
-      "id": 43,
+      "id": 45,
       "panels": [],
       "title": "Ingestion",
       "type": "row"
@@ -2492,9 +2615,9 @@
         "h": 4,
         "w": 8,
         "x": 0,
-        "y": 92
+        "y": 100
       },
-      "id": 44,
+      "id": 46,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -2560,9 +2683,9 @@
         "h": 8,
         "w": 16,
         "x": 8,
-        "y": 92
+        "y": 100
       },
-      "id": 45,
+      "id": 47,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2595,9 +2718,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 100
+        "y": 108
       },
-      "id": 46,
+      "id": 48,
       "panels": [],
       "title": "Background jobs",
       "type": "row"
@@ -2637,9 +2760,9 @@
         "h": 8,
         "w": 16,
         "x": 0,
-        "y": 101
+        "y": 109
       },
-      "id": 47,
+      "id": 49,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2694,9 +2817,9 @@
         "h": 4,
         "w": 8,
         "x": 16,
-        "y": 101
+        "y": 109
       },
-      "id": 48,
+      "id": 50,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -2732,9 +2855,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 109
+        "y": 117
       },
-      "id": 49,
+      "id": 51,
       "panels": [],
       "title": "Runtime",
       "type": "row"
@@ -2773,9 +2896,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 110
+        "y": 118
       },
-      "id": 50,
+      "id": 52,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2836,9 +2959,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 110
+        "y": 118
       },
-      "id": 51,
+      "id": 53,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2899,9 +3022,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 110
+        "y": 118
       },
-      "id": 52,
+      "id": 54,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2962,9 +3085,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 118
+        "y": 126
       },
-      "id": 53,
+      "id": 55,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3025,9 +3148,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 118
+        "y": 126
       },
-      "id": 54,
+      "id": 56,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3088,9 +3211,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 118
+        "y": 126
       },
-      "id": 55,
+      "id": 57,
       "options": {
         "legend": {
           "displayMode": "list",

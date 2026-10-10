@@ -127,7 +127,7 @@ func (b *Boards) Board(ctx context.Context, q Query) (Board, error) {
 		minMatches = set.MinMatchesOrDefault()
 	}
 	rows, err := b.st.Board(ctx, store.BoardQuery{OrganizationID: b.orgID, ServerID: q.ServerID, GameID: game, From: from, To: to,
-		Trusts: trusts, Metric: metric, MinMatches: minMatches, Limit: size + 1, Offset: q.Offset})
+		Timezone: set.Location().String(), Trusts: trusts, Metric: metric, MinMatches: minMatches, Limit: size + 1, Offset: q.Offset})
 	if err != nil {
 		return Board{}, err
 	}

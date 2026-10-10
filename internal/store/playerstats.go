@@ -155,12 +155,15 @@ const (
 )
 
 // BoardQuery selects and ranks players. An empty ServerID or GameID is every one; a zero From or
-// To is unbounded (matches by their start). Only rows written under one of Trusts count.
+// To is unbounded (matches by their start). Only rows written under one of Trusts count. Rolled-up
+// periods (stats_monthly) count by their first day, read in Timezone (the organization's; UTC when
+// empty), which is how a window's instants were made.
 type BoardQuery struct {
 	OrganizationID uuid.UUID
 	ServerID       string
 	GameID         string
 	From, To       time.Time
+	Timezone       string
 	Trusts         []string
 	Metric         string
 	MinMatches     int
@@ -180,11 +183,11 @@ type BoardRow struct {
 // Board ranks the players by the query's metric, then kills, then identity, so the order is stable.
 func (s *Store) Board(ctx context.Context, q BoardQuery) ([]BoardRow, error) {
 	order := map[string]string{
-		BoardKills:   "sum(ms.kills)",
-		BoardDeaths:  "sum(ms.deaths)",
-		BoardKD:      "sum(ms.kills)::float8 / greatest(sum(ms.deaths), 1)",
-		BoardTime:    "sum(ms.seconds_on)",
-		BoardMatches: "count(*)",
+		BoardKills:   "sum(x.kills)",
+		BoardDeaths:  "sum(x.deaths)",
+		BoardKD:      "sum(x.kills)::float8 / greatest(sum(x.deaths), 1)",
+		BoardTime:    "sum(x.seconds_on)",
+		BoardMatches: "sum(x.matches)",
 	}[q.Metric]
 	if order == "" {
 		return nil, fmt.Errorf("store: board: %q is not a metric", q.Metric)
@@ -196,18 +199,34 @@ func (s *Store) Board(ctx context.Context, q BoardQuery) ([]BoardRow, error) {
 	if !q.To.IsZero() {
 		to = &q.To
 	}
+	tz := q.Timezone
+	if tz == "" {
+		tz = "UTC"
+	}
+	// The raw rows by their match's start, and the rolled-up periods by their first day.
 	rows, err := s.pool.Query(ctx, `
-		SELECT ms.provider, ms.subject, sum(ms.kills)::int, sum(ms.deaths)::int, sum(ms.seconds_on)::int, count(*)::int
-		  FROM match_stats ms JOIN matches m ON m.id = ms.match_id
-		 WHERE m.organization_id = $1
-		   AND ($2 = '' OR m.server_id = $2) AND ($3 = '' OR m.game_id = $3)
-		   AND ($4::timestamptz IS NULL OR m.started_at >= $4) AND ($5::timestamptz IS NULL OR m.started_at < $5)
-		   AND ms.trust = ANY($6)
-		 GROUP BY ms.provider, ms.subject
-		HAVING count(*) >= $7
-		 ORDER BY `+order+` DESC, sum(ms.kills) DESC, ms.provider, ms.subject
+		SELECT x.provider, x.subject, sum(x.kills)::int, sum(x.deaths)::int, sum(x.seconds_on)::int, sum(x.matches)::int
+		  FROM (
+		    SELECT ms.provider, ms.subject, ms.kills, ms.deaths, ms.seconds_on, 1 AS matches
+		      FROM match_stats ms JOIN matches m ON m.id = ms.match_id
+		     WHERE m.organization_id = $1
+		       AND ($2 = '' OR m.server_id = $2) AND ($3 = '' OR m.game_id = $3)
+		       AND ($4::timestamptz IS NULL OR m.started_at >= $4) AND ($5::timestamptz IS NULL OR m.started_at < $5)
+		       AND ms.trust = ANY($6)
+		    UNION ALL
+		    SELECT sm.provider, sm.subject, sm.kills, sm.deaths, sm.seconds_on, sm.matches
+		      FROM stats_monthly sm
+		     WHERE sm.organization_id = $1
+		       AND ($2 = '' OR sm.server_id = $2) AND ($3 = '' OR sm.game_id = $3)
+		       AND ($4::timestamptz IS NULL OR sm.period_from >= ($4::timestamptz AT TIME ZONE $10)::date)
+		       AND ($5::timestamptz IS NULL OR sm.period_from < ($5::timestamptz AT TIME ZONE $10)::date)
+		       AND sm.trust = ANY($6)
+		  ) x
+		 GROUP BY x.provider, x.subject
+		HAVING sum(x.matches) >= $7
+		 ORDER BY `+order+` DESC, sum(x.kills) DESC, x.provider, x.subject
 		 LIMIT $8 OFFSET $9`,
-		q.OrganizationID, q.ServerID, q.GameID, from, to, q.Trusts, q.MinMatches, q.Limit, q.Offset)
+		q.OrganizationID, q.ServerID, q.GameID, from, to, q.Trusts, q.MinMatches, q.Limit, q.Offset, tz)
 	if err != nil {
 		return nil, fmt.Errorf("store: board: %w", err)
 	}
@@ -234,7 +253,7 @@ type MatchSummary struct {
 func (s *Store) ListMatches(ctx context.Context, orgID uuid.UUID, serverID string, beforeID int64, limit int) ([]MatchSummary, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT m.id, m.organization_id, m.server_id, m.game_id, m.started_at, m.ended_at, m.map, m.rotation_index,
-		       count(ms.subject)::int, coalesce(sum(ms.kills), 0)::int
+		       coalesce(m.players, count(ms.subject))::int, coalesce(m.kills, sum(ms.kills), 0)::int
 		  FROM matches m LEFT JOIN match_stats ms ON ms.match_id = m.id
 		 WHERE m.organization_id = $1 AND m.server_id = $2 AND ($3 = 0 OR m.id < $3)
 		 GROUP BY m.id ORDER BY m.id DESC LIMIT $4`, orgID, serverID, beforeID, limit)

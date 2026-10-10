@@ -141,6 +141,12 @@ func hubDashboard() dashboard {
 				{Title: "Polls not recorded", Kind: "timeseries", Width: 8, Optional: "every poll was recorded in the range",
 					Description: "The stats store could not write a poll (the database); the next poll records from the store, so only that poll's time on is lost.",
 					Targets:     []target{{Expr: `sum by (server) (increase(gravel_stats_record_errors_total{` + sel + `}[$__rate_interval]))`, Legend: "{{server}}"}}},
+				{Title: "Rows rolled up", Kind: "timeseries", Width: 12,
+					Description: "Per-match player rows past stats.raw_retention_months, moved into monthly totals and deleted (ADR-0012 §6). Boards keep their numbers.",
+					Targets:     []target{{Expr: `sum(increase(gravel_stats_rolled_rows_total{` + sel + `}[$__rate_interval]))`, Legend: "rows"}}},
+				{Title: "Since the last rollup", Kind: "stat", Unit: "s", Width: 12,
+					Description: "The rollup job runs every 6 hours; much over that means it is failing (gravel_hub_jobs_total{job=\"stats_rollup\",result=\"error\"}).",
+					Targets:     []target{{Expr: `time() - max(gravel_hub_job_last_success_timestamp_seconds{job="stats_rollup",` + sel + `})`}}},
 			}},
 			{Title: "Ingestion", Panels: []panel{
 				{Title: "Since the last batch", Kind: "stat", Unit: "s", Width: 8, TextMode: "value_and_name", Optional: "no server has a feed (servers.yaml feed), or none has posted yet",

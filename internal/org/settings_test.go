@@ -271,13 +271,17 @@ func TestSettingsValidateStats(t *testing.T) {
 	if (Stats{}).MinMatchesOrDefault() != DefaultMinMatches || good.Stats.MinMatchesOrDefault() != 5 || !(Stats{}).IsZero() || good.Stats.IsZero() {
 		t.Error("defaults")
 	}
-	bad := Settings{Version: 1, Stats: Stats{MinMatches: MaxMinMatches + 1, Timezone: "Central", Seasons: []Season{
+	if (Stats{}).RawRetentionMonthsOrDefault() != DefaultRawRetentionMonths || (Stats{RawRetentionMonths: 6}).RawRetentionMonthsOrDefault() != 6 ||
+		(Stats{RawRetentionMonths: 6}).IsZero() {
+		t.Error("retention defaults")
+	}
+	bad := Settings{Version: 1, Stats: Stats{MinMatches: MaxMinMatches + 1, Timezone: "Central", RawRetentionMonths: MaxRawRetentionMonths + 1, Seasons: []Season{
 		{Name: "", From: "2026-10-15", To: "2027-01-15"},
 		{Name: "Same", From: "15/10/2026", To: "2027-01-15"},
 		{Name: "same", Game: "War Dogs", From: "2027-01-15", To: "2026-10-15"},
 	}}}
 	err := bad.Validate()
-	for _, want := range []string{"stats.min_matches", "stats.timezone: \"Central\"", "stats.seasons[0].name: required", "stats.seasons[1]: from and to must be dates",
+	for _, want := range []string{"stats.min_matches", "stats.raw_retention_months: 121", "stats.timezone: \"Central\"", "stats.seasons[0].name: required", "stats.seasons[1]: from and to must be dates",
 		"stats.seasons[2].name: \"same\" is also stats.seasons[1]", "stats.seasons[2].game", "stats.seasons[2]: from 2027-01-15 is not before"} {
 		if err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("missing %q in %v", want, err)

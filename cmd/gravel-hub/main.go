@@ -72,6 +72,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		return serversCmd(ctx, args, stdout, stderr)
 	case "ingest":
 		return ingestCmd(ctx, args, stdout, stderr)
+	case "stats":
+		return statsCmd(ctx, args, stdout, stderr)
 	case "wardogs":
 		return wardogsCmd(ctx, args, stdout, stderr)
 	case "version":
@@ -102,6 +104,8 @@ func usage(w io.Writer) {
                 change), or check one without a config or database
   wardogs       record a War Dogs server's read-only answers as per-build test fixtures
   ingest        export the batches a server pushed to the ingest route, as stored (they hold SteamIDs)
+  stats erase   erase a player from the stats store: their identity becomes a random token, the
+                numbers stay (ADR-0012)
   version       print the version
 
 The config path comes from --config, then $GRAVEL_CONFIG, then `+defaultConfigPath+`.
