@@ -42,4 +42,8 @@ func TestModules(t *testing.T) {
 	if got := names(cfg); got != "core,moderation" {
 		t.Errorf("moderation on: %s", got)
 	}
+	cfg.ModLog.Enabled = true
+	if got := names(cfg); got != "core,moderation,modlog" {
+		t.Errorf("mod log on: %s", got)
+	}
 }

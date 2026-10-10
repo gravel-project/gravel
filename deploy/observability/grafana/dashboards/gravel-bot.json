@@ -1172,6 +1172,152 @@
       },
       "id": 21,
       "panels": [],
+      "title": "Mod log",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "A pass that posted every finished audit-log entry (or found no channel set). Orange after two minutes, red after ten: Discord refusing or the hub away keeps this growing. No data is expected when the mod log is off.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 120
+              },
+              {
+                "color": "red",
+                "value": 600
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gravelOptional": "the mod log is off",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 41
+      },
+      "id": 22,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "time() - max(gravel_bot_modlog_last_success_timestamp_seconds{job=\"$job\", instance=~\"$instance\"})",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Since the last mod log pass",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "posted: an audit-log entry copied to the channel; forbidden: the bot may not read or post there; error: Discord failed, retried at the next pass. No data is expected when the mod log is off or nothing was moderated in the range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gravelOptional": "the mod log is off or nothing was moderated in the range",
+      "gridPos": {
+        "h": 8,
+        "w": 18,
+        "x": 6,
+        "y": 41
+      },
+      "id": 23,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (result) (increase(gravel_bot_modlog_posts_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "{{result}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Mod log posts",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 49
+      },
+      "id": 24,
+      "panels": [],
       "title": "Moderation command",
       "type": "row"
     },
@@ -1211,9 +1357,9 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 41
+        "y": 50
       },
-      "id": 22,
+      "id": 25,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -1246,9 +1392,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 49
+        "y": 58
       },
-      "id": 23,
+      "id": 26,
       "panels": [],
       "title": "Runtime",
       "type": "row"
@@ -1287,9 +1433,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 50
+        "y": 59
       },
-      "id": 24,
+      "id": 27,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -1350,9 +1496,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 50
+        "y": 59
       },
-      "id": 25,
+      "id": 28,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -1413,9 +1559,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 50
+        "y": 59
       },
-      "id": 26,
+      "id": 29,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -1476,9 +1622,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 58
+        "y": 67
       },
-      "id": 27,
+      "id": 30,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -1539,9 +1685,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 58
+        "y": 67
       },
-      "id": 28,
+      "id": 31,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -1602,9 +1748,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 58
+        "y": 67
       },
-      "id": 29,
+      "id": 32,
       "options": {
         "legend": {
           "displayMode": "list",

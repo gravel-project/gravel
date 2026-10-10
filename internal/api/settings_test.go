@@ -28,7 +28,7 @@ func TestOrganizationSettings(t *testing.T) {
 		Discord: &hubv1.DiscordSettings{GuildId: "519496143298756611",
 			Roles:       &hubv1.DiscordRoles{Linked: "1300000000000000001", Providers: map[string]string{"steam": "1300000000000000002"}},
 			Recognition: []*hubv1.DiscordRecognition{{Role: "1300000000000000003", Rule: "first_members", Count: 50}},
-			ServerCards: []*hubv1.DiscordServerCard{{Server: "htg-wardogs-1", Channel: "1300000000000000100", Note: "Matches start at 20 players."}}},
+			ServerCards: []*hubv1.DiscordServerCard{{Server: "htg-wardogs-1", Channel: "1300000000000000100", Note: "Matches start at 20 players."}}, ModLog: "1300000000000000200"},
 		Stats: &hubv1.StatsSettings{MinMatches: 5, Timezone: "America/Chicago", RawRetentionMonths: 6, Seasons: []*hubv1.StatsSeason{{Name: "Season 02", Game: "wardogs", From: "2026-10-15", To: "2027-01-15"}}},
 	}
 	if _, err := anon.UpdateOrganizationSettings(ctx, connect.NewRequest(&hubv1.UpdateOrganizationSettingsRequest{Settings: want})); connect.CodeOf(err) != connect.CodeUnauthenticated {
@@ -63,7 +63,7 @@ func TestOrganizationSettings(t *testing.T) {
 	d := got.Msg.GetSettings().GetDiscord()
 	if d.GetGuildId() != "519496143298756611" || d.GetRoles().GetLinked() != "1300000000000000001" || d.GetRoles().GetProviders()["steam"] != "1300000000000000002" ||
 		len(d.GetRecognition()) != 1 || d.GetRecognition()[0].GetRule() != "first_members" || d.GetRecognition()[0].GetCount() != 50 ||
-		len(d.GetServerCards()) != 1 || d.GetServerCards()[0].GetServer() != "htg-wardogs-1" || d.GetServerCards()[0].GetNote() != "Matches start at 20 players." {
+		d.GetModLog() != "1300000000000000200" || len(d.GetServerCards()) != 1 || d.GetServerCards()[0].GetServer() != "htg-wardogs-1" || d.GetServerCards()[0].GetNote() != "Matches start at 20 players." {
 		t.Errorf("discord read back: %v", d)
 	}
 	if st := got.Msg.GetSettings().GetStats(); st.GetMinMatches() != 5 || st.GetRawRetentionMonths() != 6 || st.GetTimezone() != "America/Chicago" || len(st.GetSeasons()) != 1 || st.GetSeasons()[0].GetGame() != "wardogs" || st.GetPublic() {

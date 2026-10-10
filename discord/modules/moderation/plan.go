@@ -281,7 +281,7 @@ func Result(a Action, err error, account string) string {
 
 // escape keeps names and reasons from formatting Discord markdown or pinging anyone.
 func escape(s string) string {
-	r := strings.NewReplacer(`\`, `\\`, "*", `\*`, "_", `\_`, "~", `\~`, "`", "'", "|", `\|`, ">", `\>`, "@", "@\u200b", "#", "#\u200b")
+	r := strings.NewReplacer(`\`, `\\`, "*", `\*`, "_", `\_`, "~", `\~`, "`", "'", "|", `\|`, ">", `\>`, "@", "@\u200b")
 	return r.Replace(s)
 }
 

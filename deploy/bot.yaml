@@ -34,6 +34,10 @@ moderation:                      # the moderation slash command (docs/bot.md); t
   enabled: false
   command: mod                   # the command's name: /mod kick|ban|unban|message|broadcast
 
+mod_log:                         # every moderation action posted to the Organization settings' discord.mod_log channel; needs servers:moderate
+  enabled: false
+  interval: 15s
+
 server:
   listen: 0.0.0.0:8081           # /interactions, /healthz, /readyz
   internal_listen: 0.0.0.0:9091  # /metrics

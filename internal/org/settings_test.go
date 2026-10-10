@@ -168,6 +168,7 @@ func TestSettingsValidateDiscord(t *testing.T) {
 			{Server: "s", Channel: card},
 		}}, []string{"discord.server_cards[0].server: \"HTG Wardogs\" is not a server id", "discord.server_cards[0].channel: \"abc\"", "discord.server_cards[0].note",
 			"discord.server_cards[1].note", "discord.server_cards[2].server: \"s\" already has a card (discord.server_cards[1])"}},
+		{"bad mod log", Discord{GuildID: guild, ModLog: "#mod-log"}, []string{"discord.mod_log: \"#mod-log\" is not a Discord channel id"}},
 		{"recognition duplicates a linked role", Discord{GuildID: guild, Roles: DiscordRoles{Linked: linked}, Recognition: []Recognition{{Role: linked, Rule: RuleFirstMembers, Count: 5}}}, []string{"discord.recognition[0].role: role " + linked}},
 	}
 	for _, c := range cases {

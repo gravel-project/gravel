@@ -104,6 +104,8 @@ message DiscordSettings {
   DiscordRoles roles = 2;
   repeated DiscordRecognition recognition = 3;
   repeated DiscordServerCard server_cards = 4;
+  // The channel the bot posts every moderation action to (the audit log); empty is none.
+  string mod_log = 5;
 }
 
 // StatsSeason is a named window of matches: from (included) to to (excluded), dates

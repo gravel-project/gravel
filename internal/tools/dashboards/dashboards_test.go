@@ -65,6 +65,7 @@ func TestDashboardsMatchTheMetrics(t *testing.T) {
 	bcfg.Discord.Token = base64.RawStdEncoding.EncodeToString([]byte(bcfg.Discord.ApplicationID)) + ".Xa1b2c.not-a-real-token"
 	bcfg.Discord.Gateway = false
 	bcfg.Moderation.Enabled = true // off by default; on here so its metric is registered
+	bcfg.ModLog.Enabled = true     // likewise
 	bcfg.Hub.URL, bcfg.Hub.PublicURL, bcfg.Hub.ClientID, bcfg.Hub.ClientSecret = "http://hub.invalid:8080", "https://app.example.com", "gravel_x", "s"
 	hc, err := hubclient.New(hubclient.Config{URL: bcfg.Hub.URL, ClientID: bcfg.Hub.ClientID, ClientSecret: bcfg.Hub.ClientSecret})
 	if err != nil {

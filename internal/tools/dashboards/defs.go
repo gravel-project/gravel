@@ -230,6 +230,15 @@ func botDashboard() dashboard {
 					Description: "posted: a card that was not in its channel; edited: a card that changed; forbidden: the bot may not use the channel; error: Discord failed, retried at the next pass.",
 					Targets:     []target{{Expr: `sum by (result) (increase(gravel_bot_servercards_updates_total{` + sel + `}[$__rate_interval]))`, Legend: "{{result}}"}}},
 			}},
+			{Title: "Mod log", Panels: []panel{
+				{Title: "Since the last mod log pass", Kind: "stat", Unit: "s", Width: 6, Optional: "the mod log is off",
+					Description: "A pass that posted every finished audit-log entry (or found no channel set). Orange after two minutes, red after ten: Discord refusing or the hub away keeps this growing.",
+					Thresholds:  []step{{Color: "green"}, {Value: 120, Color: "orange"}, {Value: 600, Color: "red"}},
+					Targets:     []target{{Expr: `time() - max(gravel_bot_modlog_last_success_timestamp_seconds{` + sel + `})`}}},
+				{Title: "Mod log posts", Kind: "timeseries", Width: 18, Optional: "the mod log is off or nothing was moderated in the range",
+					Description: "posted: an audit-log entry copied to the channel; forbidden: the bot may not read or post there; error: Discord failed, retried at the next pass.",
+					Targets:     []target{{Expr: `sum by (result) (increase(gravel_bot_modlog_posts_total{` + sel + `}[$__rate_interval]))`, Legend: "{{result}}"}}},
+			}},
 			{Title: "Moderation command", Panels: []panel{
 				{Title: "Moderation commands", Kind: "timeseries", Width: 24, Optional: "the moderation command is off or nobody used it in the range",
 					Description: "Actions moderators confirmed from Discord, by action and result: ok; refused (the hub said no: not a moderator, the player left, not offered); failed (the hub could not be reached); cancelled; expired (a confirmation answered after two minutes). Every confirmed action is also in the hub's audit log.",

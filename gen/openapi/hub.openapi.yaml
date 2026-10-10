@@ -1925,6 +1925,10 @@ components:
           items:
             $ref: '#/components/schemas/gravel.hub.v1.DiscordServerCard'
           title: server_cards
+        modLog:
+          type: string
+          title: mod_log
+          description: The channel the bot posts every moderation action to (the audit log); empty is none.
       title: DiscordSettings
       additionalProperties: false
       description: |-

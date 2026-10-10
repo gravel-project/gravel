@@ -43,6 +43,9 @@ linked_roles:
 moderation:                      # the moderation command, off by default (below)
   enabled: false
   command: mod
+mod_log:                         # the mod log, off by default (below); the channel is the Organization settings' discord.mod_log
+  enabled: false
+  interval: 15s
 server_cards:                    # the status cards; which server goes where is the Organization settings' discord section
   enabled: true
   interval: 15s                  # how often the cards are read and edited where they changed; at least 5s
@@ -160,6 +163,31 @@ once. A Discord or hub failure is logged once while it lasts and retried at the 
 no card placed the module idles and says so once. Metrics:
 `gravel_bot_servercards_updates_total{result}` (`posted`, `edited`, `forbidden`, `error`) and
 `gravel_bot_servercards_last_success_timestamp_seconds`.
+
+### Mod log (`discord/modules/modlog`)
+
+Posts every moderation action to the channel the Organization settings name (`discord.mod_log`):
+the hub's audit log, whether the action came from the web or from the moderation command, one
+message per entry, in order. A line says what, where, to whom, by whom (a member's name, or the
+Discord account an app acted for as a mention that pings no one), why, and the result, with a small
+footer `-# audit <id> · <time>`:
+
+```text
+**Kick** · War Dogs #1 · `76561190000000002` · by **Jo** · afk in spawn · ok
+-# audit 12 · Oct 10, 20:00 UTC
+```
+
+Every `interval`, a pass reads the settings and the audit log back to the last entry posted. An
+entry still running (no outcome yet) waits for the next pass, unless it is older than two minutes,
+when it is posted as "no result recorded". The bot keeps no state in the hub: at start, or when the
+channel changes, it finds its place from the footer of its own newest posts among the channel's
+100 newest messages. With none there, it starts from the newest entry, so turning it on never floods
+the channel with history. A Discord refusal or failure is counted, logged and retried next pass,
+and nothing is skipped. The audit log stays the record; this is a copy of it in Discord.
+
+The bot's app needs **`servers:moderate`** (reading the audit log), and in the channel **View
+Channel, Send Messages and Read Message History**. Metrics: `gravel_bot_modlog_posts_total{result}`
+(`posted`, `forbidden`, `error`) and `gravel_bot_modlog_last_success_timestamp_seconds`.
 
 ### Moderation (`discord/modules/moderation`)
 
