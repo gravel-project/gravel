@@ -2,6 +2,7 @@
 # is the source of truth for tool versions; the lint job pins the same golangci-lint version.
 # Every job is a required check in .github/rulesets/main.json: a new or renamed job goes there too,
 # and the owner applies it: gh api -X PUT repos/gravel-project/gravel/rulesets/24379347 --input .github/rulesets/main.json
+# The one exception is publish, which runs only on a push to main, after every other job passed.
 name: ci
 
 on:
@@ -192,3 +193,98 @@ jobs:
           file: deploy/postgres/Containerfile
           platforms: linux/amd64,linux/arm64
           push: false
+
+  # Every green push to main publishes the hub and bot images as main-<commit> and main, signed like
+  # a release (keyless, GitHub OIDC, identity ci.yml@refs/heads/main), so a host can deploy main
+  # without waiting for a release; docs/releasing.md "Images from main". gravel-postgres too, only
+  # when deploy/postgres/ changed in the push. latest and the version tags stay with release.yml.
+  publish:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [go, lint, vuln, proto, quadlet, image, integration, backup, observability, a11y, release-config]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    concurrency: # one at a time, oldest first, so :main ends on the newest commit
+      group: publish-main
+      cancel-in-progress: false
+    env:
+      HUB_REPO: ghcr.io/gravel-project/gravel-hub
+      BOT_REPO: ghcr.io/gravel-project/gravel-bot
+      POSTGRES_REPO: ghcr.io/gravel-project/gravel-postgres
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # git describe for the version, and the diff against the push's base
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: ko-build/setup-ko@v0.9
+        with:
+          version: v0.19.1 # keep in step with KO_VERSION in the Makefile
+      - uses: sigstore/cosign-installer@v4.1.2 # no floating v4 tag is published; pin the release
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # The version a main build reports (version command, /healthz, *_build_info): the last
+      # release, the commits since it and the commit, like `make image` locally: 0.8.0-3-gabc1234.
+      - id: version
+        run: |
+          set -eu
+          v="$(git describe --tags --match 'v*' --always)"
+          echo "version=${v#v}" >> "$GITHUB_OUTPUT"
+      - name: gravel-hub and gravel-bot
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -eu
+          labels="org.opencontainers.image.source=https://github.com/gravel-project/gravel,org.opencontainers.image.revision=${GITHUB_SHA},org.opencontainers.image.version=${VERSION},org.opencontainers.image.licenses=Apache-2.0"
+          echo "### main-${GITHUB_SHA} (${VERSION})" >> "$GITHUB_STEP_SUMMARY"
+          for app in hub bot; do
+            repo="$HUB_REPO"; [ "$app" = bot ] && repo="$BOT_REPO"
+            ref="$(KO_DOCKER_REPO="$repo" ko build "./cmd/gravel-$app" --bare \
+              --platform=linux/amd64,linux/arm64 --tags="main-${GITHUB_SHA},main" --sbom=spdx \
+              --image-label="$labels")"
+            cosign sign --yes "$ref"
+            echo "- \`${ref}\`" >> "$GITHUB_STEP_SUMMARY"
+          done
+      - id: postgres
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          set -eu
+          if git cat-file -e "${BEFORE}^{commit}" 2>/dev/null && git diff --quiet "$BEFORE" "$GITHUB_SHA" -- deploy/postgres; then
+            echo "deploy/postgres unchanged in this push: no gravel-postgres image"
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.postgres.outputs.build == 'true'
+        uses: docker/setup-qemu-action@v4
+      - if: steps.postgres.outputs.build == 'true'
+        uses: docker/setup-buildx-action@v4
+      - if: steps.postgres.outputs.build == 'true'
+        id: postgres-build
+        uses: docker/build-push-action@v7
+        with:
+          context: deploy/postgres
+          file: deploy/postgres/Containerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.POSTGRES_REPO }}:main-${{ github.sha }}
+            ${{ env.POSTGRES_REPO }}:main
+          labels: |
+            org.opencontainers.image.source=https://github.com/gravel-project/gravel
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ steps.version.outputs.version }}
+      - if: steps.postgres.outputs.build == 'true'
+        env:
+          DIGEST: ${{ steps.postgres-build.outputs.digest }}
+        run: |
+          set -eu
+          cosign sign --yes "${POSTGRES_REPO}@${DIGEST}"
+          echo "- \`${POSTGRES_REPO}@${DIGEST}\`" >> "$GITHUB_STEP_SUMMARY"
