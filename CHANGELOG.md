@@ -8,6 +8,8 @@ patch release is everything else.
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-10-10
+
 ### Added
 
 - Servers as hub resources, the War Dogs driver and the status API: ADR-0010's second step (#16, #24). `games/wardogs/game.yaml` is the War Dogs Game spec gravel ships (identity provider `steam`, driver `wardogs`, bands `ScorePeriod` 18–30 and `MinimumRequiredPlayers` ≥ 20). A deployment declares its games (with optional tightenings of their bands, never loosenings) and servers (id, name, game, driver, location, the RCON endpoint, the credential's file, poll interval, trust, an optional seeding section) in `servers.yaml`, applied by `gravel-hub servers export|apply|check` (the settings commands' siblings: strict YAML, every problem named, `--dry-run` exits 3, `check` needs no config, database or secret; `apply` refuses a credential file it cannot read). Migration 6 adds `games` and `managed_servers`; a server taken out of the manifest is marked removed, not deleted. `drivers.ExternalReachable` is the driver seam in domain terms (build, capabilities as a set, status, players, a credential that can be replaced), `drivers/wardogs` adapts `games/wardogs` to it. The hub runs its background work as supervised jobs (`internal/jobs`: named, on an interval, a failure logged, counted and retried with backoff, never fatal; the session prune moved onto it): `servers_reconcile` every 30 s starts or stops one `server_poll` job per server, gives a changed definition a fresh driver and a rotated credential file to the running one without a restart. Each poll keeps the last observation in memory; two failed polls in a row mark a server unreachable. `ServerService` answers from it: `ListGames`, `ListServers` and `GetServerStatus` are public and carry no personal data or control address (a failure shows as a `state` word, its cause only in the log), `ListServerPlayers` is a member's, the owner's or an app's with the new `servers:read` scope and resolves each player's identity to a member at read time. `discord/hubclient` gains `Servers()`. New metrics `gravel_hub_jobs_total`, `gravel_hub_job_last_success_timestamp_seconds`, `gravel_server_reachable`, `gravel_server_players`, `gravel_server_max_players` and `gravel_server_last_observed_timestamp_seconds` are on the hub dashboard's new Servers and Background jobs rows. `docs/hub.md` has a Servers section; ADR-0010 gains an as-built amendment (`audit_log` and the moderate and configure scopes come with the procedures that use them).
@@ -143,7 +145,8 @@ patch release is everything else.
 
 - README and CLAUDE.md follow ADR-0001: status line, principle 2 (the resource lives in the hub's database), the hub and backup paragraphs, the adapter-repo rule, the local-dev default, and a seven-step build order with the issues behind each step. The launch games are the five Hidden Token Gaming plays, in three shapes, with War Dogs first; the open threads link the design-delta issues #2–#9 (#1).
 
-[Unreleased]: https://github.com/gravel-project/gravel/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/gravel-project/gravel/compare/v0.6.2...HEAD
+[0.6.2]: https://github.com/gravel-project/gravel/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/gravel-project/gravel/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/gravel-project/gravel/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/gravel-project/gravel/compare/v0.4.0...v0.5.0
