@@ -1,0 +1,107 @@
+syntax = "proto3";
+
+package gravel.hub.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/gravel-project/gravel/gen/gravel/hub/v1;hubv1";
+
+// ScopeInfo is a scope with what it lets an app do as the member, in the member's words.
+message ScopeInfo {
+  // The scope: "identity:read", "stats:read", …
+  string name = 1;
+  string description = 2;
+}
+
+// AuthorizationParams are an authorization request's parameters as the app sent them to
+// /oauth/authorize (RFC 6749 §4.1.1 with RFC 7636 §4.3). The state is the page's to carry back
+// and never reaches the API.
+message AuthorizationParams {
+  // "code", the only response type.
+  string response_type = 1;
+  string client_id = 2;
+  // Exactly one of the redirect URIs the app registered; required.
+  string redirect_uri = 3;
+  // Space-separated scopes, each one the app holds; empty asks for sign-in only (GetMe).
+  string scope = 4;
+  // The PKCE challenge: the unpadded base64url SHA-256 of the app's verifier.
+  string code_challenge = 5;
+  // "S256", the only method.
+  string code_challenge_method = 6;
+}
+
+message PrepareAuthorizationRequest {
+  AuthorizationParams params = 1;
+}
+
+message PrepareAuthorizationResponse {
+  string app_name = 1;
+  string client_id = 2;
+  // The scopes asked for, each with its description.
+  repeated ScopeInfo scopes = 3;
+  // Whether the member must be asked: true without a session, or when no remembered grant
+  // covers the scopes.
+  bool consent_required = 4;
+  // Set when the client and the redirect URI are good but the rest of the request is not: the
+  // RFC 6749 error code to send back to the redirect URI ("invalid_request",
+  // "unsupported_response_type", "invalid_scope") and a description.
+  string error = 5;
+  string error_description = 6;
+}
+
+message AuthorizeRequest {
+  AuthorizationParams params = 1;
+}
+
+message AuthorizeResponse {
+  // The authorization code, shown once; it lives 60 seconds.
+  string code = 1;
+  // The scopes the code carries.
+  repeated string scopes = 2;
+}
+
+// AppGrant is an app the member allowed (ADR-0015 §3): which, what, when.
+message AppGrant {
+  string client_id = 1;
+  string app_name = 2;
+  repeated ScopeInfo scopes = 3;
+  google.protobuf.Timestamp granted_at = 4;
+}
+
+message ListAppGrantsRequest {}
+
+message ListAppGrantsResponse {
+  // Oldest first.
+  repeated AppGrant grants = 1;
+}
+
+message RevokeAppGrantRequest {
+  string client_id = 1;
+}
+
+message RevokeAppGrantResponse {
+  // How many of the member's tokens for the app were revoked.
+  int32 revoked_tokens = 1;
+}
+
+// AppService is a member's side of first-party apps (ADR-0015): the authorization endpoint's
+// checks and consent, which the hub's /oauth/authorize page calls, and the apps the member
+// allowed. Every procedure but PrepareAuthorization needs a session cookie; no bearer token, an
+// app's or a member's, may call any of them.
+service AppService {
+  // PrepareAuthorization checks an authorization request. An unknown or revoked client, or a
+  // redirect URI the app did not register, is not_found: the page shows an error and never
+  // redirects. Any other refusal is answered in error and error_description, for the page to
+  // send back to the app. With a session it says whether the member must be asked.
+  rpc PrepareAuthorization(PrepareAuthorizationRequest) returns (PrepareAuthorizationResponse);
+  // Authorize records the member's consent (the remembered grant widens to what was asked) and
+  // issues an authorization code bound to the app, the redirect URI, the PKCE challenge and the
+  // member. A request PrepareAuthorization refuses is refused here the same way: not_found or
+  // invalid_argument.
+  rpc Authorize(AuthorizeRequest) returns (AuthorizeResponse);
+  // ListAppGrants lists the apps the member allowed, with the scopes and when.
+  rpc ListAppGrants(ListAppGrantsRequest) returns (ListAppGrantsResponse);
+  // RevokeAppGrant withdraws the member's grant to an app and revokes the member's tokens for it;
+  // not_found when the member had not allowed it.
+  rpc RevokeAppGrant(RevokeAppGrantRequest) returns (RevokeAppGrantResponse);
+}

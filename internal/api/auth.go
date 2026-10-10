@@ -9,21 +9,171 @@ import (
 	"connectrpc.com/connect"
 	"github.com/google/uuid"
 
+	"github.com/gravel-project/gravel/drivers"
+	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
 	"github.com/gravel-project/gravel/internal/apps"
 	"github.com/gravel-project/gravel/internal/httpx"
 	"github.com/gravel-project/gravel/internal/identity"
 	"github.com/gravel-project/gravel/internal/org"
+	"github.com/gravel-project/gravel/internal/servers"
 	"github.com/gravel-project/gravel/internal/session"
 	"github.com/gravel-project/gravel/internal/store"
 )
 
-// caller returns the logged-in user the session middleware found, or CodeUnauthenticated.
+// Who calls a procedure: a member through their session cookie; an app through its own bearer
+// token (apps.FromContext), within the token's scopes; or a member through a token an app holds
+// for them (apps.MemberFromContext, ADR-0015 §4), with the member's own rights narrowed to the
+// token's scopes. A member's token is checked twice: the MemberTokens interceptor admits only the
+// procedures its scopes cover (memberProcedures), and the procedure then applies the member's own
+// right exactly as for their session, through caller.
+
+// memberProcedures is every procedure a member's token may call, with the scope it must carry on
+// top of the member's own right to the call; "" needs none. GetMe is how an app learns who signed
+// in, so it needs no scope (ADR-0015 §4); the other "" entries are public and do not look at the
+// caller. A procedure missing here is refused to a member's token: the account's own controls
+// (unlinking, sessions, the leaderboard name, ownership, roles, settings, the apps a member
+// allowed) are the member's to use in person, and a new procedure is refused until it is added.
+var memberProcedures = map[string]string{
+	hubv1connect.IdentityServiceGetMeProcedure:                       "",
+	hubv1connect.IdentityServiceLookupUserProcedure:                  apps.ScopeIdentityRead,
+	hubv1connect.IdentityServiceListUsersProcedure:                   apps.ScopeIdentityRead,
+	hubv1connect.IdentityServiceListIdentityEventsProcedure:          apps.ScopeIdentityRead,
+	hubv1connect.OrganizationServiceGetOrganizationProcedure:         "",
+	hubv1connect.OrganizationServiceGetOrganizationSettingsProcedure: "",
+	hubv1connect.ServerServiceListGamesProcedure:                     "",
+	hubv1connect.ServerServiceListServersProcedure:                   "",
+	hubv1connect.ServerServiceGetServerStatusProcedure:               "",
+	hubv1connect.ServerServiceListServerPlayersProcedure:             apps.ScopeServersRead,
+	hubv1connect.ModerationServiceKickPlayerProcedure:                apps.ScopeServersModerate,
+	hubv1connect.ModerationServiceBanPlayerProcedure:                 apps.ScopeServersModerate,
+	hubv1connect.ModerationServiceUnbanPlayerProcedure:               apps.ScopeServersModerate,
+	hubv1connect.ModerationServiceMessagePlayerProcedure:             apps.ScopeServersModerate,
+	hubv1connect.ModerationServiceBroadcastProcedure:                 apps.ScopeServersModerate,
+	hubv1connect.ModerationServiceMovePlayerProcedure:                apps.ScopeServersModerate,
+	hubv1connect.ModerationServiceListServerBansProcedure:            apps.ScopeServersModerate,
+	hubv1connect.ModerationServiceListAuditLogProcedure:              apps.ScopeServersModerate,
+	hubv1connect.ServerConfigServiceGetServerConfigProcedure:         apps.ScopeServersConfigure,
+	hubv1connect.ServerConfigServicePlanServerConfigProcedure:        apps.ScopeServersConfigure,
+	hubv1connect.ServerConfigServiceApplyServerConfigProcedure:       apps.ScopeServersConfigure,
+	hubv1connect.StatsServiceGetBoardProcedure:                       apps.ScopeStatsRead,
+	hubv1connect.StatsServiceListMatchesProcedure:                    apps.ScopeStatsRead,
+	hubv1connect.StatsServiceGetMemberProfileProcedure:               apps.ScopeStatsRead,
+	hubv1connect.StatsServiceGetParticipationBoardProcedure:          apps.ScopeStatsRead,
+	// RecordParticipation is an app's own (ADR-0014) and stays out: a member's token never
+	// stands in for the app.
+}
+
+// MemberTokenScope says whether a member's token may call a procedure and the scope it must
+// carry to ("" for none).
+func MemberTokenScope(procedure string) (scope string, allowed bool) {
+	scope, allowed = memberProcedures[procedure]
+	return scope, allowed
+}
+
+// MemberTokens is the interceptor that holds a member's token to its scopes; the hub puts it on
+// every service. A call without a member's token passes untouched.
+func MemberTokens() connect.Interceptor { return memberTokens{} }
+
+type memberTokens struct{}
+
+type memberCheckedKey struct{}
+
+// admit refuses a member's token a procedure its scopes do not cover, and marks the context as
+// checked, which caller requires before it lets a member's token act as the member.
+func (memberTokens) admit(ctx context.Context, procedure string) (context.Context, error) {
+	m, ok := apps.MemberFromContext(ctx)
+	if !ok {
+		return ctx, nil
+	}
+	scope, allowed := memberProcedures[procedure]
+	if !allowed {
+		return ctx, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("a member's token from %s cannot call %s", m.App.Name, procedure))
+	}
+	if scope != "" && !m.Has(scope) {
+		return ctx, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("the token from %s lacks the scope %q", m.App.Name, scope))
+	}
+	return context.WithValue(ctx, memberCheckedKey{}, true), nil
+}
+
+func (i memberTokens) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
+	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
+		ctx, err := i.admit(ctx, req.Spec().Procedure)
+		if err != nil {
+			return nil, err
+		}
+		return next(ctx, req)
+	}
+}
+
+func (memberTokens) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
+	return next
+}
+
+func (i memberTokens) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
+	return func(ctx context.Context, conn connect.StreamingHandlerConn) error {
+		ctx, err := i.admit(ctx, conn.Spec().Procedure)
+		if err != nil {
+			return err
+		}
+		return next(ctx, conn)
+	}
+}
+
+// caller returns the member calling: the member a member's token names (the token wins over a
+// session cookie sent with it), else the session's. CodeUnauthenticated without either. A member's
+// token that the MemberTokens interceptor did not check is refused, so a service mounted without
+// it fails closed.
 func caller(ctx context.Context) (uuid.UUID, error) {
+	if m, ok := apps.MemberFromContext(ctx); ok {
+		if checked, _ := ctx.Value(memberCheckedKey{}).(bool); !checked {
+			return uuid.Nil, connect.NewError(connect.CodePermissionDenied, errors.New("a member's token is not accepted here"))
+		}
+		return m.UserID, nil
+	}
 	s, ok := session.FromContext(ctx)
 	if !ok {
 		return uuid.Nil, connect.NewError(connect.CodeUnauthenticated, errors.New("log in first"))
 	}
 	return s.UserID, nil
+}
+
+// sessionCaller returns the member of the session cookie, refusing any bearer token: for the
+// procedures a member uses only in person (the apps they allowed, consent).
+func sessionCaller(ctx context.Context) (uuid.UUID, error) {
+	if _, ok := apps.MemberFromContext(ctx); ok {
+		return uuid.Nil, connect.NewError(connect.CodePermissionDenied, errors.New("a member's token cannot call this"))
+	}
+	if _, ok := apps.FromContext(ctx); ok {
+		return uuid.Nil, connect.NewError(connect.CodePermissionDenied, errors.New("an app cannot call this"))
+	}
+	s, ok := session.FromContext(ctx)
+	if !ok {
+		return uuid.Nil, connect.NewError(connect.CodeUnauthenticated, errors.New("log in first"))
+	}
+	return s.UserID, nil
+}
+
+// actor is who a moderation or configuration call is recorded as: an app acting for itself (or
+// for someone it names in onBehalf), a member in person, or a member through an app's token, who
+// is recorded with the app (ADR-0015 §4). A member's token never acts on behalf of anyone.
+func actor(ctx context.Context, onBehalf *drivers.Identity) (servers.Actor, error) {
+	a := servers.Actor{RequestID: httpx.RequestIDFromContext(ctx), OnBehalfOf: onBehalf}
+	if app, ok := apps.FromContext(ctx); ok {
+		a.AppID = &app.ID
+		return a, nil
+	}
+	if _, ok := apps.MemberFromContext(ctx); ok && onBehalf != nil {
+		return servers.Actor{}, connect.NewError(connect.CodePermissionDenied, errors.New("on_behalf_of is an app's; a member's token acts as that member"))
+	}
+	uid, err := caller(ctx) // a member in person with on_behalf_of is refused by the action's validation
+	if err != nil {
+		return servers.Actor{}, err
+	}
+	a.UserID = &uid
+	if m, ok := apps.MemberFromContext(ctx); ok {
+		a.AppID = &m.App.ID
+	}
+	return a, nil
 }
 
 // requireOwner refuses anyone but the organization's owner: CodeUnauthenticated without a
@@ -43,7 +193,8 @@ func requireOwner(ctx context.Context, orgSvc *org.Service, logger *slog.Logger)
 	return nil
 }
 
-// requireScope admits an app whose token carries the scope, or the organization's owner.
+// requireScope admits an app whose token carries the scope, or the organization's owner (in
+// person, or through a member's token, whose scope the interceptor checked).
 // CodeUnauthenticated without any credential, CodePermissionDenied for an app without the
 // scope or for a member.
 func requireScope(ctx context.Context, orgSvc *org.Service, logger *slog.Logger, scope string) error {

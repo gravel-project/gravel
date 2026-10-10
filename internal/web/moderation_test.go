@@ -93,6 +93,7 @@ func (f *fakeMod) ListAuditLog(context.Context, *connect.Request[hubv1.ListAudit
 	}
 	at := timestamppb.New(time.Date(2026, 10, 10, 20, 0, 0, 0, time.UTC))
 	return connect.NewResponse(&hubv1.ListAuditLogResponse{NextPageToken: "older", Entries: []*hubv1.AuditEntry{
+		{Id: 3, At: at, UserId: "u2", UserName: "Sam", AppId: "a2", AppName: "Muster", Action: "broadcast", Message: "gg", Outcome: "ok"},
 		{Id: 2, At: at, UserId: "u1", UserName: "Jo", Action: "ban", TargetSubject: "76561190000000009", Reason: "cheating", Outcome: "ok"},
 		{Id: 1, At: at, AppId: "a1", AppName: "htg-bot", OnBehalfOf: &hubv1.Actor{Provider: "discord", Subject: "42"}, Action: "kick",
 			TargetSubject: "76561190000000002", Reason: "afk", Outcome: "player_not_found"},
@@ -219,7 +220,7 @@ func TestModerationLog(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("log: %d", resp.StatusCode)
 	}
-	for _, want := range []string{"Moderation log", "HTG WARDOGS | NA WEST | #1", ">Jo<", "htg-bot for Discord 42", "cheating", "player not found", "Older", "page=older"} {
+	for _, want := range []string{"Moderation log", "HTG WARDOGS | NA WEST | #1", ">Jo<", "htg-bot for Discord 42", "Sam via Muster", "cheating", "player not found", "Older", "page=older"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("the log lacks %q", want)
 		}

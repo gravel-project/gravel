@@ -329,6 +329,9 @@ func TestLineEscapesAndPingsNoOne(t *testing.T) {
 	if got != want {
 		t.Errorf("line =\n%q\nwant\n%q", got, want)
 	}
+	if l := modlog.Line(&hubv1.AuditEntry{Id: 2, At: timestamppb.Now(), Action: "kick", Reason: "x", UserId: "u1", UserName: "Jo", AppId: "a1", AppName: "Muster"}, "S"); !strings.Contains(l, "**Jo** (via Muster)") {
+		t.Errorf("a member through an app (gravel ADR-0015): %q", l)
+	}
 	if l := modlog.Line(&hubv1.AuditEntry{Id: 1, At: timestamppb.Now(), Action: "kick", Reason: "line one\nline two", AppName: "cron"}, "S"); !strings.Contains(l, "line one line two") || !strings.Contains(l, "by cron") {
 		t.Errorf("an app's line = %q", l)
 	}

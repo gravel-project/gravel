@@ -59,6 +59,19 @@ func TestAppsCreateListRevoke(t *testing.T) {
 	if code != 0 || !strings.Contains(out, clientID[1]) || !strings.Contains(out, "htg-bot") || !strings.Contains(out, "identity:read") || strings.Contains(out, secret[1]) {
 		t.Errorf("list: %d %q", code, out)
 	}
+	// An app whose web pages sign members in (ADR-0015) registers its redirect URIs.
+	if code, _, errOut := run("apps", "create", "--name", "Muster", "--scopes", "stats:read", "--redirect-uri", "http://muster.example/cb", "--config", cfgPath); code != 2 || !strings.Contains(errOut, "https") {
+		t.Errorf("create with a plain-http redirect: %d %q", code, errOut)
+	}
+	code, out, errOut = run("apps", "create", "--name", "Muster", "--scopes", "stats:read", "--redirect-uri", "https://muster.example/auth/callback",
+		"--redirect-uri", "http://127.0.0.1:8765/auth/callback", "--config", cfgPath)
+	if code != 0 || !strings.Contains(out, "redirect_uri: https://muster.example/auth/callback\n") || !strings.Contains(out, "redirect_uri: http://127.0.0.1:8765/auth/callback\n") {
+		t.Fatalf("create with redirect URIs: %d %q %q", code, out, errOut)
+	}
+	code, out, _ = run("apps", "list", "--config", cfgPath)
+	if code != 0 || !strings.Contains(out, "REDIRECT_URIS") || !strings.Contains(out, "https://muster.example/auth/callback,http://127.0.0.1:8765/auth/callback") {
+		t.Errorf("list with redirect URIs: %d %q", code, out)
+	}
 	if code, _, errOut := run("apps", "revoke", "--config", cfgPath); code != 2 || !strings.Contains(errOut, "usage") {
 		t.Errorf("revoke without an id: %d %q", code, errOut)
 	}

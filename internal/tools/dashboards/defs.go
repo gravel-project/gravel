@@ -82,6 +82,17 @@ func hubDashboard() dashboard {
 				{Title: "Refused by a rate limit", Kind: "timeseries", Width: 12, Optional: "no request was rate limited in the range",
 					Targets: []target{{Expr: `sum by (scope) (increase(gravel_rate_limited_total{` + sel + `}[$__rate_interval]))`, Legend: "{{scope}}"}}},
 			}},
+			{Title: "First-party apps", Panels: []panel{
+				{Title: "Sign-ins to apps", Kind: "timeseries", Width: 8, Optional: "no app signed a member in during the range",
+					Description: "The authorization endpoint (ADR-0015): issued (a code went back to the app), denied (the member pressed Cancel), rejected (an unknown app or redirect URI, or a request the app got an error for), error.",
+					Targets:     []target{{Expr: `sum by (result) (increase(gravel_oauth_authorizations_total{` + sel + `}[$__rate_interval]))`, Legend: "{{result}}"}}},
+				{Title: "Token endpoint", Kind: "timeseries", Width: 8, Optional: "no token was asked for in the range",
+					Description: "By grant type and result. replayed is an authorization code presented twice: its tokens were revoked; investigate the app.",
+					Targets:     []target{{Expr: `sum by (grant_type, result) (increase(gravel_oauth_token_grants_total{` + sel + `}[$__rate_interval]))`, Legend: "{{grant_type}} {{result}}"}}},
+				{Title: "Introspections", Kind: "timeseries", Width: 8, Optional: "no app introspected a token in the range",
+					Description: "Apps checking a token they were handed (RFC 7662); an app may cache an answer for up to 60 s.",
+					Targets:     []target{{Expr: `sum by (result) (increase(gravel_oauth_introspections_total{` + sel + `}[$__rate_interval]))`, Legend: "{{result}}"}}},
+			}},
 			{Title: "Backups", Panels: []panel{
 				{Title: "Since the last base backup", Kind: "stat", Unit: "s", Width: 4, Optional: "backups are not configured (backup.status_file) or none has succeeded yet",
 					Description: "Red after 26 hours: the nightly backup missed a night.",

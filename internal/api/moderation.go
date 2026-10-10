@@ -17,7 +17,6 @@ import (
 	hubv1 "github.com/gravel-project/gravel/gen/gravel/hub/v1"
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
 	"github.com/gravel-project/gravel/internal/apps"
-	"github.com/gravel-project/gravel/internal/httpx"
 	"github.com/gravel-project/gravel/internal/identity"
 	"github.com/gravel-project/gravel/internal/org"
 	"github.com/gravel-project/gravel/internal/servers"
@@ -189,20 +188,15 @@ func (s *ModerationServer) do(ctx context.Context, onBehalf *hubv1.Actor, a serv
 	if strings.TrimSpace(a.Server) == "" {
 		return 0, connect.NewError(connect.CodeInvalidArgument, errors.New("server_id is required"))
 	}
-	actor := servers.Actor{RequestID: httpx.RequestIDFromContext(ctx)}
-	if app, ok := apps.FromContext(ctx); ok {
-		actor.AppID = &app.ID
-	} else {
-		uid, err := caller(ctx) // requireModerator admitted the owner or a moderator
-		if err != nil {
-			return 0, err
-		}
-		actor.UserID = &uid
-	}
+	var ob *drivers.Identity
 	if onBehalf != nil {
-		actor.OnBehalfOf = &drivers.Identity{Provider: onBehalf.GetProvider(), Subject: onBehalf.GetSubject()}
+		ob = &drivers.Identity{Provider: onBehalf.GetProvider(), Subject: onBehalf.GetSubject()}
 	}
-	id, err := s.mod.Do(ctx, actor, a)
+	who, err := actor(ctx, ob) // requireModerator admitted the owner, a moderator or the app
+	if err != nil {
+		return 0, err
+	}
+	id, err := s.mod.Do(ctx, who, a)
 	if err != nil {
 		return 0, s.mapError(ctx, err)
 	}
@@ -337,6 +331,9 @@ func decodeAuditToken(token string) (int64, error) {
 // servers:moderate. An app acting on_behalf_of someone must be acting for a member who could
 // moderate themselves, so a bot can't lend its scope to anyone who asks it.
 func (s *ModerationServer) requireModerator(ctx context.Context, onBehalf *hubv1.Actor) error {
+	if _, ok := apps.MemberFromContext(ctx); ok && onBehalf != nil {
+		return connect.NewError(connect.CodePermissionDenied, errors.New("on_behalf_of is an app's; a member's token acts as that member"))
+	}
 	if a, ok := apps.FromContext(ctx); ok {
 		if !a.Has(apps.ScopeServersModerate) {
 			return connect.NewError(connect.CodePermissionDenied, errors.New("the app lacks the scope "+apps.ScopeServersModerate))

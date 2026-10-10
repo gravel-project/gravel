@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"connectrpc.com/connect"
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -84,12 +85,14 @@ func newRig(t *testing.T) *rig {
 	part := stats.NewParticipation(r.stats, o.ID, r.srvs, servers.GameIDs(), statsSettings, nil, r.reg)
 	mod := servers.NewModeration(r.srvs, r.drv, r.audit, serverstest.NewBanStore(), o.ID, prometheus.NewRegistry(), logger)
 	mux := http.NewServeMux()
-	mux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(r.org, logger)))
-	mux.Handle(hubv1connect.NewIdentityServiceHandler(api.NewIdentityServer(r.ids, r.sess, r.org, logger)))
-	mux.Handle(hubv1connect.NewServerServiceHandler(api.NewServerServer(r.srvs, r.obs, r.ids, logger)))
-	mux.Handle(hubv1connect.NewModerationServiceHandler(api.NewModerationServer(mod, r.org, r.ids, logger)))
-	mux.Handle(hubv1connect.NewServerConfigServiceHandler(api.NewConfigServer(mod, r.org, logger)))
-	mux.Handle(hubv1connect.NewStatsServiceHandler(api.NewStatsServer(boards, part, r.org, r.ids, logger)))
+	member := connect.WithInterceptors(api.MemberTokens()) // as the hub wires it (ADR-0015)
+	mux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(r.org, logger), member))
+	mux.Handle(hubv1connect.NewIdentityServiceHandler(api.NewIdentityServer(r.ids, r.sess, r.org, logger), member))
+	mux.Handle(hubv1connect.NewServerServiceHandler(api.NewServerServer(r.srvs, r.obs, r.ids, logger), member))
+	mux.Handle(hubv1connect.NewModerationServiceHandler(api.NewModerationServer(mod, r.org, r.ids, logger), member))
+	mux.Handle(hubv1connect.NewServerConfigServiceHandler(api.NewConfigServer(mod, r.org, logger), member))
+	mux.Handle(hubv1connect.NewStatsServiceHandler(api.NewStatsServer(boards, part, r.org, r.ids, logger), member))
+	mux.Handle(hubv1connect.NewAppServiceHandler(api.NewAppServer(r.apps, logger), member))
 	r.srv = newH2CServer(r.sess.Middleware(r.apps.Middleware(mux)))
 	t.Cleanup(r.srv.Close)
 	return r

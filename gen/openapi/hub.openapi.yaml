@@ -7,6 +7,172 @@ info:
     name: Apache-2.0
     identifier: Apache-2.0
 paths:
+  /gravel.hub.v1.AppService/Authorize:
+    post:
+      tags:
+        - gravel.hub.v1.AppService
+      summary: Authorize
+      description: |-
+        Authorize records the member's consent (the remembered grant widens to what was asked) and
+         issues an authorization code bound to the app, the redirect URI, the PKCE challenge and the
+         member. A request PrepareAuthorization refuses is refused here the same way: not_found or
+         invalid_argument.
+      operationId: gravel.hub.v1.AppService.Authorize
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.AuthorizeRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.AuthorizeResponse'
+  /gravel.hub.v1.AppService/ListAppGrants:
+    post:
+      tags:
+        - gravel.hub.v1.AppService
+      summary: ListAppGrants
+      description: ListAppGrants lists the apps the member allowed, with the scopes and when.
+      operationId: gravel.hub.v1.AppService.ListAppGrants
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.ListAppGrantsRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.ListAppGrantsResponse'
+  /gravel.hub.v1.AppService/PrepareAuthorization:
+    post:
+      tags:
+        - gravel.hub.v1.AppService
+      summary: PrepareAuthorization
+      description: |-
+        PrepareAuthorization checks an authorization request. An unknown or revoked client, or a
+         redirect URI the app did not register, is not_found: the page shows an error and never
+         redirects. Any other refusal is answered in error and error_description, for the page to
+         send back to the app. With a session it says whether the member must be asked.
+      operationId: gravel.hub.v1.AppService.PrepareAuthorization
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.PrepareAuthorizationRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.PrepareAuthorizationResponse'
+  /gravel.hub.v1.AppService/RevokeAppGrant:
+    post:
+      tags:
+        - gravel.hub.v1.AppService
+      summary: RevokeAppGrant
+      description: |-
+        RevokeAppGrant withdraws the member's grant to an app and revokes the member's tokens for it;
+         not_found when the member had not allowed it.
+      operationId: gravel.hub.v1.AppService.RevokeAppGrant
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.RevokeAppGrantRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.RevokeAppGrantResponse'
   /gravel.hub.v1.IdentityService/GetMe:
     post:
       tags:
@@ -1458,6 +1624,27 @@ components:
       description: |-
         Actor is the person an app says it acts for: a Discord moderator behind a bot command. The
          hub records it as the app asserted it; a logged-in user acts as themselves and sends none.
+    gravel.hub.v1.AppGrant:
+      type: object
+      properties:
+        clientId:
+          type: string
+          title: client_id
+        appName:
+          type: string
+          title: app_name
+        scopes:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.ScopeInfo'
+          title: scopes
+        grantedAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: granted_at
+      title: AppGrant
+      additionalProperties: false
+      description: 'AppGrant is an app the member allowed (ADR-0015 §3): which, what, when.'
     gravel.hub.v1.ApplyServerConfigRequest:
       type: object
       properties:
@@ -1508,7 +1695,9 @@ components:
         userId:
           type: string
           title: user_id
-          description: 'Who asked: a user (user_id) or an app (app_id and app_name), exactly one.'
+          description: |-
+            Who asked: a user (user_id), an app (app_id and app_name), or a member through an app's
+             token (both: the member acted, through that app; ADR-0015).
         appId:
           type: string
           title: app_id
@@ -1519,7 +1708,9 @@ components:
           allOf:
             - $ref: '#/components/schemas/gravel.hub.v1.Actor'
           title: on_behalf_of
-          description: The person the app acted for; unset for a user.
+          description: |-
+            The person an app acting for itself acted for; unset for a user and for a member through
+             an app.
         serverId:
           type: string
           title: server_id
@@ -1572,6 +1763,62 @@ components:
       description: |-
         AuditEntry is one moderation call the hub made to a server. It is recorded before the call and
          finished once with the outcome; nothing changes it after that, and nothing deletes it.
+    gravel.hub.v1.AuthorizationParams:
+      type: object
+      properties:
+        responseType:
+          type: string
+          title: response_type
+          description: '"code", the only response type.'
+        clientId:
+          type: string
+          title: client_id
+        redirectUri:
+          type: string
+          title: redirect_uri
+          description: Exactly one of the redirect URIs the app registered; required.
+        scope:
+          type: string
+          title: scope
+          description: Space-separated scopes, each one the app holds; empty asks for sign-in only (GetMe).
+        codeChallenge:
+          type: string
+          title: code_challenge
+          description: 'The PKCE challenge: the unpadded base64url SHA-256 of the app''s verifier.'
+        codeChallengeMethod:
+          type: string
+          title: code_challenge_method
+          description: '"S256", the only method.'
+      title: AuthorizationParams
+      additionalProperties: false
+      description: |-
+        AuthorizationParams are an authorization request's parameters as the app sent them to
+         /oauth/authorize (RFC 6749 §4.1.1 with RFC 7636 §4.3). The state is the page's to carry back
+         and never reaches the API.
+    gravel.hub.v1.AuthorizeRequest:
+      type: object
+      properties:
+        params:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.AuthorizationParams'
+          title: params
+      title: AuthorizeRequest
+      additionalProperties: false
+    gravel.hub.v1.AuthorizeResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          title: code
+          description: The authorization code, shown once; it lives 60 seconds.
+        scopes:
+          type: array
+          items:
+            type: string
+          title: scopes
+          description: The scopes the code carries.
+      title: AuthorizeResponse
+      additionalProperties: false
     gravel.hub.v1.Ban:
       type: object
       properties:
@@ -2490,6 +2737,21 @@ components:
           format: int64
       title: KickPlayerResponse
       additionalProperties: false
+    gravel.hub.v1.ListAppGrantsRequest:
+      type: object
+      title: ListAppGrantsRequest
+      additionalProperties: false
+    gravel.hub.v1.ListAppGrantsResponse:
+      type: object
+      properties:
+        grants:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.AppGrant'
+          title: grants
+          description: Oldest first.
+      title: ListAppGrantsResponse
+      additionalProperties: false
     gravel.hub.v1.ListAuditLogRequest:
       type: object
       properties:
@@ -3125,6 +3387,48 @@ components:
       title: PlayerMatch
       additionalProperties: false
       description: PlayerMatch is one match a member played, with their row in it.
+    gravel.hub.v1.PrepareAuthorizationRequest:
+      type: object
+      properties:
+        params:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.AuthorizationParams'
+          title: params
+      title: PrepareAuthorizationRequest
+      additionalProperties: false
+    gravel.hub.v1.PrepareAuthorizationResponse:
+      type: object
+      properties:
+        appName:
+          type: string
+          title: app_name
+        clientId:
+          type: string
+          title: client_id
+        scopes:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.ScopeInfo'
+          title: scopes
+          description: The scopes asked for, each with its description.
+        consentRequired:
+          type: boolean
+          title: consent_required
+          description: |-
+            Whether the member must be asked: true without a session, or when no remembered grant
+             covers the scopes.
+        error:
+          type: string
+          title: error
+          description: |-
+            Set when the client and the redirect URI are good but the rest of the request is not: the
+             RFC 6749 error code to send back to the redirect URI ("invalid_request",
+             "unsupported_response_type", "invalid_scope") and a description.
+        errorDescription:
+          type: string
+          title: error_description
+      title: PrepareAuthorizationResponse
+      additionalProperties: false
     gravel.hub.v1.ProfileTotals:
       type: object
       properties:
@@ -3191,6 +3495,24 @@ components:
           description: One per event, in the request's order.
       title: RecordParticipationResponse
       additionalProperties: false
+    gravel.hub.v1.RevokeAppGrantRequest:
+      type: object
+      properties:
+        clientId:
+          type: string
+          title: client_id
+      title: RevokeAppGrantRequest
+      additionalProperties: false
+    gravel.hub.v1.RevokeAppGrantResponse:
+      type: object
+      properties:
+        revokedTokens:
+          type: integer
+          title: revoked_tokens
+          format: int32
+          description: How many of the member's tokens for the app were revoked.
+      title: RevokeAppGrantResponse
+      additionalProperties: false
     gravel.hub.v1.RevokeSessionsRequest:
       type: object
       title: RevokeSessionsRequest
@@ -3205,6 +3527,19 @@ components:
           description: How many sessions were ended, the caller's included.
       title: RevokeSessionsResponse
       additionalProperties: false
+    gravel.hub.v1.ScopeInfo:
+      type: object
+      properties:
+        name:
+          type: string
+          title: name
+          description: 'The scope: "identity:read", "stats:read", …'
+        description:
+          type: string
+          title: description
+      title: ScopeInfo
+      additionalProperties: false
+      description: ScopeInfo is a scope with what it lets an app do as the member, in the member's words.
     gravel.hub.v1.Seeding:
       type: object
       properties:
@@ -3654,6 +3989,12 @@ components:
          by this id.
 security: []
 tags:
+  - name: gravel.hub.v1.AppService
+    description: |-
+      AppService is a member's side of first-party apps (ADR-0015): the authorization endpoint's
+       checks and consent, which the hub's /oauth/authorize page calls, and the apps the member
+       allowed. Every procedure but PrepareAuthorization needs a session cookie; no bearer token, an
+       app's or a member's, may call any of them.
   - name: gravel.hub.v1.ModerationService
     description: |-
       ModerationService acts on the players of a server the hub controls (ADR-0010 §5): the owner, a

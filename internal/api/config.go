@@ -12,7 +12,6 @@ import (
 	hubv1 "github.com/gravel-project/gravel/gen/gravel/hub/v1"
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
 	"github.com/gravel-project/gravel/internal/apps"
-	"github.com/gravel-project/gravel/internal/httpx"
 	"github.com/gravel-project/gravel/internal/org"
 	"github.com/gravel-project/gravel/internal/servers"
 )
@@ -80,20 +79,15 @@ func (s *ConfigServer) ApplyServerConfig(ctx context.Context, req *connect.Reque
 	if err := s.check(ctx, m.GetServerId()); err != nil {
 		return nil, err
 	}
-	actor := servers.Actor{RequestID: httpx.RequestIDFromContext(ctx)}
-	if app, ok := apps.FromContext(ctx); ok {
-		actor.AppID = &app.ID
-	} else {
-		uid, err := caller(ctx)
-		if err != nil {
-			return nil, err
-		}
-		actor.UserID = &uid
-	}
+	var ob *drivers.Identity
 	if o := m.GetOnBehalfOf(); o != nil {
-		actor.OnBehalfOf = &drivers.Identity{Provider: o.GetProvider(), Subject: o.GetSubject()}
+		ob = &drivers.Identity{Provider: o.GetProvider(), Subject: o.GetSubject()}
 	}
-	id, res, err := s.mod.ApplyConfig(ctx, actor, m.GetServerId(), m.GetText(), m.GetRevision(), m.GetReason())
+	who, err := actor(ctx, ob)
+	if err != nil {
+		return nil, err
+	}
+	id, res, err := s.mod.ApplyConfig(ctx, who, m.GetServerId(), m.GetText(), m.GetRevision(), m.GetReason())
 	if err != nil {
 		return nil, s.errs.mapError(ctx, err)
 	}

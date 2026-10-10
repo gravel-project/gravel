@@ -16,7 +16,6 @@ import (
 	"github.com/gravel-project/gravel/internal/apps"
 	"github.com/gravel-project/gravel/internal/identity"
 	"github.com/gravel-project/gravel/internal/servers"
-	"github.com/gravel-project/gravel/internal/session"
 	"github.com/gravel-project/gravel/internal/store"
 )
 
@@ -177,8 +176,12 @@ func requireMemberOrScope(ctx context.Context, scope string) error {
 		}
 		return connect.NewError(connect.CodePermissionDenied, errors.New("the app lacks the scope "+scope))
 	}
-	if _, ok := session.FromContext(ctx); ok {
+	_, err := caller(ctx) // a session, or a member's token the interceptor admitted
+	if err == nil {
 		return nil
+	}
+	if _, ok := apps.MemberFromContext(ctx); ok {
+		return err
 	}
 	return connect.NewError(connect.CodeUnauthenticated, errors.New("log in, or call as an app with "+scope))
 }

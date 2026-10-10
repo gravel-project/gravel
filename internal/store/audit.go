@@ -17,7 +17,8 @@ type AuditEntry struct {
 	ID             int64
 	OrganizationID uuid.UUID
 	At             time.Time
-	// Exactly one of ActorUserID and ActorAppID is set.
+	// ActorUserID, ActorAppID or both are set: both for a member acting through an app's token
+	// (ADR-0015), who has no OnBehalf.
 	ActorUserID *uuid.UUID
 	ActorAppID  *uuid.UUID
 	// ActorAppName is the app's name, read back with the row (not stored on it).

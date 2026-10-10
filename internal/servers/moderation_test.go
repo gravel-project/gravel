@@ -242,7 +242,9 @@ func TestModerationRefusesBeforeSending(t *testing.T) {
 		"no actor":                  {Actor{}, Action{Kind: ActionBroadcast, Message: "m"}, ErrInvalidModeration},
 		"a user acting for someone": {Actor{UserID: &r.owner, OnBehalfOf: &drivers.Identity{Provider: "discord", Subject: "1"}}, Action{Kind: ActionBroadcast, Message: "m"}, ErrInvalidModeration},
 		"a half on_behalf_of":       {Actor{AppID: &app, OnBehalfOf: &drivers.Identity{Provider: "discord"}}, Action{Kind: ActionBroadcast, Message: "m"}, ErrInvalidModeration},
-		"a route the build lacks":   {r.asOwner(), Action{Kind: ActionKick, Player: p, Reason: "x"}, drivers.ErrNotSupported},
+		// A member through an app's token (ADR-0015) is recorded with both, and acts for nobody.
+		"a member through an app acting for someone": {Actor{UserID: &r.owner, AppID: &app, OnBehalfOf: &drivers.Identity{Provider: "discord", Subject: "1"}}, Action{Kind: ActionBroadcast, Message: "m"}, ErrInvalidModeration},
+		"a route the build lacks":                    {r.asOwner(), Action{Kind: ActionKick, Player: p, Reason: "x"}, drivers.ErrNotSupported},
 	} {
 		tc.a.Server = "wd-1"
 		if _, err := r.mod.Do(ctx, tc.actor, tc.a); !errors.Is(err, tc.want) {

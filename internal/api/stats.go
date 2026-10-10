@@ -18,7 +18,6 @@ import (
 	"github.com/gravel-project/gravel/internal/apps"
 	"github.com/gravel-project/gravel/internal/identity"
 	"github.com/gravel-project/gravel/internal/org"
-	"github.com/gravel-project/gravel/internal/session"
 	"github.com/gravel-project/gravel/internal/stats"
 	"github.com/gravel-project/gravel/internal/store"
 )
@@ -203,8 +202,8 @@ func decodePrefixed(token, prefix string) (int64, error) {
 // GetMemberProfile is a member's stats across their linked identities, for whoever may see them.
 func (s *StatsServer) GetMemberProfile(ctx context.Context, req *connect.Request[hubv1.GetMemberProfileRequest]) (*connect.Response[hubv1.GetMemberProfileResponse], error) {
 	var self uuid.UUID
-	if sess, ok := session.FromContext(ctx); ok {
-		self = sess.UserID
+	if uid, err := caller(ctx); err == nil {
+		self = uid
 	}
 	uid := self
 	if req.Msg.GetUserId() != "" {

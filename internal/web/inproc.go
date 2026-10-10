@@ -125,3 +125,9 @@ func (r *responseRecorder) status() int {
 	}
 	return r.code
 }
+
+// withBrowserContext returns a context for another in-process call on behalf of the same page
+// request, sharing b.
+func withBrowserContext(r *http.Request, b *browser) context.Context {
+	return context.WithValue(r.Context(), browserKey{}, b)
+}

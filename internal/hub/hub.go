@@ -83,9 +83,11 @@ type Hub struct {
 	metrics      *httpx.Metrics
 	authTotal    *prometheus.CounterVec
 	limitedTotal *prometheus.CounterVec
-	api          *http.ServeMux
-	public       http.Handler
-	internal     http.Handler
+	// oauthAuthorizations counts how the authorization endpoint ended (ADR-0015).
+	oauthAuthorizations *prometheus.CounterVec
+	api                 *http.ServeMux
+	public              http.Handler
+	internal            http.Handler
 
 	listeners *listeners
 }
@@ -148,7 +150,6 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 	}
 	h.ids = identity.New(st, o.ID, regs, cfg.Auth.AttemptTTL, logger, identity.WithOrganizationName(o.Name))
 	h.sess = session.New(st, cfg.Auth.SessionTTL, cfg.Auth.Secure(), logger)
-	h.apps = apps.New(st, o.ID, cfg.Apps.TokenTTL, logger)
 	h.perIP = ratelimit.New(cfg.RateLimit.PerIP.RequestsPerMinute, cfg.RateLimit.PerIP.Burst)
 	h.perUser = ratelimit.New(cfg.RateLimit.PerUser.RequestsPerMinute, cfg.RateLimit.PerUser.Burst)
 	h.perApp = ratelimit.New(cfg.RateLimit.PerApp.RequestsPerMinute, cfg.RateLimit.PerApp.Burst)
@@ -172,7 +173,12 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 	for _, reg := range h.ids.Providers() {
 		providerNames = append(providerNames, reg.Provider.Name())
 	}
-	h.registry.MustRegister(buildInfo, h.authTotal, h.limitedTotal, backup.NewCollector(cfg.Backup.StatusFile, st, logger), newStatsCollector(st, providerNames, logger))
+	h.oauthAuthorizations = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "gravel_oauth_authorizations_total", Help: "Requests at the authorization endpoint by result (issued, denied, rejected, error).",
+	}, []string{"result"})
+	h.registry.MustRegister(buildInfo, h.authTotal, h.limitedTotal, h.oauthAuthorizations, backup.NewCollector(cfg.Backup.StatusFile, st, logger), newStatsCollector(st, providerNames, logger))
+	// First-party apps (ADR-0008, ADR-0015): app tokens live apps.token_ttl, members' tokens an hour.
+	h.apps = apps.New(st, o.ID, cfg.Apps.TokenTTL, logger, apps.WithMetrics(h.registry))
 	h.metrics = httpx.NewMetrics(h.registry)
 
 	// Background work runs as supervised jobs (ADR-0010): the prune, and the servers' monitor,
@@ -221,6 +227,7 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 	h.web.Observe = func(provider string, intent identity.Intent, result string) {
 		h.authTotal.WithLabelValues(provider, string(intent), result).Inc()
 	}
+	h.web.ObserveAuthorization = func(result string) { h.oauthAuthorizations.WithLabelValues(result).Inc() }
 
 	h.public = h.buildPublic()
 	h.internal = h.buildInternal()
@@ -269,9 +276,10 @@ func (h *Hub) OwnerClaimToken() string { return h.claimToken }
 // Close releases the database pool. Run calls it; call it yourself when you only used Handler.
 func (h *Hub) Close() { h.st.Close() }
 
-// scopes are the rate-limit buckets: per app when a bearer token is carried, per user when
-// logged in, else per client address. An API call a page makes in process is not counted
-// again: the page request was.
+// scopes are the rate-limit buckets: per app when an app's own bearer token is carried, per user
+// when logged in or calling with a member's token (an app acting for many members is limited per
+// member), else per client address. An API call a page makes in process is not counted again: the
+// page request was.
 func (h *Hub) scopes() []ratelimit.Scoped {
 	return []ratelimit.Scoped{
 		{Scope: "app", Limiter: h.perApp, Key: func(r *http.Request) string {
@@ -283,6 +291,9 @@ func (h *Hub) scopes() []ratelimit.Scoped {
 		{Scope: "user", Limiter: h.perUser, Key: func(r *http.Request) string {
 			if web.IsInProcess(r.Context()) {
 				return ""
+			}
+			if m, ok := apps.MemberFromContext(r.Context()); ok {
+				return m.UserID.String()
 			}
 			if s, ok := session.FromContext(r.Context()); ok {
 				return s.UserID.String()
@@ -301,13 +312,15 @@ func (h *Hub) scopes() []ratelimit.Scoped {
 // buildAPI mounts the Connect services with their interceptors.
 func (h *Hub) buildAPI() *http.ServeMux {
 	mux := http.NewServeMux()
-	interceptors := connect.WithInterceptors(h.metrics.Interceptor(), ratelimit.Interceptor(h.scopes(), h.rejected))
+	// A member's token (ADR-0015) is held to its scopes before any procedure runs.
+	interceptors := connect.WithInterceptors(h.metrics.Interceptor(), ratelimit.Interceptor(h.scopes(), h.rejected), api.MemberTokens())
 	mux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(h.org, h.logger), interceptors))
 	mux.Handle(hubv1connect.NewIdentityServiceHandler(api.NewIdentityServer(h.ids, h.sess, h.org, h.logger), interceptors))
 	mux.Handle(hubv1connect.NewServerServiceHandler(api.NewServerServer(h.servers, h.monitor, h.ids, h.logger), interceptors))
 	mux.Handle(hubv1connect.NewModerationServiceHandler(api.NewModerationServer(h.moderation, h.org, h.ids, h.logger), interceptors))
 	mux.Handle(hubv1connect.NewServerConfigServiceHandler(api.NewConfigServer(h.moderation, h.org, h.logger), interceptors))
 	mux.Handle(hubv1connect.NewStatsServiceHandler(api.NewStatsServer(h.stats, h.participation, h.org, h.ids, h.logger), interceptors))
+	mux.Handle(hubv1connect.NewAppServiceHandler(api.NewAppServer(h.apps, h.logger), interceptors))
 	return mux
 }
 
@@ -317,7 +330,7 @@ func (h *Hub) buildPublic() http.Handler {
 	scopes := h.scopes()
 	mux := http.NewServeMux()
 	services := []string{hubv1connect.OrganizationServiceName, hubv1connect.IdentityServiceName, hubv1connect.ServerServiceName,
-		hubv1connect.ModerationServiceName, hubv1connect.ServerConfigServiceName, hubv1connect.StatsServiceName}
+		hubv1connect.ModerationServiceName, hubv1connect.ServerConfigServiceName, hubv1connect.StatsServiceName, hubv1connect.AppServiceName}
 	for _, svc := range services {
 		mux.Handle("/"+svc+"/", h.api)
 	}
@@ -329,7 +342,12 @@ func (h *Hub) buildPublic() http.Handler {
 	mux.Handle("GET /readyz", h.metrics.HTTP("readyz", http.HandlerFunc(h.readyz)))
 	// The token endpoint (ADR-0008): a service trades its client credentials for a bearer token.
 	// Limited per client address, like anything anonymous.
+	// The token endpoint (ADR-0008, ADR-0015): client credentials, or an authorization code with
+	// its PKCE verifier, in; a Bearer token out. Introspection (RFC 7662) answers an app whether a
+	// token it was handed is live. Both authenticate the app's client credentials and are limited
+	// per client address, like anything anonymous; /oauth/authorize is a page.
 	mux.Handle("/oauth/token", h.metrics.HTTP("oauth_token", ratelimit.Middleware(scopes, h.rejected)(h.apps.TokenHandler())))
+	mux.Handle("/oauth/introspect", h.metrics.HTTP("oauth_introspect", ratelimit.Middleware(scopes, h.rejected)(h.apps.IntrospectHandler())))
 
 	// The pages, rate-limited as HTTP; the procedures above are limited by the interceptor.
 	pages := http.NewServeMux()

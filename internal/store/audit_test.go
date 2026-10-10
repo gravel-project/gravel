@@ -54,12 +54,8 @@ func TestAuditLogIsAppendOnly(t *testing.T) {
 		t.Errorf("ids %d then %d", id1, id2)
 	}
 
-	// Exactly one actor; a server that exists.
-	both := kick
-	both.ActorAppID = &app.ID
-	if _, err := st.InsertAuditEntry(ctx, both); err == nil {
-		t.Error("an entry with two actors was stored")
-	}
+	// An actor (both, a member through an app's token, is TestMemberTokensCodesAndGrants's); a
+	// server that exists.
 	none := kick
 	none.ActorUserID = nil
 	if _, err := st.InsertAuditEntry(ctx, none); err == nil {

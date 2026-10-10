@@ -69,9 +69,23 @@ func (s *Store) DeleteSession(ctx context.Context, id uuid.UUID) error {
 }
 
 // DeleteUserSessions ends every session of a user ("log out everywhere") and reports how many.
+// The tokens apps hold for the user go with them, in the same transaction (ADR-0015 §5: revoking a
+// member's sessions revokes what apps hold as that member); the grants stay, so the member's next
+// sign-in to an app needs a login but no new consent.
 func (s *Store) DeleteUserSessions(ctx context.Context, userID uuid.UUID) (int64, error) {
-	tag, err := s.pool.Exec(ctx, `DELETE FROM sessions WHERE user_id = $1`, userID)
+	tx, err := s.pool.Begin(ctx)
 	if err != nil {
+		return 0, fmt.Errorf("store: delete user sessions: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	tag, err := tx.Exec(ctx, `DELETE FROM sessions WHERE user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("store: delete user sessions: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM app_tokens WHERE user_id = $1`, userID); err != nil {
+		return 0, fmt.Errorf("store: delete user sessions: member tokens: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
 		return 0, fmt.Errorf("store: delete user sessions: %w", err)
 	}
 	return tag.RowsAffected(), nil

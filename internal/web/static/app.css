@@ -60,3 +60,6 @@ button + a { margin-left: .75rem; }
 /* A game's overlay (gravel#66): its accent comes from /theme.css through data-game. */
 .game-banner { display: block; width: 100%; height: auto; max-height: 10rem; object-fit: cover; border-radius: .5rem; margin: 0 0 1rem; }
 .game-nav { margin: 0 0 1rem; padding-bottom: .5rem; border-bottom: 1px solid var(--line); }
+/* Apps a member allows (ADR-0015): the consent page and the account page's list. */
+.scopes { margin: .25rem 0; padding-left: 1.25rem; }
+form.consent { display: flex; gap: .75rem; flex-wrap: wrap; margin-top: 1rem; }

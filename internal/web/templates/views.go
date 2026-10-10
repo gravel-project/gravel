@@ -139,6 +139,45 @@ type AccountPage struct {
 	// RoleProviders are linked providers that show the member's linked accounts (Discord's
 	// Linked Roles), each with an update button.
 	RoleProviders []Provider
+	// Apps are the first-party apps the member allowed (ADR-0015), each with a revoke button.
+	Apps []AppGrant
+}
+
+// Scope is a scope an app holds or asks for, with what it lets the app do, in words.
+type Scope struct {
+	Name        string
+	Description string
+}
+
+// AppGrant is an app the member allowed: which, what, when.
+type AppGrant struct {
+	ClientID  string
+	Name      string
+	Scopes    []Scope
+	GrantedAt time.Time
+}
+
+// AuthorizationParams are an app's authorization request, carried through the consent form.
+type AuthorizationParams struct {
+	ResponseType        string
+	ClientID            string
+	RedirectURI         string
+	Scope               string
+	State               string
+	CodeChallenge       string
+	CodeChallengeMethod string
+}
+
+// ConsentPage asks the member whether an app may act as them (ADR-0015 §3).
+type ConsentPage struct {
+	Page
+	AppName string
+	Scopes  []Scope
+	// Wider is set when the member allowed the app before and it now asks for more.
+	Wider bool
+	// ReturnHost is where the answer sends the member: the redirect URI's host.
+	ReturnHost string
+	Params     AuthorizationParams
 }
 
 // ErrorPage explains a refusal or a failure.

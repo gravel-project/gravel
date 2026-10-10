@@ -83,11 +83,13 @@ type AuditEntry struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Id    int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
 	At    *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=at,proto3" json:"at,omitempty"`
-	// Who asked: a user (user_id) or an app (app_id and app_name), exactly one.
+	// Who asked: a user (user_id), an app (app_id and app_name), or a member through an app's
+	// token (both: the member acted, through that app; ADR-0015).
 	UserId  string `protobuf:"bytes,3,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	AppId   string `protobuf:"bytes,4,opt,name=app_id,json=appId,proto3" json:"app_id,omitempty"`
 	AppName string `protobuf:"bytes,5,opt,name=app_name,json=appName,proto3" json:"app_name,omitempty"`
-	// The person the app acted for; unset for a user.
+	// The person an app acting for itself acted for; unset for a user and for a member through
+	// an app.
 	OnBehalfOf *Actor `protobuf:"bytes,6,opt,name=on_behalf_of,json=onBehalfOf,proto3" json:"on_behalf_of,omitempty"`
 	ServerId   string `protobuf:"bytes,7,opt,name=server_id,json=serverId,proto3" json:"server_id,omitempty"`
 	// "kick", "ban", "unban", "message", "broadcast" or "move_player".

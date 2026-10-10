@@ -19,11 +19,13 @@ message Actor {
 message AuditEntry {
   int64 id = 1;
   google.protobuf.Timestamp at = 2;
-  // Who asked: a user (user_id) or an app (app_id and app_name), exactly one.
+  // Who asked: a user (user_id), an app (app_id and app_name), or a member through an app's
+  // token (both: the member acted, through that app; ADR-0015).
   string user_id = 3;
   string app_id = 4;
   string app_name = 5;
-  // The person the app acted for; unset for a user.
+  // The person an app acting for itself acted for; unset for a user and for a member through
+  // an app.
   Actor on_behalf_of = 6;
   string server_id = 7;
   // "kick", "ban", "unban", "message", "broadcast" or "move_player".
