@@ -619,10 +619,15 @@ func TestRunSurvivesFailedPasses(t *testing.T) {
 	r.discord.listCode = 0
 	r.discord.members[11] = nil
 	r.discord.mu.Unlock()
-	waitFor(t, "a pass that recovers", func() bool { return slices.Equal(r.discord.roles(11), []snowflake.ID{founders}) })
-	if m := r.metrics(t); !strings.Contains(m, `gravel_bot_rolesync_passes_total{result="ok"}`) || !strings.Contains(m, "gravel_bot_rolesync_last_success_timestamp_seconds") {
-		t.Errorf("metrics:\n%s", rolesyncLines(m))
-	}
+	// The pass applies the roles, then counts itself, then stamps the last success: wait for all
+	// three, since a read between any two of them sees a pass that hasn't finished (#108).
+	waitFor(t, "a pass that recovers, counted ok with a last-success time", func() bool {
+		m := r.metrics(t)
+		return slices.Equal(r.discord.roles(11), []snowflake.ID{founders}) &&
+			strings.Contains(m, `gravel_bot_rolesync_passes_total{result="ok"}`) &&
+			strings.Contains(m, "gravel_bot_rolesync_last_success_timestamp_seconds ") &&
+			!strings.Contains(m, "gravel_bot_rolesync_last_success_timestamp_seconds 0\n")
+	})
 	cancel()
 	if err := <-done; err != nil {
 		t.Errorf("Run: %v", err)
