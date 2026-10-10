@@ -6,7 +6,9 @@ import (
 	"io"
 	"net/http"
 	"slices"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/gravel-project/gravel/drivers"
 	"github.com/gravel-project/gravel/drivers/wardogs"
@@ -99,5 +101,80 @@ func TestDriverErrors(t *testing.T) {
 	}
 	if _, err := wardogs.New(drivers.Target{Endpoint: "not a url"}); err == nil {
 		t.Error("a bad endpoint built a driver")
+	}
+}
+
+// rotationReads counts the GET /v1/rotation requests the server saw.
+func rotationReads(srv *wardogstest.Server) int {
+	n := 0
+	for _, r := range srv.Requests() {
+		if r.Method == http.MethodGet && r.Path == "/v1/rotation" {
+			n++
+		}
+	}
+	return n
+}
+
+// The status names the rotation's maps (the theatres, where Map is the level), read at most once
+// a minute: the status gives only the positions (#97).
+func TestStatusNamesTheRotationsMaps(t *testing.T) {
+	var failing atomic.Bool
+	srv := wardogstest.New(t, fixture, wardogstest.Options{Handle: map[string]http.HandlerFunc{
+		"GET /v1/rotation": func(w http.ResponseWriter, _ *http.Request) {
+			if failing.Load() {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			_, _ = io.WriteString(w, `{"enabled":true,"mode":"ordered","count":3,"entries":[{"index":0,"map":"Europe","status":"now"},{"index":1,"map":"NorthAmerica","status":"next"},{"index":2,"map":"Kavkazi"}]}`)
+		},
+	}})
+	d := newDriver(t, srv, wardogstest.Token)
+	now := time.Date(2026, 10, 10, 20, 0, 0, 0, time.UTC)
+	wardogs.SetNow(d, func() time.Time { return now })
+	ctx := context.Background()
+
+	st, err := d.Status(ctx)
+	if err != nil || st.Map != "Ozeti" || st.RotationMap != "Europe" || st.NextRotationMap != "NorthAmerica" {
+		t.Fatalf("status = %+v, %v", st, err)
+	}
+	now = now.Add(wardogs.RotationTTL - time.Second)
+	if _, err := d.Status(ctx); err != nil || rotationReads(srv) != 1 {
+		t.Errorf("within the minute the rotation is not read again: %d reads, %v", rotationReads(srv), err)
+	}
+	now = now.Add(time.Second)
+	if _, err := d.Status(ctx); err != nil || rotationReads(srv) != 2 {
+		t.Errorf("after the minute it is: %d reads, %v", rotationReads(srv), err)
+	}
+
+	// A failed read never fails the status; the last good names stay until a read works.
+	failing.Store(true)
+	now = now.Add(wardogs.RotationTTL)
+	st, err = d.Status(ctx)
+	if err != nil || st.RotationMap != "Europe" || st.NextRotationMap != "NorthAmerica" || rotationReads(srv) != 3 {
+		t.Errorf("a failed read: %+v, %v, %d reads", st, err, rotationReads(srv))
+	}
+	// …and it waits the minute before trying again.
+	if _, err := d.Status(ctx); err != nil || rotationReads(srv) != 3 {
+		t.Errorf("a failure is not retried at once: %d reads", rotationReads(srv))
+	}
+
+	// A first read that fails: the names are empty, the status is whole.
+	fresh := newDriver(t, srv, wardogstest.Token)
+	if st, err := fresh.Status(ctx); err != nil || st.RotationMap != "" || st.Name == "" {
+		t.Errorf("no rotation yet: %+v, %v", st, err)
+	}
+}
+
+// A build that doesn't serve the rotation: no request, no names, the status as before.
+func TestStatusWithoutTheRotationRoute(t *testing.T) {
+	srv := wardogstest.New(t, fixture, wardogstest.Options{Remove: []string{"GET /v1/rotation"}})
+	d := newDriver(t, srv, wardogstest.Token)
+	ctx := context.Background()
+	if _, err := d.Capabilities(ctx); err != nil {
+		t.Fatal(err)
+	}
+	st, err := d.Status(ctx)
+	if err != nil || st.Map != "Ozeti" || st.RotationMap != "" || st.NextRotationMap != "" || rotationReads(srv) != 0 {
+		t.Errorf("status = %+v, %v, %d rotation reads", st, err, rotationReads(srv))
 	}
 }

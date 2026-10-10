@@ -213,6 +213,8 @@ type ServerPage struct {
 	Matches     []MatchRow
 	MatchesNote string
 	BoardURL    string
+	// NextMap is the rotation's next map as the game names it; empty when unknown.
+	NextMap string
 	// Mod is set for the owner and moderators: the controls the server's driver offers.
 	Mod *ModControls
 }

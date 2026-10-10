@@ -2,6 +2,7 @@ package web_test
 
 import (
 	"context"
+	"image/png"
 	"io"
 	"log/slog"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gravel-project/gravel/discord/modules/servercards"
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
 	"github.com/gravel-project/gravel/internal/api"
 	"github.com/gravel-project/gravel/internal/identity"
@@ -144,5 +146,28 @@ func TestGameOverlayFromSettings(t *testing.T) {
 	_, css := get(t, browser(t), srv.URL+"/theme.css")
 	if !strings.Contains(css, "[data-game=\"wardogs\"]{--accent:#8a5a00}") || !strings.Contains(css, "{[data-game=\"wardogs\"]{--accent:#f0b429}}") {
 		t.Errorf("theme.css from the settings:\n%s", css)
+	}
+}
+
+// The hub serves gravel's generic map image where the bot's server cards look for it (#97).
+func TestMapPlaceholder(t *testing.T) {
+	if web.MapPlaceholderPath != servercards.PlaceholderPath {
+		t.Fatalf("the hub serves the placeholder at %s, the cards look at %s", web.MapPlaceholderPath, servercards.PlaceholderPath)
+	}
+	r := newRig(t)
+	resp, body := get(t, browser(t), r.srv.URL+web.MapPlaceholderPath)
+	if resp.StatusCode != http.StatusOK || resp.Header.Get("Content-Type") != "image/png" || resp.Header.Get("Cache-Control") == "" {
+		t.Fatalf("placeholder: %d %q %q", resp.StatusCode, resp.Header.Get("Content-Type"), resp.Header.Get("Cache-Control"))
+	}
+	img, err := png.Decode(strings.NewReader(body))
+	if err != nil || img.Bounds().Dx() != 1280 || img.Bounds().Dy() != 720 {
+		t.Errorf("a 1280x720 PNG: %v %v", img.Bounds(), err)
+	}
+	if len(body) > 100_000 {
+		t.Errorf("the placeholder is %d bytes; keep it small", len(body))
+	}
+	_, again := get(t, browser(t), r.srv.URL+web.MapPlaceholderPath)
+	if again != body {
+		t.Error("the image is the same on every request")
 	}
 }

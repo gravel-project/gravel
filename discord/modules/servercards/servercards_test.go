@@ -269,6 +269,7 @@ type fakeHub struct {
 
 	mu      sync.Mutex
 	cards   []*hubv1.DiscordServerCard
+	games   map[string]*hubv1.GameSettings
 	servers []*hubv1.Server
 	lists   int
 	down    bool
@@ -298,7 +299,7 @@ func (f *fakeHub) GetOrganizationSettings(context.Context, *connect.Request[hubv
 		return nil, connect.NewError(connect.CodeUnavailable, errors.New("down"))
 	}
 	return connect.NewResponse(&hubv1.GetOrganizationSettingsResponse{Settings: &hubv1.OrganizationSettings{Version: 1,
-		Discord: &hubv1.DiscordSettings{GuildId: guildID, ServerCards: f.cards}}}), nil
+		Discord: &hubv1.DiscordSettings{GuildId: guildID, ServerCards: f.cards}, Games: f.games}}), nil
 }
 
 func (f *fakeHub) ListServers(context.Context, *connect.Request[hubv1.ListServersRequest]) (*connect.Response[hubv1.ListServersResponse], error) {
@@ -344,7 +345,7 @@ func (r *rig) restart(t *testing.T) {
 	bc.Discord.PublicKey = hex.EncodeToString(pub)
 	bc.Discord.Token = base64.RawStdEncoding.EncodeToString([]byte(appID)) + ".Xa1b2c.not-a-real-token-signature"
 	bc.Discord.Gateway = false
-	r.mod = servercards.New(hc, servercards.Config{Interval: time.Hour})
+	r.mod = servercards.New(hc, servercards.Config{Interval: time.Hour, Placeholder: placeholder})
 	r.rt, err = bot.New(bot.Options{Config: bc, Logger: quiet(), RESTURL: r.discord.srv.URL + "/api"}, r.mod)
 	if err != nil {
 		t.Fatal(err)
@@ -559,5 +560,163 @@ func TestRunUpdatesUntilCancelled(t *testing.T) {
 	}
 	if len(r.discord.cards(channel)) != 1 {
 		t.Error("the first pass runs at start")
+	}
+}
+
+// images are a card's media gallery items as "description=url".
+func images(cs []discord.LayoutComponent) []string {
+	var out []string
+	for _, lc := range cs {
+		if box, ok := lc.(discord.ContainerComponent); ok {
+			for _, sc := range box.Components {
+				if g, ok := sc.(discord.MediaGalleryComponent); ok {
+					for _, it := range g.Items {
+						out = append(out, it.Description+"="+it.Media.URL)
+					}
+				}
+			}
+		}
+	}
+	return out
+}
+
+const (
+	ozetiImage  = "https://cdn.example/maps/ozeti.jpg"
+	europeImage = "https://cdn.example/maps/europe.jpg"
+	fallback    = "https://cdn.example/maps/wardogs.jpg"
+	placeholder = "https://hub.example" + servercards.PlaceholderPath
+)
+
+func TestRenderMapImage(t *testing.T) {
+	maps := map[string]string{"Ozeti": ozetiImage, "Europe": europeImage, "Kavkazi": "http://insecure.example/k.jpg"}
+	s := live(23)
+	s.Status.RotationMap, s.Status.NextRotationMap = "Europe", "NorthAmerica"
+
+	// The level in play has an image: it shows, large, under the name; the next map is a line.
+	card := servercards.RenderCard(s, servercards.Card{Note: matchNote, Maps: maps})
+	if got := images(card); !equal(got, []string{"Ozeti=" + ozetiImage}) {
+		t.Errorf("the level's image: %v", got)
+	}
+	box := card[0].(discord.ContainerComponent)
+	if _, ok := box.Components[1].(discord.MediaGalleryComponent); !ok {
+		t.Errorf("the image comes right after the name: %T", box.Components[1])
+	}
+	if got := text(card); !strings.Contains(got, "Alpha **1200** · Bravo **900**\nNext: NorthAmerica\n"+matchNote) {
+		t.Errorf("the next map follows the score:\n%s", got)
+	}
+
+	// No image for the level: the rotation's map (the theatre) stands in.
+	s.Status.Map = "Zestafona"
+	if got := images(servercards.RenderCard(s, servercards.Card{Maps: maps})); !equal(got, []string{"Europe=" + europeImage}) {
+		t.Errorf("the theatre's image: %v", got)
+	}
+	// Neither, or only a URL that isn't https: no image, the rest as before.
+	s.Status.RotationMap = "Kavkazi"
+	if card := servercards.RenderCard(s, servercards.Card{Maps: maps}); len(images(card)) != 0 || !strings.Contains(text(card), "Next: NorthAmerica") {
+		t.Errorf("no image: %v\n%s", images(card), text(card))
+	}
+	if got := images(servercards.Render(live(23), matchNote)); len(got) != 0 {
+		t.Errorf("Render has no images: %v", got)
+	}
+	// Neither, with a fallback: the fallback, described by the level in play.
+	if got := images(servercards.RenderCard(s, servercards.Card{Maps: maps, Fallback: fallback})); !equal(got, []string{"Zestafona=" + fallback}) {
+		t.Errorf("the fallback: %v", got)
+	}
+	if got := images(servercards.RenderCard(s, servercards.Card{Maps: maps, Fallback: "http://insecure.example/f.jpg"})); len(got) != 0 {
+		t.Errorf("a fallback that isn't https is not shown: %v", got)
+	}
+
+	// A degraded card shows neither: the map it would name is stale.
+	down := live(23)
+	down.Status.State, down.Status.Reachable, down.Status.NextRotationMap = "unreachable", false, "NorthAmerica"
+	if card := servercards.RenderCard(down, servercards.Card{Maps: maps}); len(images(card)) != 0 || strings.Contains(text(card), "Next:") {
+		t.Errorf("degraded: %v\n%s", images(card), text(card))
+	}
+
+	// The next map's name is the game's: escaped like every other.
+	odd := live(1)
+	odd.Status.NextRotationMap = "*North*_@everyone"
+	if got := text(servercards.RenderCard(odd, servercards.Card{})); !strings.Contains(got, "Next: \\*North\\*\\_@\u200beveryone") {
+		t.Errorf("escaped next map:\n%s", got)
+	}
+}
+
+// The image is part of the card: a map change edits the one message, and an unchanged map costs
+// no call.
+func TestMapChangeIsOneEdit(t *testing.T) {
+	r := newRig(t)
+	r.hub.set(func(f *fakeHub) {
+		f.games = map[string]*hubv1.GameSettings{"wardogs": {Maps: map[string]string{"Ozeti": ozetiImage, "Europe": europeImage}}}
+		f.servers[0].Status.RotationMap, f.servers[0].Status.NextRotationMap = "Europe", "Kavkazi"
+	})
+	if res := r.pass(t); res.Posted != 1 {
+		t.Fatalf("first pass posts: %+v", res)
+	}
+	r.discord.takeCalls()
+	if got := r.shown(t); !strings.Contains(got, "Next: Kavkazi") {
+		t.Errorf("card:\n%s", got)
+	}
+	if res := r.pass(t); res.Unchanged != 1 {
+		t.Errorf("same map: %+v", res)
+	}
+	if calls := r.discord.takeCalls(); len(calls) != 0 {
+		t.Errorf("an unchanged map costs nothing: %v", calls)
+	}
+	// The match ends: a level without an image in the next theatre.
+	r.hub.set(func(f *fakeHub) {
+		f.servers[0].Status.Map, f.servers[0].Status.RotationMap, f.servers[0].Status.NextRotationMap = "Bakurani", "Kavkazi", "Europe"
+		f.games["wardogs"].Maps["Kavkazi"] = "https://cdn.example/maps/kavkazi.jpg"
+	})
+	if res := r.pass(t); res.Edited != 1 {
+		t.Errorf("a map change is one edit: %+v", res)
+	}
+	if calls := r.discord.takeCalls(); len(calls) != 1 || !strings.HasPrefix(calls[0], "PATCH 100/messages/") {
+		t.Errorf("one edit of the same message: %v", calls)
+	}
+	cards := r.discord.cards(channel)
+	if len(cards) != 1 || !strings.Contains(string(cards[0].Components), "https://cdn.example/maps/kavkazi.jpg") || strings.Contains(string(cards[0].Components), ozetiImage) {
+		t.Errorf("the edited card carries the new image only: %s", cards[0].Components)
+	}
+	if got := r.shown(t); !strings.Contains(got, "Next: Europe") {
+		t.Errorf("edited card:\n%s", got)
+	}
+}
+
+// The fallback chain through a pass: a game with images gets its map_fallback for a map without
+// one, else the hub's placeholder; a game without images gets none, placeholder or not.
+func TestCardImageFallbacks(t *testing.T) {
+	r := newRig(t)
+	r.hub.set(func(f *fakeHub) {
+		f.games = map[string]*hubv1.GameSettings{"wardogs": {Maps: map[string]string{"Europe": europeImage}}}
+		f.servers[0].Status.Map, f.servers[0].Status.RotationMap = "Zestafona", "NorthAmerica"
+	})
+	r.pass(t)
+	shown := func() string { return string(r.discord.cards(channel)[0].Components) }
+	if got := shown(); !strings.Contains(got, `"url":"`+placeholder+`"`) || !strings.Contains(got, `"description":"Zestafona"`) {
+		t.Errorf("a map without an image gets the hub's placeholder: %s", got)
+	}
+	r.hub.set(func(f *fakeHub) { f.games["wardogs"].MapFallback = fallback })
+	if res := r.pass(t); res.Edited != 1 || !strings.Contains(shown(), fallback) || strings.Contains(shown(), placeholder) {
+		t.Errorf("the game's own fallback wins over the placeholder: %+v %s", res, shown())
+	}
+	r.hub.set(func(f *fakeHub) {
+		f.games = map[string]*hubv1.GameSettings{"wardogs": {Theme: &hubv1.GameTheme{BannerUrl: "/b.png"}}}
+	})
+	if res := r.pass(t); res.Edited != 1 || strings.Contains(shown(), "media") || strings.Contains(shown(), placeholder) {
+		t.Errorf("a game without map images shows none: %+v %s", res, shown())
+	}
+}
+
+func TestPlaceholderURL(t *testing.T) {
+	for in, want := range map[string]string{
+		"https://app.hiddentoken.com":  "https://app.hiddentoken.com/static/map-placeholder.png",
+		"https://app.hiddentoken.com/": "https://app.hiddentoken.com/static/map-placeholder.png",
+		"http://127.0.0.1:8080":        "", // Discord can't fetch from a hub that isn't public over https
+		"":                             "",
+		"https://":                     "",
+	} {
+		if got := servercards.PlaceholderURL(in); got != want {
+			t.Errorf("PlaceholderURL(%q) = %q, want %q", in, got, want)
+		}
 	}
 }

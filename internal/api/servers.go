@@ -157,6 +157,7 @@ func (s *ServerServer) server(srv servers.Server) *hubv1.Server {
 			st.Map, st.Experiences, st.Lighting = x.Map, x.Experiences, x.Lighting
 			st.ScoreTick = int32(x.ScoreTick)                                                           //nolint:gosec // a small period
 			st.RotationIndex, st.NextRotationIndex = int32(x.RotationIndex), int32(x.NextRotationIndex) //nolint:gosec // rotation positions
+			st.RotationMap, st.NextRotationMap = x.RotationMap, x.NextRotationMap
 			for _, t := range x.Teams {
 				st.Teams = append(st.Teams, &hubv1.TeamScore{Name: t.Name, Color: t.Color, Score: t.Score})
 			}

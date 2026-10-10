@@ -46,7 +46,18 @@ type Driver struct {
 
 	mu   sync.Mutex
 	last *wardogs.Capabilities // the previous read, to log a route diff when it changes
+	// rotation is the rotation's maps by index, read at most once a RotationTTL: the status names
+	// only the positions, and the rotation changes at a match end or a config apply. Its own
+	// lock, held across the read, so a slow read never holds up a capabilities read.
+	rotMu       sync.Mutex
+	rotation    map[int]string
+	rotationAt  time.Time
+	rotationErr bool // the last read failed; logged once until one succeeds
+	now         func() time.Time
 }
+
+// RotationTTL is how long the driver keeps the rotation's maps before reading them again.
+const RotationTTL = time.Minute
 
 var _ drivers.ExternalReachable = (*Driver)(nil)
 
@@ -66,7 +77,7 @@ func New(t drivers.Target) (drivers.ExternalReachable, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Driver{c: c, logger: logger}, nil
+	return &Driver{c: c, logger: logger, now: time.Now}, nil
 }
 
 // Build reads the public capabilities, which name the build, and keeps them for the calls.
@@ -139,7 +150,42 @@ func (d *Driver) Status(ctx context.Context) (drivers.Status, error) {
 	for _, f := range s.Factions {
 		out.Teams = append(out.Teams, drivers.TeamScore{Name: f.Name, Color: f.ColorHex, Score: f.Score})
 	}
+	maps := d.rotationMaps(ctx)
+	out.RotationMap, out.NextRotationMap = maps[s.Rotation.NowIndex], maps[s.Rotation.NextIndex]
 	return out, nil
+}
+
+// rotationMaps is the rotation's map names by index, read again once RotationTTL has passed. A
+// build without the route, or a failed read, leaves the names out of the status and never fails
+// it: the status is what matters, and the next read is a minute away.
+func (d *Driver) rotationMaps(ctx context.Context) map[int]string {
+	d.rotMu.Lock()
+	defer d.rotMu.Unlock()
+	if !d.rotationAt.IsZero() && d.now().Sub(d.rotationAt) < RotationTTL {
+		return d.rotation
+	}
+	d.rotationAt = d.now()
+	r, err := d.c.Rotation(ctx)
+	switch {
+	case errors.Is(err, wardogs.ErrNotSupported):
+		d.rotation = nil
+		return nil
+	case err != nil:
+		if !d.rotationErr {
+			d.logger.Warn("war dogs rotation unreadable; the status goes without its map names", "error", err.Error())
+		}
+		d.rotationErr = true
+		return d.rotation // the last good read, if any: a rotation rarely changes
+	}
+	if d.rotationErr {
+		d.logger.Info("war dogs rotation readable again")
+	}
+	d.rotationErr = false
+	d.rotation = make(map[int]string, len(r.Entries))
+	for _, e := range r.Entries {
+		d.rotation[e.Index] = e.Map
+	}
+	return d.rotation
 }
 
 // Players are the connected players, keyed by SteamID64.

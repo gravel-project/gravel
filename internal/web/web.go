@@ -114,6 +114,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /account/unlink", h.unlink)
 	mux.HandleFunc("POST /account/claim", h.claim)
 	mux.HandleFunc("GET /theme.css", h.themeStylesheet)
+	mux.HandleFunc("GET "+MapPlaceholderPath, mapPlaceholderImage)
 	mux.HandleFunc("GET /static/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "public, max-age=3600")
 		h.static.ServeHTTP(w, r)

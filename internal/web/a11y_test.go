@@ -80,7 +80,7 @@ func TestAccessibility(t *testing.T) {
 			return templates.Server(templates.ServerPage{Page: p, Server: online, ObservedAt: &now, Teams: []templates.Team{{Name: "Lonestar", Score: 412}, {Name: "Boreal", Score: 388}},
 				Players:  []templates.PlayerRow{{Name: "Jo", Team: "Lonestar", Kills: 7, Deaths: 2, PingMs: 41, Member: true}, {Name: "Stranger", Team: "Boreal", Kills: 1, Deaths: 5, PingMs: 90}},
 				Matches:  []templates.MatchRow{{Started: now, Map: "Ozeti", Players: 24, Kills: 310}, {Started: now, Ended: &ended, Map: "Bakurani", Players: 31, Kills: 402}},
-				BoardURL: "/boards?scope=server%3Ahtg-wardogs-1"})
+				BoardURL: "/boards?scope=server%3Ahtg-wardogs-1", NextMap: "NorthAmerica"})
 		},
 		"/fixture/server-anonymous": func() templ.Component {
 			p := base

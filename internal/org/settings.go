@@ -38,11 +38,17 @@ type Settings struct {
 
 // GameSettings are one game's settings: its overlay on the theme and its links, on the game's
 // pages (a server of the game, its moderation pages, a board scoped to the game or one of its
-// servers). The site's header and footer keep the organization's theme.
+// servers), and its map images. The site's header and footer keep the organization's theme.
 type GameSettings struct {
 	Theme GameTheme `json:"theme,omitzero" yaml:"theme,omitempty"`
 	// Nav are links in the game's own navigation on its pages; Placement must be empty.
 	Nav []NavLink `json:"nav,omitempty" yaml:"nav,omitempty"`
+	// Maps are image URLs by map name, as the game names a map in play or in its rotation (War
+	// Dogs: a level, "Ozeti", or a theatre, "Europe"): the server card's picture (#97).
+	Maps map[string]string `json:"maps,omitempty" yaml:"maps,omitempty"`
+	// MapFallback is the image for a map Maps doesn't name (https). Empty is gravel's generic
+	// placeholder, served by the hub, once the game has map images at all.
+	MapFallback string `json:"map_fallback,omitempty" yaml:"map_fallback,omitempty"`
 }
 
 // GameTheme is a game's overlay: its accent in each scheme and a banner. Only the accent of
@@ -56,7 +62,9 @@ type GameTheme struct {
 }
 
 // IsZero reports whether the game sets nothing.
-func (g GameSettings) IsZero() bool { return g.Theme == GameTheme{} && len(g.Nav) == 0 }
+func (g GameSettings) IsZero() bool {
+	return g.Theme == GameTheme{} && len(g.Nav) == 0 && len(g.Maps) == 0 && g.MapFallback == ""
+}
 
 // Stats is how the stats boards behave (ADR-0012). Zero values are the defaults: boards for the
 // owner only, K/D from 3 matches, weeks and seasons in UTC, no named season, raw rows kept 13
@@ -265,6 +273,9 @@ const (
 	MaxGames     = 20
 	MaxGameNav   = 6
 	MaxBannerAlt = 120
+	// MaxGameMaps bounds a game's map images, MaxMapName a map's name.
+	MaxGameMaps = 50
+	MaxMapName  = 64
 )
 
 // ErrInvalidSettings wraps every validation failure; the message says which field and why.
@@ -367,6 +378,21 @@ func validateGames(games map[string]GameSettings, bad func(string, ...any)) {
 			if l.Placement != "" {
 				bad("%s.placement: a game's links are shown on its pages; leave placement out", f)
 			}
+		}
+		if len(g.Maps) > MaxGameMaps {
+			bad("%s.maps: %d maps, at most %d", field, len(g.Maps), MaxGameMaps)
+		}
+		for _, name := range slices.Sorted(maps.Keys(g.Maps)) {
+			if strings.TrimSpace(name) != name || name == "" || utf8.RuneCountInString(name) > MaxMapName || strings.ContainsFunc(name, unicode.IsControl) {
+				bad("%s.maps: %q is not a map name (as the game spells it, at most %d characters)", field, name, MaxMapName)
+				continue
+			}
+			if !imageURLOK(g.Maps[name]) {
+				bad("%s.maps.%s: %q must be an https URL", field, name, g.Maps[name])
+			}
+		}
+		if g.MapFallback != "" && !imageURLOK(g.MapFallback) {
+			bad("%s.map_fallback: %q must be an https URL", field, g.MapFallback)
 		}
 	}
 }
@@ -528,6 +554,13 @@ func assetURLOK(u string) bool {
 	return err == nil && p.Scheme == "https" && p.Host != ""
 }
 
+// imageURLOK is an image Discord fetches itself (a server card's), so a site-relative path can't
+// work: https only.
+func imageURLOK(u string) bool {
+	p, err := url.Parse(u)
+	return err == nil && p.Scheme == "https" && p.Host != "" && len(u) <= MaxURLLength
+}
+
 func navURLOK(u string) bool {
 	if len(u) > maxNavURLLength {
 		return false
@@ -580,6 +613,9 @@ func (s Settings) Normalized() Settings {
 			}
 			if len(g.Nav) == 0 {
 				g.Nav = nil
+			}
+			if len(g.Maps) == 0 {
+				g.Maps = nil
 			}
 			games[id] = g
 		}

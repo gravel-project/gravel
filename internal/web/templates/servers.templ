@@ -79,6 +79,9 @@ templ serverBody(p ServerPage) {
 		}
 	</p>
 	@StateLine(p.Server)
+	if p.NextMap != "" && p.Server.Online() {
+		<p>Next map: { p.NextMap }</p>
+	}
 	if p.ObservedAt != nil {
 		<p class="muted">As of { at(*p.ObservedAt) }</p>
 	}

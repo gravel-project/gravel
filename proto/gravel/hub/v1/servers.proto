@@ -88,6 +88,10 @@ message ServerStatus {
   // The map rotation's position; -1 when unknown.
   int32 rotation_index = 13;
   int32 next_rotation_index = 14;
+  // The rotation's current and next map as the game names them in its rotation and catalog (War
+  // Dogs: the theatre, "Europe", where map is the level in play); empty when unknown.
+  string rotation_map = 15;
+  string next_rotation_map = 16;
 }
 
 // Server is a server a driver controls (ManagedServer), as the public sees it: never its control

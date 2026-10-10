@@ -532,7 +532,13 @@ type GameSettings struct {
 	Theme *GameTheme             `protobuf:"bytes,1,opt,name=theme,proto3" json:"theme,omitempty"`
 	// Links shown on the game's pages, in the game's own navigation; at most 6. placement is
 	// unused and must be empty.
-	Nav           []*NavLink `protobuf:"bytes,2,rep,name=nav,proto3" json:"nav,omitempty"`
+	Nav []*NavLink `protobuf:"bytes,2,rep,name=nav,proto3" json:"nav,omitempty"`
+	// Image URLs (https) by map name as the game names it, a map in play or in its rotation
+	// (War Dogs: "Ozeti", "Europe"): the server card's picture. At most 50.
+	Maps map[string]string `protobuf:"bytes,3,rep,name=maps,proto3" json:"maps,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// The image (https) for a map maps doesn't name; empty is gravel's generic placeholder, served
+	// by the hub, once the game has map images at all (maps or map_fallback set).
+	MapFallback   string `protobuf:"bytes,4,opt,name=map_fallback,json=mapFallback,proto3" json:"map_fallback,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -579,6 +585,20 @@ func (x *GameSettings) GetNav() []*NavLink {
 		return x.Nav
 	}
 	return nil
+}
+
+func (x *GameSettings) GetMaps() map[string]string {
+	if x != nil {
+		return x.Maps
+	}
+	return nil
+}
+
+func (x *GameSettings) GetMapFallback() string {
+	if x != nil {
+		return x.MapFallback
+	}
+	return ""
 }
 
 // GameTheme is a game's overlay on the organization's theme, applied to the game's pages: a
@@ -1378,10 +1398,15 @@ const file_gravel_hub_v1_organization_proto_rawDesc = "" +
 	"\x05label\x18\x01 \x01(\tR\x05label\x12\x10\n" +
 	"\x03url\x18\x02 \x01(\tR\x03url\x12\x1c\n" +
 	"\tplacement\x18\x03 \x01(\tR\tplacement\x12\x12\n" +
-	"\x04role\x18\x04 \x01(\tR\x04role\"h\n" +
+	"\x04role\x18\x04 \x01(\tR\x04role\"\xff\x01\n" +
 	"\fGameSettings\x12.\n" +
 	"\x05theme\x18\x01 \x01(\v2\x18.gravel.hub.v1.GameThemeR\x05theme\x12(\n" +
-	"\x03nav\x18\x02 \x03(\v2\x16.gravel.hub.v1.NavLinkR\x03nav\"\xab\x01\n" +
+	"\x03nav\x18\x02 \x03(\v2\x16.gravel.hub.v1.NavLinkR\x03nav\x129\n" +
+	"\x04maps\x18\x03 \x03(\v2%.gravel.hub.v1.GameSettings.MapsEntryR\x04maps\x12!\n" +
+	"\fmap_fallback\x18\x04 \x01(\tR\vmapFallback\x1a7\n" +
+	"\tMapsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xab\x01\n" +
 	"\tGameTheme\x120\n" +
 	"\x05light\x18\x01 \x01(\v2\x1a.gravel.hub.v1.ThemeTokensR\x05light\x12.\n" +
 	"\x04dark\x18\x02 \x01(\v2\x1a.gravel.hub.v1.ThemeTokensR\x04dark\x12\x1d\n" +
@@ -1459,7 +1484,7 @@ func file_gravel_hub_v1_organization_proto_rawDescGZIP() []byte {
 	return file_gravel_hub_v1_organization_proto_rawDescData
 }
 
-var file_gravel_hub_v1_organization_proto_msgTypes = make([]protoimpl.MessageInfo, 23)
+var file_gravel_hub_v1_organization_proto_msgTypes = make([]protoimpl.MessageInfo, 24)
 var file_gravel_hub_v1_organization_proto_goTypes = []any{
 	(*Organization)(nil),                       // 0: gravel.hub.v1.Organization
 	(*GetOrganizationRequest)(nil),             // 1: gravel.hub.v1.GetOrganizationRequest
@@ -1482,49 +1507,51 @@ var file_gravel_hub_v1_organization_proto_goTypes = []any{
 	(*GetOrganizationSettingsResponse)(nil),    // 18: gravel.hub.v1.GetOrganizationSettingsResponse
 	(*UpdateOrganizationSettingsRequest)(nil),  // 19: gravel.hub.v1.UpdateOrganizationSettingsRequest
 	(*UpdateOrganizationSettingsResponse)(nil), // 20: gravel.hub.v1.UpdateOrganizationSettingsResponse
-	nil,                           // 21: gravel.hub.v1.DiscordRoles.ProvidersEntry
-	nil,                           // 22: gravel.hub.v1.OrganizationSettings.GamesEntry
-	(*timestamppb.Timestamp)(nil), // 23: google.protobuf.Timestamp
+	nil,                           // 21: gravel.hub.v1.GameSettings.MapsEntry
+	nil,                           // 22: gravel.hub.v1.DiscordRoles.ProvidersEntry
+	nil,                           // 23: gravel.hub.v1.OrganizationSettings.GamesEntry
+	(*timestamppb.Timestamp)(nil), // 24: google.protobuf.Timestamp
 }
 var file_gravel_hub_v1_organization_proto_depIdxs = []int32{
-	23, // 0: gravel.hub.v1.Organization.created_at:type_name -> google.protobuf.Timestamp
-	23, // 1: gravel.hub.v1.Organization.claimed_at:type_name -> google.protobuf.Timestamp
+	24, // 0: gravel.hub.v1.Organization.created_at:type_name -> google.protobuf.Timestamp
+	24, // 1: gravel.hub.v1.Organization.claimed_at:type_name -> google.protobuf.Timestamp
 	0,  // 2: gravel.hub.v1.GetOrganizationResponse.organization:type_name -> gravel.hub.v1.Organization
 	0,  // 3: gravel.hub.v1.ClaimOwnershipResponse.organization:type_name -> gravel.hub.v1.Organization
 	5,  // 4: gravel.hub.v1.Theme.light:type_name -> gravel.hub.v1.ThemeTokens
 	5,  // 5: gravel.hub.v1.Theme.dark:type_name -> gravel.hub.v1.ThemeTokens
 	9,  // 6: gravel.hub.v1.GameSettings.theme:type_name -> gravel.hub.v1.GameTheme
 	7,  // 7: gravel.hub.v1.GameSettings.nav:type_name -> gravel.hub.v1.NavLink
-	5,  // 8: gravel.hub.v1.GameTheme.light:type_name -> gravel.hub.v1.ThemeTokens
-	5,  // 9: gravel.hub.v1.GameTheme.dark:type_name -> gravel.hub.v1.ThemeTokens
-	21, // 10: gravel.hub.v1.DiscordRoles.providers:type_name -> gravel.hub.v1.DiscordRoles.ProvidersEntry
-	10, // 11: gravel.hub.v1.DiscordSettings.roles:type_name -> gravel.hub.v1.DiscordRoles
-	11, // 12: gravel.hub.v1.DiscordSettings.recognition:type_name -> gravel.hub.v1.DiscordRecognition
-	12, // 13: gravel.hub.v1.DiscordSettings.server_cards:type_name -> gravel.hub.v1.DiscordServerCard
-	14, // 14: gravel.hub.v1.StatsSettings.seasons:type_name -> gravel.hub.v1.StatsSeason
-	6,  // 15: gravel.hub.v1.OrganizationSettings.theme:type_name -> gravel.hub.v1.Theme
-	7,  // 16: gravel.hub.v1.OrganizationSettings.nav:type_name -> gravel.hub.v1.NavLink
-	23, // 17: gravel.hub.v1.OrganizationSettings.updated_at:type_name -> google.protobuf.Timestamp
-	13, // 18: gravel.hub.v1.OrganizationSettings.discord:type_name -> gravel.hub.v1.DiscordSettings
-	15, // 19: gravel.hub.v1.OrganizationSettings.stats:type_name -> gravel.hub.v1.StatsSettings
-	22, // 20: gravel.hub.v1.OrganizationSettings.games:type_name -> gravel.hub.v1.OrganizationSettings.GamesEntry
-	16, // 21: gravel.hub.v1.GetOrganizationSettingsResponse.settings:type_name -> gravel.hub.v1.OrganizationSettings
-	16, // 22: gravel.hub.v1.UpdateOrganizationSettingsRequest.settings:type_name -> gravel.hub.v1.OrganizationSettings
-	16, // 23: gravel.hub.v1.UpdateOrganizationSettingsResponse.settings:type_name -> gravel.hub.v1.OrganizationSettings
-	8,  // 24: gravel.hub.v1.OrganizationSettings.GamesEntry.value:type_name -> gravel.hub.v1.GameSettings
-	1,  // 25: gravel.hub.v1.OrganizationService.GetOrganization:input_type -> gravel.hub.v1.GetOrganizationRequest
-	3,  // 26: gravel.hub.v1.OrganizationService.ClaimOwnership:input_type -> gravel.hub.v1.ClaimOwnershipRequest
-	17, // 27: gravel.hub.v1.OrganizationService.GetOrganizationSettings:input_type -> gravel.hub.v1.GetOrganizationSettingsRequest
-	19, // 28: gravel.hub.v1.OrganizationService.UpdateOrganizationSettings:input_type -> gravel.hub.v1.UpdateOrganizationSettingsRequest
-	2,  // 29: gravel.hub.v1.OrganizationService.GetOrganization:output_type -> gravel.hub.v1.GetOrganizationResponse
-	4,  // 30: gravel.hub.v1.OrganizationService.ClaimOwnership:output_type -> gravel.hub.v1.ClaimOwnershipResponse
-	18, // 31: gravel.hub.v1.OrganizationService.GetOrganizationSettings:output_type -> gravel.hub.v1.GetOrganizationSettingsResponse
-	20, // 32: gravel.hub.v1.OrganizationService.UpdateOrganizationSettings:output_type -> gravel.hub.v1.UpdateOrganizationSettingsResponse
-	29, // [29:33] is the sub-list for method output_type
-	25, // [25:29] is the sub-list for method input_type
-	25, // [25:25] is the sub-list for extension type_name
-	25, // [25:25] is the sub-list for extension extendee
-	0,  // [0:25] is the sub-list for field type_name
+	21, // 8: gravel.hub.v1.GameSettings.maps:type_name -> gravel.hub.v1.GameSettings.MapsEntry
+	5,  // 9: gravel.hub.v1.GameTheme.light:type_name -> gravel.hub.v1.ThemeTokens
+	5,  // 10: gravel.hub.v1.GameTheme.dark:type_name -> gravel.hub.v1.ThemeTokens
+	22, // 11: gravel.hub.v1.DiscordRoles.providers:type_name -> gravel.hub.v1.DiscordRoles.ProvidersEntry
+	10, // 12: gravel.hub.v1.DiscordSettings.roles:type_name -> gravel.hub.v1.DiscordRoles
+	11, // 13: gravel.hub.v1.DiscordSettings.recognition:type_name -> gravel.hub.v1.DiscordRecognition
+	12, // 14: gravel.hub.v1.DiscordSettings.server_cards:type_name -> gravel.hub.v1.DiscordServerCard
+	14, // 15: gravel.hub.v1.StatsSettings.seasons:type_name -> gravel.hub.v1.StatsSeason
+	6,  // 16: gravel.hub.v1.OrganizationSettings.theme:type_name -> gravel.hub.v1.Theme
+	7,  // 17: gravel.hub.v1.OrganizationSettings.nav:type_name -> gravel.hub.v1.NavLink
+	24, // 18: gravel.hub.v1.OrganizationSettings.updated_at:type_name -> google.protobuf.Timestamp
+	13, // 19: gravel.hub.v1.OrganizationSettings.discord:type_name -> gravel.hub.v1.DiscordSettings
+	15, // 20: gravel.hub.v1.OrganizationSettings.stats:type_name -> gravel.hub.v1.StatsSettings
+	23, // 21: gravel.hub.v1.OrganizationSettings.games:type_name -> gravel.hub.v1.OrganizationSettings.GamesEntry
+	16, // 22: gravel.hub.v1.GetOrganizationSettingsResponse.settings:type_name -> gravel.hub.v1.OrganizationSettings
+	16, // 23: gravel.hub.v1.UpdateOrganizationSettingsRequest.settings:type_name -> gravel.hub.v1.OrganizationSettings
+	16, // 24: gravel.hub.v1.UpdateOrganizationSettingsResponse.settings:type_name -> gravel.hub.v1.OrganizationSettings
+	8,  // 25: gravel.hub.v1.OrganizationSettings.GamesEntry.value:type_name -> gravel.hub.v1.GameSettings
+	1,  // 26: gravel.hub.v1.OrganizationService.GetOrganization:input_type -> gravel.hub.v1.GetOrganizationRequest
+	3,  // 27: gravel.hub.v1.OrganizationService.ClaimOwnership:input_type -> gravel.hub.v1.ClaimOwnershipRequest
+	17, // 28: gravel.hub.v1.OrganizationService.GetOrganizationSettings:input_type -> gravel.hub.v1.GetOrganizationSettingsRequest
+	19, // 29: gravel.hub.v1.OrganizationService.UpdateOrganizationSettings:input_type -> gravel.hub.v1.UpdateOrganizationSettingsRequest
+	2,  // 30: gravel.hub.v1.OrganizationService.GetOrganization:output_type -> gravel.hub.v1.GetOrganizationResponse
+	4,  // 31: gravel.hub.v1.OrganizationService.ClaimOwnership:output_type -> gravel.hub.v1.ClaimOwnershipResponse
+	18, // 32: gravel.hub.v1.OrganizationService.GetOrganizationSettings:output_type -> gravel.hub.v1.GetOrganizationSettingsResponse
+	20, // 33: gravel.hub.v1.OrganizationService.UpdateOrganizationSettings:output_type -> gravel.hub.v1.UpdateOrganizationSettingsResponse
+	30, // [30:34] is the sub-list for method output_type
+	26, // [26:30] is the sub-list for method input_type
+	26, // [26:26] is the sub-list for extension type_name
+	26, // [26:26] is the sub-list for extension extendee
+	0,  // [0:26] is the sub-list for field type_name
 }
 
 func init() { file_gravel_hub_v1_organization_proto_init() }
@@ -1538,7 +1565,7 @@ func file_gravel_hub_v1_organization_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gravel_hub_v1_organization_proto_rawDesc), len(file_gravel_hub_v1_organization_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   23,
+			NumMessages:   24,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
