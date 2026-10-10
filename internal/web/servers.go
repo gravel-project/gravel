@@ -72,6 +72,20 @@ func (h *Handler) gamesAndServers(r *http.Request) (map[string]*hubv1.Game, []*h
 	return games, ss.Msg.GetServers(), nil
 }
 
+// gameName is a game's display name through ListGames, or its id when the hub doesn't list it.
+func (h *Handler) gameName(r *http.Request, id string) string {
+	ctx, _ := withBrowser(r)
+	gs, err := h.serverAPI.ListGames(ctx, connect.NewRequest(&hubv1.ListGamesRequest{}))
+	if err == nil {
+		for _, g := range gs.Msg.GetGames() {
+			if g.GetId() == id {
+				return g.GetName()
+			}
+		}
+	}
+	return id
+}
+
 func (h *Handler) servers(w http.ResponseWriter, r *http.Request) {
 	p, b, err := h.page(r, "Servers")
 	if err != nil {
@@ -114,7 +128,9 @@ func (h *Handler) server(w http.ResponseWriter, r *http.Request) {
 		h.serverError(w, r, err)
 		return
 	}
-	sp := templates.ServerPage{Page: p.Page, Server: serverRow(s, games), Build: s.GetStatus().GetBuild(),
+	row := serverRow(s, games)
+	withGame(&p.Page, s.GetGameId(), row.Game)
+	sp := templates.ServerPage{Page: p.Page, Server: row, Build: s.GetStatus().GetBuild(),
 		BoardURL: "/boards?scope=" + url.QueryEscape("server:"+s.GetId())}
 	if t := s.GetStatus().GetObservedAt(); t != nil {
 		at := t.AsTime()
@@ -241,6 +257,7 @@ func (h *Handler) boards(w http.ResponseWriter, r *http.Request) {
 		}
 		req.GameId, bp.Heading = id, g.GetName()+" leaderboard"
 		columns = layoutOf(g, columns)
+		withGame(&bp.Page, id, g.GetName())
 	case "server":
 		i := slices.IndexFunc(list, func(s *hubv1.Server) bool { return s.GetId() == id })
 		if i < 0 {
@@ -249,6 +266,7 @@ func (h *Handler) boards(w http.ResponseWriter, r *http.Request) {
 		}
 		req.ServerId, bp.Heading = id, list[i].GetName()+" leaderboard"
 		columns = layoutOf(games[list[i].GetGameId()], columns)
+		withGame(&bp.Page, list[i].GetGameId(), serverRow(list[i], games).Game)
 	default:
 		h.fail(w, r, http.StatusNotFound, "No such board", "That is not a board this hub has.")
 		return

@@ -1,12 +1,15 @@
 package web
 
 import (
+	"cmp"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"maps"
 	"net/http"
 	"regexp"
+	"slices"
 	"strings"
 
 	"connectrpc.com/connect"
@@ -51,6 +54,17 @@ func (t apiTheme) Theme(ctx context.Context) (templates.Theme, error) {
 	for _, l := range set.GetNav() {
 		theme.Nav = append(theme.Nav, templates.NavLink{Label: l.GetLabel(), URL: l.GetUrl(), Placement: l.GetPlacement(), Role: l.GetRole()})
 	}
+	for id, g := range set.GetGames() {
+		if theme.Games == nil {
+			theme.Games = map[string]templates.GameTheme{}
+		}
+		gt := templates.GameTheme{LightAccent: g.GetTheme().GetLight().GetAccent(), DarkAccent: g.GetTheme().GetDark().GetAccent(),
+			BannerURL: g.GetTheme().GetBannerUrl(), BannerAlt: g.GetTheme().GetBannerAlt()}
+		for _, l := range g.GetNav() {
+			gt.Nav = append(gt.Nav, templates.NavLink{Label: l.GetLabel(), URL: l.GetUrl(), Role: l.GetRole()})
+		}
+		theme.Games[id] = gt
+	}
 	return theme, nil
 }
 
@@ -65,6 +79,8 @@ func DefaultTheme() templates.Theme {
 }
 
 var (
+	// gameID is a game's id as the Game specs spell it, safe inside a CSS attribute selector.
+	gameID   = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,62}$`)
 	cssColor = regexp.MustCompile(`^(#[0-9a-fA-F]{3}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{8}|[a-zA-Z]{3,20}|rgba?\([0-9.,% ]+\)|hsla?\([0-9.,% deg]+\))$`)
 	cssFont  = regexp.MustCompile(`^[A-Za-z0-9 ,'"-]{1,120}$`)
 )
@@ -81,6 +97,27 @@ func normalizeTheme(t templates.Theme) templates.Theme {
 	}
 	t.LogoURL = safeAssetURL(t.LogoURL)
 	t.FaviconURL = safeAssetURL(t.FaviconURL)
+	games := map[string]templates.GameTheme{}
+	for id, g := range t.Games {
+		if !gameID.MatchString(id) {
+			continue
+		}
+		if !cssColor.MatchString(g.LightAccent) {
+			g.LightAccent = ""
+		}
+		if !cssColor.MatchString(g.DarkAccent) {
+			g.DarkAccent = ""
+		}
+		g.BannerURL = safeAssetURL(g.BannerURL)
+		if g.BannerURL == "" {
+			g.BannerAlt = ""
+		}
+		games[id] = g
+	}
+	t.Games = nil
+	if len(games) > 0 {
+		t.Games = games
+	}
 	return t
 }
 
@@ -110,7 +147,19 @@ func themeCSS(t templates.Theme) string {
 	block := func(k templates.Tokens) string {
 		return fmt.Sprintf("--accent:%s;--bg:%s;--fg:%s;--muted:%s;--line:%s;--ok:%s;--err:%s", k.Accent, k.Background, k.Foreground, k.Muted, k.Line, k.OK, k.Err)
 	}
-	return fmt.Sprintf(":root{color-scheme:light dark;--font:%s;%s}\n@media (prefers-color-scheme: dark){:root{%s}}\n", t.Font, block(t.Light), block(t.Dark))
+	css := fmt.Sprintf(":root{color-scheme:light dark;--font:%s;%s}\n@media (prefers-color-scheme: dark){:root{%s}}\n", t.Font, block(t.Light), block(t.Dark))
+	// A game's overlay: its accent inside the game's pages' content (data-game). Both schemes
+	// always get a rule, the organization's accent standing in for one the game leaves empty,
+	// so a light-only overlay never shows its light accent on the dark background.
+	for _, id := range slices.Sorted(maps.Keys(t.Games)) {
+		g := t.Games[id]
+		if g.LightAccent == "" && g.DarkAccent == "" {
+			continue
+		}
+		light, dark := cmp.Or(g.LightAccent, t.Light.Accent), cmp.Or(g.DarkAccent, t.Dark.Accent)
+		css += fmt.Sprintf("[data-game=%q]{--accent:%s}\n@media (prefers-color-scheme: dark){[data-game=%q]{--accent:%s}}\n", id, light, id, dark)
+	}
+	return css
 }
 
 // themeStylesheet serves /theme.css from the theme source, with an ETag so browsers revalidate

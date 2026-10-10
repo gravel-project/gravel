@@ -72,3 +72,26 @@ templ FlashView(f *Flash) {
 		<p class={ "flash", "flash-" + f.Kind } role="status">{ f.Text }</p>
 	}
 }
+
+// GameScope renders a game's page content inside its overlay (gravel#66): data-game, which
+// /theme.css gives the game's accent, then its banner and its links. Off a game's pages it is the
+// content alone. It sits in the content, not the layout, so an htmx swap of #page carries it.
+templ GameScope(g *Game) {
+	if g == nil {
+		{ children... }
+	} else {
+		<div class="game" data-game={ g.ID }>
+			if g.BannerURL != "" {
+				<img class="game-banner" src={ templ.URL(g.BannerURL) } alt={ g.BannerAlt }/>
+			}
+			if len(g.Nav) > 0 {
+				<nav class="game-nav" aria-label={ g.Name }>
+					for _, l := range g.Nav {
+						<a href={ templ.URL(l.URL) }>{ l.Label }</a>
+					}
+				</nav>
+			}
+			{ children... }
+		</div>
+	}
+}

@@ -576,6 +576,23 @@ func (h *Handler) page(r *http.Request, title string) (pageData, *browser, error
 	return p, b, nil
 }
 
+// withGame makes p one of a game's pages: its content renders inside the game's overlay (its
+// accent, banner and links, gravel#66), or plainly when the settings give the game none. name is
+// the game's display name, the label of its links' navigation.
+func withGame(p *templates.Page, id, name string) {
+	g := &templates.Game{ID: id, Name: name}
+	if o, ok := p.Theme.Games[id]; ok {
+		g.BannerURL, g.BannerAlt = o.BannerURL, o.BannerAlt
+		for _, l := range o.Nav {
+			if l.Role == "owner" && (p.User == nil || !p.User.Owner) {
+				continue
+			}
+			g.Nav = append(g.Nav, l)
+		}
+	}
+	p.Game = g
+}
+
 func (h *Handler) setFlash(w http.ResponseWriter, kind, text string) {
 	http.SetCookie(w, h.sess.Cookie(session.CookieFlash, kind+":"+url.QueryEscape(text), flashTTL))
 }

@@ -60,7 +60,7 @@ func newRig(t *testing.T) *rig {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	r := &rig{orgSt: &orgtest.FakeStore{}, idSt: identitytest.NewFakeStore(), appSt: appstest.NewFakeStore()}
-	r.org = org.New(r.orgSt, 15*time.Minute, logger)
+	r.org = org.New(r.orgSt, 15*time.Minute, logger).WithGames(servers.GameIDs()) // as the hub wires it
 	o, token, err := r.org.EnsureBuiltin(context.Background(), "Test")
 	if err != nil {
 		t.Fatal(err)

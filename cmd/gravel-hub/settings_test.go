@@ -91,6 +91,21 @@ func TestSettingsCheck(t *testing.T) {
 		t.Errorf("valid manifest: %d %q %q", code, out, errOut)
 	}
 
+	// The summary names the mod log and each game's overlay.
+	writeFile(t, manifest, "discord:\n  guild_id: \"519496143298756611\"\n  mod_log: \"1300000000000000200\"\n"+
+		"games:\n  wardogs:\n    theme:\n      dark: {accent: \"#f0b429\"}\n      banner_url: /b.png\n    nav:\n      - {label: Playbook, url: /p}\n  cs2:\n    nav:\n      - {label: Rules, url: /r}\n")
+	if code, out, errOut := run("settings", "check", manifest); code != 0 ||
+		out != "settings valid (0 nav links, theme default, discord guild 519496143298756611, 0 roles, mod log, games cs2 (1 links), wardogs (accent, banner, 1 links))\n" || errOut != "" {
+		t.Errorf("games and the mod log: %d %q %q", code, out, errOut)
+	}
+
+	// A game or a season's game this hub doesn't ship is refused offline too.
+	writeFile(t, manifest, "games:\n  wardog:\n    nav:\n      - {label: x, url: /x}\nstats:\n  seasons:\n    - {name: S2, game: war-dogs, from: \"2026-10-15\", to: \"2027-01-15\"}\n")
+	if code, out, errOut := run("settings", "check", manifest); code != 1 || out != "" ||
+		!strings.Contains(errOut, `games: "wardog" is not a game this hub ships`) || !strings.Contains(errOut, `stats.seasons[0].game: "war-dogs"`) {
+		t.Errorf("unknown games: %d %q %q", code, out, errOut)
+	}
+
 	writeFile(t, manifest, "theme:\n  dark:\n    acent: \"#3ee07a\"\n")
 	if code, out, errOut := run("settings", "check", manifest); code != 1 || out != "" || !strings.Contains(errOut, "field acent not found") {
 		t.Errorf("a typo'd key is named: %d %q %q", code, out, errOut)

@@ -100,7 +100,7 @@ Public listener (`server.listen`), HTTP/1.1 and unencrypted HTTP/2 so gRPC works
 |---|---|
 | `/gravel.hub.v1.OrganizationService/GetOrganization` | Connect procedure; POST JSON `{}` or call it over gRPC / gRPC-Web |
 | `/gravel.hub.v1.OrganizationService/ClaimOwnership` | Connect procedure; `{"token": "…"}`; needs a session, binds the caller as owner |
-| `/gravel.hub.v1.OrganizationService/GetOrganizationSettings` | the Organization settings (theme, navigation); public |
+| `/gravel.hub.v1.OrganizationService/GetOrganizationSettings` | the Organization settings (theme, navigation, the Discord mapping, stats, the games' overlays); public |
 | `/gravel.hub.v1.OrganizationService/UpdateOrganizationSettings` | replace them; the owner only; `invalid_argument` names every invalid field |
 | `/gravel.hub.v1.IdentityService/GetMe` | the caller and their linked identities; needs a session |
 | `/gravel.hub.v1.IdentityService/UnlinkIdentity` | `{"provider": "steam", "subject": "…"}`; the last identity is refused (`failed_precondition`) |
@@ -165,8 +165,8 @@ grpcurl -plaintext 127.0.0.1:8080 gravel.hub.v1.OrganizationService/GetOrganizat
 ## Organization settings (ADR-0007)
 
 Every host-configurable knob is one document on the organization: the theme (tokens for the
-light and dark schemes, the font, a logo, a favicon), the navigation links and the Discord role
-mapping now; token lifetimes and layout overrides later. Zero values mean the default. The pages
+light and dark schemes, the font, a logo, a favicon), the navigation links, the Discord role
+mapping, the stats boards and each game's overlay now; token lifetimes and layout overrides later. Zero values mean the default. The pages
 read it through the API; the owner writes it through `UpdateOrganizationSettings`, or a
 deployment commits a manifest and applies it:
 
@@ -221,6 +221,19 @@ stats:                       # the boards ([Stats](#stats-adr-0012))
       game: wardogs          # optional: one game's matches
       from: "2026-10-15"     # included
       to: "2027-01-15"       # excluded
+games:                       # a game's overlay on its pages, by game id; at most 20 ([Game overlays](#game-overlays-gravel66))
+  wardogs:
+    theme:
+      light: {accent: "#8a5a00"}   # only the accent; omit a scheme to keep the organization's
+      dark: {accent: "#f0b429"}
+      banner_url: https://example.com/brand/wardogs-banner.png   # https or site-relative
+      banner_alt: War Dogs   # one line, at most 120; omit when the banner is decorative
+    nav:                     # the game's own links on its pages; at most 6; no placement
+      - label: Playbook
+        url: https://example.com/wardogs/
+      - label: Server config
+        url: /servers/htg-wardogs-1
+        role: owner
 ```
 
 ```sh
@@ -243,13 +256,37 @@ its path, such as `theme.dark.accent`), 2 on a usage error.
 
 ```sh
 podman run --rm -v ./hub/organization.yaml:/m.yaml:ro,Z ghcr.io/gravel-project/gravel-hub:<version> settings check /m.yaml
-``` The default tokens meet WCAG AA contrast in both schemes; a host's tokens are
+```
+
+The default tokens meet WCAG AA contrast in both schemes; a host's tokens are
 the host's responsibility (`make a11y` checks the defaults only).
 
 The `discord` section holds ids, never a credential, and is as public as the rest. Ids are Discord
 snowflakes as quoted strings (YAML would read a bare one as a number); a role may be mapped once,
 never to the guild's own id (`@everyone`), and roles need a guild. The bot reads the section at
 every role-sync pass, so a mapping change is a manifest change and lands within one pass.
+
+### Game overlays (gravel#66)
+
+A game's pages carry its overlay: a server of the game (`/servers/{id}`), that server's moderation
+confirmation and log, and a board scoped to the game or one of its servers. The overlay wraps the
+page's content, under the site's header: the game's banner first, then its links in a navigation
+of their own (labelled with the game's name; owner-only links for the owner), then the page, with
+the game's accent on its links, buttons and badges. The header and footer keep the organization's
+theme, and every other page is untouched. The overlay is in the content, not the layout, so an
+htmx swap carries it in and out as a board's scope changes.
+
+Only the accent is overlaid. The overlay colours a region of the page, so a background or text
+colour there would paint a patch on the organization's background; the accent stays legible on
+it. `/theme.css` gives each game a rule for both schemes, the organization's accent standing in
+for a scheme the game leaves out, so a light-only overlay never shows its light accent on the dark
+background. As with the base theme, the accent's contrast is the host's to check: `make a11y`
+checks gravel's defaults and its fixtures only.
+
+A key under `games`, and a season's `game`, must be a game this hub ships (`wardogs`, `cs2`,
+`seaofthieves`, `starcitizen`, `pubg`): `apply`, `check` and `UpdateOrganizationSettings` refuse
+any other, so a typo can't theme nothing or count a season over no matches. A game that sets
+nothing is dropped from the document.
 
 ## Service credentials (ADR-0008)
 
@@ -566,7 +603,8 @@ is the API's to decide, and a page says so in words when it is refused.
 | `/boards?scope=&window=&metric=&page=` | a leaderboard: scope `` (everyone, Official servers), `game:<id>` or `server:<id>`; window `all`, `week`, `month` or `season:<name>`; ranked by any column of the game's `layout.board`, 50 a page | everyone when `stats.public` is on, else the owner ("Leaderboards are private…" otherwise) |
 
 The forms and links work without JavaScript; htmx swaps only the main content. On a narrow screen a
-board drops its last two columns.
+board drops its last two columns. A game's pages carry its overlay from the Organization settings
+([Game overlays](#game-overlays-gravel66)).
 
 **Caching.** Every board read is an aggregate, and a public board can be read by anyone as often as
 they like, while the numbers change only when someone plays. The hub caches each board answer in

@@ -69,6 +69,27 @@ message NavLink {
   string role = 4;
 }
 
+// GameSettings are one game's settings, keyed by the game's id ("wardogs") in
+// OrganizationSettings.games: its overlay on the theme and its links (gravel#66).
+message GameSettings {
+  GameTheme theme = 1;
+  // Links shown on the game's pages, in the game's own navigation; at most 6. placement is
+  // unused and must be empty.
+  repeated NavLink nav = 2;
+}
+
+// GameTheme is a game's overlay on the organization's theme, applied to the game's pages: a
+// server of the game, its moderation pages, and a board scoped to the game or one of its servers.
+message GameTheme {
+  // Only accent may be set; empty keeps the organization's.
+  ThemeTokens light = 1;
+  ThemeTokens dark = 2;
+  // An image at the top of the game's pages: an https URL or a site-relative path, or empty.
+  string banner_url = 3;
+  // The banner's alternative text; empty when the banner is decorative.
+  string banner_alt = 4;
+}
+
 // DiscordRoles are the roles that follow a member's linked identities; role sync adds and
 // removes them.
 message DiscordRoles {
@@ -142,6 +163,8 @@ message OrganizationSettings {
   google.protobuf.Timestamp updated_at = 4;
   DiscordSettings discord = 5;
   StatsSettings stats = 6;
+  // Per-game settings by game id; at most 20, each a game this hub ships.
+  map<string, GameSettings> games = 7;
 }
 
 message GetOrganizationSettingsRequest {}

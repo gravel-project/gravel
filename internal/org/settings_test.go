@@ -296,3 +296,160 @@ func TestSettingsValidateStats(t *testing.T) {
 		t.Errorf("manifest: %+v", n.Stats)
 	}
 }
+
+func TestSettingsValidateGames(t *testing.T) {
+	good := Settings{Version: 1, Games: map[string]GameSettings{
+		"wardogs": {Theme: GameTheme{Light: Tokens{Accent: "#8a5a00"}, Dark: Tokens{Accent: "#f0b429"}, BannerURL: "https://hiddentoken.com/brand/wardogs.png", BannerAlt: "War Dogs"},
+			Nav: []NavLink{{Label: "Playbook", URL: "https://hiddentoken.com/wardogs/"}, {Label: "Config", URL: "/servers/htg-wardogs-1", Role: "owner"}}},
+		"cs2":  {Theme: GameTheme{Dark: Tokens{Accent: "orange"}}}, // one scheme only
+		"pubg": {Nav: []NavLink{{Label: "Squads", URL: "/boards?scope=game:pubg"}}},
+	}}
+	if err := good.Validate(); err != nil {
+		t.Fatalf("good games: %v", err)
+	}
+	var nav []NavLink
+	for range MaxGameNav + 1 {
+		nav = append(nav, NavLink{Label: "x", URL: "/x"})
+	}
+	bad := Settings{Version: 1, Games: map[string]GameSettings{
+		"War Dogs": {},
+		"wardogs": {Theme: GameTheme{Light: Tokens{Accent: "red; }", Background: "#fff"}, Dark: Tokens{Foreground: "#000"}, BannerURL: "http://insecure.example/b.png", BannerAlt: strings.Repeat("x", MaxBannerAlt+1)},
+			Nav: []NavLink{{Label: "", URL: "javascript:alert(1)", Placement: "footer", Role: "admin"}}},
+		"cs2":  {Nav: nav},
+		"pubg": {Theme: GameTheme{BannerAlt: "a banner nobody set"}},
+		"sot":  {Theme: GameTheme{BannerURL: "/b.png", BannerAlt: "two\nlines"}},
+	}}
+	err := bad.Validate()
+	if !errors.Is(err, ErrInvalidSettings) {
+		t.Fatalf("every failure wraps ErrInvalidSettings: %v", err)
+	}
+	for _, want := range []string{
+		`games: "War Dogs" is not a game id`,
+		"games.wardogs.theme.light.accent: \"red; }\" is not a plain CSS colour",
+		"games.wardogs.theme.light: a game overlays only the accent",
+		"games.wardogs.theme.dark: a game overlays only the accent",
+		"games.wardogs.theme.banner_url",
+		"games.wardogs.theme.banner_alt: one line of at most 120",
+		"games.wardogs.nav[0].label", "games.wardogs.nav[0].url", "games.wardogs.nav[0].role", "games.wardogs.nav[0].placement",
+		"games.cs2.nav: 7 links, at most 6",
+		"games.pubg.theme.banner_alt: set without a banner_url",
+		"games.sot.theme.banner_alt: one line",
+	} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("missing %q in:\n%v", want, err)
+		}
+	}
+	many := Settings{Version: 1, Games: map[string]GameSettings{}}
+	for i := range MaxGames + 1 {
+		many.Games[fmt.Sprintf("g%d", i)] = GameSettings{}
+	}
+	if err := many.Validate(); err == nil || !strings.Contains(err.Error(), "games: 21 games, at most 20") {
+		t.Errorf("too many games: %v", err)
+	}
+}
+
+func TestSettingsCheckGames(t *testing.T) {
+	known := []string{"cs2", "wardogs"}
+	ok := Settings{Version: 1, Games: map[string]GameSettings{"wardogs": {Theme: GameTheme{Dark: Tokens{Accent: "#f0b429"}}}},
+		Stats: Stats{Seasons: []Season{{Name: "S2", Game: "wardogs", From: "2026-10-15", To: "2027-01-15"}, {Name: "All", From: "2026-10-15", To: "2027-01-15"}}}}
+	if err := ok.CheckGames(known); err != nil {
+		t.Errorf("known games: %v", err)
+	}
+	if err := (Settings{}).CheckGames(known); err != nil {
+		t.Errorf("no games: %v", err)
+	}
+	bad := Settings{Version: 1, Games: map[string]GameSettings{"wardog": {}}, Stats: Stats{Seasons: []Season{{Name: "S2", Game: "war-dogs", From: "2026-10-15", To: "2027-01-15"}}}}
+	err := bad.CheckGames(known)
+	if !errors.Is(err, ErrInvalidSettings) {
+		t.Fatalf("wraps ErrInvalidSettings: %v", err)
+	}
+	for _, want := range []string{`games: "wardog" is not a game this hub ships (cs2, wardogs)`, `stats.seasons[0].game: "war-dogs" is not a game this hub ships`} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("missing %q in %v", want, err)
+		}
+	}
+}
+
+func TestSettingsGamesManifest(t *testing.T) {
+	s, err := ParseManifest([]byte(`
+games:
+  wardogs:
+    theme:
+      light: {accent: "#8a5a00"}
+      dark: {accent: "#f0b429"}
+      banner_url: /static/wardogs.png
+      banner_alt: " War Dogs "
+    nav:
+      - label: " Playbook "
+        url: https://hiddentoken.com/wardogs/
+  cs2: {}
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := s.Games["wardogs"]
+	if w.Theme.Dark.Accent != "#f0b429" || w.Theme.BannerAlt != "War Dogs" || w.Nav[0].Label != "Playbook" || w.Nav[0].Placement != "" {
+		t.Errorf("parsed: %+v", w)
+	}
+	if _, ok := s.Games["cs2"]; ok {
+		t.Error("a game that sets nothing is dropped")
+	}
+	out, err := s.Manifest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	again, err := ParseManifest(out)
+	if err != nil || !reflect.DeepEqual(again.Games, s.Games) {
+		t.Errorf("round trip: %+v %v\n%s", again.Games, err, out)
+	}
+	if strings.Contains(string(out), "cs2") || strings.Contains(string(out), "background") {
+		t.Errorf("empty games and tokens are omitted:\n%s", out)
+	}
+	if _, err := ParseManifest([]byte("games:\n  wardogs:\n    theme:\n      colour: red\n")); err == nil || !strings.Contains(err.Error(), "colour") {
+		t.Errorf("unknown keys are refused by name: %v", err)
+	}
+	if n := (Settings{Games: map[string]GameSettings{"cs2": {}}}).Normalized(); n.Games != nil {
+		t.Errorf("only empty games normalize to none: %+v", n.Games)
+	}
+	raw, err := json.Marshal(s.Normalized())
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored, err := ParseSettings(raw)
+	if err != nil || !reflect.DeepEqual(stored.Games, s.Games) {
+		t.Errorf("json round trip: %+v %v\n%s", stored.Games, err, raw)
+	}
+}
+
+func TestSettingsServiceChecksGames(t *testing.T) {
+	ctx := context.Background()
+	set := Settings{Games: map[string]GameSettings{"wardog": {Theme: GameTheme{Dark: Tokens{Accent: "#f0b429"}}}}}
+
+	open, _ := newTestService(&orgtest.FakeStore{})
+	if _, _, err := open.EnsureBuiltin(ctx, "x"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := open.UpdateSettings(ctx, set); err != nil {
+		t.Errorf("without WithGames the ids are only format-checked: %v", err)
+	}
+
+	s, _ := newTestService(&orgtest.FakeStore{})
+	s.WithGames([]string{"wardogs", "cs2"})
+	if _, _, err := s.EnsureBuiltin(ctx, "x"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.UpdateSettings(ctx, set); !errors.Is(err, ErrInvalidSettings) || !strings.Contains(err.Error(), `"wardog" is not a game this hub ships (cs2, wardogs)`) {
+		t.Errorf("an unknown game is refused: %v", err)
+	}
+	if got, _, _ := s.Settings(ctx); got.Games != nil {
+		t.Error("a refused update must not be stored")
+	}
+	set.Games = map[string]GameSettings{"wardogs": set.Games["wardog"]}
+	got, err := s.UpdateSettings(ctx, set)
+	if err != nil || got.Games["wardogs"].Theme.Dark.Accent != "#f0b429" {
+		t.Errorf("a known game is stored: %+v %v", got.Games, err)
+	}
+	if stored, _, _ := s.Settings(ctx); !reflect.DeepEqual(stored.Games, got.Games) {
+		t.Errorf("stored: %+v", stored.Games)
+	}
+}

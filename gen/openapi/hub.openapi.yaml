@@ -1982,6 +1982,51 @@ components:
       title: GameLayout
       additionalProperties: false
       description: GameLayout is a game's page layout, declarative data from its Game spec.
+    gravel.hub.v1.GameSettings:
+      type: object
+      properties:
+        theme:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.GameTheme'
+          title: theme
+        nav:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.NavLink'
+          title: nav
+          description: |-
+            Links shown on the game's pages, in the game's own navigation; at most 6. placement is
+             unused and must be empty.
+      title: GameSettings
+      additionalProperties: false
+      description: |-
+        GameSettings are one game's settings, keyed by the game's id ("wardogs") in
+         OrganizationSettings.games: its overlay on the theme and its links (gravel#66).
+    gravel.hub.v1.GameTheme:
+      type: object
+      properties:
+        light:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.ThemeTokens'
+          title: light
+          description: Only accent may be set; empty keeps the organization's.
+        dark:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.ThemeTokens'
+          title: dark
+        bannerUrl:
+          type: string
+          title: banner_url
+          description: 'An image at the top of the game''s pages: an https URL or a site-relative path, or empty.'
+        bannerAlt:
+          type: string
+          title: banner_alt
+          description: The banner's alternative text; empty when the banner is decorative.
+      title: GameTheme
+      additionalProperties: false
+      description: |-
+        GameTheme is a game's overlay on the organization's theme, applied to the game's pages: a
+         server of the game, its moderation pages, and a board scoped to the game or one of its servers.
     gravel.hub.v1.GetBoardNameRequest:
       type: object
       title: GetBoardNameRequest
@@ -2679,6 +2724,14 @@ components:
           allOf:
             - $ref: '#/components/schemas/gravel.hub.v1.StatsSettings'
           title: stats
+        games:
+          type: object
+          title: games
+          additionalProperties:
+            allOf:
+              - $ref: '#/components/schemas/gravel.hub.v1.GameSettings'
+            title: value
+          description: Per-game settings by game id; at most 20, each a game this hub ships.
       title: OrganizationSettings
       additionalProperties: false
       description: |-

@@ -6,10 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
+	"slices"
+	"strings"
 
 	"github.com/gravel-project/gravel/internal/config"
 	"github.com/gravel-project/gravel/internal/org"
+	"github.com/gravel-project/gravel/internal/servers"
 	"github.com/gravel-project/gravel/internal/store"
 )
 
@@ -42,7 +46,7 @@ func openOrg(ctx context.Context, cfg config.Config, stderr io.Writer) (*org.Ser
 		fmt.Fprintln(stderr, err)
 		return nil, nil, false
 	}
-	return org.New(st, cfg.Claim.TokenTTL, logger), st.Close, true
+	return org.New(st, cfg.Claim.TokenTTL, logger).WithGames(servers.GameIDs()), st.Close, true
 }
 
 func settingsExport(ctx context.Context, args []string, stdout, stderr io.Writer) int {
@@ -171,7 +175,7 @@ func readManifest(path string) (org.Settings, error) {
 	if err != nil {
 		return org.Settings{}, err
 	}
-	if err := set.Validate(); err != nil {
+	if err := errors.Join(set.Validate(), set.CheckGames(servers.GameIDs())); err != nil {
 		return org.Settings{}, err
 	}
 	return set, nil
@@ -182,7 +186,29 @@ func summarize(s org.Settings) string {
 	if !s.Stats.IsZero() {
 		out += ", stats " + describeStats(s.Stats)
 	}
+	if len(s.Games) > 0 {
+		out += ", games " + describeGames(s.Games)
+	}
 	return out
+}
+
+func describeGames(games map[string]org.GameSettings) string {
+	var parts []string
+	for _, id := range slices.Sorted(maps.Keys(games)) {
+		g := games[id]
+		var what []string
+		if g.Theme.Light.Accent != "" || g.Theme.Dark.Accent != "" {
+			what = append(what, "accent")
+		}
+		if g.Theme.BannerURL != "" {
+			what = append(what, "banner")
+		}
+		if n := len(g.Nav); n > 0 {
+			what = append(what, fmt.Sprintf("%d links", n))
+		}
+		parts = append(parts, id+" ("+strings.Join(what, ", ")+")")
+	}
+	return strings.Join(parts, ", ")
 }
 
 func describeStats(st org.Stats) string {
@@ -225,6 +251,9 @@ func describeDiscord(d org.Discord) string {
 	out := fmt.Sprintf("guild %s, %d roles", d.GuildID, len(d.RoleIDs()))
 	if n := len(d.ServerCards); n > 0 {
 		out += fmt.Sprintf(", %d server cards", n)
+	}
+	if d.ModLog != "" {
+		out += ", mod log"
 	}
 	return out
 }

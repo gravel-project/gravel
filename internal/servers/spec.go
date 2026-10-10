@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 	"unicode"
@@ -269,6 +270,10 @@ func validHost(h string) bool {
 		return (r < 'a' || r > 'z') && (r < '0' || r > '9') && r != '-' && r != '.'
 	})
 }
+
+// GameIDs are the ids of the games this hub ships, sorted: what the Organization settings may
+// name (org.Settings.CheckGames).
+func GameIDs() []string { return slices.Sorted(maps.Keys(Specs())) }
 
 // Specs are the Game specs this hub ships, by id.
 func Specs() map[string]Spec {

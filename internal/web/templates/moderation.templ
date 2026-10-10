@@ -9,6 +9,13 @@ templ Confirm(p ConfirmPage) {
 
 // ConfirmContent says exactly what will be sent, and sends it only on Confirm.
 templ ConfirmContent(p ConfirmPage) {
+	@GameScope(p.Game) {
+		@confirmBody(p)
+	}
+}
+
+// confirmBody is ConfirmContent inside its game's overlay.
+templ confirmBody(p ConfirmPage) {
 	<h1>{ p.Question }</h1>
 	<dl class="facts">
 		<dt>Server</dt>
@@ -57,6 +64,13 @@ templ Audit(p AuditPage) {
 
 // AuditContent is a server's moderation log, newest first; nothing in it can be changed.
 templ AuditContent(p AuditPage) {
+	@GameScope(p.Game) {
+		@auditBody(p)
+	}
+}
+
+// auditBody is AuditContent inside its game's overlay.
+templ auditBody(p AuditPage) {
 	@FlashView(p.Flash)
 	<h1>Moderation log</h1>
 	<p class="meta"><a href={ templ.SafeURL("/servers/" + p.ServerID) }>{ p.ServerName }</a></p>

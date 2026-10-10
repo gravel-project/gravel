@@ -23,16 +23,40 @@ const SettingsVersion = 1
 
 // Settings is the Organization settings resource: every host-configurable knob, one document,
 // managed through the API or applied from a committed manifest (`gravel-hub settings apply`).
-// Theme tokens and navigation links first (gravel#7), the Discord role mapping (ADR-0008);
-// token lifetimes and layout overrides join it with their features. Zero values mean "the
-// default".
+// Theme tokens and navigation links first (gravel#7), the Discord role mapping (ADR-0008), the
+// per-game overlays (gravel#66); token lifetimes and layout overrides join it with their
+// features. Zero values mean "the default".
 type Settings struct {
 	Version int       `json:"version" yaml:"version"`
 	Theme   Theme     `json:"theme" yaml:"theme"`
 	Nav     []NavLink `json:"nav,omitempty" yaml:"nav,omitempty"`
 	Discord Discord   `json:"discord,omitzero" yaml:"discord,omitempty"`
 	Stats   Stats     `json:"stats,omitzero" yaml:"stats,omitempty"`
+	// Games are per-game settings by game id ("wardogs"), each a game this hub ships.
+	Games map[string]GameSettings `json:"games,omitempty" yaml:"games,omitempty"`
 }
+
+// GameSettings are one game's settings: its overlay on the theme and its links, on the game's
+// pages (a server of the game, its moderation pages, a board scoped to the game or one of its
+// servers). The site's header and footer keep the organization's theme.
+type GameSettings struct {
+	Theme GameTheme `json:"theme,omitzero" yaml:"theme,omitempty"`
+	// Nav are links in the game's own navigation on its pages; Placement must be empty.
+	Nav []NavLink `json:"nav,omitempty" yaml:"nav,omitempty"`
+}
+
+// GameTheme is a game's overlay: its accent in each scheme and a banner. Only the accent of
+// Light and Dark may be set; empty keeps the organization's.
+type GameTheme struct {
+	Light     Tokens `json:"light,omitzero" yaml:"light,omitempty"`
+	Dark      Tokens `json:"dark,omitzero" yaml:"dark,omitempty"`
+	BannerURL string `json:"banner_url,omitempty" yaml:"banner_url,omitempty"`
+	// BannerAlt is the banner's alternative text; empty when it is decorative.
+	BannerAlt string `json:"banner_alt,omitempty" yaml:"banner_alt,omitempty"`
+}
+
+// IsZero reports whether the game sets nothing.
+func (g GameSettings) IsZero() bool { return g.Theme == GameTheme{} && len(g.Nav) == 0 }
 
 // Stats is how the stats boards behave (ADR-0012). Zero values are the defaults: boards for the
 // owner only, K/D from 3 matches, weeks and seasons in UTC, no named season, raw rows kept 13
@@ -236,6 +260,11 @@ const (
 	MaxSeasonName   = 40
 	// MaxRawRetentionMonths bounds stats.raw_retention_months: ten years.
 	MaxRawRetentionMonths = 120
+	// MaxGames bounds the games section, MaxGameNav each game's links, MaxBannerAlt the
+	// banner's alternative text.
+	MaxGames     = 20
+	MaxGameNav   = 6
+	MaxBannerAlt = 120
 )
 
 // ErrInvalidSettings wraps every validation failure; the message says which field and why.
@@ -277,23 +306,88 @@ func (s Settings) Validate() error {
 		bad("nav: %d links, at most %d", len(s.Nav), MaxNavLinks)
 	}
 	for i, l := range s.Nav {
-		if strings.TrimSpace(l.Label) == "" || len(l.Label) > MaxNavLabel {
-			bad("nav[%d].label: required, at most %d characters", i, MaxNavLabel)
-		}
-		if !navURLOK(l.URL) {
-			bad("nav[%d].url: %q must be an http(s) URL or a site-relative path", i, l.URL)
-		}
+		validateNavLink(fmt.Sprintf("nav[%d]", i), l, bad)
 		if l.Placement != "" && l.Placement != PlacementHeader && l.Placement != PlacementFooter {
 			bad("nav[%d].placement: %q is not %q or %q", i, l.Placement, PlacementHeader, PlacementFooter)
-		}
-		if l.Role != RoleEveryone && l.Role != RoleOwner {
-			bad("nav[%d].role: %q is not empty or %q", i, l.Role, RoleOwner)
 		}
 	}
 	validateDiscord(s.Discord, bad)
 	validateStats(s.Stats, bad)
+	validateGames(s.Games, bad)
 	if len(errs) == 0 {
 		return nil
+	}
+	return errors.Join(errs...)
+}
+
+func validateNavLink(field string, l NavLink, bad func(string, ...any)) {
+	if strings.TrimSpace(l.Label) == "" || len(l.Label) > MaxNavLabel {
+		bad("%s.label: required, at most %d characters", field, MaxNavLabel)
+	}
+	if !navURLOK(l.URL) {
+		bad("%s.url: %q must be an http(s) URL or a site-relative path", field, l.URL)
+	}
+	if l.Role != RoleEveryone && l.Role != RoleOwner {
+		bad("%s.role: %q is not empty or %q", field, l.Role, RoleOwner)
+	}
+}
+
+func validateGames(games map[string]GameSettings, bad func(string, ...any)) {
+	if len(games) > MaxGames {
+		bad("games: %d games, at most %d", len(games), MaxGames)
+	}
+	for _, id := range slices.Sorted(maps.Keys(games)) {
+		g, field := games[id], "games."+id
+		if !serverID.MatchString(id) {
+			bad("games: %q is not a game id (lower-case letters, digits and hyphens)", id)
+			continue
+		}
+		for scheme, t := range map[string]Tokens{"light": g.Theme.Light, "dark": g.Theme.Dark} {
+			if t.Accent != "" && !cssColor.MatchString(t.Accent) {
+				bad("%s.theme.%s.accent: %q is not a plain CSS colour", field, scheme, t.Accent)
+			}
+			if (Tokens{Accent: t.Accent}) != t {
+				bad("%s.theme.%s: a game overlays only the accent; the page around it keeps the organization's colours", field, scheme)
+			}
+		}
+		if g.Theme.BannerURL != "" && !assetURLOK(g.Theme.BannerURL) {
+			bad("%s.theme.banner_url: %q must be an https URL or a site-relative path", field, g.Theme.BannerURL)
+		}
+		if alt := g.Theme.BannerAlt; utf8.RuneCountInString(alt) > MaxBannerAlt || strings.ContainsFunc(alt, unicode.IsControl) {
+			bad("%s.theme.banner_alt: one line of at most %d characters", field, MaxBannerAlt)
+		} else if alt != "" && g.Theme.BannerURL == "" {
+			bad("%s.theme.banner_alt: set without a banner_url", field)
+		}
+		if len(g.Nav) > MaxGameNav {
+			bad("%s.nav: %d links, at most %d", field, len(g.Nav), MaxGameNav)
+		}
+		for i, l := range g.Nav {
+			f := fmt.Sprintf("%s.nav[%d]", field, i)
+			validateNavLink(f, l, bad)
+			if l.Placement != "" {
+				bad("%s.placement: a game's links are shown on its pages; leave placement out", f)
+			}
+		}
+	}
+}
+
+// CheckGames reports a games key or a season's game that is not one of known, the games this
+// hub ships (internal/servers), each wrapping ErrInvalidSettings. Validate cannot do this, as
+// this package does not know the games.
+func (s Settings) CheckGames(known []string) error {
+	var errs []error
+	unknown := func(field, id string) {
+		errs = append(errs, fmt.Errorf("%w: %s: %q is not a game this hub ships (%s)", ErrInvalidSettings, field, id, strings.Join(known, ", ")))
+	}
+	for _, id := range slices.Sorted(maps.Keys(s.Games)) {
+		if !slices.Contains(known, id) {
+			unknown("games", id)
+		}
+	}
+	for i, se := range s.Stats.Seasons {
+		if se.Game != "" && !slices.Contains(known, se.Game) {
+			unknown(fmt.Sprintf("stats.seasons[%d].game", i), se.Game)
+		}
 	}
 	return errors.Join(errs...)
 }
@@ -472,6 +566,28 @@ func (s Settings) Normalized() Settings {
 	if len(s.Discord.ServerCards) == 0 {
 		s.Discord.ServerCards = nil
 	}
+	if len(s.Games) == 0 {
+		s.Games = nil
+	} else {
+		games := make(map[string]GameSettings, len(s.Games))
+		for id, g := range s.Games {
+			if g.IsZero() {
+				continue
+			}
+			g.Theme.BannerAlt = strings.TrimSpace(g.Theme.BannerAlt)
+			for i := range g.Nav {
+				g.Nav[i].Label = strings.TrimSpace(g.Nav[i].Label)
+			}
+			if len(g.Nav) == 0 {
+				g.Nav = nil
+			}
+			games[id] = g
+		}
+		s.Games = games
+		if len(games) == 0 {
+			s.Games = nil
+		}
+	}
 	return s
 }
 
@@ -531,6 +647,11 @@ func (s *Service) UpdateSettings(ctx context.Context, set Settings) (Settings, e
 	set = set.Normalized()
 	if err := set.Validate(); err != nil {
 		return Settings{}, err
+	}
+	if s.games != nil {
+		if err := set.CheckGames(s.games); err != nil {
+			return Settings{}, err
+		}
 	}
 	o, err := s.st.GetBuiltinOrganization(ctx)
 	if err != nil {

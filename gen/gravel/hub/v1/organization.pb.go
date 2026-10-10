@@ -525,6 +525,135 @@ func (x *NavLink) GetRole() string {
 	return ""
 }
 
+// GameSettings are one game's settings, keyed by the game's id ("wardogs") in
+// OrganizationSettings.games: its overlay on the theme and its links (gravel#66).
+type GameSettings struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Theme *GameTheme             `protobuf:"bytes,1,opt,name=theme,proto3" json:"theme,omitempty"`
+	// Links shown on the game's pages, in the game's own navigation; at most 6. placement is
+	// unused and must be empty.
+	Nav           []*NavLink `protobuf:"bytes,2,rep,name=nav,proto3" json:"nav,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GameSettings) Reset() {
+	*x = GameSettings{}
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GameSettings) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GameSettings) ProtoMessage() {}
+
+func (x *GameSettings) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GameSettings.ProtoReflect.Descriptor instead.
+func (*GameSettings) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *GameSettings) GetTheme() *GameTheme {
+	if x != nil {
+		return x.Theme
+	}
+	return nil
+}
+
+func (x *GameSettings) GetNav() []*NavLink {
+	if x != nil {
+		return x.Nav
+	}
+	return nil
+}
+
+// GameTheme is a game's overlay on the organization's theme, applied to the game's pages: a
+// server of the game, its moderation pages, and a board scoped to the game or one of its servers.
+type GameTheme struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Only accent may be set; empty keeps the organization's.
+	Light *ThemeTokens `protobuf:"bytes,1,opt,name=light,proto3" json:"light,omitempty"`
+	Dark  *ThemeTokens `protobuf:"bytes,2,opt,name=dark,proto3" json:"dark,omitempty"`
+	// An image at the top of the game's pages: an https URL or a site-relative path, or empty.
+	BannerUrl string `protobuf:"bytes,3,opt,name=banner_url,json=bannerUrl,proto3" json:"banner_url,omitempty"`
+	// The banner's alternative text; empty when the banner is decorative.
+	BannerAlt     string `protobuf:"bytes,4,opt,name=banner_alt,json=bannerAlt,proto3" json:"banner_alt,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GameTheme) Reset() {
+	*x = GameTheme{}
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GameTheme) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GameTheme) ProtoMessage() {}
+
+func (x *GameTheme) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GameTheme.ProtoReflect.Descriptor instead.
+func (*GameTheme) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *GameTheme) GetLight() *ThemeTokens {
+	if x != nil {
+		return x.Light
+	}
+	return nil
+}
+
+func (x *GameTheme) GetDark() *ThemeTokens {
+	if x != nil {
+		return x.Dark
+	}
+	return nil
+}
+
+func (x *GameTheme) GetBannerUrl() string {
+	if x != nil {
+		return x.BannerUrl
+	}
+	return ""
+}
+
+func (x *GameTheme) GetBannerAlt() string {
+	if x != nil {
+		return x.BannerAlt
+	}
+	return ""
+}
+
 // DiscordRoles are the roles that follow a member's linked identities; role sync adds and
 // removes them.
 type DiscordRoles struct {
@@ -539,7 +668,7 @@ type DiscordRoles struct {
 
 func (x *DiscordRoles) Reset() {
 	*x = DiscordRoles{}
-	mi := &file_gravel_hub_v1_organization_proto_msgTypes[8]
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -551,7 +680,7 @@ func (x *DiscordRoles) String() string {
 func (*DiscordRoles) ProtoMessage() {}
 
 func (x *DiscordRoles) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_organization_proto_msgTypes[8]
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -564,7 +693,7 @@ func (x *DiscordRoles) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DiscordRoles.ProtoReflect.Descriptor instead.
 func (*DiscordRoles) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{8}
+	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *DiscordRoles) GetLinked() string {
@@ -594,7 +723,7 @@ type DiscordRecognition struct {
 
 func (x *DiscordRecognition) Reset() {
 	*x = DiscordRecognition{}
-	mi := &file_gravel_hub_v1_organization_proto_msgTypes[9]
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -606,7 +735,7 @@ func (x *DiscordRecognition) String() string {
 func (*DiscordRecognition) ProtoMessage() {}
 
 func (x *DiscordRecognition) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_organization_proto_msgTypes[9]
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -619,7 +748,7 @@ func (x *DiscordRecognition) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DiscordRecognition.ProtoReflect.Descriptor instead.
 func (*DiscordRecognition) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{9}
+	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *DiscordRecognition) GetRole() string {
@@ -658,7 +787,7 @@ type DiscordServerCard struct {
 
 func (x *DiscordServerCard) Reset() {
 	*x = DiscordServerCard{}
-	mi := &file_gravel_hub_v1_organization_proto_msgTypes[10]
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -670,7 +799,7 @@ func (x *DiscordServerCard) String() string {
 func (*DiscordServerCard) ProtoMessage() {}
 
 func (x *DiscordServerCard) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_organization_proto_msgTypes[10]
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -683,7 +812,7 @@ func (x *DiscordServerCard) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DiscordServerCard.ProtoReflect.Descriptor instead.
 func (*DiscordServerCard) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{10}
+	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *DiscordServerCard) GetServer() string {
@@ -724,7 +853,7 @@ type DiscordSettings struct {
 
 func (x *DiscordSettings) Reset() {
 	*x = DiscordSettings{}
-	mi := &file_gravel_hub_v1_organization_proto_msgTypes[11]
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -736,7 +865,7 @@ func (x *DiscordSettings) String() string {
 func (*DiscordSettings) ProtoMessage() {}
 
 func (x *DiscordSettings) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_organization_proto_msgTypes[11]
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -749,7 +878,7 @@ func (x *DiscordSettings) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DiscordSettings.ProtoReflect.Descriptor instead.
 func (*DiscordSettings) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{11}
+	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *DiscordSettings) GetGuildId() string {
@@ -801,7 +930,7 @@ type StatsSeason struct {
 
 func (x *StatsSeason) Reset() {
 	*x = StatsSeason{}
-	mi := &file_gravel_hub_v1_organization_proto_msgTypes[12]
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -813,7 +942,7 @@ func (x *StatsSeason) String() string {
 func (*StatsSeason) ProtoMessage() {}
 
 func (x *StatsSeason) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_organization_proto_msgTypes[12]
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -826,7 +955,7 @@ func (x *StatsSeason) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StatsSeason.ProtoReflect.Descriptor instead.
 func (*StatsSeason) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{12}
+	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *StatsSeason) GetName() string {
@@ -876,7 +1005,7 @@ type StatsSettings struct {
 
 func (x *StatsSettings) Reset() {
 	*x = StatsSettings{}
-	mi := &file_gravel_hub_v1_organization_proto_msgTypes[13]
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -888,7 +1017,7 @@ func (x *StatsSettings) String() string {
 func (*StatsSettings) ProtoMessage() {}
 
 func (x *StatsSettings) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_organization_proto_msgTypes[13]
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -901,7 +1030,7 @@ func (x *StatsSettings) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StatsSettings.ProtoReflect.Descriptor instead.
 func (*StatsSettings) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{13}
+	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *StatsSettings) GetPublic() bool {
@@ -948,16 +1077,18 @@ type OrganizationSettings struct {
 	Theme   *Theme                 `protobuf:"bytes,2,opt,name=theme,proto3" json:"theme,omitempty"`
 	Nav     []*NavLink             `protobuf:"bytes,3,rep,name=nav,proto3" json:"nav,omitempty"`
 	// When the settings were last written; unset while the defaults apply.
-	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	Discord       *DiscordSettings       `protobuf:"bytes,5,opt,name=discord,proto3" json:"discord,omitempty"`
-	Stats         *StatsSettings         `protobuf:"bytes,6,opt,name=stats,proto3" json:"stats,omitempty"`
+	UpdatedAt *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	Discord   *DiscordSettings       `protobuf:"bytes,5,opt,name=discord,proto3" json:"discord,omitempty"`
+	Stats     *StatsSettings         `protobuf:"bytes,6,opt,name=stats,proto3" json:"stats,omitempty"`
+	// Per-game settings by game id; at most 20, each a game this hub ships.
+	Games         map[string]*GameSettings `protobuf:"bytes,7,rep,name=games,proto3" json:"games,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *OrganizationSettings) Reset() {
 	*x = OrganizationSettings{}
-	mi := &file_gravel_hub_v1_organization_proto_msgTypes[14]
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -969,7 +1100,7 @@ func (x *OrganizationSettings) String() string {
 func (*OrganizationSettings) ProtoMessage() {}
 
 func (x *OrganizationSettings) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_organization_proto_msgTypes[14]
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -982,7 +1113,7 @@ func (x *OrganizationSettings) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OrganizationSettings.ProtoReflect.Descriptor instead.
 func (*OrganizationSettings) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{14}
+	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *OrganizationSettings) GetVersion() int32 {
@@ -1027,6 +1158,13 @@ func (x *OrganizationSettings) GetStats() *StatsSettings {
 	return nil
 }
 
+func (x *OrganizationSettings) GetGames() map[string]*GameSettings {
+	if x != nil {
+		return x.Games
+	}
+	return nil
+}
+
 type GetOrganizationSettingsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -1035,7 +1173,7 @@ type GetOrganizationSettingsRequest struct {
 
 func (x *GetOrganizationSettingsRequest) Reset() {
 	*x = GetOrganizationSettingsRequest{}
-	mi := &file_gravel_hub_v1_organization_proto_msgTypes[15]
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1047,7 +1185,7 @@ func (x *GetOrganizationSettingsRequest) String() string {
 func (*GetOrganizationSettingsRequest) ProtoMessage() {}
 
 func (x *GetOrganizationSettingsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_organization_proto_msgTypes[15]
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1060,7 +1198,7 @@ func (x *GetOrganizationSettingsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetOrganizationSettingsRequest.ProtoReflect.Descriptor instead.
 func (*GetOrganizationSettingsRequest) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{15}
+	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{17}
 }
 
 type GetOrganizationSettingsResponse struct {
@@ -1072,7 +1210,7 @@ type GetOrganizationSettingsResponse struct {
 
 func (x *GetOrganizationSettingsResponse) Reset() {
 	*x = GetOrganizationSettingsResponse{}
-	mi := &file_gravel_hub_v1_organization_proto_msgTypes[16]
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1084,7 +1222,7 @@ func (x *GetOrganizationSettingsResponse) String() string {
 func (*GetOrganizationSettingsResponse) ProtoMessage() {}
 
 func (x *GetOrganizationSettingsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_organization_proto_msgTypes[16]
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1097,7 +1235,7 @@ func (x *GetOrganizationSettingsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetOrganizationSettingsResponse.ProtoReflect.Descriptor instead.
 func (*GetOrganizationSettingsResponse) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{16}
+	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *GetOrganizationSettingsResponse) GetSettings() *OrganizationSettings {
@@ -1117,7 +1255,7 @@ type UpdateOrganizationSettingsRequest struct {
 
 func (x *UpdateOrganizationSettingsRequest) Reset() {
 	*x = UpdateOrganizationSettingsRequest{}
-	mi := &file_gravel_hub_v1_organization_proto_msgTypes[17]
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1129,7 +1267,7 @@ func (x *UpdateOrganizationSettingsRequest) String() string {
 func (*UpdateOrganizationSettingsRequest) ProtoMessage() {}
 
 func (x *UpdateOrganizationSettingsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_organization_proto_msgTypes[17]
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1142,7 +1280,7 @@ func (x *UpdateOrganizationSettingsRequest) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use UpdateOrganizationSettingsRequest.ProtoReflect.Descriptor instead.
 func (*UpdateOrganizationSettingsRequest) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{17}
+	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *UpdateOrganizationSettingsRequest) GetSettings() *OrganizationSettings {
@@ -1161,7 +1299,7 @@ type UpdateOrganizationSettingsResponse struct {
 
 func (x *UpdateOrganizationSettingsResponse) Reset() {
 	*x = UpdateOrganizationSettingsResponse{}
-	mi := &file_gravel_hub_v1_organization_proto_msgTypes[18]
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1173,7 +1311,7 @@ func (x *UpdateOrganizationSettingsResponse) String() string {
 func (*UpdateOrganizationSettingsResponse) ProtoMessage() {}
 
 func (x *UpdateOrganizationSettingsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_organization_proto_msgTypes[18]
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1186,7 +1324,7 @@ func (x *UpdateOrganizationSettingsResponse) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use UpdateOrganizationSettingsResponse.ProtoReflect.Descriptor instead.
 func (*UpdateOrganizationSettingsResponse) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{18}
+	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *UpdateOrganizationSettingsResponse) GetSettings() *OrganizationSettings {
@@ -1240,7 +1378,17 @@ const file_gravel_hub_v1_organization_proto_rawDesc = "" +
 	"\x05label\x18\x01 \x01(\tR\x05label\x12\x10\n" +
 	"\x03url\x18\x02 \x01(\tR\x03url\x12\x1c\n" +
 	"\tplacement\x18\x03 \x01(\tR\tplacement\x12\x12\n" +
-	"\x04role\x18\x04 \x01(\tR\x04role\"\xae\x01\n" +
+	"\x04role\x18\x04 \x01(\tR\x04role\"h\n" +
+	"\fGameSettings\x12.\n" +
+	"\x05theme\x18\x01 \x01(\v2\x18.gravel.hub.v1.GameThemeR\x05theme\x12(\n" +
+	"\x03nav\x18\x02 \x03(\v2\x16.gravel.hub.v1.NavLinkR\x03nav\"\xab\x01\n" +
+	"\tGameTheme\x120\n" +
+	"\x05light\x18\x01 \x01(\v2\x1a.gravel.hub.v1.ThemeTokensR\x05light\x12.\n" +
+	"\x04dark\x18\x02 \x01(\v2\x1a.gravel.hub.v1.ThemeTokensR\x04dark\x12\x1d\n" +
+	"\n" +
+	"banner_url\x18\x03 \x01(\tR\tbannerUrl\x12\x1d\n" +
+	"\n" +
+	"banner_alt\x18\x04 \x01(\tR\tbannerAlt\"\xae\x01\n" +
 	"\fDiscordRoles\x12\x16\n" +
 	"\x06linked\x18\x01 \x01(\tR\x06linked\x12H\n" +
 	"\tproviders\x18\x02 \x03(\v2*.gravel.hub.v1.DiscordRoles.ProvidersEntryR\tproviders\x1a<\n" +
@@ -1272,7 +1420,7 @@ const file_gravel_hub_v1_organization_proto_rawDesc = "" +
 	"minMatches\x12\x1a\n" +
 	"\btimezone\x18\x03 \x01(\tR\btimezone\x124\n" +
 	"\aseasons\x18\x04 \x03(\v2\x1a.gravel.hub.v1.StatsSeasonR\aseasons\x120\n" +
-	"\x14raw_retention_months\x18\x05 \x01(\x05R\x12rawRetentionMonths\"\xaf\x02\n" +
+	"\x14raw_retention_months\x18\x05 \x01(\x05R\x12rawRetentionMonths\"\xcc\x03\n" +
 	"\x14OrganizationSettings\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\x05R\aversion\x12*\n" +
 	"\x05theme\x18\x02 \x01(\v2\x14.gravel.hub.v1.ThemeR\x05theme\x12(\n" +
@@ -1280,7 +1428,12 @@ const file_gravel_hub_v1_organization_proto_rawDesc = "" +
 	"\n" +
 	"updated_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x128\n" +
 	"\adiscord\x18\x05 \x01(\v2\x1e.gravel.hub.v1.DiscordSettingsR\adiscord\x122\n" +
-	"\x05stats\x18\x06 \x01(\v2\x1c.gravel.hub.v1.StatsSettingsR\x05stats\" \n" +
+	"\x05stats\x18\x06 \x01(\v2\x1c.gravel.hub.v1.StatsSettingsR\x05stats\x12D\n" +
+	"\x05games\x18\a \x03(\v2..gravel.hub.v1.OrganizationSettings.GamesEntryR\x05games\x1aU\n" +
+	"\n" +
+	"GamesEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x121\n" +
+	"\x05value\x18\x02 \x01(\v2\x1b.gravel.hub.v1.GameSettingsR\x05value:\x028\x01\" \n" +
 	"\x1eGetOrganizationSettingsRequest\"b\n" +
 	"\x1fGetOrganizationSettingsResponse\x12?\n" +
 	"\bsettings\x18\x01 \x01(\v2#.gravel.hub.v1.OrganizationSettingsR\bsettings\"d\n" +
@@ -1306,7 +1459,7 @@ func file_gravel_hub_v1_organization_proto_rawDescGZIP() []byte {
 	return file_gravel_hub_v1_organization_proto_rawDescData
 }
 
-var file_gravel_hub_v1_organization_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
+var file_gravel_hub_v1_organization_proto_msgTypes = make([]protoimpl.MessageInfo, 23)
 var file_gravel_hub_v1_organization_proto_goTypes = []any{
 	(*Organization)(nil),                       // 0: gravel.hub.v1.Organization
 	(*GetOrganizationRequest)(nil),             // 1: gravel.hub.v1.GetOrganizationRequest
@@ -1316,53 +1469,62 @@ var file_gravel_hub_v1_organization_proto_goTypes = []any{
 	(*ThemeTokens)(nil),                        // 5: gravel.hub.v1.ThemeTokens
 	(*Theme)(nil),                              // 6: gravel.hub.v1.Theme
 	(*NavLink)(nil),                            // 7: gravel.hub.v1.NavLink
-	(*DiscordRoles)(nil),                       // 8: gravel.hub.v1.DiscordRoles
-	(*DiscordRecognition)(nil),                 // 9: gravel.hub.v1.DiscordRecognition
-	(*DiscordServerCard)(nil),                  // 10: gravel.hub.v1.DiscordServerCard
-	(*DiscordSettings)(nil),                    // 11: gravel.hub.v1.DiscordSettings
-	(*StatsSeason)(nil),                        // 12: gravel.hub.v1.StatsSeason
-	(*StatsSettings)(nil),                      // 13: gravel.hub.v1.StatsSettings
-	(*OrganizationSettings)(nil),               // 14: gravel.hub.v1.OrganizationSettings
-	(*GetOrganizationSettingsRequest)(nil),     // 15: gravel.hub.v1.GetOrganizationSettingsRequest
-	(*GetOrganizationSettingsResponse)(nil),    // 16: gravel.hub.v1.GetOrganizationSettingsResponse
-	(*UpdateOrganizationSettingsRequest)(nil),  // 17: gravel.hub.v1.UpdateOrganizationSettingsRequest
-	(*UpdateOrganizationSettingsResponse)(nil), // 18: gravel.hub.v1.UpdateOrganizationSettingsResponse
-	nil,                           // 19: gravel.hub.v1.DiscordRoles.ProvidersEntry
-	(*timestamppb.Timestamp)(nil), // 20: google.protobuf.Timestamp
+	(*GameSettings)(nil),                       // 8: gravel.hub.v1.GameSettings
+	(*GameTheme)(nil),                          // 9: gravel.hub.v1.GameTheme
+	(*DiscordRoles)(nil),                       // 10: gravel.hub.v1.DiscordRoles
+	(*DiscordRecognition)(nil),                 // 11: gravel.hub.v1.DiscordRecognition
+	(*DiscordServerCard)(nil),                  // 12: gravel.hub.v1.DiscordServerCard
+	(*DiscordSettings)(nil),                    // 13: gravel.hub.v1.DiscordSettings
+	(*StatsSeason)(nil),                        // 14: gravel.hub.v1.StatsSeason
+	(*StatsSettings)(nil),                      // 15: gravel.hub.v1.StatsSettings
+	(*OrganizationSettings)(nil),               // 16: gravel.hub.v1.OrganizationSettings
+	(*GetOrganizationSettingsRequest)(nil),     // 17: gravel.hub.v1.GetOrganizationSettingsRequest
+	(*GetOrganizationSettingsResponse)(nil),    // 18: gravel.hub.v1.GetOrganizationSettingsResponse
+	(*UpdateOrganizationSettingsRequest)(nil),  // 19: gravel.hub.v1.UpdateOrganizationSettingsRequest
+	(*UpdateOrganizationSettingsResponse)(nil), // 20: gravel.hub.v1.UpdateOrganizationSettingsResponse
+	nil,                           // 21: gravel.hub.v1.DiscordRoles.ProvidersEntry
+	nil,                           // 22: gravel.hub.v1.OrganizationSettings.GamesEntry
+	(*timestamppb.Timestamp)(nil), // 23: google.protobuf.Timestamp
 }
 var file_gravel_hub_v1_organization_proto_depIdxs = []int32{
-	20, // 0: gravel.hub.v1.Organization.created_at:type_name -> google.protobuf.Timestamp
-	20, // 1: gravel.hub.v1.Organization.claimed_at:type_name -> google.protobuf.Timestamp
+	23, // 0: gravel.hub.v1.Organization.created_at:type_name -> google.protobuf.Timestamp
+	23, // 1: gravel.hub.v1.Organization.claimed_at:type_name -> google.protobuf.Timestamp
 	0,  // 2: gravel.hub.v1.GetOrganizationResponse.organization:type_name -> gravel.hub.v1.Organization
 	0,  // 3: gravel.hub.v1.ClaimOwnershipResponse.organization:type_name -> gravel.hub.v1.Organization
 	5,  // 4: gravel.hub.v1.Theme.light:type_name -> gravel.hub.v1.ThemeTokens
 	5,  // 5: gravel.hub.v1.Theme.dark:type_name -> gravel.hub.v1.ThemeTokens
-	19, // 6: gravel.hub.v1.DiscordRoles.providers:type_name -> gravel.hub.v1.DiscordRoles.ProvidersEntry
-	8,  // 7: gravel.hub.v1.DiscordSettings.roles:type_name -> gravel.hub.v1.DiscordRoles
-	9,  // 8: gravel.hub.v1.DiscordSettings.recognition:type_name -> gravel.hub.v1.DiscordRecognition
-	10, // 9: gravel.hub.v1.DiscordSettings.server_cards:type_name -> gravel.hub.v1.DiscordServerCard
-	12, // 10: gravel.hub.v1.StatsSettings.seasons:type_name -> gravel.hub.v1.StatsSeason
-	6,  // 11: gravel.hub.v1.OrganizationSettings.theme:type_name -> gravel.hub.v1.Theme
-	7,  // 12: gravel.hub.v1.OrganizationSettings.nav:type_name -> gravel.hub.v1.NavLink
-	20, // 13: gravel.hub.v1.OrganizationSettings.updated_at:type_name -> google.protobuf.Timestamp
-	11, // 14: gravel.hub.v1.OrganizationSettings.discord:type_name -> gravel.hub.v1.DiscordSettings
-	13, // 15: gravel.hub.v1.OrganizationSettings.stats:type_name -> gravel.hub.v1.StatsSettings
-	14, // 16: gravel.hub.v1.GetOrganizationSettingsResponse.settings:type_name -> gravel.hub.v1.OrganizationSettings
-	14, // 17: gravel.hub.v1.UpdateOrganizationSettingsRequest.settings:type_name -> gravel.hub.v1.OrganizationSettings
-	14, // 18: gravel.hub.v1.UpdateOrganizationSettingsResponse.settings:type_name -> gravel.hub.v1.OrganizationSettings
-	1,  // 19: gravel.hub.v1.OrganizationService.GetOrganization:input_type -> gravel.hub.v1.GetOrganizationRequest
-	3,  // 20: gravel.hub.v1.OrganizationService.ClaimOwnership:input_type -> gravel.hub.v1.ClaimOwnershipRequest
-	15, // 21: gravel.hub.v1.OrganizationService.GetOrganizationSettings:input_type -> gravel.hub.v1.GetOrganizationSettingsRequest
-	17, // 22: gravel.hub.v1.OrganizationService.UpdateOrganizationSettings:input_type -> gravel.hub.v1.UpdateOrganizationSettingsRequest
-	2,  // 23: gravel.hub.v1.OrganizationService.GetOrganization:output_type -> gravel.hub.v1.GetOrganizationResponse
-	4,  // 24: gravel.hub.v1.OrganizationService.ClaimOwnership:output_type -> gravel.hub.v1.ClaimOwnershipResponse
-	16, // 25: gravel.hub.v1.OrganizationService.GetOrganizationSettings:output_type -> gravel.hub.v1.GetOrganizationSettingsResponse
-	18, // 26: gravel.hub.v1.OrganizationService.UpdateOrganizationSettings:output_type -> gravel.hub.v1.UpdateOrganizationSettingsResponse
-	23, // [23:27] is the sub-list for method output_type
-	19, // [19:23] is the sub-list for method input_type
-	19, // [19:19] is the sub-list for extension type_name
-	19, // [19:19] is the sub-list for extension extendee
-	0,  // [0:19] is the sub-list for field type_name
+	9,  // 6: gravel.hub.v1.GameSettings.theme:type_name -> gravel.hub.v1.GameTheme
+	7,  // 7: gravel.hub.v1.GameSettings.nav:type_name -> gravel.hub.v1.NavLink
+	5,  // 8: gravel.hub.v1.GameTheme.light:type_name -> gravel.hub.v1.ThemeTokens
+	5,  // 9: gravel.hub.v1.GameTheme.dark:type_name -> gravel.hub.v1.ThemeTokens
+	21, // 10: gravel.hub.v1.DiscordRoles.providers:type_name -> gravel.hub.v1.DiscordRoles.ProvidersEntry
+	10, // 11: gravel.hub.v1.DiscordSettings.roles:type_name -> gravel.hub.v1.DiscordRoles
+	11, // 12: gravel.hub.v1.DiscordSettings.recognition:type_name -> gravel.hub.v1.DiscordRecognition
+	12, // 13: gravel.hub.v1.DiscordSettings.server_cards:type_name -> gravel.hub.v1.DiscordServerCard
+	14, // 14: gravel.hub.v1.StatsSettings.seasons:type_name -> gravel.hub.v1.StatsSeason
+	6,  // 15: gravel.hub.v1.OrganizationSettings.theme:type_name -> gravel.hub.v1.Theme
+	7,  // 16: gravel.hub.v1.OrganizationSettings.nav:type_name -> gravel.hub.v1.NavLink
+	23, // 17: gravel.hub.v1.OrganizationSettings.updated_at:type_name -> google.protobuf.Timestamp
+	13, // 18: gravel.hub.v1.OrganizationSettings.discord:type_name -> gravel.hub.v1.DiscordSettings
+	15, // 19: gravel.hub.v1.OrganizationSettings.stats:type_name -> gravel.hub.v1.StatsSettings
+	22, // 20: gravel.hub.v1.OrganizationSettings.games:type_name -> gravel.hub.v1.OrganizationSettings.GamesEntry
+	16, // 21: gravel.hub.v1.GetOrganizationSettingsResponse.settings:type_name -> gravel.hub.v1.OrganizationSettings
+	16, // 22: gravel.hub.v1.UpdateOrganizationSettingsRequest.settings:type_name -> gravel.hub.v1.OrganizationSettings
+	16, // 23: gravel.hub.v1.UpdateOrganizationSettingsResponse.settings:type_name -> gravel.hub.v1.OrganizationSettings
+	8,  // 24: gravel.hub.v1.OrganizationSettings.GamesEntry.value:type_name -> gravel.hub.v1.GameSettings
+	1,  // 25: gravel.hub.v1.OrganizationService.GetOrganization:input_type -> gravel.hub.v1.GetOrganizationRequest
+	3,  // 26: gravel.hub.v1.OrganizationService.ClaimOwnership:input_type -> gravel.hub.v1.ClaimOwnershipRequest
+	17, // 27: gravel.hub.v1.OrganizationService.GetOrganizationSettings:input_type -> gravel.hub.v1.GetOrganizationSettingsRequest
+	19, // 28: gravel.hub.v1.OrganizationService.UpdateOrganizationSettings:input_type -> gravel.hub.v1.UpdateOrganizationSettingsRequest
+	2,  // 29: gravel.hub.v1.OrganizationService.GetOrganization:output_type -> gravel.hub.v1.GetOrganizationResponse
+	4,  // 30: gravel.hub.v1.OrganizationService.ClaimOwnership:output_type -> gravel.hub.v1.ClaimOwnershipResponse
+	18, // 31: gravel.hub.v1.OrganizationService.GetOrganizationSettings:output_type -> gravel.hub.v1.GetOrganizationSettingsResponse
+	20, // 32: gravel.hub.v1.OrganizationService.UpdateOrganizationSettings:output_type -> gravel.hub.v1.UpdateOrganizationSettingsResponse
+	29, // [29:33] is the sub-list for method output_type
+	25, // [25:29] is the sub-list for method input_type
+	25, // [25:25] is the sub-list for extension type_name
+	25, // [25:25] is the sub-list for extension extendee
+	0,  // [0:25] is the sub-list for field type_name
 }
 
 func init() { file_gravel_hub_v1_organization_proto_init() }
@@ -1376,7 +1538,7 @@ func file_gravel_hub_v1_organization_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gravel_hub_v1_organization_proto_rawDesc), len(file_gravel_hub_v1_organization_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   20,
+			NumMessages:   23,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

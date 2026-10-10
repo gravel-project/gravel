@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"os/exec"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -84,6 +85,15 @@ func TestAccessibility(t *testing.T) {
 		"/fixture/server-anonymous": func() templ.Component {
 			p := base
 			p.Title = online.Name
+			return templates.Server(templates.ServerPage{Page: p, Server: online, PlayersNote: "Log in to see who's on.", MatchesNote: "Match history is private on this hub.", BoardURL: "/boards"})
+		},
+		// A game's page with its overlay (gravel#66): banner, game links, and the rig's War Dogs
+		// accent from /theme.css on the content.
+		"/fixture/server-game-overlay": func() templ.Component {
+			p := base
+			p.Title = online.Name
+			p.Game = &templates.Game{ID: "wardogs", Name: "War Dogs", BannerURL: "/fixture/wardogs-banner.png", BannerAlt: "War Dogs",
+				Nav: []templates.NavLink{{Label: "Playbook", URL: "https://example.com/wardogs/"}, {Label: "Rules", URL: "https://example.com/wardogs/rules"}}}
 			return templates.Server(templates.ServerPage{Page: p, Server: online, PlayersNote: "Log in to see who's on.", MatchesNote: "Match history is private on this hub.", BoardURL: "/boards"})
 		},
 		"/fixture/boards": func() templ.Component {
@@ -181,9 +191,16 @@ func TestAccessibility(t *testing.T) {
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
 
-	for _, path := range []string{"/login", "/fixture/account-unowned", "/fixture/account-owner", "/fixture/error",
-		"/fixture/servers", "/fixture/server", "/fixture/server-anonymous", "/fixture/boards", "/fixture/member-self", "/fixture/member", "/fixture/members",
-		"/fixture/server-moderator", "/fixture/confirm", "/fixture/log"} {
+	paths := []string{"/login", "/fixture/account-unowned", "/fixture/account-owner", "/fixture/error",
+		"/fixture/servers", "/fixture/server", "/fixture/server-anonymous", "/fixture/server-game-overlay", "/fixture/boards", "/fixture/member-self", "/fixture/member", "/fixture/members",
+		"/fixture/server-moderator", "/fixture/confirm", "/fixture/log"}
+	// A fixture left out of the list would never be scanned and the run would still pass.
+	for path := range fixtures {
+		if !slices.Contains(paths, path) {
+			t.Errorf("fixture %s is not in the list axe scans", path)
+		}
+	}
+	for _, path := range paths {
 		t.Run(strings.TrimPrefix(path, "/"), func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 			defer cancel()
