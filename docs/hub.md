@@ -23,7 +23,7 @@ why, ADR-0004 the login design, ADR-0008 the app credentials; `deploy/README.md`
 | `gravel-hub servers apply <servers.yaml> [--dry-run]` | Validate a manifest, check each credential file is readable where it runs, and store it; prints each change. With `--dry-run`, exit 3 when something would change. A running hub picks it up within 30 s. |
 | `gravel-hub servers check <servers.yaml>` | Validate a manifest with no configuration, no database and no secret: exit 0 with its summary, 1 with every problem named, 2 on a usage error. |
 | `gravel-hub ingest export --server ID [--after ID] [--limit N]` | Print a server's stored ingest batches, oldest first, one JSON object per line: a JSON body as JSON, anything else as base64 ([Ingestion](#ingestion-adr-0011)). They hold players' SteamIDs: redact before they leave the host. |
-| `gravel-hub stats erase --provider P --subject S` | Erase a player from the stats store ([Stats](#stats-adr-0012), Erasure): their identity becomes a random token in every stats table and the stored ingest batches, their pseudonym is deleted, the numbers stay. For an operator acting on a request they have verified. Prints the counts, never the identity. |
+| `gravel-hub stats erase --provider P --subject S` | Erase a player from the stats store ([Stats](#stats-adr-0012), Erasure): their identity becomes a random token in every stats table (participation included) and the stored ingest batches, their pseudonym is deleted, the numbers stay. For an operator acting on a request they have verified. Prints the counts, never the identity. |
 | `gravel-hub wardogs record --base-url URL [--token-file FILE] [--dir DIR]` | Record a War Dogs server's read-only answers as test fixtures in `<dir>/<build>/` (default `games/wardogs/testdata`), with people, addresses and secrets replaced (ADR-0010; `games/wardogs/README.md`). One token, never retried; without one, only the public routes. |
 | `gravel-hub version` | Print the build version. |
 
@@ -113,10 +113,12 @@ Public listener (`server.listen`), HTTP/1.1 and unencrypted HTTP/2 so gRPC works
 | `/gravel.hub.v1.ServerService/ListGames` | the enabled games, their identity provider, bands, layout and `no_paid_perks`; public |
 | `/gravel.hub.v1.ServerService/ListServers` | every server with its last observation (state, reachable, players and max, map, teams, capabilities, build, `observed_at`); public, no personal data, never a control address |
 | `/gravel.hub.v1.ServerService/GetServerStatus` | `{"server_id": "…"}` → one server; public; `not_found` for an unknown id |
-| `/gravel.hub.v1.StatsService/GetMemberProfile` | `{"user_id": "…"}` (empty: the caller) → a member's totals by window and recent matches ([Pages](#pages-gravel18)); the member, the owner, `stats:read`, or anyone when they show their name and stats are public; else `not_found` |
+| `/gravel.hub.v1.StatsService/GetMemberProfile` | `{"user_id": "…"}` (empty: the caller) → a member's totals by window, their participation per kind over the same windows, and recent matches ([Pages](#pages-gravel18)); the member, the owner, `stats:read`, or anyone when they show their name and stats are public; else `not_found` |
 | `/gravel.hub.v1.StatsService/GetBoard` | `{"server_id"/"game_id", "window": "week", "metric": "kd"}` → a ranked page of players under pseudonyms or opted-in names ([Stats](#stats-adr-0012)); public when the settings make stats public, else the owner or `stats:read` |
 | `/gravel.hub.v1.StatsService/ListMatches` | `{"server_id": "…"}` → a server's matches, newest first; the same access |
 | `/gravel.hub.v1.StatsService/GetBoardName`, `SetBoardName` | a logged-in member's choice to be shown by name on boards (off by default) |
+| `/gravel.hub.v1.StatsService/RecordParticipation` | `{"events": [{"key", "kind", "identity": {"provider", "subject"}, "occurred_at", "duration_seconds", …}]}` (1 to 100) → a `recorded` or `duplicate` result per event, in order ([Participation](#participation-adr-0014)); an app with `participation:write` only, never a member or the owner; `invalid_argument` names every invalid field by index and stores nothing |
+| `/gravel.hub.v1.StatsService/GetParticipationBoard` | `{"kind": "seeding", "game_id", "window": "week"}` → a page of players ranked by time taken part, under pseudonyms or opted-in names, and every kind recorded (`kinds`); the same access as `GetBoard` |
 | `/gravel.hub.v1.ServerService/ListServerPlayers` | `{"server_id": "…"}` → who was on at the last poll (name, provider identity, team, kills, deaths, ping, and the member's user id when that identity is linked); a logged-in member, the owner, or an app with `servers:read` |
 | `/grpc.health.v1.Health/Check` | gRPC health |
 | `/grpc.reflection.v1.ServerReflection/…` (and v1alpha) | gRPC reflection, so `grpcurl` and `buf curl` discover the API |
@@ -328,7 +330,8 @@ curl -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{
 | `servers:read` | `ListServerPlayers`: who is on a server, for a live card (the rest of `ServerService` is public) |
 | `servers:moderate` | `ModerationService`: kick, ban, unban, message, broadcast and move players, list a server's bans, read the audit log |
 | `servers:configure` | `ServerConfigService`: read, plan and apply a server's configuration |
-| `stats:read` | `StatsService` `GetBoard` and `ListMatches` while the settings keep stats private |
+| `stats:read` | `StatsService` `GetBoard`, `GetParticipationBoard` and `ListMatches` while the settings keep stats private |
+| `participation:write` | `StatsService` `RecordParticipation`: participation events from a first-party app ([Participation](#participation-adr-0014)); the only way to record them, the owner's session included |
 
 Rules: a token lives `apps.token_ttl` (an hour by default) and is pruned after; `scope` at the
 token endpoint may narrow a token to a subset of the app's scopes, never widen it; an unknown,
@@ -583,8 +586,9 @@ kills for the match lists. A season added or moved after its months rolled up co
 by its first day, and a period cut in one timezone keeps its dates if `stats.timezone` changes.
 
 **Erasure.** `gravel-hub stats erase --provider steam --subject <SteamID64>` replaces the identity
-with `erased` and a random token in `match_stats`, `stats_monthly` and the bodies of the stored
-ingest batches (their hashes recomputed), and deletes the pseudonym, in one transaction. The numbers
+with `erased` and a random token in `match_stats`, `stats_monthly`, `participation_events`,
+`participation_monthly` and the bodies of the stored ingest batches (their hashes recomputed), and
+deletes the pseudonym, in one transaction. The numbers
 stay, shown as "Deleted player"; nothing maps the token back (a hash would not do: every SteamID can
 be tried). A player still on a server is recorded under their identity again from the next poll.
 The flow members start themselves comes with identity's erasure; this is the stats store's part.
@@ -593,6 +597,49 @@ Metrics: `gravel_stats_matches_total{server,game}`, `gravel_stats_rows_written_t
 `gravel_stats_record_errors_total{server}`, `gravel_stats_rolled_rows_total`, and the rollup job's
 `gravel_hub_job_last_success_timestamp_seconds{job="stats_rollup"}` (stored by Prometheus as
 `exported_job`, since the scrape's own `job` label wins), on the hub dashboard's Stats row.
+
+### Participation (ADR-0014)
+
+Not everything a community counts is a kill. A first-party app (a seeding tracker, an events app)
+records that a player **took part** in something: a seeding session, an event they attended. These
+**participation events** are `first_party` (ADR-0011) and feed participation boards and profiles
+only, never a leaderboard: they live in tables of their own that no combat board reads.
+
+- **Recording.** Register the app with `participation:write` (`gravel-hub apps create --name muster
+  --scopes participation:write`), trade its credentials for a token ([Service
+  credentials](#service-credentials-adr-0008)) and call `RecordParticipation` with 1 to 100 events. A
+  member's session is refused, the owner's too: an event is what an app saw. Requests are limited
+  per app (`rate_limit.per_app`, 600 a minute and a burst of 100 by default).
+- **An event.** `key` is the app's idempotency key (1 to 128 printable ASCII characters): sending a
+  key again answers `duplicate` and stores nothing, even with other fields, so a retry is always
+  safe; another app's key is its own. `kind` is the app's name for the activity (a lower-case letter,
+  then up to 31 lower-case letters, digits or underscores). `identity` is a `discord` or `steam`
+  identity (a subject of at most 64 characters): events are keyed by identity, so a player who links
+  it later inherits them. `game_id` (a game the hub ships) and `server_id` (a server it knows; its
+  game is stored, and must match `game_id` when both are sent) are optional, as is `session`, the
+  app's own reference (at most 128 characters). `occurred_at` is required, at most 5 minutes ahead of
+  the hub's clock and not older than the stats store keeps raw rows (`stats.raw_retention_months`).
+  `duration_seconds` is 0 to 86400. One invalid event refuses the whole request, with every problem
+  named (`events[3].kind: …`).
+- **Boards.** `GetParticipationBoard` ranks the players of one kind (empty: the first recorded) by
+  time taken part, then times, over `all`, `week`, `month` or a named `season`, optionally for one
+  game; it answers every kind recorded for a picker. It has `GetBoard`'s access, names and cache.
+  Profiles (`GetMemberProfile`) carry each kind's totals over their windows.
+- **Retention and erasure** are the stats store's: the `stats_rollup` job rolls events past the
+  window into `participation_monthly` (one row per kind, game, period and identity, the same
+  periods), and `stats erase` re-keys both tables.
+
+```sh
+curl -s -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"events":[{"key":"muster-42/1234","kind":"attendance","identity":{"provider":"discord","subject":"1234"},
+       "session":"muster-42","occurredAt":"2026-10-10T20:00:00Z","durationSeconds":5400}]}' \
+  https://app.example.com/gravel.hub.v1.StatsService/RecordParticipation
+# {"results":[{"key":"muster-42/1234","outcome":"recorded"}]}
+```
+
+Metric: `gravel_participation_events_total{kind,outcome}` (`recorded`, `duplicate`, `invalid`; every
+event of a refused request is `invalid`, under kind `invalid` when its kind is malformed), on the hub
+dashboard's Stats row.
 
 ## Roles (ADR-0013)
 
@@ -612,10 +659,11 @@ is the API's to decide, and a page says so in words when it is refused.
 |---|---|---|
 | `/servers` (also `/`) | every server: name, game, trust, state (Online, Offline, Checking, Unavailable), players and map | everyone |
 | `/servers/{id}` | the status with the team scores, the next map in the rotation and when it was observed, who is on (in-game name, team, kills, deaths, ping, a member badge), the last 10 matches, a link to the server's board | the status: everyone; who is on: members and the owner ("Log in to see who's on" otherwise); matches: as the boards |
-| `/members/{id}` (`/profile` is yours) | a member's totals over all time, this week, this month and each season running now (Official servers, every linked account), their 20 most recent matches on any server, and on your own profile the switch that shows your name on leaderboards (`SetBoardName`) | the member, the owner and apps with `stats:read`; anyone when the member shows their name and `stats.public` is on; otherwise "no such profile", so a page never says who plays under a pseudonym. A named member on a board links here |
+| `/members/{id}` (`/profile` is yours) | a member's totals over all time, this week, this month and each season running now (Official servers, every linked account), their participation over the same windows (a table per kind, [Participation](#participation-adr-0014)), their 20 most recent matches on any server, and on your own profile the switch that shows your name on leaderboards (`SetBoardName`) | the member, the owner and apps with `stats:read`; anyone when the member shows their name and `stats.public` is on; otherwise "no such profile", so a page never says who plays under a pseudonym. A named member on a board links here |
 | `/servers/{id}`, for the owner and moderators | per player in "Who's on": kick, ban or message, with a reason or the message; a Moderation section with a broadcast, a ban by SteamID64 for a player who isn't on, the ban list with unban, and the log link. A control shows only when the server's driver offers it (its capabilities). Every action goes through a confirmation page (`POST /servers/{id}/moderate`) that says exactly what will be sent, and is recorded in the audit log with the moderator's name | the owner and moderators ([Roles](#roles-adr-0013)) |
 | `/servers/{id}/log` | the server's moderation log, newest first: when, who (a member's name, or an app and who it acted for), the action, the player, the reason or message, the result | the owner and moderators |
 | `/boards?scope=&window=&metric=&page=` | a leaderboard: scope `` (everyone, Official servers), `game:<id>` or `server:<id>`; window `all`, `week`, `month` or `season:<name>`; ranked by any column of the game's `layout.board`, 50 a page | everyone when `stats.public` is on, else the owner ("Leaderboards are private…" otherwise) |
+| `/participation?kind=&window=&page=` | a participation board: the kinds recorded (a picker; "Nothing has been recorded yet" before the first), window `all`, `week`, `month` or `season:<name>`, players ranked by time taken part, 50 a page; linked from `/boards` | as `/boards` ("Participation boards are private…" otherwise) |
 
 The forms and links work without JavaScript; htmx swaps only the main content. On a narrow screen a
 board drops its last two columns. A game's pages carry its overlay from the Organization settings
@@ -848,7 +896,11 @@ GRAVEL_TEST_DATABASE_URL='postgres://gravel:test@127.0.0.1:55432/gravel?sslmode=
 
 The servers' monitor runs against the War Dogs driver and a fake server serving a recorded
 build (`internal/servers`), and `internal/hub`'s integration test applies a server, runs the hub
-and reads its status over the API and the metrics.
+and reads its status over the API and the metrics. Until a stats conformance suite exists, the
+`first_party` source's conformance case (ADR-0014) is two integration tests: a participation event
+reaches no combat board, of any scope, metric or window (`internal/store`,
+`TestParticipationBoardAndTotals`), and an app's event reaches the member's profile and the
+participation board but not `GetBoard` (`internal/hub`, `TestParticipationFromAnApp`).
 
 The War Dogs client (`games/wardogs`) runs one contract against every recorded build in
 `games/wardogs/testdata/` through a fake server (`games/wardogs/wardogstest`); the same contract

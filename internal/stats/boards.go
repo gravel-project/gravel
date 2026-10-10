@@ -56,21 +56,55 @@ type Boards struct {
 	settings SettingsSource
 	now      func() time.Time
 
-	changes *Changes
-	mu      sync.Mutex
-	cache   map[Query]cachedBoard
+	changes       *Changes
+	boards        answers[Query, Board]
+	participation answers[ParticipationQuery, ParticipationBoard]
 }
 
-type cachedBoard struct {
-	board   Board
+// answers is a cache of board answers by query, each kept while it is fresh.
+type answers[Q comparable, A any] struct {
+	mu sync.Mutex
+	m  map[Q]cached[A]
+}
+
+type cached[A any] struct {
+	answer  A
 	at      time.Time
 	changes uint64
 }
 
 // fresh reports whether a cached answer may still be served.
-func (c cachedBoard) fresh(now time.Time, changes uint64) bool {
+func (c cached[A]) fresh(now time.Time, changes uint64) bool {
 	age := now.Sub(c.at)
 	return age < BoardLiveTTL || (c.changes == changes && age < BoardMaxTTL)
+}
+
+// get is q's answer when it is fresh.
+func (a *answers[Q, A]) get(q Q, now time.Time, changes uint64) (A, bool) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	c, ok := a.m[q]
+	if !ok || !c.fresh(now, changes) {
+		var zero A
+		return zero, false
+	}
+	return c.answer, true
+}
+
+// put keeps q's answer, read at now when the store had seen changes writes.
+func (a *answers[Q, A]) put(q Q, answer A, now time.Time, changes uint64) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.m == nil || len(a.m) >= boardCacheEntries {
+		a.m = map[Q]cached[A]{} // bounded: a scraper walking every page only refills it
+	}
+	a.m[q] = cached[A]{answer: answer, at: now, changes: changes}
+}
+
+func (a *answers[Q, A]) clear() {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.m = nil
 }
 
 // NewBoards builds the board reader; changes is the stats store's write counter the recorder
@@ -80,7 +114,7 @@ func NewBoards(st Store, orgID uuid.UUID, names *Namer, settings SettingsSource,
 		changes = &Changes{}
 		changes.Bump()
 	}
-	return &Boards{st: st, orgID: orgID, names: names, settings: settings, now: time.Now, changes: changes, cache: map[Query]cachedBoard{}}
+	return &Boards{st: st, orgID: orgID, names: names, settings: settings, now: time.Now, changes: changes}
 }
 
 // Query is a board request. At most one of ServerID and GameID; neither is the organization.
@@ -126,22 +160,14 @@ func (b *Boards) Public(ctx context.Context) (bool, error) {
 // Board ranks the players a query selects, from the cache while it is fresh.
 func (b *Boards) Board(ctx context.Context, q Query) (Board, error) {
 	now, seen := b.now(), b.changes.Seen()
-	b.mu.Lock()
-	c, ok := b.cache[q]
-	b.mu.Unlock()
-	if ok && c.fresh(now, seen) {
-		return c.board, nil
+	if c, ok := b.boards.get(q, now, seen); ok {
+		return c, nil
 	}
 	out, err := b.board(ctx, q)
 	if err != nil {
 		return Board{}, err
 	}
-	b.mu.Lock()
-	if len(b.cache) >= boardCacheEntries {
-		clear(b.cache) // bounded: a scraper walking every page only refills it
-	}
-	b.cache[q] = cachedBoard{board: out, at: now, changes: seen}
-	b.mu.Unlock()
+	b.boards.put(q, out, now, seen)
 	return out, nil
 }
 
@@ -193,9 +219,31 @@ func (b *Boards) board(ctx context.Context, q Query) (Board, error) {
 	for _, r := range rows {
 		keys = append(keys, store.PlayerKey{Provider: r.Provider, Subject: r.Subject})
 	}
-	members, err := b.st.BoardMembers(ctx, keys)
+	shown, err := b.show(ctx, keys)
 	if err != nil {
 		return Board{}, err
+	}
+	for i, r := range rows {
+		out.Entries = append(out.Entries, Entry{Rank: q.Offset + i + 1, Name: shown[i].Name, Pseudonymous: shown[i].Pseudonymous, UserID: shown[i].UserID,
+			Kills: r.Kills, Deaths: r.Deaths, SecondsOn: r.SecondsOn, Matches: r.Matches, KD: float64(r.Kills) / float64(max(r.Deaths, 1))})
+	}
+	return out, nil
+}
+
+// shownAs is how a board shows a player: by name when they linked the identity and chose to be
+// shown (UserID is then the member), else under their pseudonym.
+type shownAs struct {
+	Name         string
+	Pseudonymous bool
+	UserID       uuid.UUID
+}
+
+// show resolves a page of identities to how a board shows them, in order (principle 5: the
+// identity becomes a member only here, when the board is read).
+func (b *Boards) show(ctx context.Context, keys []store.PlayerKey) ([]shownAs, error) {
+	members, err := b.st.BoardMembers(ctx, keys)
+	if err != nil {
+		return nil, err
 	}
 	var anon []store.PlayerKey
 	for _, k := range keys {
@@ -205,18 +253,15 @@ func (b *Boards) board(ctx context.Context, q Query) (Board, error) {
 	}
 	names, err := b.names.Names(ctx, anon)
 	if err != nil {
-		return Board{}, err
+		return nil, err
 	}
-	for i, r := range rows {
-		k := keys[i]
-		e := Entry{Rank: q.Offset + i + 1, Kills: r.Kills, Deaths: r.Deaths, SecondsOn: r.SecondsOn, Matches: r.Matches,
-			KD: float64(r.Kills) / float64(max(r.Deaths, 1))}
+	out := make([]shownAs, len(keys))
+	for i, k := range keys {
 		if m, ok := members[k]; ok && m.ShowName {
-			e.Name, e.UserID = m.DisplayName, m.UserID
+			out[i] = shownAs{Name: m.DisplayName, UserID: m.UserID}
 		} else {
-			e.Name, e.Pseudonymous = names[k], true
+			out[i] = shownAs{Name: names[k], Pseudonymous: true}
 		}
-		out.Entries = append(out.Entries, e)
 	}
 	return out, nil
 }
@@ -286,8 +331,7 @@ func (b *Boards) SetShowName(ctx context.Context, userID uuid.UUID, show bool) e
 	if err := b.st.SetShowNameOnBoards(ctx, userID, show); err != nil {
 		return err
 	}
-	b.mu.Lock()
-	clear(b.cache)
-	b.mu.Unlock()
+	b.boards.clear()
+	b.participation.clear()
 	return nil
 }

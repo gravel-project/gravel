@@ -130,10 +130,119 @@ message GetMemberProfileResponse {
   repeated ProfileTotals totals = 5;
   // Their most recent matches on any server, newest first.
   repeated PlayerMatch recent = 6;
+  // Their participation from first-party apps (ADR-0014) over the same windows as totals, one
+  // entry per window and kind they took part in, by window in totals' order, then kind.
+  repeated ParticipationTotals participation = 7;
+}
+
+// PlayerIdentity is a player at an identity provider, as the stats store keys them (never a
+// member id: an identity is resolved to a member only when a board or profile is read).
+message PlayerIdentity {
+  // "discord" or "steam".
+  string provider = 1;
+  // The stable id at the provider: a Discord user id, a SteamID64.
+  string subject = 2;
+}
+
+// ParticipationEvent is one time a player took part in something a first-party app tracks
+// (ADR-0014): a seeding session, an event they attended. It feeds participation boards and
+// profiles only, never a combat board.
+message ParticipationEvent {
+  // The app's idempotency key: 1 to 128 printable ASCII characters, unique per app. An event
+  // sent again with a key the app used before is a duplicate and is not stored again, even when
+  // its other fields differ.
+  string key = 1;
+  // What the player did, as the app names it: a lower-case letter, then up to 31 lower-case
+  // letters, digits or underscores ("seeding", "attendance").
+  string kind = 2;
+  PlayerIdentity identity = 3;
+  // A game this hub ships, optional. With server_id, it must be that server's game; with only
+  // server_id, the server's game is stored.
+  string game_id = 4;
+  // A server the hub knows, optional.
+  string server_id = 5;
+  // The app's own reference for the session or event, at most 128 characters, optional.
+  string session = 6;
+  // When it happened: required, at most 5 minutes ahead of the hub's clock, and not older than
+  // the stats store keeps raw rows (the Organization settings' stats.raw_retention_months).
+  google.protobuf.Timestamp occurred_at = 7;
+  // How long it lasted, 0 to 86400.
+  int32 duration_seconds = 8;
+  // The event's schema version: 0 (the current one) or 1.
+  int32 schema_version = 9;
+}
+
+message RecordParticipationRequest {
+  // 1 to 100 events. The request is checked whole first: one invalid event refuses them all,
+  // and nothing is stored.
+  repeated ParticipationEvent events = 1;
+}
+
+// ParticipationResult is what became of one event.
+message ParticipationResult {
+  string key = 1;
+  // "recorded", or "duplicate" when the app sent the key before.
+  string outcome = 2;
+}
+
+message RecordParticipationResponse {
+  // One per event, in the request's order.
+  repeated ParticipationResult results = 1;
+}
+
+// ParticipationEntry is one player on a participation board, named as on GetBoard.
+message ParticipationEntry {
+  int32 rank = 1;
+  string name = 2;
+  bool pseudonymous = 3;
+  // The member, when shown by name.
+  string user_id = 4;
+  // How many times they took part, and for how long in all.
+  int32 events = 5;
+  int32 seconds = 6;
+}
+
+message GetParticipationBoardRequest {
+  // The kind to rank; empty is the first of the organization's kinds.
+  string kind = 1;
+  // Only this game's events; empty is every event, with a game or without.
+  string game_id = 2;
+  // "week" (this week), "month" (this month), "season" (the named one), "all" (the default).
+  string window = 3;
+  string season = 4;
+  int32 page_size = 5;
+  // The next_page_token of the previous page; empty for the first.
+  string page_token = 6;
+}
+
+message GetParticipationBoardResponse {
+  // Ranked by time, then times taken part.
+  repeated ParticipationEntry entries = 1;
+  string next_page_token = 2;
+  // The window's bounds; unset for "all".
+  google.protobuf.Timestamp from = 3;
+  google.protobuf.Timestamp to = 4;
+  // The kind ranked; empty when nothing has been recorded.
+  string kind = 5;
+  // Every kind recorded in the organization, sorted, for a picker.
+  repeated string kinds = 6;
+}
+
+// ParticipationTotals is a member's participation of one kind over one window: "all", "week",
+// "month", or "season" with season naming one running now. from and to are unset for all time.
+message ParticipationTotals {
+  string window = 1;
+  string season = 2;
+  google.protobuf.Timestamp from = 3;
+  google.protobuf.Timestamp to = 4;
+  string kind = 5;
+  int32 events = 6;
+  int32 seconds = 7;
 }
 
 // StatsService is the stats boards (ADR-0012): counts from the hub's own polls of each server,
-// keyed by provider identity, unlinked players under pseudonyms.
+// keyed by provider identity, unlinked players under pseudonyms; and participation from
+// first-party apps, on boards of its own (ADR-0014).
 service StatsService {
   // GetBoard ranks the players of a server, a game or the organization over a window. Public when
   // the Organization settings make stats public; otherwise the owner or an app with stats:read.
@@ -149,4 +258,10 @@ service StatsService {
   // the Organization settings make stats public. Anyone else gets not_found, so a profile
   // doesn't reveal who is behind a pseudonym.
   rpc GetMemberProfile(GetMemberProfileRequest) returns (GetMemberProfileResponse);
+  // RecordParticipation stores participation events from a first-party app (ADR-0014): only an
+  // app holding participation:write; a member's session, the owner's included, is refused.
+  rpc RecordParticipation(RecordParticipationRequest) returns (RecordParticipationResponse);
+  // GetParticipationBoard ranks the players who took part in one kind of thing over a window,
+  // with the same access as GetBoard.
+  rpc GetParticipationBoard(GetParticipationBoardRequest) returns (GetParticipationBoardResponse);
 }

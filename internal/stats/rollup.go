@@ -26,12 +26,14 @@ const RollupEvery = 6 * time.Hour
 type RollupStore interface {
 	OldestRawMatch(ctx context.Context, orgID uuid.UUID) (time.Time, error)
 	RollUp(ctx context.Context, orgID uuid.UUID, timezone string, periods []store.Period) (store.Rollup, error)
+	OldestRawParticipation(ctx context.Context, orgID uuid.UUID) (time.Time, error)
+	RollUpParticipation(ctx context.Context, orgID uuid.UUID, timezone string, periods []store.Period) (int, error)
 	EraseIdentity(ctx context.Context, orgID uuid.UUID, key store.PlayerKey, token string) (store.Erasure, error)
 }
 
-// Retention rolls a player's per-match rows into monthly totals once they pass the Organization
-// settings' stats.raw_retention_months (ADR-0012 §6), so no raw row is older than the window and
-// the boards keep their numbers.
+// Retention rolls a player's per-match rows, and participation events (ADR-0014), into monthly
+// totals once they pass the Organization settings' stats.raw_retention_months (ADR-0012 §6), so
+// no raw row is older than the window and the boards keep their numbers.
 type Retention struct {
 	st       RollupStore
 	orgID    uuid.UUID
@@ -94,46 +96,69 @@ func Periods(oldest, cutoff time.Time, loc *time.Location, seasons []org.Season)
 	return out, nil
 }
 
-// Run rolls up every whole period before the cutoff; a run with nothing to do reads one row.
+// Run rolls up every whole period before the cutoff, matches and participation alike; a run with
+// nothing to do reads two rows.
 func (r *Retention) Run(ctx context.Context) error {
 	set, err := r.settings(ctx)
 	if err != nil {
 		return err
 	}
-	oldest, err := r.st.OldestRawMatch(ctx, r.orgID)
-	if errors.Is(err, store.ErrNotFound) {
-		return nil
+	oldestMatch, err := oldestOrZero(r.st.OldestRawMatch(ctx, r.orgID))
+	if err != nil {
+		return err
 	}
+	oldestPart, err := oldestOrZero(r.st.OldestRawParticipation(ctx, r.orgID))
 	if err != nil {
 		return err
 	}
 	loc := set.Location()
 	cutoff := Cutoff(r.now(), loc, set.RawRetentionMonthsOrDefault())
-	if !oldest.Before(cutoff) {
+	due := func(t time.Time) bool { return !t.IsZero() && t.Before(cutoff) }
+	if !due(oldestMatch) && !due(oldestPart) {
 		return nil
+	}
+	oldest := oldestMatch
+	if !due(oldest) || (due(oldestPart) && oldestPart.Before(oldest)) {
+		oldest = oldestPart
 	}
 	periods, err := Periods(oldest, cutoff, loc, set.Seasons)
 	if err != nil {
 		return err
 	}
-	got, err := r.st.RollUp(ctx, r.orgID, loc.String(), periods)
-	if err != nil {
-		return err
+	var got store.Rollup
+	if due(oldestMatch) {
+		if got, err = r.st.RollUp(ctx, r.orgID, loc.String(), periods); err != nil {
+			return err
+		}
+	}
+	var moved int
+	if due(oldestPart) {
+		if moved, err = r.st.RollUpParticipation(ctx, r.orgID, loc.String(), periods); err != nil {
+			return err
+		}
 	}
 	r.rows.Add(float64(got.Rows))
-	if got.Rows > 0 {
+	if got.Rows > 0 || moved > 0 {
 		r.changes.Bump()
 		r.logger.InfoContext(ctx, "stats: rolled raw rows up into monthly totals", "matches", got.Matches, "rows", got.Rows,
-			"before", cutoff.Format(time.DateOnly), "retention_months", set.RawRetentionMonthsOrDefault())
+			"participation_events", moved, "before", cutoff.Format(time.DateOnly), "retention_months", set.RawRetentionMonthsOrDefault())
 	}
 	return nil
+}
+
+// oldestOrZero is an oldest-row lookup with "none" as the zero time.
+func oldestOrZero(at time.Time, err error) (time.Time, error) {
+	if errors.Is(err, store.ErrNotFound) {
+		return time.Time{}, nil
+	}
+	return at, err
 }
 
 // ErrInvalidErasure is an erasure request without an identity.
 var ErrInvalidErasure = errors.New("stats: an erasure needs a provider and a subject")
 
-// Erase replaces a player's identity in the stats tables (and the stored ingest batches) with a
-// random token, and deletes their pseudonym (ADR-0012 §7). The numbers stay, shown as a deleted
+// Erase replaces a player's identity in the stats tables, participation included (ADR-0014), and
+// the stored ingest batches with a random token, and deletes their pseudonym (ADR-0012 §7). The numbers stay, shown as a deleted
 // player; nothing maps the token back to the identity. A player still on a server is recorded
 // under their identity again from the next poll.
 func Erase(ctx context.Context, st RollupStore, orgID uuid.UUID, key store.PlayerKey) (store.Erasure, error) {

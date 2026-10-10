@@ -120,6 +120,30 @@ func TestAccessibility(t *testing.T) {
 			p.Title = "Sam"
 			return templates.Member(templates.MemberPage{Page: p, UserID: "u2", DisplayName: "Sam", ShowName: true, Totals: profileTotals})
 		},
+		// The participation board (ADR-0014): a picker of kinds, a window, a ranked page.
+		"/fixture/participation": func() templ.Component {
+			p := base
+			p.Title = "Participation"
+			return templates.Participation(templates.ParticipationPage{Page: p, Kind: "Seeding", Range: "Oct 5, 2026 to Oct 11, 2026", NextURL: "/participation?page=x",
+				Kinds:   []templates.Option{{Value: "attendance", Label: "Attendance"}, {Value: "seeding", Label: "Seeding", Selected: true}},
+				Windows: []templates.Option{{Value: "all", Label: "All time"}, {Value: "week", Label: "This week", Selected: true}},
+				Rows: []templates.ParticipationRow{{Rank: 1, Name: "Brave Falcon", Pseudonymous: true, Time: "2h 05m", Times: 5},
+					{Rank: 2, Name: "Jo", UserID: "u1", Time: "45m", Times: 2}}})
+		},
+		"/fixture/participation-empty": func() templ.Component {
+			p := base
+			p.Title = "Participation"
+			return templates.Participation(templates.ParticipationPage{Page: p, Empty: true})
+		},
+		"/fixture/member-participation": func() templ.Component {
+			p := base
+			p.Title = "Sam"
+			return templates.Member(templates.MemberPage{Page: p, UserID: "u2", DisplayName: "Sam", ShowName: true, Totals: profileTotals,
+				Participation: []templates.KindTable{
+					{Label: "Event attendance", Rows: []templates.KindTotalsRow{{Label: "All time", Times: 2, Time: "2h 00m"}, {Label: "This week", Times: 0, Time: "0m"}}},
+					{Label: "Seeding", Rows: []templates.KindTotalsRow{{Label: "All time", Times: 3, Time: "1h 30m"}, {Label: "This week", Times: 1, Time: "10m"}}},
+				}})
+		},
 		"/fixture/members": func() templ.Component {
 			p := base
 			p.Title, p.User, p.CSRF = "Members", owner, "csrf"
@@ -193,6 +217,7 @@ func TestAccessibility(t *testing.T) {
 
 	paths := []string{"/login", "/fixture/account-unowned", "/fixture/account-owner", "/fixture/error",
 		"/fixture/servers", "/fixture/server", "/fixture/server-anonymous", "/fixture/server-game-overlay", "/fixture/boards", "/fixture/member-self", "/fixture/member", "/fixture/members",
+		"/fixture/participation", "/fixture/participation-empty", "/fixture/member-participation",
 		"/fixture/server-moderator", "/fixture/confirm", "/fixture/log"}
 	// A fixture left out of the list would never be scanned and the run would still pass.
 	for path := range fixtures {

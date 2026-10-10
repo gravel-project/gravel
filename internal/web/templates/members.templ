@@ -9,8 +9,8 @@ templ Member(p MemberPage) {
 	}
 }
 
-// MemberContent is a member's stats: totals by window, recent matches, and for the member
-// themselves the switch that shows their name on boards.
+// MemberContent is a member's stats: totals by window, participation by kind, recent matches,
+// and for the member themselves the switch that shows their name on boards.
 templ MemberContent(p MemberPage) {
 	@FlashView(p.Flash)
 	<h1>
@@ -66,6 +66,35 @@ templ MemberContent(p MemberPage) {
 				}
 			</tbody>
 		</table>
+	</section>
+	<section aria-labelledby="participation-heading">
+		<h2 id="participation-heading">Participation</h2>
+		if len(p.Participation) == 0 {
+			<p class="muted">Nothing recorded yet. Seeding a server or attending an event counts here when the community's apps record it.</p>
+		} else {
+			<p class="muted">From the community's own apps, for every account linked to this member. <a href="/participation">Participation boards</a></p>
+			for _, k := range p.Participation {
+				<table>
+					<caption>{ k.Label }</caption>
+					<thead>
+						<tr>
+							<th scope="col">When</th>
+							<th scope="col" class="num">Times</th>
+							<th scope="col" class="num">Time</th>
+						</tr>
+					</thead>
+					<tbody>
+						for _, r := range k.Rows {
+							<tr>
+								<th scope="row">{ r.Label }</th>
+								<td class="num">{ fmt.Sprint(r.Times) }</td>
+								<td class="num">{ r.Time }</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			}
+		}
 	</section>
 	<section aria-labelledby="recent-heading">
 		<h2 id="recent-heading">Recent matches</h2>

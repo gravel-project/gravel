@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	hubv1 "github.com/gravel-project/gravel/gen/gravel/hub/v1"
 	"github.com/gravel-project/gravel/internal/web/templates"
@@ -273,29 +275,10 @@ func (h *Handler) boards(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// The window: all time, this week, this month, or a named season.
-	bp.Windows = []templates.Option{
-		{Value: "all", Label: "All time", Selected: q.window == "all"},
-		{Value: "week", Label: "This week", Selected: q.window == "week"},
-		{Value: "month", Label: "This month", Selected: q.window == "month"},
-	}
 	ctx, _ := withBrowser(r)
-	loc := time.UTC // the window's dates are shown in the organization's timezone
-	if set, err := h.orgAPI.GetOrganizationSettings(ctx, connect.NewRequest(&hubv1.GetOrganizationSettingsRequest{})); err == nil {
-		if tz := set.Msg.GetSettings().GetStats().GetTimezone(); tz != "" {
-			if l, err := time.LoadLocation(tz); err == nil {
-				loc = l
-			}
-		}
-		for _, se := range set.Msg.GetSettings().GetStats().GetSeasons() {
-			v := "season:" + se.GetName()
-			bp.Windows = append(bp.Windows, templates.Option{Value: v, Label: se.GetName(), Selected: q.window == v})
-		}
-	}
-	if season, ok := strings.CutPrefix(q.window, "season:"); ok {
-		req.Window, req.Season = "season", season
-	} else {
-		req.Window = q.window
-	}
+	var loc *time.Location
+	bp.Windows, loc = h.windowOptions(ctx, q.window)
+	req.Window, req.Season = windowOf(q.window)
 
 	metric := q.metric
 	if !slices.Contains(columns, metric) {
@@ -319,9 +302,7 @@ func (h *Handler) boards(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		m := resp.Msg
-		if m.GetFrom() != nil {
-			bp.Range = m.GetFrom().AsTime().In(loc).Format("Jan 2, 2006") + " to " + m.GetTo().AsTime().Add(-time.Second).In(loc).Format("Jan 2, 2006")
-		}
+		bp.Range = rangeOf(m.GetFrom(), m.GetTo(), loc)
 		for _, e := range m.GetEntries() {
 			row := templates.BoardRow{Rank: int(e.GetRank()), Name: e.GetName(), Pseudonymous: e.GetPseudonymous(), UserID: e.GetUserId()}
 			for _, c := range columns {
@@ -373,4 +354,45 @@ func connectMessage(err error) string {
 		return ce.Message()
 	}
 	return err.Error()
+}
+
+// windowOptions are a board's windows (all time, this week, this month and each season in the
+// Organization settings) with selected marked, and the organization's timezone, in which a
+// window's dates are shown.
+func (h *Handler) windowOptions(ctx context.Context, selected string) ([]templates.Option, *time.Location) {
+	out := []templates.Option{
+		{Value: "all", Label: "All time", Selected: selected == "all"},
+		{Value: "week", Label: "This week", Selected: selected == "week"},
+		{Value: "month", Label: "This month", Selected: selected == "month"},
+	}
+	loc := time.UTC
+	if set, err := h.orgAPI.GetOrganizationSettings(ctx, connect.NewRequest(&hubv1.GetOrganizationSettingsRequest{})); err == nil {
+		if tz := set.Msg.GetSettings().GetStats().GetTimezone(); tz != "" {
+			if l, err := time.LoadLocation(tz); err == nil {
+				loc = l
+			}
+		}
+		for _, se := range set.Msg.GetSettings().GetStats().GetSeasons() {
+			v := "season:" + se.GetName()
+			out = append(out, templates.Option{Value: v, Label: se.GetName(), Selected: selected == v})
+		}
+	}
+	return out, loc
+}
+
+// windowOf is a page's window parameter ("all", "week", "month", "season:<name>") as the API's
+// window and season.
+func windowOf(param string) (window, season string) {
+	if name, ok := strings.CutPrefix(param, "season:"); ok {
+		return "season", name
+	}
+	return param, ""
+}
+
+// rangeOf is a window's dates as a page shows them, or "" for all time.
+func rangeOf(from, to *timestamppb.Timestamp, loc *time.Location) string {
+	if from == nil || to == nil {
+		return ""
+	}
+	return from.AsTime().In(loc).Format("Jan 2, 2006") + " to " + to.AsTime().Add(-time.Second).In(loc).Format("Jan 2, 2006")
 }

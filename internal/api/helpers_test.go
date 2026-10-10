@@ -43,6 +43,7 @@ type rig struct {
 	drv   *fakeDriver
 	audit *serverstest.AuditStore
 	stats *fakeStatsStore
+	reg   *prometheus.Registry
 	token string
 }
 
@@ -73,11 +74,14 @@ func newRig(t *testing.T) *rig {
 	r.obs = &fakeObserver{obs: map[string]servers.Observation{}}
 	r.drv = &fakeDriver{errs: map[string]error{}}
 	r.audit = serverstest.NewAuditStore()
-	r.stats = &fakeStatsStore{showName: map[uuid.UUID]bool{}}
-	boards := stats.NewBoards(r.stats, o.ID, nil, func(ctx context.Context) (org.Stats, error) {
+	r.stats = &fakeStatsStore{showName: map[uuid.UUID]bool{}, members: map[store.PlayerKey]store.BoardMember{}}
+	statsSettings := func(ctx context.Context) (org.Stats, error) {
 		set, _, err := r.org.Settings(ctx)
 		return set.Stats, err
-	}, nil)
+	}
+	boards := stats.NewBoards(r.stats, o.ID, stats.NewNamer(r.stats, o.ID, nil, logger), statsSettings, nil)
+	r.reg = prometheus.NewRegistry()
+	part := stats.NewParticipation(r.stats, o.ID, r.srvs, servers.GameIDs(), statsSettings, nil, r.reg)
 	mod := servers.NewModeration(r.srvs, r.drv, r.audit, serverstest.NewBanStore(), o.ID, prometheus.NewRegistry(), logger)
 	mux := http.NewServeMux()
 	mux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(r.org, logger)))
@@ -85,7 +89,7 @@ func newRig(t *testing.T) *rig {
 	mux.Handle(hubv1connect.NewServerServiceHandler(api.NewServerServer(r.srvs, r.obs, r.ids, logger)))
 	mux.Handle(hubv1connect.NewModerationServiceHandler(api.NewModerationServer(mod, r.org, r.ids, logger)))
 	mux.Handle(hubv1connect.NewServerConfigServiceHandler(api.NewConfigServer(mod, r.org, logger)))
-	mux.Handle(hubv1connect.NewStatsServiceHandler(api.NewStatsServer(boards, r.org, r.ids, logger)))
+	mux.Handle(hubv1connect.NewStatsServiceHandler(api.NewStatsServer(boards, part, r.org, r.ids, logger)))
 	r.srv = newH2CServer(r.sess.Middleware(r.apps.Middleware(mux)))
 	t.Cleanup(r.srv.Close)
 	return r

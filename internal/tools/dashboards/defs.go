@@ -147,6 +147,9 @@ func hubDashboard() dashboard {
 				{Title: "Since the last rollup", Kind: "stat", Unit: "s", Width: 12,
 					Description: "The rollup job runs every 6 hours; much over that means it is failing (gravel_hub_jobs_total, result error). Prometheus stores the runner's job label as exported_job, since the scrape's own job label wins.",
 					Targets:     []target{{Expr: `time() - max(gravel_hub_job_last_success_timestamp_seconds{exported_job="stats_rollup", ` + sel + `})`}}},
+				{Title: "Participation events", Kind: "timeseries", Width: 24, Optional: "no app recorded participation in the range",
+					Description: "Participation events first-party apps sent (ADR-0014), by kind and outcome: recorded; duplicate (a key the app sent before, not stored again); invalid (the request was refused, nothing stored; kind is \"invalid\" when the kind itself was).",
+					Targets:     []target{{Expr: `sum by (kind, outcome) (increase(gravel_participation_events_total{` + sel + `}[$__rate_interval]))`, Legend: "{{kind}} {{outcome}}"}}},
 			}},
 			{Title: "Ingestion", Panels: []panel{
 				{Title: "Since the last batch", Kind: "stat", Unit: "s", Width: 8, TextMode: "value_and_name", Optional: "no server has a feed (servers.yaml feed), or none has posted yet",

@@ -12,8 +12,9 @@ import (
 
 // statsCmd is `gravel-hub stats erase`: a player's erasure in the stats store (ADR-0012 §7), for an
 // operator acting on a request they have verified. Their identity is replaced by a random token in
-// the per-match rows, the monthly totals and the stored ingest batches, and their pseudonym is
-// deleted; the numbers stay, shown as a deleted player. The erasure flow members start themselves
+// the per-match rows, the monthly totals, their participation events and its monthly totals
+// (ADR-0014) and the stored ingest batches, and their pseudonym is deleted; the numbers stay,
+// shown as a deleted player. The erasure flow members start themselves
 // comes with identity's.
 func statsCmd(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	const usageLine = "usage: gravel-hub stats erase --provider PROVIDER --subject SUBJECT [--config hub.yaml]"
@@ -54,7 +55,7 @@ func statsCmd(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 		return 1
 	}
 	// The identity is not printed back: the command line already holds it, and a log should not.
-	fmt.Fprintf(stdout, "erased: %d match rows, %d monthly rows, %d ingest batches re-keyed; pseudonym deleted: %t\n",
-		got.MatchRows, got.MonthlyRows, got.IngestBatches, got.Pseudonym)
+	fmt.Fprintf(stdout, "erased: %d match rows, %d monthly rows, %d participation events, %d participation monthly rows, %d ingest batches re-keyed; pseudonym deleted: %t\n",
+		got.MatchRows, got.MonthlyRows, got.ParticipationRows, got.ParticipationMonthlyRows, got.IngestBatches, got.Pseudonym)
 	return 0
 }

@@ -68,14 +68,16 @@ type Hub struct {
 	monitor    *servers.Monitor
 	moderation *servers.Moderation
 	stats      *stats.Boards
-	feeds      *ingest.Keyring
-	ingest     *ingest.Handler
-	jobs       *jobs.Runner
-	web        *web.Handler
-	perIP      *ratelimit.Limiter
-	perUser    *ratelimit.Limiter
-	perApp     *ratelimit.Limiter
-	claimToken string
+	// participation records first-party apps' participation events (ADR-0014).
+	participation *stats.Participation
+	feeds         *ingest.Keyring
+	ingest        *ingest.Handler
+	jobs          *jobs.Runner
+	web           *web.Handler
+	perIP         *ratelimit.Limiter
+	perUser       *ratelimit.Limiter
+	perApp        *ratelimit.Limiter
+	claimToken    string
 
 	registry     *metricnames.Registry
 	metrics      *httpx.Metrics
@@ -193,6 +195,9 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 		return set.Stats, err
 	}
 	h.stats = stats.NewBoards(st, o.ID, stats.NewNamer(st, o.ID, []byte(cfg.Stats.PseudonymKey), logger), statsSettings, changes)
+	// Participation from first-party apps (ADR-0014) shares the change counter, so its boards are
+	// cached like the combat boards.
+	h.participation = stats.NewParticipation(st, o.ID, h.servers, servers.GameIDs(), statsSettings, changes, h.registry)
 	// Retention (ADR-0012 §6): raw rows past the window roll up into monthly totals.
 	h.jobs.Start(jobs.Job{Name: "stats_rollup", Every: stats.RollupEvery, Immediate: true,
 		Run: stats.NewRetention(st, o.ID, statsSettings, changes, h.registry, logger).Run})
@@ -302,7 +307,7 @@ func (h *Hub) buildAPI() *http.ServeMux {
 	mux.Handle(hubv1connect.NewServerServiceHandler(api.NewServerServer(h.servers, h.monitor, h.ids, h.logger), interceptors))
 	mux.Handle(hubv1connect.NewModerationServiceHandler(api.NewModerationServer(h.moderation, h.org, h.ids, h.logger), interceptors))
 	mux.Handle(hubv1connect.NewServerConfigServiceHandler(api.NewConfigServer(h.moderation, h.org, h.logger), interceptors))
-	mux.Handle(hubv1connect.NewStatsServiceHandler(api.NewStatsServer(h.stats, h.org, h.ids, h.logger), interceptors))
+	mux.Handle(hubv1connect.NewStatsServiceHandler(api.NewStatsServer(h.stats, h.participation, h.org, h.ids, h.logger), interceptors))
 	return mux
 }
 
