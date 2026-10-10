@@ -10,7 +10,7 @@ Requires=gravel-postgres.service
 After=gravel-postgres.service
 
 [Container]
-Image=ghcr.io/gravel-project/gravel-hub@sha256:ce1cc3f6ebd94a21a2594812593b6645b7eafcb6567d09e868145606093d2f12
+Image=ghcr.io/gravel-project/gravel-hub@sha256:4b26b8d81f9bcde9e80b9b2a3ead351ed5af605a9004f2cac345c0718e4d6c5c
 ContainerName=gravel-hub
 Network=gravel.network
 PublishPort=127.0.0.1:8080:8080

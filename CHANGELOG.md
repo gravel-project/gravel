@@ -8,6 +8,8 @@ patch release is everything else.
 
 ## [Unreleased]
 
+## [0.6.5] - 2026-10-10
+
 ### Added
 
 - The ingest route, raw first: ADR-0011's first step (#4).
@@ -17,6 +19,10 @@ patch release is everything else.
   - **Metrics:** `gravel_ingest_batches_total{server,source,result}` and `gravel_ingest_last_batch_timestamp_seconds{server}`, on the hub dashboard's new Ingestion row.
   - **Docs:** docs/hub.md (Ingestion) and an ADR-0011 amendment.
 - ADR-0011: inbound ingestion stores every batch raw before it parses, and every event carries its provenance (#4, #3). One route, `POST /api/ingest/events`, authenticates a per-server feed token, read from a file `servers.yaml` names, as the RCON credential is. It commits each batch to an append-only `ingest_batches` table before it answers, because War Dogs' feed never retries, and a hub job parses afterwards, so a parser bug or a game update loses nothing. Adapters only parse, each event keyed by the source's own id. The War Dogs driver writes `[WDServerFeed]` from the manifest instead of copying it. Events carry `source`, `trust` as it was at receipt, and a dedup key. One trust mapping decides which boards they feed. A gap is an event (reconciliation against the poll's kill and death counts, hub downtime, silence while players are on). Principle 4 becomes "authoritative where logs exist". Raw batches are kept 30 days.
+
+### Changed
+
+- The quadlet units pin the 0.6.4 images by index digest, all three verified with cosign 3 against the release workflow at `v0.6.4` (the 0.6.3 hub as a control, a wrong-tag identity refused): `ghcr.io/gravel-project/gravel-hub@sha256:4b26b8d81f9bcde9e80b9b2a3ead351ed5af605a9004f2cac345c0718e4d6c5c` in `gravel-hub.container`, `ghcr.io/gravel-project/gravel-bot@sha256:d63e2e3476d11788e62b72a77cf434cd09ca879e1af09e9b6392592b34048ddc` in `gravel-bot.container`, and `ghcr.io/gravel-project/gravel-postgres@sha256:7817977451c2522af7915654dd914697e9624ca37b1d6eb967875646ff0cab3c` in the backup set. `docs/hub.md` names 0.6.4 as the tag example.
 
 ## [0.6.4] - 2026-10-10
 
@@ -177,7 +183,8 @@ patch release is everything else.
 
 - README and CLAUDE.md follow ADR-0001: status line, principle 2 (the resource lives in the hub's database), the hub and backup paragraphs, the adapter-repo rule, the local-dev default, and a seven-step build order with the issues behind each step. The launch games are the five Hidden Token Gaming plays, in three shapes, with War Dogs first; the open threads link the design-delta issues #2–#9 (#1).
 
-[Unreleased]: https://github.com/gravel-project/gravel/compare/v0.6.4...HEAD
+[Unreleased]: https://github.com/gravel-project/gravel/compare/v0.6.5...HEAD
+[0.6.5]: https://github.com/gravel-project/gravel/compare/v0.6.4...v0.6.5
 [0.6.4]: https://github.com/gravel-project/gravel/compare/v0.6.3...v0.6.4
 [0.6.3]: https://github.com/gravel-project/gravel/compare/v0.6.2...v0.6.3
 [0.6.2]: https://github.com/gravel-project/gravel/compare/v0.6.1...v0.6.2
