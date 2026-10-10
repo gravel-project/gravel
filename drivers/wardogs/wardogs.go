@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gravel-project/gravel/drivers"
@@ -40,7 +41,11 @@ var capabilities = map[string][]wardogs.Capability{
 
 // Driver is one War Dogs server.
 type Driver struct {
-	c *wardogs.Client
+	c      *wardogs.Client
+	logger *slog.Logger
+
+	mu   sync.Mutex
+	last *wardogs.Capabilities // the previous read, to log a route diff when it changes
 }
 
 var _ drivers.ExternalReachable = (*Driver)(nil)
@@ -61,23 +66,23 @@ func New(t drivers.Target) (drivers.ExternalReachable, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Driver{c: c}, nil
+	return &Driver{c: c, logger: logger}, nil
 }
 
 // Build reads the public capabilities, which name the build, and keeps them for the calls.
 func (d *Driver) Build(ctx context.Context) (string, error) {
-	caps, err := d.c.Capabilities(ctx)
+	caps, err := d.read(ctx)
 	if err != nil {
-		return "", mapError(err)
+		return "", err
 	}
 	return caps.Build, nil
 }
 
 // Capabilities re-reads what the server serves and maps it to the domain's set.
 func (d *Driver) Capabilities(ctx context.Context) ([]string, error) {
-	caps, err := d.c.Capabilities(ctx)
+	caps, err := d.read(ctx)
 	if err != nil {
-		return nil, mapError(err)
+		return nil, err
 	}
 	out := []string{} // empty, not nil: the server answered and grants nothing
 	for domain, need := range capabilities {
@@ -91,6 +96,27 @@ func (d *Driver) Capabilities(ctx context.Context) ([]string, error) {
 	}
 	slices.Sort(out)
 	return out, nil
+}
+
+// read fetches the public capabilities (the client keeps them for its route lookups) and logs
+// how the routes moved since the previous read: the detail behind a changed capability set, in
+// the game's own terms, for whoever re-records the fixtures (games/wardogs/README.md).
+func (d *Driver) read(ctx context.Context) (wardogs.Capabilities, error) {
+	caps, err := d.c.Capabilities(ctx)
+	if err != nil {
+		return wardogs.Capabilities{}, mapError(err)
+	}
+	d.mu.Lock()
+	prev := d.last
+	d.last = &caps
+	d.mu.Unlock()
+	if prev != nil {
+		if diff := wardogs.DiffRoutes(*prev, caps); !diff.Empty() || prev.Build != caps.Build {
+			d.logger.Info("war dogs routes read again", "from_build", prev.Build, "to_build", caps.Build,
+				"added", diff.Added, "removed", diff.Removed, "renamed", diff.Renamed, "unrecognised", caps.Unrecognised())
+		}
+	}
+	return caps, nil
 }
 
 // Status is the match in progress.

@@ -8,6 +8,10 @@ patch release is everything else.
 
 ## [Unreleased]
 
+### Added
+
+- The build watcher: ADR-0010's fourth step, split from configuration (#24, #16). A second job per server, `server_build`, reads the build every minute from the public capabilities route (no credential) and, when it changes, reads the capabilities again, so `ServerService`, the pages and `ModerationService` follow a game update at once (a route the update removed turns its capability off; before, the capabilities were read once, at the first good poll). The hub warns with the old and new build and the capabilities gained and lost; the War Dogs driver logs the route diff (added, removed, renamed). New metrics `gravel_driver_build_info{server,game,build}` and `gravel_driver_build_changes_total{server,game}` on the hub dashboard's Servers row (Build, Build changes); alert on an increase of the counter. `wardogstest.Server.Upgrade` simulates a game update in tests. `docs/hub.md` (Servers) and an ADR-0010 amendment (configuration and the hub-owned ban list follow as 0.6.5).
+
 ### Changed
 
 - The quadlet units pin the 0.6.3 images by index digest, all three verified with cosign 3 against the release workflow at `v0.6.3` (the 0.6.2 hub as a control, a wrong-tag identity refused): `ghcr.io/gravel-project/gravel-hub@sha256:ce1cc3f6ebd94a21a2594812593b6645b7eafcb6567d09e868145606093d2f12` in `gravel-hub.container`, `ghcr.io/gravel-project/gravel-bot@sha256:9255993bd970d3ed0effd5c4703e0a1d1ffcd9cfe65c8b10e4a7f41a277d8b5b` in `gravel-bot.container`, and `ghcr.io/gravel-project/gravel-postgres@sha256:ff93a23691548030e1ebb56f7cc5712e3db9381015cc91a04b1c8b39075b4138` in the backup set (rebuilt at the tag; the first release built with `docker/setup-buildx-action` v4, #77). `docs/hub.md` names 0.6.3 as the tag example.

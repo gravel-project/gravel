@@ -38,6 +38,10 @@ const MissesUnreachable = 2
 // command line) and their credential files (a rotation).
 const ReconcileEvery = 30 * time.Second
 
+// BuildEvery is how often the build watcher reads each server's build (ADR-0010 §4): one public
+// request that needs no credential. A changed build re-reads the capabilities.
+const BuildEvery = time.Minute
+
 // Observation is what the monitor last saw of a server.
 type Observation struct {
 	ServerID string
@@ -63,10 +67,12 @@ type Monitor struct {
 	now       func() time.Time
 	readFile  func(string) ([]byte, error)
 
-	reachable  *prometheus.GaugeVec
-	players    *prometheus.GaugeVec
-	maxPlayers *prometheus.GaugeVec
-	observed   *prometheus.GaugeVec
+	reachable    *prometheus.GaugeVec
+	players      *prometheus.GaugeVec
+	maxPlayers   *prometheus.GaugeVec
+	observed     *prometheus.GaugeVec
+	buildInfo    *prometheus.GaugeVec
+	buildChanges *prometheus.CounterVec
 
 	mu      sync.Mutex
 	workers map[string]*worker
@@ -99,10 +105,16 @@ func NewMonitor(svc *Service, registry drivers.Registry, runner *jobs.Runner, re
 		observed: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "gravel_server_last_observed_timestamp_seconds", Help: "When the server was last polled successfully.",
 		}, labels),
+		buildInfo: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "gravel_driver_build_info", Help: "The build a server runs, as its driver last read it; always 1.",
+		}, []string{"server", "game", "build"}),
+		buildChanges: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "gravel_driver_build_changes_total", Help: "Builds the watcher saw a server change to (a game update); each re-read the capabilities.",
+		}, labels),
 		workers: map[string]*worker{},
 		obs:     map[string]Observation{},
 	}
-	reg.MustRegister(m.reachable, m.players, m.maxPlayers, m.observed)
+	reg.MustRegister(m.reachable, m.players, m.maxPlayers, m.observed, m.buildInfo, m.buildChanges)
 	return m
 }
 
@@ -138,7 +150,8 @@ func (m *Monitor) Driver(id string) (drivers.ExternalReachable, []string, bool) 
 	return w.drv, slices.Clone(m.obs[id].Capabilities), true
 }
 
-func pollJobName(id string) string { return "server_poll:" + id }
+func pollJobName(id string) string  { return "server_poll:" + id }
+func buildJobName(id string) string { return "server_build:" + id }
 
 // Reconcile makes the poll jobs match the live servers: a new or changed server gets a fresh
 // driver, a rotated credential file reaches its driver, and a removed server stops.
@@ -236,11 +249,16 @@ func (m *Monitor) startWorker(def Server, cred string, sum [32]byte) error {
 		MaxBackoff: min(every*8, 2*time.Minute),
 		Run:        func(ctx context.Context) error { return m.poll(ctx, def.ID) },
 	})
+	m.runner.Start(jobs.Job{
+		Name: buildJobName(def.ID), Label: "server_build", Every: BuildEvery, MaxBackoff: 5 * time.Minute,
+		Run: func(ctx context.Context) error { return m.watchBuild(ctx, def.ID) },
+	})
 	return nil
 }
 
 func (m *Monitor) stopWorker(def Server) {
 	m.runner.Stop(pollJobName(def.ID))
+	m.runner.Stop(buildJobName(def.ID))
 	m.mu.Lock()
 	delete(m.workers, def.ID)
 	delete(m.obs, def.ID)
@@ -252,6 +270,71 @@ func (m *Monitor) deleteMetricsLocked(def Server) {
 	for _, g := range []*prometheus.GaugeVec{m.reachable, m.players, m.maxPlayers, m.observed} {
 		g.DeleteLabelValues(def.ID, def.Game)
 	}
+	m.buildInfo.DeletePartialMatch(prometheus.Labels{"server": def.ID})
+	m.buildChanges.DeleteLabelValues(def.ID, def.Game)
+}
+
+// watchBuild reads a server's build and, when it changed since the observation's, re-reads the
+// capabilities so the API and moderation follow the new build. Before the first good poll it
+// does nothing: that poll reads both. A failure is the runner's to retry; the poll owns the
+// server's state.
+func (m *Monitor) watchBuild(ctx context.Context, id string) error {
+	m.mu.Lock()
+	w, ok := m.workers[id]
+	old := m.obs[id].Build
+	m.mu.Unlock()
+	if !ok || old == "" {
+		return nil
+	}
+	build, err := w.drv.Build(ctx)
+	if err != nil {
+		return fmt.Errorf("server %s: build: %s", id, stateOf(err))
+	}
+	if build == old {
+		return nil
+	}
+	caps, err := w.drv.Capabilities(ctx)
+	if err != nil {
+		return fmt.Errorf("server %s: capabilities: %s", id, stateOf(err))
+	}
+	m.mu.Lock()
+	if m.workers[id] != w {
+		m.mu.Unlock()
+		return nil
+	}
+	o := m.obs[id]
+	before := o.Capabilities
+	o.Build, o.Capabilities = build, caps
+	m.obs[id] = o
+	def := w.def
+	m.setBuildLocked(def, build)
+	m.buildChanges.WithLabelValues(def.ID, def.Game).Inc()
+	m.mu.Unlock()
+	added, removed := setDiff(before, caps)
+	m.logger.Warn("server build changed; capabilities read again", "server", id, "from", old, "to", build,
+		"capabilities_added", added, "capabilities_removed", removed)
+	return nil
+}
+
+// setBuildLocked makes the build info gauge name one build for the server.
+func (m *Monitor) setBuildLocked(def Server, build string) {
+	m.buildInfo.DeletePartialMatch(prometheus.Labels{"server": def.ID})
+	m.buildInfo.WithLabelValues(def.ID, def.Game, build).Set(1)
+}
+
+// setDiff is what b has that a lacks, and what a has that b lacks.
+func setDiff(a, b []string) (added, removed []string) {
+	for _, x := range b {
+		if !slices.Contains(a, x) {
+			added = append(added, x)
+		}
+	}
+	for _, x := range a {
+		if !slices.Contains(b, x) {
+			removed = append(removed, x)
+		}
+	}
+	return added, removed
 }
 
 // poll reads one server's capabilities (the first time), status and players, and records the
@@ -300,6 +383,7 @@ func (m *Monitor) poll(ctx context.Context, id string) error {
 	o.Status, o.Players, o.Capabilities = st, players, caps
 	if build != "" {
 		o.Build = build
+		m.setBuildLocked(w.def, build)
 	}
 	m.obs[id] = o
 	w.misses = 0

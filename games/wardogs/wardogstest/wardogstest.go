@@ -48,12 +48,12 @@ type Request struct {
 // Server is a running fake.
 type Server struct {
 	*httptest.Server
-	dir   string
-	opt   Options
-	caps  []byte
-	ready map[string]bool // advertised shapes
+	dir string
+	opt Options
 
 	mu       sync.Mutex
+	caps     []byte
+	ready    map[string]bool // advertised shapes
 	requests []Request
 	strikes  int
 }
@@ -108,6 +108,37 @@ func New(t testing.TB, dir string, opt Options) *Server {
 	return s
 }
 
+// Upgrade is a game update while the server runs: the capabilities name another build and no
+// longer advertise the routes in remove (by shape, as in Options.Remove). The recorded answers
+// stay the same.
+func (s *Server) Upgrade(t testing.TB, build string, remove ...string) {
+	t.Helper()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var caps map[string]any
+	if err := json.Unmarshal(s.caps, &caps); err != nil {
+		t.Fatalf("wardogstest: %v", err)
+	}
+	drop := map[string]bool{}
+	for _, r := range remove {
+		drop[shape(t, r)] = true
+	}
+	var routes []any
+	for _, v := range caps["routes"].([]any) {
+		if sh := shape(t, v.(string)); drop[sh] {
+			delete(s.ready, sh)
+		} else {
+			routes = append(routes, v)
+		}
+	}
+	caps["routes"], caps["build"] = routes, build
+	raw, err := json.Marshal(caps)
+	if err != nil {
+		t.Fatalf("wardogstest: %v", err)
+	}
+	s.caps = raw
+}
+
 // Builds are the recorded builds' directories under a testdata directory, oldest first.
 func Builds(t testing.TB, testdata string) []string {
 	t.Helper()
@@ -151,6 +182,8 @@ func shape(t testing.TB, route string) string {
 
 // shapeOf is the advertised shape a request path matches, or "".
 func (s *Server) shapeOf(method, path string) string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	segs := strings.Split(strings.Trim(path, "/"), "/")
 	for sh := range s.ready {
 		r, _ := wardogs.ParseRoute(sh)
@@ -176,11 +209,12 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 	authorized := auth == "Bearer "+s.opt.Token
 	s.mu.Lock()
 	s.requests = append(s.requests, Request{Method: r.Method, Path: r.URL.Path, Authorized: authorized, HadToken: auth != ""})
+	caps := s.caps
 	s.mu.Unlock()
 
 	if r.Method == http.MethodGet && r.URL.Path == "/v1/capabilities" {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(s.caps)
+		_, _ = w.Write(caps)
 		return
 	}
 	sh := s.shapeOf(r.Method, r.URL.Path)
