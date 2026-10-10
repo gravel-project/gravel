@@ -65,4 +65,8 @@ ADR-0011 already decided how they meet: the feed is reconciled against the poll,
   - **No retention yet.** The settings have no `raw_retention_months` until the rollup that reads it exists.
   - **The interface** is the `Recorder` (the monitor's `ObservationSink`) and `Boards`. `PlayerStats` comes with the profile pages (#18).
   - **Answers to this ADR's three questions,** pending John's word: show-name off by default, K/D from 3 matches, timezone from the settings (UTC by default).
+- **2026-10-10, decisions (John).** The three defaults stand:
+  - A member is shown by name on boards only after choosing it; linking an identity does not imply it.
+  - A K/D board shows a player from 3 matches.
+  - Hidden Token Gaming's weeks run in America/Chicago (its Organization settings' `stats.timezone`; gravel's default stays UTC).
 

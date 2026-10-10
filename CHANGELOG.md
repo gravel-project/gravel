@@ -8,6 +8,8 @@ patch release is everything else.
 
 ## [Unreleased]
 
+## [0.6.7] - 2026-10-10
+
 ### Added
 
 - The stats store, ADR-0012's first step (#17, #3).
@@ -27,6 +29,11 @@ patch release is everything else.
   - **Retention:** a nightly rollup into monthly aggregates before raw rows age out (13 months, pending counsel).
   - **Erasure** re-keys every stats table.
   - **Exposure:** boards stay owner-only until the privacy policy's stats rows are live.
+
+### Changed
+
+- The quadlet units pin the 0.6.6 images by index digest, all three verified with cosign 3 against the release workflow at `v0.6.6` (the 0.6.5 hub as a control, a wrong-tag identity refused): `ghcr.io/gravel-project/gravel-hub@sha256:3dbc7eb4c71cbf6ecfc8cf4263f17c883aa28003443b91fb964f388dab77437e` in `gravel-hub.container`, `ghcr.io/gravel-project/gravel-bot@sha256:9b55c9fd2d1d892acfdb3f8df01b48b381573bd68df80140ae4a1b7300abff3b` in `gravel-bot.container`, and `ghcr.io/gravel-project/gravel-postgres@sha256:8b30d0f07b2aacb104c039f1ca0d312fbbbb8698b8f08da7c1e63672d401abe3` in the backup set. `docs/hub.md` names 0.6.6 as the tag example.
+- ADR-0012 records John's answers to its three questions: show-name off by default, K/D from 3 matches, Hidden Token Gaming's weeks in America/Chicago.
 
 ## [0.6.6] - 2026-10-10
 
@@ -213,7 +220,8 @@ patch release is everything else.
 
 - README and CLAUDE.md follow ADR-0001: status line, principle 2 (the resource lives in the hub's database), the hub and backup paragraphs, the adapter-repo rule, the local-dev default, and a seven-step build order with the issues behind each step. The launch games are the five Hidden Token Gaming plays, in three shapes, with War Dogs first; the open threads link the design-delta issues #2–#9 (#1).
 
-[Unreleased]: https://github.com/gravel-project/gravel/compare/v0.6.6...HEAD
+[Unreleased]: https://github.com/gravel-project/gravel/compare/v0.6.7...HEAD
+[0.6.7]: https://github.com/gravel-project/gravel/compare/v0.6.6...v0.6.7
 [0.6.6]: https://github.com/gravel-project/gravel/compare/v0.6.5...v0.6.6
 [0.6.5]: https://github.com/gravel-project/gravel/compare/v0.6.4...v0.6.5
 [0.6.4]: https://github.com/gravel-project/gravel/compare/v0.6.3...v0.6.4
