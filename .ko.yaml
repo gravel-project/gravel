@@ -1,11 +1,18 @@
-# ko builds the hub image straight from Go: no Containerfile. `make image` loads it into podman,
-# goreleaser pushes it to ghcr.io on a tag (same config, same base image).
+# ko builds the hub and bot images straight from Go: no Containerfile. `make image` and
+# `make bot-image` load them into podman, CI's publish job pushes them to ghcr.io from every green
+# push to main, and goreleaser pushes them on a tag (same flags, same base image).
 defaultBaseImage: gcr.io/distroless/static-debian12:nonroot
 defaultPlatforms:
   - linux/amd64
 builds:
   - id: gravel-hub
     main: ./cmd/gravel-hub
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{.Env.VERSION}}
+  - id: gravel-bot
+    main: ./cmd/gravel-bot
     flags:
       - -trimpath
     ldflags:

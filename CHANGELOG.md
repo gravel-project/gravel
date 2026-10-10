@@ -8,6 +8,14 @@ patch release is everything else.
 
 ## [Unreleased]
 
+### Added
+
+- Signed images from every green push to `main`, so a host can deploy main without waiting for a release. CI's new `publish` job runs on a push to `main` once every other job has passed (never on a pull request) and publishes `ghcr.io/gravel-project/gravel-hub` and `gravel-bot` as `main-<commit>` and `main`: multi-arch, an SBOM attached, cosign-signed keyless with the identity `.github/workflows/ci.yml@refs/heads/main`, and `--certificate-github-workflow-sha` binds a signature to its commit. `gravel-postgres` is published the same way only when the push changed `deploy/postgres/`. `latest` and the version tags stay with releases. A main build reports `git describe`'s version without the `v` (`0.8.0-3-gabc1234`) and carries the commit in `org.opencontainers.image.revision`. docs/releasing.md ("Images from main") has the verify command and what a host gives up by running main.
+
+### Fixed
+
+- The bot image built by ko (`make bot-image`, and now CI's main builds) gets the same `-trimpath` and version ldflags as the hub: `.ko.yaml` had no `gravel-bot` build, so ko built it with neither and the image reported `dev-<commit>`. Releases were not affected (goreleaser sets both).
+
 ## [0.8.0] - 2026-10-10
 
 ### Added

@@ -4,6 +4,11 @@ A release is a signed tag on `main`. The pipeline (`.github/workflows/release.ym
 `.goreleaser.yaml`) does the rest: binaries, checksums and SBOMs on the GitHub release, and the hub
 image on ghcr, signed. `v0.1.0` (2026-10-08) was the first run.
 
+A release is a milestone, not a deployment's prerequisite: every green push to `main` publishes
+signed images too ("Images from main" below), and a host can run one of those. Cut a release when a
+batch of changes is worth naming, and for the Go packages a host imports (`discord/…`), which a
+host's `go.mod` takes by tag.
+
 ## Versions
 
 gravel follows [Semantic Versioning](https://semver.org/). Before 1.0, SemVer itself promises
@@ -92,6 +97,42 @@ and stores the signature in the newer bundle format; cosign 2 does not look ther
 `no signatures found` for an image that is signed. Without a local install,
 `podman run --rm ghcr.io/sigstore/cosign/cosign:v3.1.2 verify …` takes the same arguments.
 
+## Images from main
+
+CI's `publish` job (`.github/workflows/ci.yml`) runs on every push to `main` after every other job
+has passed, and publishes the hub and the bot the way a release does: multi-arch, an SBOM attached,
+signed with cosign (keyless, GitHub OIDC). It never runs on a pull request.
+
+| Image | Tags |
+|---|---|
+| `ghcr.io/gravel-project/gravel-hub`, `ghcr.io/gravel-project/gravel-bot` | `main-<commit>` (the full 40-character SHA) and `main`, the newest |
+| `ghcr.io/gravel-project/gravel-postgres` | the same, **only when the push changed `deploy/postgres/`** |
+
+`latest` and the version tags belong to releases; a main build never moves them. A main build
+reports its version as `git describe` does, without the `v`: `0.8.0-3-gabc1234` is three commits
+after 0.8.0 (`gravel-hub version`, `/healthz`, `gravel_build_info` and `gravel_bot_build_info`). Its
+`org.opencontainers.image.revision` label is the commit.
+
+Verify one, and bind it to the commit you mean to run:
+
+```sh
+sha=<commit>
+skopeo inspect docker://ghcr.io/gravel-project/gravel-hub:main-$sha --format '{{.Digest}}'   # the index digest
+cosign verify ghcr.io/gravel-project/gravel-hub@sha256:… \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  --certificate-identity https://github.com/gravel-project/gravel/.github/workflows/ci.yml@refs/heads/main \
+  --certificate-github-workflow-sha "$sha"
+```
+
+The identity is CI on `main`, and the workflow SHA is the commit it built: a pull request's run, a
+fork or another branch can't produce that signature. Pin the index digest as for a release (below).
+Each pushed commit is published once, in order, so `main` ends on the newest; if a run fails, re-run
+its failed jobs and `publish` runs after them.
+
+What a host gives up by running main: no CHANGELOG section names what it got (read `[Unreleased]`
+up to that commit), and a **Breaking:** entry under `[Unreleased]` applies the moment it merges,
+not at the next 0.Y.0. Read `[Unreleased]` before moving a pin.
+
 ## Move the digest pin
 
 `deploy/quadlet/gravel-hub.container` pins the hub image by the index digest, and
@@ -100,7 +141,8 @@ under a floating tag. A cut moves the backup set's pin only when the release pub
 Postgres image. `deploy/quadlet/observability/` and the `observability` profile in
 `deploy/compose.yaml` pin Prometheus and Grafana by index digest too; they are upstream images, so
 moving them is a deliberate PR after reading their release notes, not part of every release. After verifying a new release, put its digests in `Image=` by PR;
-consumers (Hidden Token Gaming's `deploy` repository) pin the same way. The Postgres image's
+consumers (Hidden Token Gaming's `deploy` repository) pin the same way, a release's digest or a main
+build's. gravel's own units here pin releases. The Postgres image's
 identity for `cosign verify` is the same workflow at the tag that published it.
 
 ## One-time setup, done for v0.1.0
