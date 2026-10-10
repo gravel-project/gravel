@@ -119,7 +119,7 @@ func obs(at time.Duration, rotation int, players ...drivers.Player) servers.Obse
 }
 
 func newRecorder(st *memStore) *Recorder {
-	return NewRecorder(st, uuid.New(), prometheus.NewRegistry(), quiet())
+	return NewRecorder(st, uuid.New(), nil, prometheus.NewRegistry(), quiet())
 }
 
 func TestRecorderFollowsAMatch(t *testing.T) {
@@ -234,5 +234,27 @@ func TestRecorderCommunityTrustAndFailures(t *testing.T) {
 	st.mu.Unlock()
 	if n != 1 {
 		t.Errorf("rows = %d", n)
+	}
+}
+
+// The recorder counts its writes for the boards' cache: an empty server writes nothing, a poll
+// with players and a match's end do.
+func TestRecorderCountsItsWrites(t *testing.T) {
+	st := newMemStore()
+	var c Changes
+	r := NewRecorder(st, uuid.New(), &c, prometheus.NewRegistry(), quiet())
+	ctx := context.Background()
+	r.Observe(ctx, srv, obs(0, 0))
+	if c.Seen() != 0 {
+		t.Errorf("an empty server counted %d writes", c.Seen())
+	}
+	r.Observe(ctx, srv, obs(15*time.Second, 0, player("1", 0, 0)))
+	r.Observe(ctx, srv, obs(30*time.Second, 0, player("1", 1, 0)))
+	if c.Seen() != 2 {
+		t.Errorf("two polls with a player counted %d writes", c.Seen())
+	}
+	r.Observe(ctx, srv, obs(45*time.Second, 0)) // empties: the match ends
+	if c.Seen() != 3 {
+		t.Errorf("a match's end was not counted: %d", c.Seen())
 	}
 }

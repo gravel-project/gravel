@@ -49,6 +49,8 @@ func TestAccessibility(t *testing.T) {
 		{Provider: "discord", ProviderDisplay: "Discord", Subject: "1", DisplayName: "Jo", AvatarURL: "https://cdn.example/jo.png", Method: "oauth2", VerifiedAt: now, LastLoginAt: &now, CanUnlink: true},
 		{Provider: "steam", ProviderDisplay: "Steam", Subject: "76561198000000001", Method: "openid", VerifiedAt: now, CanUnlink: true},
 	}
+	online := templates.ServerRow{ID: "htg-wardogs-1", Name: "HTG WARDOGS | NA WEST | #1", Game: "War Dogs", Location: "qonzer-slc", Official: true,
+		State: "ok", StateLabel: "Online", Players: 24, MaxPlayers: 80, Map: "Ozeti"}
 	fixtures := map[string]func() templ.Component{
 		"/fixture/account-unowned": func() templ.Component {
 			p := base
@@ -62,6 +64,37 @@ func TestAccessibility(t *testing.T) {
 			p.Org.Owned = true
 			p.Flash = &templates.Flash{Kind: "err", Text: "You cannot unlink your only account."}
 			return templates.Account(templates.AccountPage{Page: p, Identities: identities, RoleProviders: []templates.Provider{{Name: "discord", DisplayName: "Discord"}}})
+		},
+		"/fixture/servers": func() templ.Component {
+			p := base
+			p.Title = "Servers"
+			return templates.Servers(templates.ServersPage{Page: p, Servers: []templates.ServerRow{online, {ID: "friends-1", Name: "Friends' server", Game: "War Dogs", Location: "home", State: "unreachable", StateLabel: "Offline"}}})
+		},
+		"/fixture/server": func() templ.Component {
+			p := base
+			p.Title, p.User, p.CSRF = online.Name, jo, "csrf"
+			ended := now.Add(42 * time.Minute)
+			return templates.Server(templates.ServerPage{Page: p, Server: online, ObservedAt: &now, Teams: []templates.Team{{Name: "Lonestar", Score: 412}, {Name: "Boreal", Score: 388}},
+				Players:  []templates.PlayerRow{{Name: "Jo", Team: "Lonestar", Kills: 7, Deaths: 2, PingMs: 41, Member: true}, {Name: "Stranger", Team: "Boreal", Kills: 1, Deaths: 5, PingMs: 90}},
+				Matches:  []templates.MatchRow{{Started: now, Map: "Ozeti", Players: 24, Kills: 310}, {Started: now, Ended: &ended, Map: "Bakurani", Players: 31, Kills: 402}},
+				BoardURL: "/boards?scope=server%3Ahtg-wardogs-1"})
+		},
+		"/fixture/server-anonymous": func() templ.Component {
+			p := base
+			p.Title = online.Name
+			return templates.Server(templates.ServerPage{Page: p, Server: online, PlayersNote: "Log in to see who's on.", MatchesNote: "Match history is private on this hub.", BoardURL: "/boards"})
+		},
+		"/fixture/boards": func() templ.Component {
+			p := base
+			p.Title = "Leaderboards"
+			cols := []templates.BoardColumn{{Metric: "kills", Label: "Kills", Sorted: true, URL: "/boards?metric=kills"}, {Metric: "deaths", Label: "Deaths", URL: "/boards?metric=deaths"},
+				{Metric: "kd", Label: "K/D", URL: "/boards?metric=kd"}, {Metric: "time", Label: "Time on", URL: "/boards?metric=time"}, {Metric: "matches", Label: "Matches", URL: "/boards?metric=matches"}}
+			return templates.Boards(templates.BoardsPage{Page: p, Heading: "Leaderboards", Metric: "kills", Columns: cols,
+				Scopes:  []templates.Option{{Value: "", Label: "Everyone (official servers)", Selected: true}, {Value: "game:wardogs", Label: "War Dogs"}},
+				Windows: []templates.Option{{Value: "all", Label: "All time"}, {Value: "week", Label: "This week", Selected: true}},
+				Range:   "Oct 5, 2026 to Oct 11, 2026", NextURL: "/boards?page=x",
+				Rows: []templates.BoardRow{{Rank: 1, Name: "Brave Falcon", Pseudonymous: true, Cells: []string{"42", "10", "4.20", "2h 05m", "5"}},
+					{Rank: 2, Name: "Jo", Cells: []string{"30", "12", "2.50", "45m", "4"}}}})
 		},
 		"/fixture/error": func() templ.Component {
 			p := base
@@ -102,7 +135,8 @@ func TestAccessibility(t *testing.T) {
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
 
-	for _, path := range []string{"/login", "/fixture/account-unowned", "/fixture/account-owner", "/fixture/error"} {
+	for _, path := range []string{"/login", "/fixture/account-unowned", "/fixture/account-owner", "/fixture/error",
+		"/fixture/servers", "/fixture/server", "/fixture/server-anonymous", "/fixture/boards"} {
 		t.Run(strings.TrimPrefix(path, "/"), func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 			defer cancel()

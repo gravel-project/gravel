@@ -47,9 +47,10 @@ type Store interface {
 
 // Recorder records matches from the monitor's observations; it is the monitor's ObservationSink.
 type Recorder struct {
-	st     Store
-	orgID  uuid.UUID
-	logger *slog.Logger
+	st      Store
+	orgID   uuid.UUID
+	changes *Changes
+	logger  *slog.Logger
 
 	mu      sync.Mutex
 	servers map[string]*serverState
@@ -81,9 +82,10 @@ type playerState struct {
 }
 
 // NewRecorder builds the recorder and registers its metrics.
-func NewRecorder(st Store, orgID uuid.UUID, reg prometheus.Registerer, logger *slog.Logger) *Recorder {
+// changes is bumped after every write, for the boards' cache (nil for none).
+func NewRecorder(st Store, orgID uuid.UUID, changes *Changes, reg prometheus.Registerer, logger *slog.Logger) *Recorder {
 	r := &Recorder{
-		st: st, orgID: orgID, logger: logger, servers: map[string]*serverState{},
+		st: st, orgID: orgID, changes: changes, logger: logger, servers: map[string]*serverState{},
 		matches: prometheus.NewCounterVec(prometheus.CounterOpts{Name: "gravel_stats_matches_total", Help: "Matches the stats store started, by server and game."}, []string{"server", "game"}),
 		rows:    prometheus.NewCounterVec(prometheus.CounterOpts{Name: "gravel_stats_rows_written_total", Help: "Player rows the stats store wrote from polls, by server."}, []string{"server"}),
 		errs:    prometheus.NewCounterVec(prometheus.CounterOpts{Name: "gravel_stats_record_errors_total", Help: "Polls the stats store could not record, by server."}, []string{"server"}),
@@ -139,6 +141,7 @@ func (r *Recorder) record(ctx context.Context, s *serverState, srv servers.Serve
 			if err := r.st.EndMatch(ctx, s.match.ID, now); err != nil {
 				return err
 			}
+			r.changes.Bump()
 			s.match, s.players = store.Match{}, map[store.PlayerKey]*playerState{}
 		}
 		s.lastSeen = now
@@ -184,6 +187,7 @@ func (r *Recorder) record(ctx context.Context, s *serverState, srv servers.Serve
 		return err
 	}
 	r.rows.WithLabelValues(srv.ID).Add(float64(len(rows)))
+	r.changes.Bump()
 	return nil
 }
 

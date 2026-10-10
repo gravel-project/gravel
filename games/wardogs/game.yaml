@@ -39,3 +39,7 @@ bands:
 # Bulkhead's money rule is narrower than a whole-game flag: never sell earning power (XP, cash).
 # No benefit gravel offers touches either, so the flag stays off.
 no_paid_perks: false
+layout:
+  # A board's columns, in order; the first is what it ranks by. The poll counts kills and deaths
+  # per match, so every metric applies.
+  board: [kills, deaths, kd, time, matches]

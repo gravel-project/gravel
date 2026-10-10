@@ -1868,11 +1868,28 @@ components:
           description: |-
             The publisher forbids any paid benefit (a supporter perk, a crowdfunding reward) that depends
              on the game's data or features.
+        layout:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.GameLayout'
+          title: layout
+          description: How the pages show the game (the Game spec's layout).
       title: Game
       additionalProperties: false
       description: |-
         Game is a game this hub's servers run: a Game spec gravel ships, with the deployment's
          tightenings of its bands applied.
+    gravel.hub.v1.GameLayout:
+      type: object
+      properties:
+        board:
+          type: array
+          items:
+            type: string
+          title: board
+          description: A board's columns in order, each a GetBoardRequest metric; the first is the default ranking.
+      title: GameLayout
+      additionalProperties: false
+      description: GameLayout is a game's page layout, declarative data from its Game spec.
     gravel.hub.v1.GetBoardNameRequest:
       type: object
       title: GetBoardNameRequest

@@ -59,7 +59,8 @@ func (s *ServerServer) ListGames(ctx context.Context, _ *connect.Request[hubv1.L
 	}
 	out := &hubv1.ListGamesResponse{}
 	for _, g := range games {
-		p := &hubv1.Game{Id: g.ID, Name: g.Name, IdentityProvider: g.IdentityProvider, NoPaidPerks: g.NoPaidPerks}
+		p := &hubv1.Game{Id: g.ID, Name: g.Name, IdentityProvider: g.IdentityProvider, NoPaidPerks: g.NoPaidPerks,
+			Layout: &hubv1.GameLayout{Board: g.Layout.Board}}
 		for _, b := range g.Bands {
 			p.Bands = append(p.Bands, &hubv1.Band{Section: b.Section, Key: b.Key, Min: b.Min, Max: b.Max,
 				MaxLength: b.MaxLength, Hosts: b.Hosts, UnlessSet: b.UnlessSet})

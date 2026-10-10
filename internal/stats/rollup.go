@@ -36,14 +36,16 @@ type Retention struct {
 	st       RollupStore
 	orgID    uuid.UUID
 	settings SettingsSource
+	changes  *Changes
 	logger   *slog.Logger
 	now      func() time.Time
 	rows     prometheus.Counter
 }
 
-// NewRetention builds the rollup and registers its metric.
-func NewRetention(st RollupStore, orgID uuid.UUID, settings SettingsSource, reg prometheus.Registerer, logger *slog.Logger) *Retention {
-	r := &Retention{st: st, orgID: orgID, settings: settings, logger: logger, now: time.Now,
+// NewRetention builds the rollup and registers its metric; changes is bumped when it moves rows,
+// for the boards' cache (nil for none).
+func NewRetention(st RollupStore, orgID uuid.UUID, settings SettingsSource, changes *Changes, reg prometheus.Registerer, logger *slog.Logger) *Retention {
+	r := &Retention{st: st, orgID: orgID, settings: settings, changes: changes, logger: logger, now: time.Now,
 		rows: prometheus.NewCounter(prometheus.CounterOpts{
 			Name: "gravel_stats_rolled_rows_total", Help: "Per-match player rows rolled up into monthly totals past the raw retention window (ADR-0012).",
 		})}
@@ -120,6 +122,7 @@ func (r *Retention) Run(ctx context.Context) error {
 	}
 	r.rows.Add(float64(got.Rows))
 	if got.Rows > 0 {
+		r.changes.Bump()
 		r.logger.InfoContext(ctx, "stats: rolled raw rows up into monthly totals", "matches", got.Matches, "rows", got.Rows,
 			"before", cutoff.Format(time.DateOnly), "retention_months", set.RawRetentionMonthsOrDefault())
 	}

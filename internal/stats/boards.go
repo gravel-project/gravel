@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -33,6 +34,17 @@ const (
 // MaxPage is the largest page of a board or a match list.
 const MaxPage = 100
 
+// Board answers are cached: a public board can be read by anyone, as often as they like, and
+// every read is an aggregate over the stats tables, while the numbers change only when someone
+// plays. An answer is kept while the stats store has not been written (Changes), up to
+// BoardMaxTTL (a new week, an edited season); once it has, it is still kept for BoardLiveTTL, so
+// a live match costs one read a minute per board however many watch.
+const (
+	BoardLiveTTL      = time.Minute
+	BoardMaxTTL       = 15 * time.Minute
+	boardCacheEntries = 512
+)
+
 // SettingsSource is where the boards read the Organization settings' stats section.
 type SettingsSource func(ctx context.Context) (org.Stats, error)
 
@@ -43,11 +55,32 @@ type Boards struct {
 	names    *Namer
 	settings SettingsSource
 	now      func() time.Time
+
+	changes *Changes
+	mu      sync.Mutex
+	cache   map[Query]cachedBoard
 }
 
-// NewBoards builds the board reader.
-func NewBoards(st Store, orgID uuid.UUID, names *Namer, settings SettingsSource) *Boards {
-	return &Boards{st: st, orgID: orgID, names: names, settings: settings, now: time.Now}
+type cachedBoard struct {
+	board   Board
+	at      time.Time
+	changes uint64
+}
+
+// fresh reports whether a cached answer may still be served.
+func (c cachedBoard) fresh(now time.Time, changes uint64) bool {
+	age := now.Sub(c.at)
+	return age < BoardLiveTTL || (c.changes == changes && age < BoardMaxTTL)
+}
+
+// NewBoards builds the board reader; changes is the stats store's write counter the recorder
+// bumps (nil caches for BoardLiveTTL only).
+func NewBoards(st Store, orgID uuid.UUID, names *Namer, settings SettingsSource, changes *Changes) *Boards {
+	if changes == nil {
+		changes = &Changes{}
+		changes.Bump()
+	}
+	return &Boards{st: st, orgID: orgID, names: names, settings: settings, now: time.Now, changes: changes, cache: map[Query]cachedBoard{}}
 }
 
 // Query is a board request. At most one of ServerID and GameID; neither is the organization.
@@ -90,8 +123,29 @@ func (b *Boards) Public(ctx context.Context) (bool, error) {
 	return set.Public, nil
 }
 
-// Board ranks the players a query selects.
+// Board ranks the players a query selects, from the cache while it is fresh.
 func (b *Boards) Board(ctx context.Context, q Query) (Board, error) {
+	now, seen := b.now(), b.changes.Seen()
+	b.mu.Lock()
+	c, ok := b.cache[q]
+	b.mu.Unlock()
+	if ok && c.fresh(now, seen) {
+		return c.board, nil
+	}
+	out, err := b.board(ctx, q)
+	if err != nil {
+		return Board{}, err
+	}
+	b.mu.Lock()
+	if len(b.cache) >= boardCacheEntries {
+		clear(b.cache) // bounded: a scraper walking every page only refills it
+	}
+	b.cache[q] = cachedBoard{board: out, at: now, changes: seen}
+	b.mu.Unlock()
+	return out, nil
+}
+
+func (b *Boards) board(ctx context.Context, q Query) (Board, error) {
 	set, err := b.settings(ctx)
 	if err != nil {
 		return Board{}, err
@@ -227,7 +281,13 @@ func (b *Boards) ShowName(ctx context.Context, userID uuid.UUID) (bool, error) {
 	return b.st.ShowNameOnBoards(ctx, userID)
 }
 
-// SetShowName records it.
+// SetShowName records it, and drops the cached boards so the member sees the change at once.
 func (b *Boards) SetShowName(ctx context.Context, userID uuid.UUID, show bool) error {
-	return b.st.SetShowNameOnBoards(ctx, userID, show)
+	if err := b.st.SetShowNameOnBoards(ctx, userID, show); err != nil {
+		return err
+	}
+	b.mu.Lock()
+	clear(b.cache)
+	b.mu.Unlock()
+	return nil
 }
