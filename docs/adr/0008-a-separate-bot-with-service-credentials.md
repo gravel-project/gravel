@@ -31,3 +31,7 @@ Decided with John on 2026-10-09: a separate bot process now, with the slice of #
 - A second process on earth, with its own health, metrics, secrets and runbooks in deploy; the leak check and the unit checker learn its unit and its two secrets.
 - A member's Linked Roles metadata is as fresh as their last verification; the role itself is as fresh as the last reconcile. Storing refresh tokens for silent refreshes needs a key at rest and is deferred, noted in #15.
 - `discordctl` keeps managing the guild's structure. The bot manages only the roles the mapping names, below the staff roles (plan D12), and never creates or deletes a role.
+
+## Amendments
+
+- **2026-10-10, a host's own scopes (John's choice).** A host's service beside the hub (HTG's Muster) needs scopes the hub doesn't define. Apps may hold scopes in a `host:` namespace (`host:<name>[:<more>]`, lower-case, at most 64 characters). Gravel checks their shape, stores them, issues them in client-credentials tokens and returns them from introspection (ADR-0015), and admits nothing by them; the host's service does. A member never grants one through the authorization-code flow. Registered host scopes with descriptions in the Organization settings were the stricter alternative, and stay open if a consent page ever needs to show them.

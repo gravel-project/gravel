@@ -57,7 +57,7 @@ func scopeNames() string {
 		names = append(names, name)
 	}
 	sort.Strings(names)
-	return strings.Join(names, ", ")
+	return strings.Join(names, ", ") + ", or a host's own: " + apps.HostScopePrefix + "<name>[:<more>]"
 }
 
 func appsCreate(ctx context.Context, args []string, stdout, stderr io.Writer) int {

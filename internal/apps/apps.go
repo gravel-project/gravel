@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -52,7 +53,23 @@ const ScopeStatsRead = "stats:read"
 // session is not admitted in its place.
 const ScopeParticipationWrite = "participation:write"
 
-// Scopes is every scope an app may hold, with what it admits: the operator's words.
+// HostScopePrefix starts a host's own scope: a service beside the hub (a host's Muster, say)
+// checks it in the tokens the hub issues and introspects; gravel admits nothing by it. The
+// operator grants one with `apps create`, a member never does, and its shape is all gravel checks.
+const HostScopePrefix = "host:"
+
+// hostScope is a host scope's shape: "host:", then one to four lower-case segments joined by
+// colons ("host:muster:write"), at most MaxHostScope characters.
+var hostScope = regexp.MustCompile(`^host:[a-z0-9][a-z0-9_.-]*(:[a-z0-9][a-z0-9_.-]*){0,3}$`)
+
+// MaxHostScope bounds a host scope's length.
+const MaxHostScope = 64
+
+// IsHostScope reports whether s is a well-formed host scope (HostScopePrefix).
+func IsHostScope(s string) bool { return len(s) <= MaxHostScope && hostScope.MatchString(s) }
+
+// Scopes is every scope gravel defines, with what it admits: the operator's words. An app may
+// also hold host scopes (IsHostScope), which gravel stores and carries and never checks.
 var Scopes = map[string]string{
 	ScopeIdentityRead:       "look up members and their identities (LookupUser, ListUsers, ListIdentityEvents)",
 	ScopeServersRead:        "see who is on a server: names and provider identities (ListServerPlayers)",
@@ -388,8 +405,8 @@ func normalizeScopes(in, granted []string) ([]string, error) {
 		if sc == "" {
 			continue
 		}
-		if _, known := Scopes[sc]; !known {
-			return nil, fmt.Errorf("%w: %q is not a scope", ErrInvalidScope, sc)
+		if _, known := Scopes[sc]; !known && !IsHostScope(sc) {
+			return nil, fmt.Errorf("%w: %q is not a scope (gravel's, or a host's own as host:<name>[:<more>], lower-case, at most %d characters)", ErrInvalidScope, sc, MaxHostScope)
 		}
 		if granted != nil && !slices.Contains(granted, sc) {
 			return nil, fmt.Errorf("%w: %q was not granted to this app", ErrInvalidScope, sc)
