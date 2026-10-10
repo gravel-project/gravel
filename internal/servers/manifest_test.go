@@ -117,7 +117,27 @@ func TestValidate(t *testing.T) {
 		want string
 	}{
 		{"version", func(m *Manifest) { m.Version = 2 }, "version: got 2"},
-		{"unknown game", func(m *Manifest) { m.Games = append(m.Games, GameRef{ID: "cs2"}) }, `games[1].id: "cs2" is not a game this hub ships (wardogs)`},
+		{"unknown game", func(m *Manifest) { m.Games = append(m.Games, GameRef{ID: "quake"}) }, `games[1].id: "quake" is not a game this hub ships (cs2, pubg, seaofthieves, starcitizen, wardogs)`},
+		{"catalog game", func(m *Manifest) {
+			m.Games = append(m.Games, GameRef{ID: "cs2"})
+			m.Servers[0].Game = "cs2"
+		}, "servers[0].game: Counter-Strike 2 is a catalog entry; gravel has no driver for its servers yet"},
+		{"length loosened", func(m *Manifest) {
+			m.Games[0].Bands = append(m.Games[0].Bands, Band{Section: "/Script/WDGame.WDGameSession", Key: "ServerName", MaxLength: i64(65)})
+		}, "max_length: 65 must be from 1 to the spec's 64"},
+		{"hosts loosened", func(m *Manifest) {
+			m.Games[0].Bands = append(m.Games[0].Bands, Band{Section: "/Script/WDGame.WDGameSession", Key: "ServerImageURL", Hosts: []string{"ibb.co", "example.com"}})
+		}, `hosts: "example.com" loosens the spec's hosts`},
+		{"hosts emptied", func(m *Manifest) {
+			m.Games[0].Bands = append(m.Games[0].Bands, Band{Section: "/Script/WDGame.WDGameSession", Key: "ServerImageURL", Hosts: []string{}})
+		}, "hosts: an empty list allows no URL"},
+		{"kind changed", func(m *Manifest) {
+			m.Games[0].Bands = append(m.Games[0].Bands, Band{Section: "/Script/WDGame.WDGameSession", Key: "ServerName", Max: i64(10)})
+		}, "the spec's band for ServerName is a length band, not a range band"},
+		{"two kinds", func(m *Manifest) { m.Games[0].Bands[0].MaxLength = i64(5) }, "set only one of min/max, max_length or hosts"},
+		{"condition changed", func(m *Manifest) {
+			m.Games[0].Bands = append(m.Games[0].Bands, Band{Section: "/Script/WDGame.WDGameSession", Key: "MaxReservedSlots", Max: i64(0), UnlessSet: "ServerPassword"})
+		}, "unless_set: the spec's condition can't be changed by a manifest"},
 		{"game twice", func(m *Manifest) { m.Games = append(m.Games, GameRef{ID: "wardogs"}) }, `"wardogs" is listed twice`},
 		{"band loosened", func(m *Manifest) { m.Games[0].Bands[0].Min = i64(10) }, "min: 10 loosens the spec's 18"},
 		{"band loosened max", func(m *Manifest) { m.Games[0].Bands[0].Max = i64(31) }, "max: 31 loosens the spec's 30"},

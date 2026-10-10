@@ -1,6 +1,8 @@
 # The War Dogs Game spec gravel ships (ADR-0010). A deployment's servers.yaml names it by id and
 # may tighten a band, never loosen one. Bands are publisher guardrails (gravel#8): a config write
-# outside one is refused before it leaves the hub.
+# outside one is refused before it leaves the hub. A band is a range (min, max), a longest value
+# (max_length) or the hosts a URL may point at (hosts); unless_set lifts it while another key of
+# the section has a value.
 id: wardogs
 name: War Dogs
 # Players are keyed by their SteamID64.
@@ -18,3 +20,22 @@ bands:
   - section: MatchState.PreMatch.WaitingForPlayers.PlayerCount
     key: MinimumRequiredPlayers
     min: 20
+  # The server refuses a longer name.
+  - section: /Script/WDGame.WDGameSession
+    key: ServerName
+    max_length: 64
+  # The banner must be on Bulkhead's image allow-list, over https. An off-list host fails
+  # validation with a 422 that blocks every later config edit until the line is fixed, and the
+  # server re-checks it when the config loads, so the hub refuses it before sending.
+  - section: /Script/WDGame.WDGameSession
+    key: ServerImageURL
+    hosts: [catbox.moe, imgbb.com, ibb.co, postimg.cc]
+  # Reserved slots are held back from the public, not list capacity (a 100-slot server at the
+  # default 20 reports 80): none unless there are reserved players to hold them for.
+  - section: /Script/WDGame.WDGameSession
+    key: MaxReservedSlots
+    max: 0
+    unless_set: DefaultReservedPlayerIds
+# Bulkhead's money rule is narrower than a whole-game flag: never sell earning power (XP, cash).
+# No benefit gravel offers touches either, so the flag stays off.
+no_paid_perks: false

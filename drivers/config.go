@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 )
 
@@ -22,9 +23,11 @@ var (
 
 // Problem codes a driver reports itself, beside the server's own.
 const (
-	ProblemOutOfBand = "out_of_band" // a value outside the game's band
-	ProblemHubOwned  = "hub_owned"   // a section or key the hub keeps (secrets, the ban list)
-	ProblemNotNumber = "not_a_number"
+	ProblemOutOfBand      = "out_of_band"      // a value outside the game's band
+	ProblemTooLong        = "too_long"         // a value longer than the band allows
+	ProblemHostNotAllowed = "host_not_allowed" // a URL off the band's hosts, or not https
+	ProblemHubOwned       = "hub_owned"        // a section or key the hub keeps (secrets, the ban list)
+	ProblemNotNumber      = "not_a_number"
 )
 
 // InvalidConfigError is ErrInvalidConfig with the problems, each naming its section and key.
@@ -43,13 +46,37 @@ func (e *InvalidConfigError) Error() string {
 // Unwrap makes the error ErrInvalidConfig.
 func (e *InvalidConfigError) Unwrap() error { return ErrInvalidConfig }
 
-// Band is the range a configuration key may take (a publisher guardrail, the Game spec's); a nil
-// bound is open.
+// Band is a publisher guardrail on one configuration key (the Game spec's), of one kind: a range
+// (Min, Max; a nil bound is open), a longest value (MaxLength, in characters) or the hosts a URL
+// value may point at (Hosts: https, the host or a subdomain of one; an empty value passes).
+// UnlessSet lifts the band while that key of the same section has a value.
 type Band struct {
-	Section string
-	Key     string
-	Min     *int64
-	Max     *int64
+	Section   string
+	Key       string
+	Min       *int64
+	Max       *int64
+	MaxLength *int64
+	Hosts     []string
+	UnlessSet string
+}
+
+// AllowsHost reports whether a URL value passes the band's Hosts: https, and a host that is one
+// of them or under one. An empty value passes (no URL set).
+func (b Band) AllowsHost(value string) bool {
+	if value == "" {
+		return true
+	}
+	u, err := url.Parse(value)
+	if err != nil || u.Scheme != "https" || u.Hostname() == "" {
+		return false
+	}
+	host := strings.ToLower(u.Hostname())
+	for _, h := range b.Hosts {
+		if host == h || strings.HasSuffix(host, "."+h) {
+			return true
+		}
+	}
+	return false
 }
 
 // ConfigDraft is what a deployment wants a server's configuration to be.

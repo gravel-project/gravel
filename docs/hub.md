@@ -108,7 +108,7 @@ Public listener (`server.listen`), HTTP/1.1 and unencrypted HTTP/2 so gRPC works
 | `/gravel.hub.v1.IdentityService/LookupUser` | `{"provider": "discord", "subject": "…"}` → the user and their identities, for role sync; an app with `identity:read`, or the owner |
 | `/gravel.hub.v1.IdentityService/ListUsers` | `{"page_size": 100, "page_token": "…"}` → members with their identities, oldest first, and the next page's token; role sync's full pass; `identity:read` or the owner |
 | `/gravel.hub.v1.IdentityService/ListIdentityEvents` | `{"after_id": 0, "limit": 100}` → the identity log after a position, oldest first, the id to continue from, and the log's newest id (`head_id`, where a reader that just made a full pass starts); role sync's incremental pass; `identity:read` or the owner |
-| `/gravel.hub.v1.ServerService/ListGames` | the enabled games, their identity provider and bands; public |
+| `/gravel.hub.v1.ServerService/ListGames` | the enabled games, their identity provider, bands and `no_paid_perks`; public |
 | `/gravel.hub.v1.ServerService/ListServers` | every server with its last observation (state, reachable, players and max, map, teams, capabilities, build, `observed_at`); public, no personal data, never a control address |
 | `/gravel.hub.v1.ServerService/GetServerStatus` | `{"server_id": "…"}` → one server; public; `not_found` for an unknown id |
 | `/gravel.hub.v1.StatsService/GetBoard` | `{"server_id"/"game_id", "window": "week", "metric": "kd"}` → a ranked page of players under pseudonyms or opted-in names ([Stats](#stats-adr-0012)); public when the settings make stats public, else the owner or `stats:read` |
@@ -285,10 +285,31 @@ app and revoke the old one once the service has moved; `apps revoke` deletes the
 ## Servers (ADR-0010)
 
 The hub knows the game servers it controls as resources: a **game** is a Game spec gravel ships
-(War Dogs today, `games/wardogs/game.yaml`: who its players are keyed by, which drivers control
-it, the publisher's bands), and a **server** is one a driver controls. A deployment declares both
+(`games/<game>/game.yaml`: who its players are keyed by, which drivers control it, the
+publisher's rules), and a **server** is one a driver controls. A deployment declares both
 in `servers.yaml` and applies it like the Organization settings; the hub stores them (migration 6)
 and never stores a credential, only the file to read it from.
+
+**Game specs and publisher rules (gravel#8).** gravel ships five specs. War Dogs has a driver.
+Counter-Strike 2, Sea of Thieves, Star Citizen and PUBG are **catalog entries** (`drivers: []`):
+their rules are known before gravel can run a server for them. A manifest may enable a catalog
+game, but a server for one is refused. A spec's rules:
+
+| Rule | What it is | Enforced |
+|---|---|---|
+| `bands` | One per configuration key, of one kind: a range (`min`, `max`), a longest value (`max_length`, in characters) or the hosts a URL may point at (`hosts`: https, the host or a subdomain of one; an empty value passes). `unless_set` lifts a band while another key of its section has a value. | By the driver on every config plan and apply, before anything is sent (problems `out_of_band`, `too_long`, `host_not_allowed`). `servers.yaml` may tighten a band of the same kind (a narrower range, a shorter length, a subset of hosts), never loosen one or change its `unless_set` |
+| `plugins` | `deny`: rules, each a `match` and the publisher's `reason`; a plugin whose name contains a match is refused. `allow`: when set, the only plugins permitted. Names compare by letters and digits only, case-insensitively. The denylist wins over the allow list. | `Spec.CheckPlugins` refuses a set naming every refused plugin and why; the Counter-Strike 2 image build and driver call it (P4) |
+| `no_paid_perks` | The publisher forbids a paid benefit (a supporter perk, a crowdfunding reward) that depends on the game's data or features. Shown by `ListGames`. | The benefit logic honours it (P6) |
+
+War Dogs' bands: `ScorePeriod` 18–30, `MinimumRequiredPlayers` at least 20, `ServerName` at most 64
+characters, `ServerImageURL` on Bulkhead's image allow-list (catbox.moe, imgbb.com, ibb.co,
+postimg.cc; an off-list banner otherwise fails every later edit with a 422), and
+`MaxReservedSlots` 0 unless `DefaultReservedPlayerIds` lists someone. A test checks every band
+against the newest recorded build's schema, so a band can't name a section or key the server
+doesn't use. The Counter-Strike 2 denylist covers Valve's item-spoofing rules (weapon skins,
+knives, gloves, stickers, music kits, inventory changers, fake ranks and coins), whose penalty is
+every GSLT on the account. `knife` also refuses a knife-round plugin, which is deliberate:
+MatchZy has knife rounds built in.
 
 ```yaml
 version: 1
@@ -381,7 +402,7 @@ could lock the hub out) is copied from the server's own document; the feed secti
 when it has no feed); a secret the
 document writes as `<redacted>` keeps the server's value; and `DefaultBannedPlayerIds` is the hub's
 ban list. A document that sets any of these is refused (`invalid_argument`, problem `hub_owned`),
-and so is a value outside the game's bands (`out_of_band`), before anything is sent.
+and so is a value outside the game's bands (`out_of_band`, `too_long`, `host_not_allowed`), before anything is sent.
 
 **The ban list.** When the server lets the hub write its configuration, `BanPlayer` bans a player
 whether or not they are on: the ban joins the hub's list (migration 8, `bans`), the hub writes the

@@ -44,7 +44,7 @@ func (m *Moderation) configTarget(ctx context.Context, server string, need strin
 		for _, g := range games {
 			if g.ID == srv.Game {
 				for _, b := range g.Bands {
-					draft.Bands = append(draft.Bands, drivers.Band{Section: b.Section, Key: b.Key, Min: b.Min, Max: b.Max})
+					draft.Bands = append(draft.Bands, b.Driver())
 				}
 			}
 		}

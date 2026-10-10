@@ -188,6 +188,8 @@ func (m Manifest) Validate(specs map[string]Spec, drivers []string) error {
 		switch {
 		case !slices.Contains(drivers, s.Driver):
 			bad("%s.driver: %q is not a driver this hub has (%s)", at, s.Driver, strings.Join(drivers, ", "))
+		case gameOK && len(spec.Drivers) == 0:
+			bad("%s.game: %s is a catalog entry; gravel has no driver for its servers yet", at, spec.Name)
 		case gameOK && !slices.Contains(spec.Drivers, s.Driver):
 			bad("%s.driver: %q does not control %s (%s)", at, s.Driver, spec.Name, strings.Join(spec.Drivers, ", "))
 		}
@@ -239,24 +241,52 @@ func validateBands(at string, spec Spec, over []Band, bad func(string, ...any)) 
 			bad("%s: %s %s is listed twice", where, o.Section, o.Key)
 		}
 		seen[o.Section+"\x00"+o.Key] = true
-		if o.Min == nil && o.Max == nil {
+		if o.UnlessSet != "" {
+			bad("%s.unless_set: the spec's condition can't be changed by a manifest", where)
+		}
+		kind := o.Kind()
+		switch {
+		case kind == "" && o.Min == nil && o.Max == nil && o.MaxLength == nil && o.Hosts == nil:
 			bad("%s: neither min nor max is set", where)
+			continue
+		case kind == "":
+			bad("%s: set only one of min/max, max_length or hosts", where)
+			continue
+		case kind != base.Kind():
+			bad("%s: the spec's band for %s is a %s band, not a %s band", where, o.Key, base.Kind(), kind)
+			continue
 		}
-		if o.Min != nil && base.Min != nil && *o.Min < *base.Min {
-			bad("%s.min: %d loosens the spec's %d", where, *o.Min, *base.Min)
-		}
-		if o.Max != nil && base.Max != nil && *o.Max > *base.Max {
-			bad("%s.max: %d loosens the spec's %d", where, *o.Max, *base.Max)
-		}
-		lo, hi := o.Min, o.Max
-		if lo == nil {
-			lo = base.Min
-		}
-		if hi == nil {
-			hi = base.Max
-		}
-		if lo != nil && hi != nil && *lo > *hi {
-			bad("%s: min %d is above max %d", where, *lo, *hi)
+		switch kind {
+		case BandRange:
+			if o.Min != nil && base.Min != nil && *o.Min < *base.Min {
+				bad("%s.min: %d loosens the spec's %d", where, *o.Min, *base.Min)
+			}
+			if o.Max != nil && base.Max != nil && *o.Max > *base.Max {
+				bad("%s.max: %d loosens the spec's %d", where, *o.Max, *base.Max)
+			}
+			lo, hi := o.Min, o.Max
+			if lo == nil {
+				lo = base.Min
+			}
+			if hi == nil {
+				hi = base.Max
+			}
+			if lo != nil && hi != nil && *lo > *hi {
+				bad("%s: min %d is above max %d", where, *lo, *hi)
+			}
+		case BandLength:
+			if *o.MaxLength < 1 || *o.MaxLength > *base.MaxLength {
+				bad("%s.max_length: %d must be from 1 to the spec's %d", where, *o.MaxLength, *base.MaxLength)
+			}
+		case BandHosts:
+			if len(o.Hosts) == 0 {
+				bad("%s.hosts: an empty list allows no URL; leave the value empty in the configuration instead", where)
+			}
+			for _, h := range o.Hosts {
+				if !slices.ContainsFunc(base.Hosts, func(b string) bool { return h == b || strings.HasSuffix(h, "."+b) }) {
+					bad("%s.hosts: %q loosens the spec's hosts (%s)", where, h, strings.Join(base.Hosts, ", "))
+				}
+			}
 		}
 	}
 }

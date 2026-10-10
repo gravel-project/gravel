@@ -42,8 +42,15 @@ func TestServerConfigIsTheOwnersOrAnAppsWithTheScope(t *testing.T) {
 		t.Fatalf("plan = %v, %v", plan, err)
 	}
 	// The hub hands the driver its (adopted, empty) ban list and the game's bands.
-	if r.drv.draft.Bans == nil || len(r.drv.draft.Bands) != 2 || r.drv.draft.Text != "[K]\r\nScorePeriod=27\r\n" {
+	if r.drv.draft.Bans == nil || len(r.drv.draft.Bands) != 5 || r.drv.draft.Text != "[K]\r\nScorePeriod=27\r\n" {
 		t.Errorf("draft = %+v", r.drv.draft)
+	}
+	// Every kind of band reaches the driver whole.
+	for _, b := range r.drv.draft.Bands {
+		if (b.Key == "ServerImageURL" && len(b.Hosts) != 4) || (b.Key == "ServerName" && (b.MaxLength == nil || *b.MaxLength != 64)) ||
+			(b.Key == "MaxReservedSlots" && b.UnlessSet != "DefaultReservedPlayerIds") {
+			t.Errorf("band = %+v", b)
+		}
 	}
 	if len(r.audit.Entries()) != 0 {
 		t.Error("a plan was audited")
