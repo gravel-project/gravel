@@ -49,6 +49,7 @@ type Config struct {
 	ServerCards ServerCards `yaml:"server_cards"`
 	Moderation  Moderation  `yaml:"moderation"`
 	ModLog      ModLog      `yaml:"mod_log"`
+	Seeding     Seeding     `yaml:"seeding"`
 	Server      Server      `yaml:"server"`
 	Log         Log         `yaml:"log"`
 }
@@ -102,6 +103,20 @@ type ModLog struct {
 
 // MinModLogInterval is the mod log's floor: each pass is one or two hub calls.
 const MinModLogInterval = 5 * time.Second
+
+// Seeding calls the seeder role to a server under its player floor and records seeding minutes
+// (discord/modules/seeding, ADR-0016). The rules live in the Organization settings'
+// discord.seeding; this is how the process runs them. Off by default: the bot's app needs
+// servers:read (who is on) and participation:write (the minutes).
+type Seeding struct {
+	Enabled bool `yaml:"enabled"`
+	// Interval is how often the rules are checked and, during a session, who is on is read.
+	Interval time.Duration `yaml:"interval"`
+}
+
+// MinSeedingInterval is the seeding module's floor: each pass is two hub calls, and one more per
+// open session.
+const MinSeedingInterval = 10 * time.Second
 
 // Discord is the application the bot runs as.
 type Discord struct {
@@ -173,6 +188,7 @@ func Default() Config {
 		ServerCards: ServerCards{Enabled: true, Interval: 15 * time.Second},
 		Moderation:  Moderation{Command: "mod"},
 		ModLog:      ModLog{Interval: 15 * time.Second},
+		Seeding:     Seeding{Interval: 30 * time.Second},
 		Server:      Server{Listen: "127.0.0.1:8081", InternalListen: "127.0.0.1:9091", ShutdownTimeout: 15 * time.Second},
 		Log:         Log{Level: "info", Format: "json"},
 	}
@@ -309,6 +325,9 @@ func (c Config) Validate() error {
 	}
 	if c.ModLog.Interval < MinModLogInterval {
 		bad("mod_log.interval: %s is shorter than %s", c.ModLog.Interval, MinModLogInterval)
+	}
+	if c.Seeding.Interval < MinSeedingInterval {
+		bad("seeding.interval: %s is shorter than %s", c.Seeding.Interval, MinSeedingInterval)
 	}
 	if c.Server.Listen == "" || c.Server.InternalListen == "" {
 		bad("server.listen and server.internal_listen: required")

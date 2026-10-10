@@ -3,8 +3,11 @@ package store_test
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 
 	"github.com/gravel-project/gravel/internal/store"
 	"github.com/gravel-project/gravel/internal/store/storetest"
@@ -20,9 +23,9 @@ func TestApplyServers(t *testing.T) {
 	wd := store.Game{ID: "wardogs", Bands: json.RawMessage(`[{"key": "ScorePeriod", "max": 24, "section": "MatchState.Playing.KOTH"}]`)}
 	srv := store.ManagedServer{ID: "wd-1", GameID: "wardogs", Name: "War Dogs #1", Driver: "wardogs", Location: "slc",
 		Endpoint: "http://203.0.113.10:7789", CredentialFile: "/run/secrets/wd", PollInterval: 15 * time.Second, Trust: "official",
-		Seeding: json.RawMessage(`{"threshold": 20, "hours": "17:00-23:00", "timezone": "America/Chicago", "cooldown": "1h0m0s"}`)}
+		Feed: json.RawMessage(`{"url": "https://ingest.example.com", "token_file": "/run/secrets/wd-feed"}`)}
 	two := srv
-	two.ID, two.Seeding = "wd-2", nil
+	two.ID, two.Feed = "wd-2", nil
 
 	if err := st.ApplyServers(ctx, o.ID, []store.Game{wd}, []store.ManagedServer{srv, two}, t0); err != nil {
 		t.Fatal(err)
@@ -39,11 +42,11 @@ func TestApplyServers(t *testing.T) {
 	if err != nil || len(got) != 2 {
 		t.Fatalf("servers = %+v, %v", got, err)
 	}
-	if g := got[0]; g.ID != "wd-1" || g.PollInterval != 15*time.Second || g.Trust != "official" || len(g.Seeding) == 0 || g.RemovedAt != nil {
+	if g := got[0]; g.ID != "wd-1" || g.PollInterval != 15*time.Second || g.Trust != "official" || len(g.Feed) == 0 || g.RemovedAt != nil {
 		t.Errorf("wd-1 = %+v", g)
 	}
-	if got[1].Seeding != nil {
-		t.Errorf("wd-2 seeding = %s, want NULL", got[1].Seeding)
+	if got[1].Feed != nil {
+		t.Errorf("wd-2 feed = %s, want NULL", got[1].Feed)
 	}
 
 	// The same again: nothing changes, updated_at included (jsonb compares by value, so key
@@ -108,5 +111,45 @@ func TestApplyServers(t *testing.T) {
 	}
 	if g, _ := st.ListGames(ctx, o.ID, false); len(g) != 0 {
 		t.Errorf("a failed apply revived a game: %+v", g)
+	}
+}
+
+// TestServerSeedingColumnDropped covers migration 15: a server stored with the old manifest's
+// seeding section (before 0.8.0) keeps everything else, and the column is gone.
+func TestServerSeedingColumnDropped(t *testing.T) {
+	st := storetest.Open(t)
+	storetest.Reset(t, st)
+	ctx := context.Background()
+	o := newOrg(t, st)
+	t0 := time.Date(2026, 10, 10, 1, 0, 0, 0, time.UTC)
+	srv := store.ManagedServer{ID: "wd-1", GameID: "wardogs", Name: "War Dogs #1", Driver: "wardogs", Location: "slc",
+		Endpoint: "http://203.0.113.10:7789", CredentialFile: "/run/secrets/wd", PollInterval: 15 * time.Second, Trust: "official",
+		Feed: json.RawMessage(`{"url": "https://ingest.example.com", "token_file": "/run/secrets/wd-feed"}`)}
+	if err := st.ApplyServers(ctx, o.ID, []store.Game{{ID: "wardogs"}}, []store.ManagedServer{srv}, t0); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.MigrateDownTo(ctx, 14); err != nil {
+		t.Fatal(err)
+	}
+	conn, err := pgx.Connect(ctx, storetest.DatabaseURL(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = conn.Close(ctx) })
+	if _, err := conn.Exec(ctx, `UPDATE managed_servers SET seeding = '{"threshold": 20, "hours": "17:00-23:00", "timezone": "America/Chicago", "cooldown": "1h0m0s"}' WHERE id = 'wd-1'`); err != nil {
+		t.Fatalf("the 0.7 shape: %v", err)
+	}
+	if err := st.Migrate(ctx); err != nil {
+		t.Fatal(err)
+	}
+	got, err := st.ListManagedServers(ctx, o.ID, false)
+	if err != nil || len(got) != 1 || got[0].ID != "wd-1" || got[0].Name != "War Dogs #1" || len(got[0].Feed) == 0 || !got[0].UpdatedAt.Equal(t0) {
+		t.Fatalf("the server survives the migration: %+v %v", got, err)
+	}
+	if _, err := conn.Exec(ctx, `SELECT seeding FROM managed_servers`); err == nil || !strings.Contains(err.Error(), "seeding") {
+		t.Errorf("the column is gone: %v", err)
+	}
+	if err := st.ApplyServers(ctx, o.ID, []store.Game{{ID: "wardogs"}}, []store.ManagedServer{srv}, t0.Add(time.Hour)); err != nil {
+		t.Errorf("apply after the migration: %v", err)
 	}
 }

@@ -2,7 +2,7 @@
   "annotations": {
     "list": []
   },
-  "description": "The gravel Discord bot: the gateway, interactions against Discord's three seconds, role sync, Linked Roles, the server cards and the Go runtime (gravel docs/bot.md, Observability).",
+  "description": "The gravel Discord bot: the gateway, interactions against Discord's three seconds, role sync, Linked Roles, the server cards, the mod log, seeding, the moderation command and the Go runtime (gravel docs/bot.md, Observability).",
   "editable": false,
   "graphTooltip": 1,
   "panels": [
@@ -1318,6 +1318,279 @@
       },
       "id": 24,
       "panels": [],
+      "title": "Seeding",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "posted: a call pinged the seeder role; forbidden: the bot may not post in the channel; error: Discord failed, retried at the next pass. No data is expected when seeding is off or no call went out in the range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gravelOptional": "seeding is off or no call went out in the range",
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 0,
+        "y": 50
+      },
+      "id": 25,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (server, result) (increase(gravel_bot_seeding_calls_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "{{server}} {{result}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Seeding calls",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "started: a call opened a session; reached: the server reached its floor; window_closed: the window ended first. No data is expected when seeding is off or no session started or ended in the range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gravelOptional": "seeding is off or no session started or ended in the range",
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 6,
+        "y": 50
+      },
+      "id": 26,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (server, outcome) (increase(gravel_bot_seeding_sessions_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "{{server}} {{outcome}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Seeding sessions",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "The seconds of seeding recorded as participation when sessions ended, every player together; a duplicate (a retry, a restart) is not counted. No data is expected when seeding is off or no session ended in the range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gravelOptional": "seeding is off or no session ended in the range",
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 50
+      },
+      "id": 27,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (server) (increase(gravel_bot_seeding_recorded_seconds_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "{{server}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Seeding time recorded",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Failed attempts to record seeding minutes. They are retried every pass; an event the hub calls invalid is dropped alone and logged. A line that keeps rising is the hub away or the bot's app without participation:write. No data is expected when nothing failed to record in the range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gravelOptional": "nothing failed to record in the range",
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 50
+      },
+      "id": 28,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (server) (increase(gravel_bot_seeding_record_errors_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "{{server}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Seeding record errors",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 58
+      },
+      "id": 29,
+      "panels": [],
       "title": "Moderation command",
       "type": "row"
     },
@@ -1357,9 +1630,9 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 50
+        "y": 59
       },
-      "id": 25,
+      "id": 30,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -1392,9 +1665,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 58
+        "y": 67
       },
-      "id": 26,
+      "id": 31,
       "panels": [],
       "title": "Runtime",
       "type": "row"
@@ -1433,9 +1706,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 59
+        "y": 68
       },
-      "id": 27,
+      "id": 32,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -1496,9 +1769,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 59
+        "y": 68
       },
-      "id": 28,
+      "id": 33,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -1559,9 +1832,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 59
+        "y": 68
       },
-      "id": 29,
+      "id": 34,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -1622,9 +1895,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 67
+        "y": 76
       },
-      "id": 30,
+      "id": 35,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -1685,9 +1958,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 67
+        "y": 76
       },
-      "id": 31,
+      "id": 36,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -1748,9 +2021,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 67
+        "y": 76
       },
-      "id": 32,
+      "id": 37,
       "options": {
         "legend": {
           "displayMode": "list",

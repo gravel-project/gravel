@@ -99,6 +99,18 @@ func TestSettingsCheck(t *testing.T) {
 		t.Errorf("games and the mod log: %d %q %q", code, out, errOut)
 	}
 
+	// The summary counts the seeding rules; a bad rule is named offline.
+	seeding := "discord:\n  guild_id: \"519496143298756611\"\n  seeding:\n    - server: htg-wardogs-1\n      channel: \"1300000000000000101\"\n      role: \"1300000000000000004\"\n" +
+		"      below: 20\n      hours:\n        - {days: [wed, sat, sun], from: \"18:00\", to: \"23:00\"}\n      call_at_start: true\n"
+	writeFile(t, manifest, seeding)
+	if code, out, errOut := run("settings", "check", manifest); code != 0 || out != "settings valid (0 nav links, theme default, discord guild 519496143298756611, 0 roles, 1 seeding rules)\n" || errOut != "" {
+		t.Errorf("seeding: %d %q %q", code, out, errOut)
+	}
+	writeFile(t, manifest, strings.Replace(seeding, "below: 20", "below: 1", 1))
+	if code, _, errOut := run("settings", "check", manifest); code != 1 || !strings.Contains(errOut, "discord.seeding[0].below: 1 is not between 2 and 1000") {
+		t.Errorf("a bad seeding rule: %d %q", code, errOut)
+	}
+
 	// A game or a season's game this hub doesn't ship is refused offline too.
 	writeFile(t, manifest, "games:\n  wardog:\n    nav:\n      - {label: x, url: /x}\nstats:\n  seasons:\n    - {name: S2, game: war-dogs, from: \"2026-10-15\", to: \"2027-01-15\"}\n")
 	if code, out, errOut := run("settings", "check", manifest); code != 1 || out != "" ||
@@ -230,15 +242,23 @@ func TestSettingsExportAndApply(t *testing.T) {
 		t.Errorf("export after apply: %d\n%s", code, out)
 	}
 	mapped := "discord:\n  guild_id: \"519496143298756611\"\n  roles:\n    linked: \"1300000000000000001\"\n  recognition:\n    - role: \"1300000000000000003\"\n      rule: first_members\n      count: 50\n" +
-		"  server_cards:\n    - server: htg-wardogs-1\n      channel: \"1300000000000000100\"\n"
+		"  server_cards:\n    - server: htg-wardogs-1\n      channel: \"1300000000000000100\"\n" +
+		"  seeding:\n    - server: htg-wardogs-1\n      channel: \"1300000000000000101\"\n      role: \"1300000000000000004\"\n      below: 20\n" +
+		"      hours:\n        - {days: [wed, sat, sun], from: \"18:00\", to: \"23:00\"}\n      call_at_start: true\n"
 	if err := os.WriteFile(manifest, []byte(mapped), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if code, out, errOut := run("settings", "apply", manifest, "--config", cfgPath); code != 0 || !strings.Contains(out, "discord guild 519496143298756611, 2 roles, 1 server cards") {
+	if code, out, errOut := run("settings", "apply", manifest, "--config", cfgPath); code != 0 || !strings.Contains(out, "discord guild 519496143298756611, 2 roles, 1 server cards, 1 seeding rules") {
 		t.Errorf("apply a mapping: %d %q %q", code, out, errOut)
 	}
 	if code, out, _ := run("settings", "export", "--config", cfgPath); code != 0 || !strings.Contains(out, "guild_id: \"519496143298756611\"") && !strings.Contains(out, "guild_id: '519496143298756611'") {
 		t.Errorf("export keeps the ids quoted strings: %d\n%s", code, out)
+	}
+	if code, out, _ := run("settings", "apply", manifest, "--dry-run", "--config", cfgPath); code != 0 || !strings.Contains(out, "unchanged") {
+		t.Errorf("a stored seeding rule reads back unchanged: %d %q", code, out)
+	}
+	if code, out, _ := run("settings", "export", "--config", cfgPath); code != 0 || !strings.Contains(out, "days: [wed, sat, sun]") || !strings.Contains(out, "call_at_start: true") {
+		t.Errorf("export keeps the seeding rule: %d\n%s", code, out)
 	}
 	if err := os.WriteFile(manifest, []byte("theme:\n  font: \"x; y\"\n"), 0o644); err != nil {
 		t.Fatal(err)

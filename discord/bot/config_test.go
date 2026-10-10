@@ -54,6 +54,12 @@ func TestParseDefaults(t *testing.T) {
 	if err != nil || !tuned.RoleSync.Enabled || tuned.RoleSync.Interval != 5*time.Minute || tuned.RoleSync.PollInterval != time.Minute || !tuned.RoleSync.DryRun || tuned.LinkedRoles.Enabled {
 		t.Errorf("tuned: %v %+v %+v", err, tuned.RoleSync, tuned.LinkedRoles)
 	}
+	if c.Seeding.Enabled || c.Seeding.Interval != 30*time.Second {
+		t.Errorf("seeding is off by default, every 30s: %+v", c.Seeding)
+	}
+	if on, err := Parse(strings.NewReader(minimal+"seeding:\n  enabled: true\n  interval: 10s\n"), env(nil, nil)); err != nil || !on.Seeding.Enabled || on.Seeding.Interval != 10*time.Second {
+		t.Errorf("seeding on: %v %+v", err, on.Seeding)
+	}
 	if c.Discord.TokenSource() != "discord.token" || c.Hub.SecretSource() != "hub.client_secret" {
 		t.Errorf("sources: %q %q", c.Discord.TokenSource(), c.Hub.SecretSource())
 	}
@@ -114,6 +120,8 @@ moderation:
   command: "Kick Players"
 mod_log:
   interval: 1s
+seeding:
+  interval: 9s
 server:
   listen: ""
   shutdown_timeout: 0s
@@ -125,7 +133,7 @@ log:
 	if err == nil {
 		t.Fatal("expected errors")
 	}
-	for _, want := range []string{"version:", "discord.application_id", "discord.guild_ids[0]", "discord.public_key", "discord: no token", "hub.url", "hub.public_url", "hub.client_id", "hub: no client secret", "role_sync.interval", "role_sync.poll_interval", "server_cards.interval", "moderation.command", "mod_log.interval", "server.listen", "shutdown_timeout", "log.level", "log.format"} {
+	for _, want := range []string{"version:", "discord.application_id", "discord.guild_ids[0]", "discord.public_key", "discord: no token", "hub.url", "hub.public_url", "hub.client_id", "hub: no client secret", "role_sync.interval", "role_sync.poll_interval", "server_cards.interval", "moderation.command", "mod_log.interval", "seeding.interval: 9s is shorter than 10s", "server.listen", "shutdown_timeout", "log.level", "log.format"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("missing %q in %v", want, err)
 		}

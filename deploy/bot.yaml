@@ -38,6 +38,10 @@ mod_log:                         # every moderation action posted to the Organiz
   enabled: false
   interval: 15s
 
+seeding:                         # seeding calls and minutes for the Organization settings' discord.seeding rules; needs servers:read and participation:write
+  enabled: false
+  interval: 30s                  # at least 10s
+
 server:
   listen: 0.0.0.0:8081           # /interactions, /healthz, /readyz
   internal_listen: 0.0.0.0:9091  # /metrics

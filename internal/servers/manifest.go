@@ -10,7 +10,6 @@ import (
 	"slices"
 	"strings"
 	"time"
-	_ "time/tzdata" // seeding time zones resolve in a container with no zoneinfo
 
 	"gopkg.in/yaml.v3"
 )
@@ -44,7 +43,6 @@ type Server struct {
 	CredentialFile string   `yaml:"credential_file"`
 	PollInterval   Duration `yaml:"poll_interval,omitempty"`
 	Trust          string   `yaml:"trust"`
-	Seeding        *Seeding `yaml:"seeding,omitempty"`
 	Feed           *Feed    `yaml:"feed,omitempty"`
 }
 
@@ -59,16 +57,6 @@ type Feed struct {
 	TokenFile string `yaml:"token_file" json:"token_file"`
 }
 
-// Seeding is when a server wants players (hidden-token-gaming/htg#32 reads it): below Threshold
-// during Hours, at most once per Cooldown, never during Quiet.
-type Seeding struct {
-	Threshold int      `yaml:"threshold" json:"threshold"`
-	Hours     string   `yaml:"hours" json:"hours"`
-	Quiet     string   `yaml:"quiet,omitempty" json:"quiet,omitempty"`
-	Timezone  string   `yaml:"timezone" json:"timezone"`
-	Cooldown  Duration `yaml:"cooldown,omitempty" json:"cooldown,omitempty"`
-}
-
 // Trust levels.
 const (
 	TrustOfficial  = "official"
@@ -80,7 +68,6 @@ const (
 	DefaultPollInterval = 15 * time.Second
 	MinPollInterval     = 5 * time.Second
 	MaxPollInterval     = 10 * time.Minute
-	DefaultCooldown     = time.Hour
 	MaxNameLength       = 64
 	MaxServers          = 100
 )
@@ -88,13 +75,14 @@ const (
 // ErrInvalidManifest wraps every validation failure; the message says which field and why.
 var ErrInvalidManifest = errors.New("invalid servers manifest")
 
-var (
-	idPattern     = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,62}$`)
-	windowPattern = regexp.MustCompile(`^([01][0-9]|2[0-3]):[0-5][0-9]-([01][0-9]|2[0-3]):[0-5][0-9]$`)
-)
+var idPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,62}$`)
 
-// ParseManifest reads a manifest strictly (an unknown key is an error) and fills the defaults.
+// ParseManifest reads a manifest strictly (an unknown key is an error) and fills the defaults. A
+// key gravel removed is refused with where it went (removedKeys).
 func ParseManifest(b []byte) (Manifest, error) {
+	if err := removedKeys(b); err != nil {
+		return Manifest{}, fmt.Errorf("servers: manifest: %w", err)
+	}
 	dec := yaml.NewDecoder(bytes.NewReader(b))
 	dec.KnownFields(true)
 	var m Manifest
@@ -102,6 +90,43 @@ func ParseManifest(b []byte) (Manifest, error) {
 		return Manifest{}, fmt.Errorf("servers: manifest: %w", err)
 	}
 	return m.Normalized(), nil
+}
+
+// removed are the server keys gravel took out of the manifest, and what replaces each: a manifest
+// that still has one is refused with the way to move, not the decoder's bare "field not found".
+var removed = map[string]string{
+	"seeding": "removed in gravel 0.8.0: seeding rules are the Organization settings' discord.seeding now " +
+		"(ADR-0016; docs/hub.md \"Organization settings\", docs/bot.md \"Seeding\"); delete it here and set the rule there",
+}
+
+// removedKeys reports each server that still has a removed key, by index and line.
+func removedKeys(b []byte) error {
+	var doc yaml.Node
+	if err := yaml.Unmarshal(b, &doc); err != nil || len(doc.Content) == 0 {
+		return nil // the strict decode reports it
+	}
+	root := doc.Content[0]
+	if root.Kind != yaml.MappingNode {
+		return nil
+	}
+	var errs []error
+	for i := 0; i+1 < len(root.Content); i += 2 {
+		if root.Content[i].Value != "servers" || root.Content[i+1].Kind != yaml.SequenceNode {
+			continue
+		}
+		for n, srv := range root.Content[i+1].Content {
+			if srv.Kind != yaml.MappingNode {
+				continue
+			}
+			for k := 0; k+1 < len(srv.Content); k += 2 {
+				key := srv.Content[k]
+				if why, ok := removed[key.Value]; ok {
+					errs = append(errs, fmt.Errorf("%w: servers[%d].%s (line %d): %s", ErrInvalidManifest, n, key.Value, key.Line, why))
+				}
+			}
+		}
+	}
+	return errors.Join(errs...)
 }
 
 // Normalized fills the defaults and sorts games and servers by id, so two manifests that mean
@@ -125,13 +150,6 @@ func (m Manifest) Normalized() Manifest {
 		s := &m.Servers[i]
 		if s.PollInterval == 0 {
 			s.PollInterval = Duration(DefaultPollInterval)
-		}
-		if s.Seeding != nil {
-			sd := *s.Seeding
-			if sd.Cooldown == 0 {
-				sd.Cooldown = Duration(DefaultCooldown)
-			}
-			s.Seeding = &sd
 		}
 	}
 	slices.SortFunc(m.Games, func(a, b GameRef) int { return strings.Compare(a.ID, b.ID) })
@@ -207,9 +225,6 @@ func (m Manifest) Validate(specs map[string]Spec, drivers []string) error {
 		}
 		if s.Trust != TrustOfficial && s.Trust != TrustCommunity {
 			bad("%s.trust: %q is not %q or %q", at, s.Trust, TrustOfficial, TrustCommunity)
-		}
-		if s.Seeding != nil {
-			validateSeeding(at+".seeding", *s.Seeding, bad)
 		}
 		if f := s.Feed; f != nil {
 			if u, err := url.Parse(f.URL); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || (u.Path != "" && u.Path != "/") || u.RawQuery != "" || u.User != nil {
@@ -288,26 +303,6 @@ func validateBands(at string, spec Spec, over []Band, bad func(string, ...any)) 
 				}
 			}
 		}
-	}
-}
-
-func validateSeeding(at string, s Seeding, bad func(string, ...any)) {
-	if s.Threshold < 1 || s.Threshold > 1000 {
-		bad("%s.threshold: %d is outside 1–1000", at, s.Threshold)
-	}
-	if !windowPattern.MatchString(s.Hours) {
-		bad("%s.hours: %q is not HH:MM-HH:MM", at, s.Hours)
-	}
-	if s.Quiet != "" && !windowPattern.MatchString(s.Quiet) {
-		bad("%s.quiet: %q is not HH:MM-HH:MM", at, s.Quiet)
-	}
-	if s.Timezone == "" {
-		bad("%s.timezone: required (an IANA zone such as America/Chicago)", at)
-	} else if _, err := time.LoadLocation(s.Timezone); err != nil {
-		bad("%s.timezone: %q is not an IANA time zone", at, s.Timezone)
-	}
-	if d := time.Duration(s.Cooldown); d < time.Minute || d > 24*time.Hour {
-		bad("%s.cooldown: %s is outside 1m–24h", at, d)
 	}
 }
 

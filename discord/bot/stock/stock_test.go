@@ -46,4 +46,11 @@ func TestModules(t *testing.T) {
 	if got := names(cfg); got != "core,moderation,modlog" {
 		t.Errorf("mod log on: %s", got)
 	}
+	if bot.Default().Seeding.Enabled {
+		t.Error("seeding is off by default")
+	}
+	cfg.Seeding.Enabled = true
+	if got := names(cfg); got != "core,moderation,modlog,seeding" {
+		t.Errorf("seeding on: %s", got)
+	}
 }

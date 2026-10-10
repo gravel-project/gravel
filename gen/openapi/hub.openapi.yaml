@@ -1598,10 +1598,6 @@ components:
           description: Deserialized error detail payload. The 'type' field indicates the schema. This field is for easier debugging and should not be relied upon for application logic.
       additionalProperties: true
       description: Contains an arbitrary serialized message along with a @type that describes the type of the serialized message, with an additional debug field for ConnectRPC error details.
-    google.protobuf.Duration:
-      type: string
-      format: duration
-      description: A signed duration in seconds, with up to nine fractional digits and an `s` suffix (for example, `3s` or `-0.001s`).
     google.protobuf.Timestamp:
       type: string
       examples:
@@ -2215,6 +2211,72 @@ components:
       description: |-
         DiscordRoles are the roles that follow a member's linked identities; role sync adds and
          removes them.
+    gravel.hub.v1.DiscordSeeding:
+      type: object
+      properties:
+        server:
+          type: string
+          title: server
+          description: 'The server''s id in the hub: "htg-wardogs-1"; one rule per server.'
+        channel:
+          type: string
+          title: channel
+          description: Where the call is posted.
+        role:
+          type: string
+          title: role
+          description: The opt-in seeder role the call pings; never the guild's id (@everyone).
+        below:
+          type: integer
+          title: below
+          format: int32
+          description: 'The player count under which a call is due, 2 to 1000: the game''s floor (War Dogs, 20).'
+        hours:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.DiscordSeedingHours'
+          title: hours
+          description: The weekly windows; at most 14. None is a rule that never calls.
+        cooldown:
+          type: string
+          title: cooldown
+          description: The least time between two calls, a Go duration from 15m to 24h; empty is 2h.
+        callAtStart:
+          type: boolean
+          title: call_at_start
+          description: |-
+            Each window's first call goes out at its start, while the server is under below, without
+             waiting out a cooldown left from before the window.
+        note:
+          type: string
+          title: note
+          description: 'A line appended to the call, at most 200 characters: how to join.'
+      title: DiscordSeeding
+      additionalProperties: false
+      description: |-
+        DiscordSeeding is when and where the bot calls for seeders for one server (ADR-0016): inside
+         one of its windows, while the server is live and under below, at most once per cooldown. It
+         pings role and nothing else. Outside every window nothing is posted.
+    gravel.hub.v1.DiscordSeedingHours:
+      type: object
+      properties:
+        days:
+          type: array
+          items:
+            type: string
+          title: days
+        from:
+          type: string
+          title: from
+        to:
+          type: string
+          title: to
+      title: DiscordSeedingHours
+      additionalProperties: false
+      description: |-
+        DiscordSeedingHours is one weekly window of a seeding rule, in StatsSettings.timezone: the days
+         it starts on ("mon" … "sun") and the time of day from and to ("18:00", "23:00", 24-hour). A to
+         before from ends the next day; a rule's windows do not overlap.
     gravel.hub.v1.DiscordServerCard:
       type: object
       properties:
@@ -2258,6 +2320,12 @@ components:
           type: string
           title: mod_log
           description: The channel the bot posts every moderation action to (the audit log); empty is none.
+        seeding:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.DiscordSeeding'
+          title: seeding
+          description: The seeding rules, at most 10 (the seeding module, ADR-0016).
       title: DiscordSettings
       additionalProperties: false
       description: |-
@@ -3540,32 +3608,6 @@ components:
       title: ScopeInfo
       additionalProperties: false
       description: ScopeInfo is a scope with what it lets an app do as the member, in the member's words.
-    gravel.hub.v1.Seeding:
-      type: object
-      properties:
-        threshold:
-          type: integer
-          title: threshold
-          format: int32
-        hours:
-          type: string
-          title: hours
-        quiet:
-          type: string
-          title: quiet
-        timezone:
-          type: string
-          title: timezone
-          description: 'An IANA zone: "America/Chicago".'
-        cooldown:
-          allOf:
-            - $ref: '#/components/schemas/google.protobuf.Duration'
-          title: cooldown
-      title: Seeding
-      additionalProperties: false
-      description: |-
-        Seeding is when a server wants players: below threshold during hours (HH:MM-HH:MM in
-         timezone), at most once per cooldown, never during quiet.
     gravel.hub.v1.Server:
       type: object
       properties:
@@ -3587,11 +3629,6 @@ components:
           type: string
           title: trust
           description: '"official" or "community".'
-        seeding:
-          allOf:
-            - $ref: '#/components/schemas/gravel.hub.v1.Seeding'
-          title: seeding
-          description: Unset when the server does not seed.
         status:
           allOf:
             - $ref: '#/components/schemas/gravel.hub.v1.ServerStatus'

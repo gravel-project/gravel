@@ -124,6 +124,38 @@ message DiscordServerCard {
   string note = 3;
 }
 
+// DiscordSeedingHours is one weekly window of a seeding rule, in StatsSettings.timezone: the days
+// it starts on ("mon" … "sun") and the time of day from and to ("18:00", "23:00", 24-hour). A to
+// before from ends the next day; a rule's windows do not overlap.
+message DiscordSeedingHours {
+  repeated string days = 1;
+  string from = 2;
+  string to = 3;
+}
+
+// DiscordSeeding is when and where the bot calls for seeders for one server (ADR-0016): inside
+// one of its windows, while the server is live and under below, at most once per cooldown. It
+// pings role and nothing else. Outside every window nothing is posted.
+message DiscordSeeding {
+  // The server's id in the hub: "htg-wardogs-1"; one rule per server.
+  string server = 1;
+  // Where the call is posted.
+  string channel = 2;
+  // The opt-in seeder role the call pings; never the guild's id (@everyone).
+  string role = 3;
+  // The player count under which a call is due, 2 to 1000: the game's floor (War Dogs, 20).
+  int32 below = 4;
+  // The weekly windows; at most 14. None is a rule that never calls.
+  repeated DiscordSeedingHours hours = 5;
+  // The least time between two calls, a Go duration from 15m to 24h; empty is 2h.
+  string cooldown = 6;
+  // Each window's first call goes out at its start, while the server is under below, without
+  // waiting out a cooldown left from before the window.
+  bool call_at_start = 7;
+  // A line appended to the call, at most 200 characters: how to join.
+  string note = 8;
+}
+
 // DiscordSettings is the guild the bot works in (ADR-0008): the roles role sync maps and the
 // channels the server cards live in. Ids are Discord snowflakes as strings; empty means the bot
 // has nothing to do.
@@ -134,6 +166,8 @@ message DiscordSettings {
   repeated DiscordServerCard server_cards = 4;
   // The channel the bot posts every moderation action to (the audit log); empty is none.
   string mod_log = 5;
+  // The seeding rules, at most 10 (the seeding module, ADR-0016).
+  repeated DiscordSeeding seeding = 6;
 }
 
 // StatsSeason is a named window of matches: from (included) to to (excluded), dates

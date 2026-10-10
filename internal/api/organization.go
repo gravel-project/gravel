@@ -99,6 +99,14 @@ func settingsToProto(set org.Settings, at time.Time) *hubv1.OrganizationSettings
 		for _, c := range d.ServerCards {
 			p.Discord.ServerCards = append(p.Discord.ServerCards, &hubv1.DiscordServerCard{Server: c.Server, Channel: c.Channel, Note: c.Note})
 		}
+		for _, r := range d.Seeding {
+			ps := &hubv1.DiscordSeeding{Server: r.Server, Channel: r.Channel, Role: r.Role, Below: int32(r.Below), //nolint:gosec // bounded by validation
+				Cooldown: r.Cooldown, CallAtStart: r.CallAtStart, Note: r.Note}
+			for _, h := range r.Hours {
+				ps.Hours = append(ps.Hours, &hubv1.DiscordSeedingHours{Days: h.Days, From: h.From, To: h.To})
+			}
+			p.Discord.Seeding = append(p.Discord.Seeding, ps)
+		}
 	}
 	if st := set.Stats; !st.IsZero() {
 		p.Stats = &hubv1.StatsSettings{Public: st.Public, MinMatches: int32(st.MinMatches), Timezone: st.Timezone, //nolint:gosec // bounded by validation
@@ -145,6 +153,14 @@ func settingsFromProto(p *hubv1.OrganizationSettings) org.Settings {
 	}
 	for _, c := range d.GetServerCards() {
 		set.Discord.ServerCards = append(set.Discord.ServerCards, org.ServerCard{Server: c.GetServer(), Channel: c.GetChannel(), Note: c.GetNote()})
+	}
+	for _, r := range d.GetSeeding() {
+		rule := org.SeedingRule{Server: r.GetServer(), Channel: r.GetChannel(), Role: r.GetRole(), Below: int(r.GetBelow()),
+			Cooldown: r.GetCooldown(), CallAtStart: r.GetCallAtStart(), Note: r.GetNote()}
+		for _, h := range r.GetHours() {
+			rule.Hours = append(rule.Hours, org.SeedingHours{Days: h.GetDays(), From: h.GetFrom(), To: h.GetTo()})
+		}
+		set.Discord.Seeding = append(set.Discord.Seeding, rule)
 	}
 	st := p.GetStats()
 	set.Stats = org.Stats{Public: st.GetPublic(), MinMatches: int(st.GetMinMatches()), Timezone: st.GetTimezone(),

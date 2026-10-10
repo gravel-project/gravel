@@ -219,6 +219,16 @@ discord:                     # what the bot manages (docs/bot.md); ids as quoted
       channel: "…"           # the bot needs View Channel, Send Messages, Read Message History
       note: Matches start at 20 players.   # optional, one line of at most 200 characters
   mod_log: "…"               # optional: the channel every moderation action is posted to (docs/bot.md "Mod log")
+  seeding:                   # seeding calls and minutes (docs/bot.md "Seeding"); at most 10, one per server
+    - server: htg-wardogs-1
+      channel: "…"           # where the call is posted, such as #wd-seeding
+      role: "…"              # the opt-in seeder role the call pings, and nothing else; never guild_id
+      below: 20              # the floor: a call is due under it (2 to 1000)
+      hours:                 # weekly windows in stats.timezone; at most 14; none means no call ever
+        - {days: [wed, sat, sun], from: "18:00", to: "23:00"}   # a to before from ends the next day
+      cooldown: 2h           # the least time between calls, 15m to 24h (default 2h)
+      call_at_start: true    # a window's first call ignores a cooldown left from before it (default false)
+      note: Join from the server browser.   # optional, one line of at most 200 characters
 stats:                       # the boards ([Stats](#stats-adr-0012))
   public: false              # true once the host's privacy policy covers stats; until then the owner and stats:read
   min_matches: 3             # a player's matches before a K/D board shows them (default 3)
@@ -278,6 +288,15 @@ The `discord` section holds ids, never a credential, and is as public as the res
 snowflakes as quoted strings (YAML would read a bare one as a number); a role may be mapped once,
 never to the guild's own id (`@everyone`), and roles need a guild. The bot reads the section at
 every role-sync pass, so a mapping change is a manifest change and lands within one pass.
+
+A `seeding` rule (ADR-0016) names a server, the channel its calls go to and the seeder role they
+ping. That role is the members' own choice, so role sync never manages it, and it may not be
+`@everyone`. The rule's `hours` are weekly windows: `days` from `mon` to `sun`, and `from` and `to`
+as 24-hour `HH:MM` in `stats.timezone`. A `to` before `from` is an overnight window that ends the
+next day, `from` equal to `to` is refused, and a rule's windows may not overlap. Times are
+wall-clock in the zone, so HTG's `18:00`–`23:00` America/Chicago stays the evening across a
+daylight-saving change. A rule without windows never calls, and neither does a module that is off
+(`seeding.enabled` in bot.yaml). The bot's app needs `servers:read` and `participation:write`.
 
 ### Game overlays (gravel#66)
 
@@ -470,12 +489,6 @@ servers:
     credential_file: /run/secrets/htg-wardogs-rcon-password
     poll_interval: 15s           # 5s–10m; default 15s (two requests a poll)
     trust: official              # or community
-    seeding:                     # optional; hidden-token-gaming/htg#32 reads it through the API
-      threshold: 20
-      hours: "17:00-23:00"
-      quiet: "23:30-09:00"
-      timezone: America/Chicago
-      cooldown: 1h               # default 1h
     feed:                        # optional: where the server pushes its events (ADR-0011, Ingestion)
       url: https://ingest.example.com    # an origin; the game adds /api/ingest/events
       token_file: /run/secrets/htg-wardogs-feed-token   # line 1 the token; line 2 the previous one, while rotating
@@ -489,7 +502,10 @@ podman exec gravel-hub /ko-app/gravel-hub servers apply /etc/gravel/servers.yaml
 ```
 
 Taking a server out of the manifest marks it removed (its row stays, so what refers to it keeps a
-target); putting it back revives it. `apply` refuses a credential or feed token file it cannot
+target); putting it back revives it. A server has no `seeding` section any more (removed in 0.8.0):
+seeding rules are the Organization settings' `discord.seeding` (ADR-0016, [Organization
+settings](#organization-settings-adr-0007)), and `check` and `apply` refuse a manifest that still
+has one, naming each server's section and its line. `apply` refuses a credential or feed token file it cannot
 read, so run it where the hub's secrets are.
 
 **What the hub does with them.** A background job (`servers_reconcile`, every 30 s) starts one

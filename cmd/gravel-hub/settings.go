@@ -261,5 +261,8 @@ func describeDiscord(d org.Discord) string {
 	if d.ModLog != "" {
 		out += ", mod log"
 	}
+	if n := len(d.Seeding); n > 0 {
+		out += fmt.Sprintf(", %d seeding rules", n)
+	}
 	return out
 }
