@@ -2005,7 +2005,8 @@ components:
             title: value
           description: |-
             Image URLs (https) by map name as the game names it, a map in play or in its rotation
-             (War Dogs: "Ozeti", "Europe"): the server card's picture. At most 50.
+             (War Dogs: "Ozeti", "Europe"): the server card's picture. A "map/lighting" key
+             ("Europe/DayClear") is the map in that lighting, tried before the plain name. At most 50.
         mapFallback:
           type: string
           title: map_fallback

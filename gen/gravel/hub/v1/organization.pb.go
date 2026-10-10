@@ -534,7 +534,8 @@ type GameSettings struct {
 	// unused and must be empty.
 	Nav []*NavLink `protobuf:"bytes,2,rep,name=nav,proto3" json:"nav,omitempty"`
 	// Image URLs (https) by map name as the game names it, a map in play or in its rotation
-	// (War Dogs: "Ozeti", "Europe"): the server card's picture. At most 50.
+	// (War Dogs: "Ozeti", "Europe"): the server card's picture. A "map/lighting" key
+	// ("Europe/DayClear") is the map in that lighting, tried before the plain name. At most 50.
 	Maps map[string]string `protobuf:"bytes,3,rep,name=maps,proto3" json:"maps,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// The image (https) for a map maps doesn't name; empty is gravel's generic placeholder, served
 	// by the hub, once the game has map images at all (maps or map_fallback set).

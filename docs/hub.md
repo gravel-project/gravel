@@ -238,6 +238,7 @@ games:                       # a game's overlay on its pages, by game id; at mos
     maps:                    # the server card's picture by map name as the game spells it; https only; at most 50
       Ozeti: https://example.com/games/wardogs/maps/ozeti.jpg       # a level in play
       Europe: https://example.com/games/wardogs/maps/europe.jpg     # a theatre, for a level without its own
+      Europe/DayClear: https://example.com/games/wardogs/maps/europe-dayclear.webp   # that theatre in one lighting, tried first
     map_fallback: https://example.com/games/wardogs/maps/default.jpg  # any other map; omit for gravel's placeholder
 ```
 
@@ -295,7 +296,8 @@ nothing is dropped from the document.
 
 `maps` and `map_fallback` are the Discord server card's picture of the map in play (docs/bot.md
 "Server cards"): keys as the game names a map (War Dogs: a level such as `Ozeti`, or a rotation
-theatre such as `Europe`), values https URLs, since Discord fetches them itself. A game with either
+theatre such as `Europe`), optionally with the lighting the status reports (`Europe/DayClear`,
+tried before the plain name), values https URLs, since Discord fetches them itself. A game with either
 set gets a picture for every map: its own, else the fallback, else gravel's generic placeholder
 (`/static/map-placeholder.png` on the hub). The War Dogs driver adds the rotation's current and next
 map to the status (`ServerStatus.rotation_map`, `next_rotation_map`), read at most once a minute;

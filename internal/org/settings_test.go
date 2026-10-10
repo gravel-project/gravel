@@ -456,7 +456,8 @@ func TestSettingsServiceChecksGames(t *testing.T) {
 
 func TestSettingsValidateGameMaps(t *testing.T) {
 	good := Settings{Version: 1, Games: map[string]GameSettings{"wardogs": {
-		Maps:        map[string]string{"Ozeti": "https://hiddentoken.com/games/wardogs/maps/ozeti.jpg", "NorthAmerica": "https://cdn.example/na.png"},
+		Maps: map[string]string{"Ozeti": "https://hiddentoken.com/games/wardogs/maps/ozeti.jpg", "NorthAmerica": "https://cdn.example/na.png",
+			"Europe/DayClear": "https://hiddentoken.com/games/wardogs/maps/Europe/DayClear.webp"},
 		MapFallback: "https://hiddentoken.com/games/wardogs/maps/default.jpg"}}}
 	if err := good.Validate(); err != nil {
 		t.Fatalf("good maps: %v", err)
@@ -475,6 +476,10 @@ func TestSettingsValidateGameMaps(t *testing.T) {
 			" Padded":               "https://x.example/p.png",
 			"":                      "https://x.example/e.png",
 			strings.Repeat("m", 65): "https://x.example/l.png",
+			"Europe/":               "https://x.example/1.png",
+			"/DayClear":             "https://x.example/2.png",
+			"Europe/Day/Clear":      "https://x.example/3.png",
+			"Europe/ DayClear":      "https://x.example/4.png",
 		}, MapFallback: "javascript:alert(1)"},
 		"cs2": {Maps: many},
 	}}
@@ -485,6 +490,10 @@ func TestSettingsValidateGameMaps(t *testing.T) {
 		`games.wardogs.maps: " Padded" is not a map name`,
 		`games.wardogs.maps: "" is not a map name`,
 		`games.wardogs.maps: "mmmm`,
+		`games.wardogs.maps: "Europe/" is not a map name or map/lighting`,
+		`games.wardogs.maps: "/DayClear" is not`,
+		`games.wardogs.maps: "Europe/Day/Clear" is not`,
+		`games.wardogs.maps: "Europe/ DayClear" is not`,
 		`games.wardogs.map_fallback: "javascript:alert(1)" must be an https URL`,
 		"games.cs2.maps: 51 maps, at most 50",
 	} {

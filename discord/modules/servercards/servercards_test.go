@@ -720,3 +720,36 @@ func TestPlaceholderURL(t *testing.T) {
 		}
 	}
 }
+
+// A map's picture in the lighting in play wins over its plain one, for the level and then the
+// theatre; a lighting without its own picture falls back to the plain name.
+func TestRenderMapImageByLighting(t *testing.T) {
+	maps := map[string]string{
+		"Europe/DayClear": "https://cdn.example/maps/europe-dayclear.webp",
+		"Europe":          europeImage,
+		"Ozeti":           ozetiImage,
+	}
+	s := live(23)
+	s.Status.Map, s.Status.RotationMap, s.Status.Lighting = "Zestafona", "Europe", "DayClear"
+	if got := images(servercards.RenderCard(s, servercards.Card{Maps: maps})); !equal(got, []string{"Europe=https://cdn.example/maps/europe-dayclear.webp"}) {
+		t.Errorf("the theatre in the lighting in play: %v", got)
+	}
+	s.Status.Lighting = "DayLateGrayFog"
+	if got := images(servercards.RenderCard(s, servercards.Card{Maps: maps})); !equal(got, []string{"Europe=" + europeImage}) {
+		t.Errorf("a lighting without a picture falls back to the plain name: %v", got)
+	}
+	// The level beats the theatre, even when only the theatre has the lighting's picture.
+	s.Status.Map, s.Status.Lighting = "Ozeti", "DayClear"
+	if got := images(servercards.RenderCard(s, servercards.Card{Maps: maps})); !equal(got, []string{"Ozeti=" + ozetiImage}) {
+		t.Errorf("the level first: %v", got)
+	}
+	maps["Ozeti/DayClear"] = "https://cdn.example/maps/ozeti-dayclear.webp"
+	if got := images(servercards.RenderCard(s, servercards.Card{Maps: maps})); !equal(got, []string{"Ozeti=https://cdn.example/maps/ozeti-dayclear.webp"}) {
+		t.Errorf("the level in its lighting: %v", got)
+	}
+	// No lighting reported: the plain names, as before.
+	s.Status.Lighting = ""
+	if got := images(servercards.RenderCard(s, servercards.Card{Maps: maps})); !equal(got, []string{"Ozeti=" + ozetiImage}) {
+		t.Errorf("no lighting: %v", got)
+	}
+}
