@@ -416,7 +416,8 @@ func Render(s *hubv1.Server, note string) []discord.LayoutComponent {
 type Card struct {
 	Note string
 	// Maps are image URLs by map name as the game names it: the level in play first, else the
-	// rotation's current map (War Dogs: "Ozeti", else "Europe").
+	// rotation's current map (War Dogs: "Ozeti", else "Europe"). A "map/lighting" key
+	// ("Europe/DayClear") is the map in that lighting and wins over the plain name.
 	Maps map[string]string
 	// Fallback is the image when Maps names neither; empty shows none.
 	Fallback string
@@ -478,11 +479,21 @@ func RenderCard(s *hubv1.Server, c Card) []discord.LayoutComponent {
 
 // mapImage is the image for the level in play, else for the rotation's current map, else the
 // fallback, with the name it shows for (the image's description, the level's when there is one);
-// empty when there is none.
+// empty when there is none. A map's picture in the lighting in play ("Europe/DayClear") comes
+// before its plain one ("Europe").
 func mapImage(st *hubv1.ServerStatus, images map[string]string, fallback string) (name, url string) {
 	for _, n := range []string{st.GetMap(), st.GetRotationMap()} {
-		if u := images[n]; n != "" && strings.HasPrefix(u, "https://") {
-			return n, u
+		if n == "" {
+			continue
+		}
+		keys := []string{n}
+		if l := st.GetLighting(); l != "" {
+			keys = []string{n + "/" + l, n}
+		}
+		for _, k := range keys {
+			if u := images[k]; strings.HasPrefix(u, "https://") {
+				return n, u
+			}
 		}
 	}
 	if strings.HasPrefix(fallback, "https://") {

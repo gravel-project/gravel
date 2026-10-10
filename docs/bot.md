@@ -160,7 +160,8 @@ no one, whatever a name or the note says.
 **The map.** While the server is live, a card shows the current map's picture, full width under
 the name, and a "Next: <map>" line after the score when the game reports its rotation. The picture
 comes from the Organization settings' `games.<id>.maps` (docs/hub.md): the image for the level in
-play (War Dogs: `Ozeti`), else for the rotation's current map (the theatre, `Europe`), else the
+play (War Dogs: `Ozeti`), else for the rotation's current map (the theatre, `Europe`), each tried
+first in the lighting in play (`Europe/DayClear`) and then plain, else the
 game's `map_fallback`, else gravel's generic placeholder, which the hub serves at
 `/static/map-placeholder.png` under `hub.public_url` (only an https hub: Discord fetches the image
 itself). A game with neither `maps` nor `map_fallback` gets no picture, so a host opts in. The

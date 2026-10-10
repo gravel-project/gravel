@@ -44,7 +44,8 @@ type GameSettings struct {
 	// Nav are links in the game's own navigation on its pages; Placement must be empty.
 	Nav []NavLink `json:"nav,omitempty" yaml:"nav,omitempty"`
 	// Maps are image URLs by map name, as the game names a map in play or in its rotation (War
-	// Dogs: a level, "Ozeti", or a theatre, "Europe"): the server card's picture (#97).
+	// Dogs: a level, "Ozeti", or a theatre, "Europe"): the server card's picture (#97). A key
+	// "map/lighting" ("Europe/DayClear") is the map in that lighting, tried before the plain name.
 	Maps map[string]string `json:"maps,omitempty" yaml:"maps,omitempty"`
 	// MapFallback is the image for a map Maps doesn't name (https). Empty is gravel's generic
 	// placeholder, served by the hub, once the game has map images at all.
@@ -383,8 +384,8 @@ func validateGames(games map[string]GameSettings, bad func(string, ...any)) {
 			bad("%s.maps: %d maps, at most %d", field, len(g.Maps), MaxGameMaps)
 		}
 		for _, name := range slices.Sorted(maps.Keys(g.Maps)) {
-			if strings.TrimSpace(name) != name || name == "" || utf8.RuneCountInString(name) > MaxMapName || strings.ContainsFunc(name, unicode.IsControl) {
-				bad("%s.maps: %q is not a map name (as the game spells it, at most %d characters)", field, name, MaxMapName)
+			if !mapKeyOK(name) {
+				bad("%s.maps: %q is not a map name or map/lighting (as the game spells them, at most %d characters)", field, name, MaxMapName)
 				continue
 			}
 			if !imageURLOK(g.Maps[name]) {
@@ -552,6 +553,20 @@ func assetURLOK(u string) bool {
 	}
 	p, err := url.Parse(u)
 	return err == nil && p.Scheme == "https" && p.Host != ""
+}
+
+// mapKeyOK is a map name ("Europe") or a map and a lighting ("Europe/DayClear"): each part
+// trimmed and non-empty, one slash at most, no control characters, MaxMapName in all.
+func mapKeyOK(k string) bool {
+	if k == "" || utf8.RuneCountInString(k) > MaxMapName || strings.ContainsFunc(k, unicode.IsControl) || strings.Count(k, "/") > 1 {
+		return false
+	}
+	for _, part := range strings.Split(k, "/") {
+		if part == "" || strings.TrimSpace(part) != part {
+			return false
+		}
+	}
+	return true
 }
 
 // imageURLOK is an image Discord fetches itself (a server card's), so a site-relative path can't
