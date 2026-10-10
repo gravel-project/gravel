@@ -8,6 +8,10 @@ patch release is everything else.
 
 ## [Unreleased]
 
+### Added
+
+- ADR-0011: inbound ingestion stores every batch raw before it parses, and every event carries its provenance (#4, #3). One route, `POST /api/ingest/events`, authenticates a per-server feed token, read from a file `servers.yaml` names, as the RCON credential is. It commits each batch to an append-only `ingest_batches` table before it answers, because War Dogs' feed never retries, and a hub job parses afterwards, so a parser bug or a game update loses nothing. Adapters only parse, each event keyed by the source's own id. The War Dogs driver writes `[WDServerFeed]` from the manifest instead of copying it. Events carry `source`, `trust` as it was at receipt, and a dedup key. One trust mapping decides which boards they feed. A gap is an event (reconciliation against the poll's kill and death counts, hub downtime, silence while players are on). Principle 4 becomes "authoritative where logs exist". Raw batches are kept 30 days.
+
 ## [0.6.4] - 2026-10-10
 
 ### Added
