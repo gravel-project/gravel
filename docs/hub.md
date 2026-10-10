@@ -186,7 +186,7 @@ nav:                         # at most 12; label at most 40 characters
   - label: Admin
     url: /admin
     role: owner              # shown to the owner only
-discord:                     # what the bot's role sync manages (docs/bot.md); ids as quoted strings
+discord:                     # what the bot manages (docs/bot.md); ids as quoted strings
   guild_id: "519496143298756611"
   roles:
     linked: "…"              # a member with any account besides Discord
@@ -196,6 +196,10 @@ discord:                     # what the bot's role sync manages (docs/bot.md); i
     - role: "…"
       rule: first_members    # the first `count` members by registration
       count: 50
+  server_cards:              # a live status card per server, edited in place; at most 10
+    - server: htg-wardogs-1  # the server's id in servers.yaml, one card each
+      channel: "…"           # the bot needs View Channel, Send Messages, Read Message History
+      note: Matches start at 20 players.   # optional, one line of at most 200 characters
 ```
 
 ```sh

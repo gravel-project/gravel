@@ -1581,6 +1581,25 @@ components:
       description: |-
         DiscordRoles are the roles that follow a member's linked identities; role sync adds and
          removes them.
+    gravel.hub.v1.DiscordServerCard:
+      type: object
+      properties:
+        server:
+          type: string
+          title: server
+          description: 'The server''s id in the hub: "htg-wardogs-1".'
+        channel:
+          type: string
+          title: channel
+        note:
+          type: string
+          title: note
+          description: 'A line the host writes under the numbers: "Matches start at 20 players."'
+      title: DiscordServerCard
+      additionalProperties: false
+      description: |-
+        DiscordServerCard places one server's live status card in a channel: one message the bot edits
+         in place.
     gravel.hub.v1.DiscordSettings:
       type: object
       properties:
@@ -1596,11 +1615,17 @@ components:
           items:
             $ref: '#/components/schemas/gravel.hub.v1.DiscordRecognition'
           title: recognition
+        serverCards:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.DiscordServerCard'
+          title: server_cards
       title: DiscordSettings
       additionalProperties: false
       description: |-
-        DiscordSettings is the guild role sync manages and the roles it maps (ADR-0008). Ids are
-         Discord snowflakes as strings; empty means role sync has nothing to do.
+        DiscordSettings is the guild the bot works in (ADR-0008): the roles role sync maps and the
+         channels the server cards live in. Ids are Discord snowflakes as strings; empty means the bot
+         has nothing to do.
     gravel.hub.v1.Game:
       type: object
       properties:

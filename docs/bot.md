@@ -40,6 +40,9 @@ role_sync:                       # the reconciler; what it maps is the Organizat
   dry_run: false                 # log the changes, make none
 linked_roles:
   enabled: true                  # register the Linked Roles metadata schema at start
+server_cards:                    # the status cards; which server goes where is the Organization settings' discord section
+  enabled: true
+  interval: 15s                  # how often the cards are read and edited where they changed; at least 5s
 server:
   listen: 127.0.0.1:8081         # /interactions, /healthz, /readyz; put TLS termination in front
   internal_listen: 127.0.0.1:9091   # /metrics; keep it off the public network
@@ -129,6 +132,32 @@ Discord holds differs, retrying with backoff while Discord is away. A provider t
 offer yet reads 0 until it does. The member's values come from the hub's verification flow.
 Metric: `gravel_bot_linked_roles_schema_registered`.
 
+### Server cards (`discord/modules/servercards`)
+
+Keeps a live status card for each server the Organization settings place
+(`discord.server_cards`, docs/hub.md "Organization settings"): one Components V2 message per
+server in its channel, edited in place. A card shows the server's name, players / max, map and
+lighting, the team scores and the host's note, with a footer naming the server and when the hub
+last looked at it. A server the hub cannot read shows a degraded state instead of old numbers:
+"Unreachable since …" after two missed polls, "Status unavailable" for the other state words,
+and "Waiting for the first look" before the first poll. The card never carries error text
+(`ListServers` has none). A field the game does not report is left out.
+
+Every `interval`, a pass reads the settings and `ServerService.ListServers` (public, so the bot's
+app needs no extra scope), renders each card and edits its message only when the card changed.
+The "updated" time is rounded to the minute, so a quiet server costs at most one edit a minute.
+The bot keeps no message id: at start, or when an edit finds the message deleted, it reads the
+channel's 100 newest messages for its own card (its author, Components V2, the server id in the
+footer). It edits that card and posts a new one only when none is there. A card's message pings
+no one, whatever a name or the note says.
+
+In each card's channel the bot needs **View Channel, Send Messages and Read Message History**.
+A refusal is counted as `forbidden` and logged once. A server the hub does not list is logged
+once. A Discord or hub failure is logged once while it lasts and retried at the next pass. With
+no card placed the module idles and says so once. Metrics:
+`gravel_bot_servercards_updates_total{result}` (`posted`, `edited`, `forbidden`, `error`) and
+`gravel_bot_servercards_last_success_timestamp_seconds`.
+
 ## A host's bot
 
 A host's `main` is a `cli.Program` (`discord/bot/cli`): the same commands, config handling and
@@ -190,11 +219,13 @@ of them (ADR-0009, `deploy/README.md` "Dashboards").
 | `gravel_bot_gateway_latency_seconds` | gauge | | the last heartbeat's round trip | the session is not ready, or a heartbeat is in flight before the first answer |
 | `gravel_bot_interactions_total` | counter | `route` (`/<command>`, or `other`), `result` (`ok`, `error`) | interactions handled | until the first interaction |
 | `gravel_bot_interaction_duration_seconds` | histogram (.025 to 10 s, dense around Discord's 3 s) | `route` | from arrival to the handler's return, which includes the first answer | until the first interaction |
-| `gravel_bot_jobs_total` | counter | `job` (`reconcile`, `register-metadata`, a host's own), `result` (`ok`, `error`) | background jobs that ended | until a job ends |
+| `gravel_bot_jobs_total` | counter | `job` (`reconcile`, `register-metadata`, `update`, a host's own), `result` (`ok`, `error`) | background jobs that ended | until a job ends |
 | `gravel_bot_rolesync_passes_total` | counter | `result` (`ok`, `idle` = no mapping, `error`) | role sync passes | role sync off |
 | `gravel_bot_rolesync_changes_total` | counter | `action` (`add`, `remove`), `result` (`ok`, `dry_run`, `forbidden`, `gone`) | role changes made or, in a dry run, logged | role sync off, or until the first change |
 | `gravel_bot_rolesync_last_success_timestamp_seconds` | gauge | | when the last pass finished without error (an `idle` pass counts) | until the first pass |
 | `gravel_bot_linked_roles_schema_registered` | gauge | | 1 once the Linked Roles schema is on the application | Linked Roles off |
+| `gravel_bot_servercards_updates_total` | counter | `result` (`posted`, `edited`, `forbidden`, `error`) | card messages posted or edited, and the failures | server cards off, or until the first update |
+| `gravel_bot_servercards_last_success_timestamp_seconds` | gauge | | when the last pass brought every card up to date (an idle pass counts; an unknown server does not) | server cards off (0 until the first such pass) |
 
 ## Tests
 
@@ -204,5 +235,9 @@ and a fake hub, the hub client's token fetch, refresh and retry, and the core mo
 Role sync is tested as a plan (who gets what) and as passes against a fake Discord REST API and a
 fake hub: changes applied and settled, a refused role, a member who left, a 429 waited out, a
 refused member list, a dry run, paging past a thousand members, and the loop following the
-identity log; Linked Roles against a fake metadata endpoint, idempotent and retried. The gateway itself is disgo's and is not
+identity log; Linked Roles against a fake metadata endpoint, idempotent and retried. The server
+cards are tested as rendering (live, degraded, unobserved, escaped names) and as passes against a
+fake channel API and a fake hub: posted once, then edited in place only on a change, found again
+after a restart without a duplicate, posted again after a deletion, a forbidden channel and an
+unknown server counted, and no mention allowed. The gateway itself is disgo's and is not
 driven in tests.

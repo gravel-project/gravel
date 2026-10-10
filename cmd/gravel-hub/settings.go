@@ -206,5 +206,9 @@ func describeDiscord(d org.Discord) string {
 	if d.IsZero() {
 		return "unmapped"
 	}
-	return fmt.Sprintf("guild %s, %d roles", d.GuildID, len(d.RoleIDs()))
+	out := fmt.Sprintf("guild %s, %d roles", d.GuildID, len(d.RoleIDs()))
+	if n := len(d.ServerCards); n > 0 {
+		out += fmt.Sprintf(", %d server cards", n)
+	}
+	return out
 }

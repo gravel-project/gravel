@@ -27,7 +27,8 @@ func TestOrganizationSettings(t *testing.T) {
 		Nav:   []*hubv1.NavLink{{Label: "Discord", Url: "https://discord.gg/x"}, {Label: "Rules", Url: "https://hiddentoken.com/rules/", Placement: "footer"}, {Label: "Admin", Url: "/admin", Role: "owner"}},
 		Discord: &hubv1.DiscordSettings{GuildId: "519496143298756611",
 			Roles:       &hubv1.DiscordRoles{Linked: "1300000000000000001", Providers: map[string]string{"steam": "1300000000000000002"}},
-			Recognition: []*hubv1.DiscordRecognition{{Role: "1300000000000000003", Rule: "first_members", Count: 50}}},
+			Recognition: []*hubv1.DiscordRecognition{{Role: "1300000000000000003", Rule: "first_members", Count: 50}},
+			ServerCards: []*hubv1.DiscordServerCard{{Server: "htg-wardogs-1", Channel: "1300000000000000100", Note: "Matches start at 20 players."}}},
 	}
 	if _, err := anon.UpdateOrganizationSettings(ctx, connect.NewRequest(&hubv1.UpdateOrganizationSettingsRequest{Settings: want})); connect.CodeOf(err) != connect.CodeUnauthenticated {
 		t.Errorf("anonymous update: %v", err)
@@ -60,7 +61,8 @@ func TestOrganizationSettings(t *testing.T) {
 	// The Discord mapping is public too: a bot reads it with its app token, the pages anonymously.
 	d := got.Msg.GetSettings().GetDiscord()
 	if d.GetGuildId() != "519496143298756611" || d.GetRoles().GetLinked() != "1300000000000000001" || d.GetRoles().GetProviders()["steam"] != "1300000000000000002" ||
-		len(d.GetRecognition()) != 1 || d.GetRecognition()[0].GetRule() != "first_members" || d.GetRecognition()[0].GetCount() != 50 {
+		len(d.GetRecognition()) != 1 || d.GetRecognition()[0].GetRule() != "first_members" || d.GetRecognition()[0].GetCount() != 50 ||
+		len(d.GetServerCards()) != 1 || d.GetServerCards()[0].GetServer() != "htg-wardogs-1" || d.GetServerCards()[0].GetNote() != "Matches start at 20 players." {
 		t.Errorf("discord read back: %v", d)
 	}
 

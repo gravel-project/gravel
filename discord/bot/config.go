@@ -24,6 +24,9 @@ const (
 	MinRoleSyncPoll     = 5 * time.Second
 )
 
+// MinServerCardsInterval is the server cards' floor: each pass is two hub calls.
+const MinServerCardsInterval = 5 * time.Second
+
 // Environment variables that override the secrets.
 const (
 	EnvDiscordToken    = "GRAVEL_BOT_DISCORD_TOKEN"
@@ -39,6 +42,7 @@ type Config struct {
 	Hub         Hub         `yaml:"hub"`
 	RoleSync    RoleSync    `yaml:"role_sync"`
 	LinkedRoles LinkedRoles `yaml:"linked_roles"`
+	ServerCards ServerCards `yaml:"server_cards"`
 	Server      Server      `yaml:"server"`
 	Log         Log         `yaml:"log"`
 }
@@ -61,6 +65,15 @@ type RoleSync struct {
 // (discord/modules/linkedroles); the hub's /auth/discord/roles writes each member's values.
 type LinkedRoles struct {
 	Enabled bool `yaml:"enabled"`
+}
+
+// ServerCards keeps a live status card per server (discord/modules/servercards). Which server's
+// card goes in which channel lives in the Organization settings' discord section; this is how the
+// process runs it.
+type ServerCards struct {
+	Enabled bool `yaml:"enabled"`
+	// Interval is how often the cards are read from the hub and edited where they changed.
+	Interval time.Duration `yaml:"interval"`
 }
 
 // Discord is the application the bot runs as.
@@ -130,6 +143,7 @@ func Default() Config {
 		Discord:     Discord{Gateway: true},
 		RoleSync:    RoleSync{Enabled: true, Interval: 10 * time.Minute, PollInterval: 30 * time.Second},
 		LinkedRoles: LinkedRoles{Enabled: true},
+		ServerCards: ServerCards{Enabled: true, Interval: 15 * time.Second},
 		Server:      Server{Listen: "127.0.0.1:8081", InternalListen: "127.0.0.1:9091", ShutdownTimeout: 15 * time.Second},
 		Log:         Log{Level: "info", Format: "json"},
 	}
@@ -257,6 +271,9 @@ func (c Config) Validate() error {
 	}
 	if c.RoleSync.PollInterval < MinRoleSyncPoll || c.RoleSync.PollInterval > c.RoleSync.Interval {
 		bad("role_sync.poll_interval: %s must be at least %s and at most role_sync.interval", c.RoleSync.PollInterval, MinRoleSyncPoll)
+	}
+	if c.ServerCards.Interval < MinServerCardsInterval {
+		bad("server_cards.interval: %s is shorter than %s", c.ServerCards.Interval, MinServerCardsInterval)
 	}
 	if c.Server.Listen == "" || c.Server.InternalListen == "" {
 		bad("server.listen and server.internal_listen: required")

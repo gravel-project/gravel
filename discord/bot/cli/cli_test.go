@@ -72,10 +72,10 @@ func TestBuildModulesAppendsTheHostsAfterTheStockSet(t *testing.T) {
 		}
 		return strings.Join(out, ",")
 	}
-	if got := names(host()); got != "core,rolesync,linkedroles,rules" {
+	if got := names(host()); got != "core,rolesync,linkedroles,servercards,rules" {
 		t.Errorf("host: %s", got)
 	}
-	if got := names(cli.Program{Name: "gravel-bot"}); got != "core,rolesync,linkedroles" {
+	if got := names(cli.Program{Name: "gravel-bot"}); got != "core,rolesync,linkedroles,servercards" {
 		t.Errorf("no host modules: %s", got)
 	}
 	cfg.Hub.URL = "not a url"
@@ -90,7 +90,7 @@ func TestConfigCheck(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("config check: %d %s", code, errOut)
 	}
-	for _, want := range []string{"config ok", "role sync every 10m0s, poll 30s, dry run", "linked roles false", "token from discord.token", "modules core, rolesync, rules"} {
+	for _, want := range []string{"config ok", "role sync every 10m0s, poll 30s, dry run", "linked roles false", "server cards every 15s", "token from discord.token", "modules core, rolesync, servercards, rules"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("config check should say %q: %s", want, out)
 		}

@@ -214,11 +214,12 @@ func TestSettingsExportAndApply(t *testing.T) {
 	if code != 0 || !strings.Contains(out, "accent: '#3ee07a'") && !strings.Contains(out, `accent: "#3ee07a"`) || !strings.Contains(out, "label: Discord") {
 		t.Errorf("export after apply: %d\n%s", code, out)
 	}
-	mapped := "discord:\n  guild_id: \"519496143298756611\"\n  roles:\n    linked: \"1300000000000000001\"\n  recognition:\n    - role: \"1300000000000000003\"\n      rule: first_members\n      count: 50\n"
+	mapped := "discord:\n  guild_id: \"519496143298756611\"\n  roles:\n    linked: \"1300000000000000001\"\n  recognition:\n    - role: \"1300000000000000003\"\n      rule: first_members\n      count: 50\n" +
+		"  server_cards:\n    - server: htg-wardogs-1\n      channel: \"1300000000000000100\"\n"
 	if err := os.WriteFile(manifest, []byte(mapped), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if code, out, errOut := run("settings", "apply", manifest, "--config", cfgPath); code != 0 || !strings.Contains(out, "discord guild 519496143298756611, 2 roles") {
+	if code, out, errOut := run("settings", "apply", manifest, "--config", cfgPath); code != 0 || !strings.Contains(out, "discord guild 519496143298756611, 2 roles, 1 server cards") {
 		t.Errorf("apply a mapping: %d %q %q", code, out, errOut)
 	}
 	if code, out, _ := run("settings", "export", "--config", cfgPath); code != 0 || !strings.Contains(out, "guild_id: \"519496143298756611\"") && !strings.Contains(out, "guild_id: '519496143298756611'") {

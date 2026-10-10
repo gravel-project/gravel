@@ -22,9 +22,10 @@ func TestModules(t *testing.T) {
 		return strings.Join(out, ",")
 	}
 	cfg := bot.Default()
-	if got := names(cfg); got != "core,rolesync,linkedroles" {
+	if got := names(cfg); got != "core,rolesync,linkedroles,servercards" {
 		t.Errorf("defaults: %s", got)
 	}
+	cfg.ServerCards.Enabled = false
 	cfg.RoleSync.Enabled = false
 	if got := names(cfg); got != "core,linkedroles" {
 		t.Errorf("role sync off: %s", got)

@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"gopkg.in/yaml.v3"
 )
@@ -59,13 +60,25 @@ type NavLink struct {
 	Role      string `json:"role,omitempty" yaml:"role,omitempty"`           // "" (everyone) or "owner"
 }
 
-// Discord is the guild role sync manages and the roles it maps (ADR-0008 §3). Ids are Discord
-// snowflakes as strings. Everything here is public: ids, never a credential. Empty means role
-// sync has nothing to do.
+// Discord is the guild the bot works in (ADR-0008 §3): the roles role sync maps and the
+// channels the server cards live in. Ids are Discord snowflakes as strings. Everything here is
+// public: ids, never a credential. Empty means the bot has nothing to do.
 type Discord struct {
 	GuildID     string        `json:"guild_id,omitempty" yaml:"guild_id,omitempty"`
 	Roles       DiscordRoles  `json:"roles,omitzero" yaml:"roles,omitempty"`
 	Recognition []Recognition `json:"recognition,omitempty" yaml:"recognition,omitempty"`
+	// ServerCards are the live status cards the bot keeps (discord/modules/servercards): one
+	// message per server, edited in place.
+	ServerCards []ServerCard `json:"server_cards,omitempty" yaml:"server_cards,omitempty"`
+}
+
+// ServerCard places one server's status card in a channel of the guild.
+type ServerCard struct {
+	// Server is the server's id in the hub: "htg-wardogs-1".
+	Server  string `json:"server" yaml:"server"`
+	Channel string `json:"channel" yaml:"channel"`
+	// Note is a line the host writes under the numbers: "Matches start at 20 players."
+	Note string `json:"note,omitempty" yaml:"note,omitempty"`
 }
 
 // DiscordRoles are the roles that follow a member's linked identities. Role sync adds and
@@ -92,9 +105,9 @@ const RuleFirstMembers = "first_members"
 // providers (internal/identity/providers).
 var MappedProviders = []string{"discord", "steam"}
 
-// IsZero reports whether no mapping is set.
+// IsZero reports whether nothing is set.
 func (d Discord) IsZero() bool {
-	return d.GuildID == "" && d.Roles.IsZero() && len(d.Recognition) == 0
+	return d.GuildID == "" && d.Roles.IsZero() && len(d.Recognition) == 0 && len(d.ServerCards) == 0
 }
 
 // IsZero reports whether no role is mapped.
@@ -133,6 +146,8 @@ const (
 	maxNavURLLength = MaxURLLength
 	MaxRecognition  = 10
 	MaxFirstMembers = 100000
+	MaxServerCards  = 10
+	MaxCardNote     = 200
 )
 
 // ErrInvalidSettings wraps every validation failure; the message says which field and why.
@@ -141,6 +156,9 @@ var ErrInvalidSettings = errors.New("invalid settings")
 var (
 	cssColor = regexp.MustCompile(`^(#[0-9a-fA-F]{3}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{8}|[a-zA-Z]{3,20}|rgba?\([0-9.,% ]+\)|hsla?\([0-9.,% deg]+\))$`)
 	cssFont  = regexp.MustCompile(`^[A-Za-z0-9 ,'"-]{1,120}$`)
+	// serverID is the servers manifest's id rule (internal/servers), which this package cannot
+	// import: the server need not exist yet, the bot logs a card whose server is unknown.
+	serverID = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,62}$`)
 )
 
 // Validate reports every problem at once, each wrapping ErrInvalidSettings.
@@ -196,7 +214,7 @@ func validateDiscord(d Discord, bad func(string, ...any)) {
 		return
 	}
 	if d.GuildID == "" {
-		bad("discord.guild_id: required when roles are mapped")
+		bad("discord.guild_id: required when roles are mapped or server cards placed")
 	} else if !snowflakeOK(d.GuildID) {
 		bad("discord.guild_id: %q is not a Discord id", d.GuildID)
 	}
@@ -237,6 +255,27 @@ func validateDiscord(d Discord, bad func(string, ...any)) {
 		}
 		if r.Count < 1 || r.Count > MaxFirstMembers {
 			bad("%s.count: %d is not between 1 and %d", field, r.Count, MaxFirstMembers)
+		}
+	}
+	if len(d.ServerCards) > MaxServerCards {
+		bad("discord.server_cards: %d cards, at most %d", len(d.ServerCards), MaxServerCards)
+	}
+	servers := map[string]int{}
+	for i, c := range d.ServerCards {
+		field := fmt.Sprintf("discord.server_cards[%d]", i)
+		if !serverID.MatchString(c.Server) {
+			bad("%s.server: %q is not a server id (lower-case letters, digits and hyphens)", field, c.Server)
+		} else if j, dup := servers[c.Server]; dup {
+			bad("%s.server: %q already has a card (discord.server_cards[%d])", field, c.Server, j)
+		} else {
+			servers[c.Server] = i
+		}
+		if !snowflakeOK(c.Channel) {
+			bad("%s.channel: %q is not a Discord id", field, c.Channel)
+		}
+		note := strings.TrimSpace(c.Note)
+		if len([]rune(note)) > MaxCardNote || strings.ContainsFunc(note, unicode.IsControl) {
+			bad("%s.note: one line of at most %d characters", field, MaxCardNote)
 		}
 	}
 }
@@ -286,6 +325,12 @@ func (s Settings) Normalized() Settings {
 	}
 	if len(s.Discord.Recognition) == 0 {
 		s.Discord.Recognition = nil
+	}
+	for i := range s.Discord.ServerCards {
+		s.Discord.ServerCards[i].Note = strings.TrimSpace(s.Discord.ServerCards[i].Note)
+	}
+	if len(s.Discord.ServerCards) == 0 {
+		s.Discord.ServerCards = nil
 	}
 	return s
 }
