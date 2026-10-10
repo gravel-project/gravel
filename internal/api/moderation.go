@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"connectrpc.com/connect"
+	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/gravel-project/gravel/drivers"
@@ -17,23 +18,30 @@ import (
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
 	"github.com/gravel-project/gravel/internal/apps"
 	"github.com/gravel-project/gravel/internal/httpx"
+	"github.com/gravel-project/gravel/internal/identity"
 	"github.com/gravel-project/gravel/internal/org"
 	"github.com/gravel-project/gravel/internal/servers"
 	"github.com/gravel-project/gravel/internal/store"
 )
 
-// ModerationServer serves gravel.hub.v1.ModerationService: the owner, or an app with
-// servers:moderate.
+// ModerationServer serves gravel.hub.v1.ModerationService: the owner, a moderator (ADR-0013), or
+// an app with servers:moderate acting for a moderator or for itself.
 type ModerationServer struct {
 	hubv1connect.UnimplementedModerationServiceHandler
 	mod     *servers.Moderation
 	org     *org.Service
-	members MemberLookup
+	members ModeratorLookup
 	logger  *slog.Logger
 }
 
+// ModeratorLookup reads members and their roles (identity.Service).
+type ModeratorLookup interface {
+	MemberLookup
+	Me(ctx context.Context, userID uuid.UUID) (identity.User, error)
+}
+
 // NewModerationServer wires the service.
-func NewModerationServer(mod *servers.Moderation, orgSvc *org.Service, members MemberLookup, logger *slog.Logger) *ModerationServer {
+func NewModerationServer(mod *servers.Moderation, orgSvc *org.Service, members ModeratorLookup, logger *slog.Logger) *ModerationServer {
 	return &ModerationServer{mod: mod, org: orgSvc, members: members, logger: logger}
 }
 
@@ -100,7 +108,7 @@ func (s *ModerationServer) MovePlayer(ctx context.Context, req *connect.Request[
 
 // ListServerBans are the bans a server holds.
 func (s *ModerationServer) ListServerBans(ctx context.Context, req *connect.Request[hubv1.ListServerBansRequest]) (*connect.Response[hubv1.ListServerBansResponse], error) {
-	if err := requireScope(ctx, s.org, s.logger, apps.ScopeServersModerate); err != nil {
+	if err := s.requireModerator(ctx, nil); err != nil {
 		return nil, err
 	}
 	if strings.TrimSpace(req.Msg.GetServerId()) == "" {
@@ -140,7 +148,7 @@ func (s *ModerationServer) ListServerBans(ctx context.Context, req *connect.Requ
 
 // ListAuditLog is the audit log, newest first.
 func (s *ModerationServer) ListAuditLog(ctx context.Context, req *connect.Request[hubv1.ListAuditLogRequest]) (*connect.Response[hubv1.ListAuditLogResponse], error) {
-	if err := requireScope(ctx, s.org, s.logger, apps.ScopeServersModerate); err != nil {
+	if err := s.requireModerator(ctx, nil); err != nil {
 		return nil, err
 	}
 	before, err := decodeAuditToken(req.Msg.GetPageToken())
@@ -163,7 +171,7 @@ func (s *ModerationServer) ListAuditLog(ctx context.Context, req *connect.Reques
 
 // do checks the caller, builds the actor from the credential and runs the action.
 func (s *ModerationServer) do(ctx context.Context, onBehalf *hubv1.Actor, a servers.Action) (int64, error) {
-	if err := requireScope(ctx, s.org, s.logger, apps.ScopeServersModerate); err != nil {
+	if err := s.requireModerator(ctx, onBehalf); err != nil {
 		return 0, err
 	}
 	if strings.TrimSpace(a.Server) == "" {
@@ -173,7 +181,7 @@ func (s *ModerationServer) do(ctx context.Context, onBehalf *hubv1.Actor, a serv
 	if app, ok := apps.FromContext(ctx); ok {
 		actor.AppID = &app.ID
 	} else {
-		uid, err := caller(ctx) // requireScope admitted the owner
+		uid, err := caller(ctx) // requireModerator admitted the owner or a moderator
 		if err != nil {
 			return 0, err
 		}
@@ -311,4 +319,53 @@ func decodeAuditToken(token string) (int64, error) {
 		return 0, bad
 	}
 	return id, nil
+}
+
+// requireModerator admits the owner, a member with the moderator role, or an app with
+// servers:moderate. An app acting on_behalf_of someone must be acting for a member who could
+// moderate themselves, so a bot can't lend its scope to anyone who asks it.
+func (s *ModerationServer) requireModerator(ctx context.Context, onBehalf *hubv1.Actor) error {
+	if a, ok := apps.FromContext(ctx); ok {
+		if !a.Has(apps.ScopeServersModerate) {
+			return connect.NewError(connect.CodePermissionDenied, errors.New("the app lacks the scope "+apps.ScopeServersModerate))
+		}
+		if onBehalf == nil {
+			return nil
+		}
+		u, err := s.members.Lookup(ctx, onBehalf.GetProvider(), onBehalf.GetSubject())
+		if errors.Is(err, store.ErrNotFound) {
+			return connect.NewError(connect.CodePermissionDenied, errors.New("on_behalf_of is not a member of this hub"))
+		}
+		if err != nil {
+			return mapError(ctx, s.logger, err)
+		}
+		return s.memberMayModerate(ctx, u.ID, "on_behalf_of is not a moderator")
+	}
+	uid, err := caller(ctx)
+	if err != nil {
+		return err
+	}
+	return s.memberMayModerate(ctx, uid, "moderators only")
+}
+
+// memberMayModerate admits the owner or a member holding the moderator role.
+func (s *ModerationServer) memberMayModerate(ctx context.Context, uid uuid.UUID, refusal string) error {
+	o, err := s.org.Get(ctx)
+	if err != nil {
+		return mapError(ctx, s.logger, err)
+	}
+	if o.OwnerUserID != nil && *o.OwnerUserID == uid {
+		return nil
+	}
+	u, err := s.members.Me(ctx, uid)
+	if errors.Is(err, store.ErrNotFound) {
+		return connect.NewError(connect.CodePermissionDenied, errors.New(refusal))
+	}
+	if err != nil {
+		return mapError(ctx, s.logger, err)
+	}
+	if !u.HasRole(store.RoleModerator) {
+		return connect.NewError(connect.CodePermissionDenied, errors.New(refusal))
+	}
+	return nil
 }

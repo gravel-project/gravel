@@ -139,6 +139,11 @@ func TestModerationIsTheOwnersOrAnAppsWithTheScope(t *testing.T) {
 		t.Errorf("the owner acting for someone: %v", err)
 	}
 
+	// The bot acts for Discord account 42, a member the owner made a moderator (ADR-0013).
+	mod := r.user(t, "Mod", "42")
+	if _, err := r.ids.SetRole(ctx, mod.ID, store.RoleModerator, true, owner.ID); err != nil {
+		t.Fatal(err)
+	}
 	bot := hubv1connect.NewModerationServiceClient(bearerClient(http.DefaultClient, r.bearer(t, "htg-bot", apps.ScopeServersModerate)), r.srv.URL)
 	if _, err := bot.BanPlayer(ctx, connect.NewRequest(&hubv1.BanPlayerRequest{ServerId: "wd-1", Subject: steamA, Reason: "cheating",
 		OnBehalfOf: &hubv1.Actor{Provider: "discord", Subject: "42"}})); err != nil {
@@ -282,5 +287,92 @@ func TestListAuditLogPages(t *testing.T) {
 	}
 	if _, err := bot.ListAuditLog(ctx, connect.NewRequest(&hubv1.ListAuditLogRequest{PageToken: "bogus"})); connect.CodeOf(err) != connect.CodeInvalidArgument {
 		t.Errorf("a made-up token: %v", err)
+	}
+}
+
+// The owner grants and revokes the moderator role; a moderator moderates and reads the log as the
+// owner does; an app acting for someone acts only for a member who could moderate themselves.
+func TestModeratorRole(t *testing.T) {
+	r := newRig(t)
+	r.withServer(t)
+	r.drv.caps = allCaps
+	ctx := context.Background()
+	owner := r.user(t, "Owner", "1")
+	if _, err := r.org.Claim(ctx, r.token, owner.ID); err != nil {
+		t.Fatal(err)
+	}
+	sam := r.user(t, "Sam", "2")
+	ids := func(c *http.Client) hubv1connect.IdentityServiceClient {
+		return hubv1connect.NewIdentityServiceClient(c, r.srv.URL)
+	}
+	mods := func(c *http.Client) hubv1connect.ModerationServiceClient {
+		return hubv1connect.NewModerationServiceClient(c, r.srv.URL)
+	}
+	ownerC, samC := cookieClient(http.DefaultClient, r.login(t, owner.ID)), cookieClient(http.DefaultClient, r.login(t, sam.ID))
+	grant := func(c *http.Client, granted bool, role string) (*hubv1.User, connect.Code) {
+		resp, err := ids(c).SetUserRole(ctx, connect.NewRequest(&hubv1.SetUserRoleRequest{UserId: sam.ID.String(), Role: role, Granted: granted}))
+		if err != nil {
+			return nil, connect.CodeOf(err)
+		}
+		return resp.Msg.GetUser(), 0
+	}
+	kick := &hubv1.KickPlayerRequest{ServerId: "wd-1", Subject: steamA, Reason: "spawn camping"}
+
+	// Only the owner grants, and only a role the hub has.
+	if _, code := grant(samC, true, store.RoleModerator); code != connect.CodePermissionDenied {
+		t.Errorf("a member granting themselves: %v", code)
+	}
+	if _, code := grant(ownerC, true, "admin"); code != connect.CodeInvalidArgument {
+		t.Errorf("an unknown role: %v", code)
+	}
+	if _, err := mods(samC).KickPlayer(ctx, connect.NewRequest(kick)); connect.CodeOf(err) != connect.CodePermissionDenied {
+		t.Errorf("a member before the grant: %v", err)
+	}
+	u, code := grant(ownerC, true, store.RoleModerator)
+	if code != 0 || len(u.GetRoles()) != 1 || u.GetRoles()[0] != store.RoleModerator {
+		t.Fatalf("grant: %v %v", u, code)
+	}
+	if me, err := ids(samC).GetMe(ctx, connect.NewRequest(&hubv1.GetMeRequest{})); err != nil || len(me.Msg.GetUser().GetRoles()) != 1 {
+		t.Errorf("GetMe after the grant: %v %v", me, err)
+	}
+
+	// A moderator kicks and reads the log; the row names them.
+	if _, err := mods(samC).KickPlayer(ctx, connect.NewRequest(kick)); err != nil {
+		t.Fatalf("a moderator kicking: %v", err)
+	}
+	log, err := mods(samC).ListAuditLog(ctx, connect.NewRequest(&hubv1.ListAuditLogRequest{ServerId: "wd-1"}))
+	if err != nil || len(log.Msg.GetEntries()) != 1 || log.Msg.GetEntries()[0].GetUserId() != sam.ID.String() {
+		t.Errorf("a moderator's log: %v %v", log, err)
+	}
+	if _, err := mods(samC).ListServerBans(ctx, connect.NewRequest(&hubv1.ListServerBansRequest{ServerId: "wd-1"})); err != nil {
+		t.Errorf("a moderator's ban list: %v", err)
+	}
+
+	// An app acting for someone: a moderator yes, a plain member or a stranger no; for itself yes.
+	bot := mods(bearerClient(http.DefaultClient, r.bearer(t, "htg-bot", apps.ScopeServersModerate)))
+	r.user(t, "Plain", "3")
+	for subject, want := range map[string]connect.Code{"2": 0, "3": connect.CodePermissionDenied, "999": connect.CodePermissionDenied} {
+		_, err := bot.Broadcast(ctx, connect.NewRequest(&hubv1.BroadcastRequest{ServerId: "wd-1", Message: "hi", OnBehalfOf: &hubv1.Actor{Provider: "discord", Subject: subject}}))
+		if (want == 0 && err != nil) || (want != 0 && connect.CodeOf(err) != want) {
+			t.Errorf("the bot for discord %s: %v, want %v", subject, err, want)
+		}
+	}
+	if _, err := bot.Broadcast(ctx, connect.NewRequest(&hubv1.BroadcastRequest{ServerId: "wd-1", Message: "restart in 5"})); err != nil {
+		t.Errorf("the bot for itself: %v", err)
+	}
+
+	// Revoked: back to a member. Both changes were recorded, by the owner.
+	if u, code := grant(ownerC, false, store.RoleModerator); code != 0 || len(u.GetRoles()) != 0 {
+		t.Fatalf("revoke: %v %v", u, code)
+	}
+	if _, err := mods(samC).KickPlayer(ctx, connect.NewRequest(kick)); connect.CodeOf(err) != connect.CodePermissionDenied {
+		t.Errorf("a member after the revocation: %v", err)
+	}
+	if ch := r.idSt.Changes(); len(ch) != 2 || !ch[0].Granted || ch[1].Granted || ch[1].By == nil || *ch[1].By != owner.ID {
+		t.Errorf("role changes = %+v", ch)
+	}
+	// A repeated revocation changes nothing and records nothing.
+	if _, code := grant(ownerC, false, store.RoleModerator); code != 0 || len(r.idSt.Changes()) != 2 {
+		t.Errorf("a no-op revocation: %v, %d changes", code, len(r.idSt.Changes()))
 	}
 }

@@ -29,6 +29,8 @@ type FakeStore struct {
 	Events     []store.IdentityEvent
 	Sessions   map[string]store.Session // key: string(token hash)
 	Attempts   map[string]store.AuthAttempt
+	// RoleChanges are the grants and revocations SetUserRole made, in order.
+	RoleChanges []RoleChange
 }
 
 // NewFakeStore returns an empty store.
@@ -520,4 +522,48 @@ func (p *FakePublisher) Published() []identity.Profile {
 	p.pubMu.Lock()
 	defer p.pubMu.Unlock()
 	return slices.Clone(p.published)
+}
+
+// SetUserRole grants or revokes a role, as the real store does; RoleChanges records each change.
+func (f *FakeStore) SetUserRole(_ context.Context, userID uuid.UUID, role string, granted bool, by *uuid.UUID, at time.Time) (store.User, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.fail("SetUserRole"); err != nil {
+		return store.User{}, err
+	}
+	u, ok := f.Users[userID]
+	if !ok {
+		return store.User{}, store.ErrNotFound
+	}
+	has := slices.Contains(u.Roles, role)
+	switch {
+	case granted && !has:
+		u.Roles = append(slices.Clone(u.Roles), role)
+	case !granted && has:
+		u.Roles = slices.DeleteFunc(slices.Clone(u.Roles), func(r string) bool { return r == role })
+		if len(u.Roles) == 0 {
+			u.Roles = nil
+		}
+	default:
+		return u, nil
+	}
+	f.Users[userID] = u
+	f.RoleChanges = append(f.RoleChanges, RoleChange{UserID: userID, Role: role, Granted: granted, By: by, At: at})
+	return u, nil
+}
+
+// RoleChange is one recorded grant or revocation.
+type RoleChange struct {
+	UserID  uuid.UUID
+	Role    string
+	Granted bool
+	By      *uuid.UUID
+	At      time.Time
+}
+
+// Changes are the recorded role changes, read under the store's lock.
+func (f *FakeStore) Changes() []RoleChange {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.RoleChanges)
 }

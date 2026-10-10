@@ -108,6 +108,7 @@ Public listener (`server.listen`), HTTP/1.1 and unencrypted HTTP/2 so gRPC works
 | `/gravel.hub.v1.IdentityService/RevokeSessions` | log out everywhere; answers how many sessions ended and clears the cookie |
 | `/gravel.hub.v1.IdentityService/LookupUser` | `{"provider": "discord", "subject": "…"}` → the user and their identities, for role sync; an app with `identity:read`, or the owner |
 | `/gravel.hub.v1.IdentityService/ListUsers` | `{"page_size": 100, "page_token": "…"}` → members with their identities, oldest first, and the next page's token; role sync's full pass; `identity:read` or the owner |
+| `/gravel.hub.v1.IdentityService/SetUserRole` | `{"user_id": "…", "role": "moderator", "granted": true}` → the member with their roles ([Roles](#roles-adr-0013)); every change recorded; the owner only |
 | `/gravel.hub.v1.IdentityService/ListIdentityEvents` | `{"after_id": 0, "limit": 100}` → the identity log after a position, oldest first, the id to continue from, and the log's newest id (`head_id`, where a reader that just made a full pass starts); role sync's incremental pass; `identity:read` or the owner |
 | `/gravel.hub.v1.ServerService/ListGames` | the enabled games, their identity provider, bands, layout and `no_paid_perks`; public |
 | `/gravel.hub.v1.ServerService/ListServers` | every server with its last observation (state, reachable, players and max, map, teams, capabilities, build, `observed_at`); public, no personal data, never a control address |
@@ -422,10 +423,11 @@ through its own route only, which needs the player on.
 
 `ModerationService` acts on a server's players through its driver: `KickPlayer`, `BanPlayer`,
 `UnbanPlayer`, `MessagePlayer`, `Broadcast` and `MovePlayer` (with `respawn`, a kill after the move
-so the player comes back on the new team), plus `ListServerBans` and `ListAuditLog`. The owner may
-call it, and so may an app with `servers:moderate` (a bot). An app may name the person it acts for
-(`on_behalf_of`, e.g. the Discord moderator behind a command), and the hub records that as the app
-says it; a logged-in user acts as themselves. A player is named by their id at the game's identity
+so the player comes back on the new team), plus `ListServerBans` and `ListAuditLog`. The owner and
+moderators ([Roles](#roles-adr-0013)) may call it, and so may an app with `servers:moderate` (a bot).
+An app may name the person it acts for (`on_behalf_of`, e.g. the Discord moderator behind a
+command), who must be the owner or a moderator; the hub records both. A logged-in user acts as
+themselves. A player is named by their id at the game's identity
 provider (`subject`: a SteamID64 for War Dogs). A kick or a ban needs a reason.
 
 ```sh
@@ -538,6 +540,15 @@ Metrics: `gravel_stats_matches_total{server,game}`, `gravel_stats_rows_written_t
 `gravel_stats_record_errors_total{server}`, `gravel_stats_rolled_rows_total`, and the rollup job's
 `gravel_hub_job_last_success_timestamp_seconds{job="stats_rollup"}` (stored by Prometheus as
 `exported_job`, since the scrape's own `job` label wins), on the hub dashboard's Stats row.
+
+## Roles (ADR-0013)
+
+The owner grants members the **moderator** role on the Members page (`/members`, the owner only), or
+with `IdentityService.SetUserRole`. A moderator kicks, bans, unbans, messages and moves players,
+broadcasts, and reads the ban list and the moderation log, as the owner does; configuration stays the
+owner's. Every grant and revocation is kept in `role_changes` (who, by whom, when), which can't be
+changed. An app with `servers:moderate` that names `on_behalf_of` acts only for the owner or a
+moderator; without `on_behalf_of` it acts for itself.
 
 ## Pages (gravel#18)
 

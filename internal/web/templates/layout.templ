@@ -30,6 +30,9 @@ templ Layout(p Page) {
 				<nav aria-label="Site">
 					<a href="/servers">Servers</a>
 					<a href="/boards">Leaderboards</a>
+					if p.User != nil && p.User.Owner {
+						<a href="/members">Members</a>
+					}
 					for _, l := range p.HeaderNav {
 						<a href={ templ.URL(l.URL) }>{ l.Label }</a>
 					}

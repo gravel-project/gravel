@@ -161,8 +161,9 @@ message ListAuditLogResponse {
   string next_page_token = 2;
 }
 
-// ModerationService acts on the players of a server the hub controls (ADR-0010 §5): the owner,
-// or an app with the servers:moderate scope (a bot, which may name the moderator it acts for).
+// ModerationService acts on the players of a server the hub controls (ADR-0010 §5): the owner, a
+// member with the moderator role (ADR-0013), or an app with the servers:moderate scope (a bot),
+// whose on_behalf_of, when set, must be the owner or a moderator.
 // Every call goes through the server's driver and leaves an audit entry, written before the call,
 // so the web and the bot share one log.
 //

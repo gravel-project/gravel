@@ -16,6 +16,11 @@ patch release is everything else.
   - **Store:** `PlayerTotals` (raw rows and rolled periods, by trust, window and game) and `PlayerMatches`.
   - **Tests:** the access matrix through the API (with a mutation check), the store queries against Postgres, the pages (the switch with and without htmx, the CSRF refusal, board links), and axe over two new fixtures.
   - **Docs:** docs/hub.md (Pages, Endpoints) and an ADR-0012 amendment.
+- The moderator role, part three of #18 (ADR-0013).
+  - **Roles.** The owner grants members the `moderator` role: on the new Members page (`/members`, owner only, with a header link for the owner), or with `IdentityService.SetUserRole`. Roles are on the member (`users.roles`, migration 12, only known roles accepted). Every change is appended to `role_changes` (who, by whom, when), which a trigger keeps append-only. `User.roles` shows them (additive).
+  - **Moderators moderate.** `ModerationService` admits the owner, a moderator, or an app with `servers:moderate`. **Changed:** an app that names `on_behalf_of` now acts only for the owner or a moderator (`permission_denied` otherwise); an app acting for itself is unchanged.
+  - **Tests:** the role through the API (grant and revoke by the owner only, unknown roles, a moderator's kick and log, the bot for a moderator, a member and a stranger, no-op changes record nothing), the store (the CHECK, the change log, the append-only trigger), the Members page (htmx and plain, CSRF, a member refused), and axe over its fixture.
+  - **Docs:** ADR-0013, docs/hub.md (Roles; Moderation; Endpoints).
 
 ### Added
 

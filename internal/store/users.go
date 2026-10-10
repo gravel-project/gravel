@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -18,7 +19,18 @@ type User struct {
 	DisplayName    string
 	CreatedAt      time.Time
 	LastLoginAt    *time.Time
+	// Roles the owner granted (ADR-0013): RoleModerator.
+	Roles []string
 }
+
+// RoleModerator may moderate servers from the web, as the owner does (ADR-0013).
+const RoleModerator = "moderator"
+
+// Roles are every role the owner can grant.
+var Roles = []string{RoleModerator}
+
+// HasRole reports whether the user holds a role.
+func (u User) HasRole(role string) bool { return slices.Contains(u.Roles, role) }
 
 // Identity is a row of identities: one provider account linked to a user.
 type Identity struct {
@@ -49,15 +61,51 @@ var (
 	ErrLastIdentity = errors.New("last identity")
 )
 
-const userColumns = `id, organization_id, display_name, created_at, last_login_at`
+const userColumns = `id, organization_id, display_name, created_at, last_login_at, roles`
 
 func scanUser(row pgx.Row) (User, error) {
 	var u User
-	err := row.Scan(&u.ID, &u.OrganizationID, &u.DisplayName, &u.CreatedAt, &u.LastLoginAt)
+	err := row.Scan(&u.ID, &u.OrganizationID, &u.DisplayName, &u.CreatedAt, &u.LastLoginAt, &u.Roles)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return User{}, ErrNotFound
 	}
+	if len(u.Roles) == 0 {
+		u.Roles = nil
+	}
 	return u, err
+}
+
+// SetUserRole grants or revokes a role and records the change in role_changes (who, by whom,
+// when), in one transaction; a change that changes nothing records nothing. It returns the user.
+func (s *Store) SetUserRole(ctx context.Context, userID uuid.UUID, role string, granted bool, by *uuid.UUID, at time.Time) (User, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return User{}, fmt.Errorf("store: set user role: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var tag pgconn.CommandTag
+	if granted {
+		tag, err = tx.Exec(ctx, `UPDATE users SET roles = array_append(roles, $2) WHERE id = $1 AND NOT ($2 = ANY(roles))`, userID, role)
+	} else {
+		tag, err = tx.Exec(ctx, `UPDATE users SET roles = array_remove(roles, $2) WHERE id = $1 AND $2 = ANY(roles)`, userID, role)
+	}
+	if err != nil {
+		return User{}, fmt.Errorf("store: set user role: %w", err)
+	}
+	if tag.RowsAffected() == 1 {
+		if _, err := tx.Exec(ctx, `INSERT INTO role_changes (user_id, role, granted, by_user_id, at) VALUES ($1, $2, $3, $4, $5)`,
+			userID, role, granted, by, at); err != nil {
+			return User{}, fmt.Errorf("store: set user role: record: %w", err)
+		}
+	}
+	u, err := scanUser(tx.QueryRow(ctx, `SELECT `+userColumns+` FROM users WHERE id = $1`, userID))
+	if err != nil {
+		return User{}, fmt.Errorf("store: set user role: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return User{}, fmt.Errorf("store: set user role: %w", err)
+	}
+	return u, nil
 }
 
 const identityColumns = `provider, subject, user_id, display_name, avatar_url, verification_method, verified_at, linked_at, last_login_at`

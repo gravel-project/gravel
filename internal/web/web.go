@@ -21,6 +21,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 
@@ -99,6 +100,8 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /profile", h.profile)
 	mux.HandleFunc("GET /members/{id}", h.member)
 	mux.HandleFunc("POST /profile/name", h.setName)
+	mux.HandleFunc("GET /members", h.members)
+	mux.HandleFunc("POST /members/role", h.setRole)
 	mux.HandleFunc("GET /auth/{provider}/start", h.startLogin)
 	mux.HandleFunc("GET /auth/{provider}/link", h.startLink)
 	mux.HandleFunc("GET /auth/{provider}/roles", h.startRoles)
@@ -527,7 +530,7 @@ func (h *Handler) page(r *http.Request, title string) (pageData, *browser, error
 		switch {
 		case err == nil:
 			u := me.Msg.GetUser()
-			p.User = &templates.User{ID: u.GetId(), DisplayName: u.GetDisplayName(), Owner: u.GetOwner()}
+			p.User = &templates.User{ID: u.GetId(), DisplayName: u.GetDisplayName(), Owner: u.GetOwner(), Moderator: slices.Contains(u.GetRoles(), "moderator")}
 			p.CSRF = s.CSRFToken
 			for _, i := range u.GetIdentities() {
 				v := templates.Identity{Provider: i.GetProvider(), Subject: i.GetSubject(), DisplayName: i.GetDisplayName(), AvatarURL: i.GetAvatarUrl(), Method: i.GetVerificationMethod(), VerifiedAt: i.GetVerifiedAt().AsTime()}

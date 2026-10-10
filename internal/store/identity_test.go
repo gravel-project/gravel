@@ -3,10 +3,12 @@ package store_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/gravel-project/gravel/internal/store"
 	"github.com/gravel-project/gravel/internal/store/storetest"
@@ -297,5 +299,57 @@ func TestStats(t *testing.T) {
 	cancel()
 	if _, err := st.Stats(done); err == nil {
 		t.Error("stats with a cancelled context: want error")
+	}
+}
+
+// A role is granted and revoked with a record of each change; the column takes only known roles,
+// and role_changes is append-only (ADR-0013).
+func TestSetUserRole(t *testing.T) {
+	st := storetest.Open(t)
+	storetest.Reset(t, st)
+	ctx := context.Background()
+	o := newOrg(t, st)
+	now := time.Now().UTC().Truncate(time.Microsecond)
+	reg := func(name, subject string) store.User {
+		u, err := st.RegisterUser(ctx, store.User{ID: uuid.New(), OrganizationID: o.ID, DisplayName: name},
+			store.Identity{Provider: "discord", Subject: subject, VerificationMethod: "oauth2", VerifiedAt: now})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return u
+	}
+	owner, sam := reg("Owner", "1"), reg("Sam", "2")
+	if sam.Roles != nil || sam.HasRole(store.RoleModerator) {
+		t.Fatalf("a new member has roles: %v", sam.Roles)
+	}
+	u, err := st.SetUserRole(ctx, sam.ID, store.RoleModerator, true, &owner.ID, now)
+	if err != nil || !u.HasRole(store.RoleModerator) {
+		t.Fatalf("grant: %+v %v", u, err)
+	}
+	if u, err = st.SetUserRole(ctx, sam.ID, store.RoleModerator, true, &owner.ID, now); err != nil || len(u.Roles) != 1 {
+		t.Errorf("a repeated grant: %+v %v", u.Roles, err)
+	}
+	if got, _ := st.GetUser(ctx, sam.ID); !got.HasRole(store.RoleModerator) {
+		t.Error("GetUser lost the role")
+	}
+	if u, err = st.SetUserRole(ctx, sam.ID, store.RoleModerator, false, &owner.ID, now.Add(time.Minute)); err != nil || u.Roles != nil {
+		t.Errorf("revoke: %+v %v", u.Roles, err)
+	}
+	conn, err := pgx.Connect(ctx, storetest.DatabaseURL(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = conn.Close(ctx) }()
+	var n int
+	if err := conn.QueryRow(ctx, `SELECT count(*) FROM role_changes WHERE user_id = $1 AND by_user_id = $2`, sam.ID, owner.ID).Scan(&n); err != nil || n != 2 {
+		t.Errorf("role changes recorded: %d %v (the repeated grant records nothing)", n, err)
+	}
+	if _, err := st.SetUserRole(ctx, sam.ID, "admin", true, &owner.ID, now); err == nil {
+		t.Error("an unknown role was stored")
+	}
+	for _, q := range []string{`DELETE FROM role_changes`, `UPDATE role_changes SET granted = NOT granted`} {
+		if _, err := conn.Exec(ctx, q); err == nil || !strings.Contains(err.Error(), "append-only") {
+			t.Errorf("%s: %v", q, err)
+		}
 	}
 }

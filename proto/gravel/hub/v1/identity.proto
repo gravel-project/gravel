@@ -19,6 +19,8 @@ message User {
   google.protobuf.Timestamp last_login_at = 5;
   // The linked identities, oldest link first.
   repeated Identity identities = 6;
+  // Roles the owner granted (ADR-0013): "moderator".
+  repeated string roles = 7;
 }
 
 // Identity is one provider account linked to a user: a (provider, subject) pair, unique across
@@ -118,6 +120,18 @@ message ListIdentityEventsResponse {
   int64 head_id = 3;
 }
 
+message SetUserRoleRequest {
+  string user_id = 1;
+  // "moderator".
+  string role = 2;
+  // true grants the role, false revokes it.
+  bool granted = 3;
+}
+
+message SetUserRoleResponse {
+  User user = 1;
+}
+
 // IdentityService is the logged-in member's account and the lookups role sync needs. Every
 // procedure needs a session cookie; login itself is the browser flow under /auth/.
 service IdentityService {
@@ -139,4 +153,7 @@ service IdentityService {
   // ListIdentityEvents returns the identity log after a position, oldest first: a reconciler's
   // incremental pass. An app with identity:read, or the owner.
   rpc ListIdentityEvents(ListIdentityEventsRequest) returns (ListIdentityEventsResponse);
+  // SetUserRole grants or revokes a member's role (ADR-0013); every change is recorded with who
+  // made it. The owner only; the owner holds every power already and needs no role.
+  rpc SetUserRole(SetUserRoleRequest) returns (SetUserRoleResponse);
 }
