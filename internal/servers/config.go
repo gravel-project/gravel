@@ -48,6 +48,13 @@ func (m *Moderation) configTarget(ctx context.Context, server string, need strin
 				}
 			}
 		}
+		if srv.Feed != nil {
+			token, err := m.feedToken(srv)
+			if err != nil {
+				return Server{}, nil, drivers.ConfigDraft{}, err
+			}
+			draft.Feed = &drivers.Feed{URL: srv.Feed.URL, Token: token}
+		}
 	}
 	return srv, drv, draft, nil
 }
@@ -128,4 +135,19 @@ func validateConfigText(text string) error {
 		return fmt.Errorf("%w: the document is not UTF-8", ErrInvalidModeration)
 	}
 	return nil
+}
+
+// feedToken is the first line of a server's feed token file: the token the server should post
+// with (a second line is the previous token, which only the ingest route still accepts).
+func (m *Moderation) feedToken(srv Server) (string, error) {
+	b, err := m.readFile(srv.Feed.TokenFile)
+	if err != nil {
+		return "", fmt.Errorf("%w: server %s: %s: %w", ErrCredentialFile, srv.ID, srv.Feed.TokenFile, err)
+	}
+	for _, l := range strings.Split(string(b), "\n") {
+		if l = strings.TrimSpace(l); l != "" {
+			return l, nil
+		}
+	}
+	return "", fmt.Errorf("%w: server %s: %s is empty", ErrCredentialFile, srv.ID, srv.Feed.TokenFile)
 }

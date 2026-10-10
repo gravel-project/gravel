@@ -5,10 +5,12 @@ package hub
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/pprof"
+	"os"
 	"runtime"
 	"time"
 
@@ -29,6 +31,7 @@ import (
 	"github.com/gravel-project/gravel/internal/httpx"
 	"github.com/gravel-project/gravel/internal/identity"
 	"github.com/gravel-project/gravel/internal/identity/providers"
+	"github.com/gravel-project/gravel/internal/ingest"
 	"github.com/gravel-project/gravel/internal/jobs"
 	"github.com/gravel-project/gravel/internal/metricnames"
 	"github.com/gravel-project/gravel/internal/org"
@@ -63,6 +66,8 @@ type Hub struct {
 	servers    *servers.Service
 	monitor    *servers.Monitor
 	moderation *servers.Moderation
+	feeds      *ingest.Keyring
+	ingest     *ingest.Handler
 	jobs       *jobs.Runner
 	web        *web.Handler
 	perIP      *ratelimit.Limiter
@@ -175,6 +180,14 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 	h.monitor = servers.NewMonitor(h.servers, registry, h.jobs, h.registry, "gravel-hub/"+h.version, logger)
 	h.monitor.Start()
 	h.moderation = servers.NewModeration(h.servers, h.monitor, st, st, o.ID, h.registry, logger)
+	// Inbound ingestion (ADR-0011): the feed tokens are read from their files as the monitor reads
+	// the credentials, and the stored batches are pruned after their retention.
+	h.feeds = ingest.NewKeyring()
+	h.ingest = ingest.NewHandler(h.feeds, st, o.ID, h.registry, logger)
+	h.jobs.Start(jobs.Job{Name: "ingest_feeds", Every: servers.ReconcileEvery, Immediate: true, Run: h.refreshFeeds})
+	h.jobs.Start(jobs.Job{Name: "ingest_prune", Every: ingest.PruneEvery, Run: func(ctx context.Context) error {
+		return ingest.Prune(ctx, st, time.Now(), logger)
+	}})
 
 	// The API, once: the public listener serves it, and the pages call it in process through
 	// the session middleware (ADR-0005).
@@ -309,15 +322,42 @@ func (h *Hub) buildPublic() http.Handler {
 			h.logger.Warn("auth.base_url is not a trusted origin", "error", err.Error())
 		}
 	}
-	return httpx.Chain(mux,
+	// The ingest route (ADR-0011) authenticates its own bearer, a server's feed token, so it sits
+	// outside the session and app middlewares: the app middleware would refuse that bearer as an
+	// unknown app token. It limits itself (per server, and per address for bad tokens).
+	top := http.NewServeMux()
+	top.Handle("POST "+ingest.Path, h.metrics.HTTP("ingest", h.ingest))
+	top.Handle("/", httpx.Chain(mux, csrf.Handler, h.sess.Middleware, h.apps.Middleware))
+	return httpx.Chain(top,
 		httpx.RequestID,
 		httpx.RealIP(h.cfg.Server.ClientIPHeader),
 		httpx.Recover(h.logger),
 		httpx.Logging(h.logger, "/healthz", "/readyz"),
-		csrf.Handler,
-		h.sess.Middleware,
-		h.apps.Middleware,
 	)
+}
+
+// refreshFeeds reads every server's feed token file into the keyring. A file that cannot be read
+// leaves its server without a feed until it can, and fails the job, which logs it.
+func (h *Hub) refreshFeeds(ctx context.Context) error {
+	list, err := h.servers.Servers(ctx)
+	if err != nil {
+		return err
+	}
+	var feeds []ingest.Feed
+	var errs []error
+	for _, s := range list {
+		if s.Feed == nil {
+			continue
+		}
+		b, err := os.ReadFile(s.Feed.TokenFile)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("server %s: feed token: %w", s.ID, err))
+			continue
+		}
+		feeds = append(feeds, ingest.Feed{Server: s.ID, Source: s.Game, Token: string(b)})
+	}
+	h.feeds.Update(feeds)
+	return errors.Join(errs...)
 }
 
 func (h *Hub) buildInternal() http.Handler {
@@ -363,6 +403,7 @@ func (h *Hub) Prune(ctx context.Context) {
 		h.logger.Warn("could not prune app tokens", "error", err.Error())
 	}
 	ips, users, appsSwept := h.perIP.Sweep(), h.perUser.Sweep(), h.perApp.Sweep()
+	h.ingest.Sweep()
 	h.logger.Debug("pruned", "sessions", sessions, "attempts", attempts, "app_tokens", tokens, "ip_buckets", ips, "user_buckets", users, "app_buckets", appsSwept)
 }
 

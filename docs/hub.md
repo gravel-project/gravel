@@ -22,6 +22,7 @@ why, ADR-0004 the login design, ADR-0008 the app credentials; `deploy/README.md`
 | `gravel-hub servers export` | Print the games and servers as a `servers.yaml` manifest ([Servers](#servers-adr-0010)). |
 | `gravel-hub servers apply <servers.yaml> [--dry-run]` | Validate a manifest, check each credential file is readable where it runs, and store it; prints each change. With `--dry-run`, exit 3 when something would change. A running hub picks it up within 30 s. |
 | `gravel-hub servers check <servers.yaml>` | Validate a manifest with no configuration, no database and no secret: exit 0 with its summary, 1 with every problem named, 2 on a usage error. |
+| `gravel-hub ingest export --server ID [--after ID] [--limit N]` | Print a server's stored ingest batches, oldest first, one JSON object per line: a JSON body as JSON, anything else as base64 ([Ingestion](#ingestion-adr-0011)). They hold players' SteamIDs: redact before they leave the host. |
 | `gravel-hub wardogs record --base-url URL [--token-file FILE] [--dir DIR]` | Record a War Dogs server's read-only answers as test fixtures in `<dir>/<build>/` (default `games/wardogs/testdata`), with people, addresses and secrets replaced (ADR-0010; `games/wardogs/README.md`). One token, never retried; without one, only the public routes. |
 | `gravel-hub version` | Print the build version. |
 
@@ -297,6 +298,9 @@ servers:
       quiet: "23:30-09:00"
       timezone: America/Chicago
       cooldown: 1h               # default 1h
+    feed:                        # optional: where the server pushes its events (ADR-0011, Ingestion)
+      url: https://ingest.example.com    # an origin; the game adds /api/ingest/events
+      token_file: /run/secrets/htg-wardogs-feed-token   # line 1 the token; line 2 the previous one, while rotating
 ```
 
 ```sh
@@ -307,8 +311,8 @@ podman exec gravel-hub /ko-app/gravel-hub servers apply /etc/gravel/servers.yaml
 ```
 
 Taking a server out of the manifest marks it removed (its row stays, so what refers to it keeps a
-target); putting it back revives it. `apply` refuses a credential file it cannot read, so run it
-where the hub's secrets are.
+target); putting it back revives it. `apply` refuses a credential or feed token file it cannot
+read, so run it where the hub's secrets are.
 
 **What the hub does with them.** A background job (`servers_reconcile`, every 30 s) starts one
 poll job per server and stops the poll of a removed one; a changed definition gets a fresh driver,
@@ -356,7 +360,9 @@ curl -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
 
 **What the deployment's document leaves out.** The hub owns some of it, and the driver merges it in:
 for War Dogs, the RCON section (the password the hub authenticates with, and `AllowedHosts`, which
-could lock the hub out) and the feed section are copied from the server's own document; a secret the
+could lock the hub out) is copied from the server's own document; the feed section is written from
+`servers.yaml`'s `feed` (`Url`, and `Token` from the token file's first line; copied from the server
+when it has no feed); a secret the
 document writes as `<redacted>` keeps the server's value; and `DefaultBannedPlayerIds` is the hub's
 ban list. A document that sets any of these is refused (`invalid_argument`, problem `hub_owned`),
 and so is a value outside the game's bands (`out_of_band`), before anything is sent.
@@ -408,6 +414,36 @@ the server asked the hub to wait). War Dogs bans only a player who is on the ser
 player who is offline goes in the server's configuration document, which comes with configuration
 apply. `gravel_moderation_actions_total{server,action,outcome}` counts the calls (the hub
 dashboard's Servers row).
+
+## Ingestion (ADR-0011)
+
+Some servers push their events into the hub: War Dogs' `[WDServerFeed]` posts kill batches to
+`<Url>/api/ingest/events` with `Authorization: Bearer <Token>`, about every two seconds while
+players fight, and never retries. The hub serves that path on its public listener (put it behind
+the edge, as HTG does with `ingest.hiddentoken.com` through its Tunnel).
+
+- **Turning a feed on.** Add `feed` to the server in `servers.yaml` (above), make the token a podman
+  secret (`openssl rand -hex 32`), apply. The hub reads the token file every 30 s (job
+  `ingest_feeds`). Then apply the server's configuration (`ApplyServerConfig`, Configuration above):
+  the driver writes `[WDServerFeed]` from the manifest. War Dogs applies that section at the next
+  restart, so the feed starts after the host's next restart.
+- **Rotating the token.** Put the new token on the first line of the file and the old one on the
+  second, apply the configuration, and leave both. The hub accepts the old one for 48 hours from
+  when it first read it, which covers a daily restart. Then remove the second line.
+- **What the route does.** It finds the server by its token (compared in constant time against
+  every feed). It stores the request body, as received, in `ingest_batches` and only then answers
+  200: the sources do not retry, so that insert is the durability. It answers 401 with no body for
+  an unknown token (and 429 to an address that keeps guessing), 413 over 64 KiB, 429 when one
+  server posts more than 600 a minute, 503 when the database did not take the batch (lost: the
+  metrics and the log say so). Nothing in an answer names a server.
+- **What happens to a batch.** Batches are kept 30 days (job `ingest_prune`, hourly) and parsed by
+  the game's adapter into stats events (#4, after the first real captures). Until then they wait
+  as `pending`. `gravel-hub ingest export --server ID` prints them, so a deployment can read its
+  first captures; they hold players' SteamIDs, so redact them before they leave the host.
+
+Metrics: `gravel_ingest_batches_total{server,source,result}` (`server="unknown"` when the token
+matched none) and `gravel_ingest_last_batch_timestamp_seconds{server}`, on the hub dashboard's
+Ingestion row.
 
 ## Login (ADR-0004)
 

@@ -10,6 +10,12 @@ patch release is everything else.
 
 ### Added
 
+- The ingest route, raw first: ADR-0011's first step (#4).
+  - **The route.** `POST /api/ingest/events` on the public listener takes a server's feed token, finds the server by it (constant time against every feed), and stores the body as received in `ingest_batches` (migration 9) before it answers 200, because the sources don't retry. Other answers: 401 (no body) for an unknown token, 429 to an address that keeps guessing or a server over 600 a minute, 413 over 64 KiB, 503 when the batch wasn't stored. The route sits ahead of the session and app middlewares, which would refuse a feed's bearer.
+  - **The feed.** `servers.yaml` gains an optional `feed` per server: `url`, and `token_file`, read every 30 s (job `ingest_feeds`) and never stored. A second line holds the previous token, accepted for 48 hours while it rotates. `servers apply` refuses an unreadable token file. When the server has a feed, the War Dogs driver writes `[WDServerFeed]` (`Url`, `Token`) from it on plan and apply, instead of copying the server's.
+  - **Retention and export.** Batches are kept 30 days (job `ingest_prune`) and wait as `pending` for the parser, which comes after the first real captures (hidden-token-gaming/deploy#49). `gravel-hub ingest export --server ID` prints them.
+  - **Metrics:** `gravel_ingest_batches_total{server,source,result}` and `gravel_ingest_last_batch_timestamp_seconds{server}`, on the hub dashboard's new Ingestion row.
+  - **Docs:** docs/hub.md (Ingestion) and an ADR-0011 amendment.
 - ADR-0011: inbound ingestion stores every batch raw before it parses, and every event carries its provenance (#4, #3). One route, `POST /api/ingest/events`, authenticates a per-server feed token, read from a file `servers.yaml` names, as the RCON credential is. It commits each batch to an append-only `ingest_batches` table before it answers, because War Dogs' feed never retries, and a hub job parses afterwards, so a parser bug or a game update loses nothing. Adapters only parse, each event keyed by the source's own id. The War Dogs driver writes `[WDServerFeed]` from the manifest instead of copying it. Events carry `source`, `trust` as it was at receipt, and a dedup key. One trust mapping decides which boards they feed. A gap is an event (reconciliation against the poll's kill and death counts, hub downtime, silence while players are on). Principle 4 becomes "authoritative where logs exist". Raw batches are kept 30 days.
 
 ## [0.6.4] - 2026-10-10

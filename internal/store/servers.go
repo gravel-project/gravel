@@ -35,7 +35,10 @@ type ManagedServer struct {
 	PollInterval   time.Duration
 	Trust          string
 	// Seeding is the seeding section as JSON, nil when the server has none.
-	Seeding   json.RawMessage
+	Seeding json.RawMessage
+	// Feed is where the server pushes events and the token's file (ADR-0011), as JSON; nil for
+	// none.
+	Feed      json.RawMessage
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	RemovedAt *time.Time
@@ -43,7 +46,7 @@ type ManagedServer struct {
 
 const (
 	gameColumns   = `organization_id, id, bands, created_at, updated_at, removed_at`
-	serverColumns = `organization_id, id, game_id, name, driver, location, endpoint, credential_file, poll_interval_ms, trust, seeding, created_at, updated_at, removed_at`
+	serverColumns = `organization_id, id, game_id, name, driver, location, endpoint, credential_file, poll_interval_ms, trust, seeding, feed, created_at, updated_at, removed_at`
 )
 
 func scanGame(row pgx.Row) (Game, error) {
@@ -55,7 +58,7 @@ func scanGame(row pgx.Row) (Game, error) {
 func scanServer(row pgx.Row) (ManagedServer, error) {
 	var s ManagedServer
 	var pollMS int64
-	err := row.Scan(&s.OrganizationID, &s.ID, &s.GameID, &s.Name, &s.Driver, &s.Location, &s.Endpoint, &s.CredentialFile, &pollMS, &s.Trust, &s.Seeding, &s.CreatedAt, &s.UpdatedAt, &s.RemovedAt)
+	err := row.Scan(&s.OrganizationID, &s.ID, &s.GameID, &s.Name, &s.Driver, &s.Location, &s.Endpoint, &s.CredentialFile, &pollMS, &s.Trust, &s.Seeding, &s.Feed, &s.CreatedAt, &s.UpdatedAt, &s.RemovedAt)
 	s.PollInterval = time.Duration(pollMS) * time.Millisecond
 	return s, err
 }
@@ -130,19 +133,20 @@ func (s *Store) ApplyServers(ctx context.Context, orgID uuid.UUID, games []Game,
 	serverIDs := make([]string, 0, len(servers))
 	for _, v := range servers {
 		if _, err := tx.Exec(ctx, `
-			INSERT INTO managed_servers (organization_id, id, game_id, name, driver, location, endpoint, credential_file, poll_interval_ms, trust, seeding, created_at, updated_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $12)
+			INSERT INTO managed_servers (organization_id, id, game_id, name, driver, location, endpoint, credential_file, poll_interval_ms, trust, seeding, feed, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $13, $12, $12)
 			ON CONFLICT (organization_id, id) DO UPDATE SET
 			  game_id = excluded.game_id, name = excluded.name, driver = excluded.driver, location = excluded.location,
 			  endpoint = excluded.endpoint, credential_file = excluded.credential_file, poll_interval_ms = excluded.poll_interval_ms,
-			  trust = excluded.trust, seeding = excluded.seeding, updated_at = $12, removed_at = NULL
+			  trust = excluded.trust, seeding = excluded.seeding, feed = excluded.feed, updated_at = $12, removed_at = NULL
 			 WHERE (managed_servers.game_id, managed_servers.name, managed_servers.driver, managed_servers.location, managed_servers.endpoint,
-			        managed_servers.credential_file, managed_servers.poll_interval_ms, managed_servers.trust, managed_servers.seeding)
+			        managed_servers.credential_file, managed_servers.poll_interval_ms, managed_servers.trust, managed_servers.seeding,
+			        managed_servers.feed)
 			       IS DISTINCT FROM
 			       (excluded.game_id, excluded.name, excluded.driver, excluded.location, excluded.endpoint,
-			        excluded.credential_file, excluded.poll_interval_ms, excluded.trust, excluded.seeding)
+			        excluded.credential_file, excluded.poll_interval_ms, excluded.trust, excluded.seeding, excluded.feed)
 			    OR managed_servers.removed_at IS NOT NULL`,
-			orgID, v.ID, v.GameID, v.Name, v.Driver, v.Location, v.Endpoint, v.CredentialFile, v.PollInterval.Milliseconds(), v.Trust, nullJSON(v.Seeding), now); err != nil {
+			orgID, v.ID, v.GameID, v.Name, v.Driver, v.Location, v.Endpoint, v.CredentialFile, v.PollInterval.Milliseconds(), v.Trust, nullJSON(v.Seeding), now, nullJSON(v.Feed)); err != nil {
 			return fmt.Errorf("store: apply servers: server %s: %w", v.ID, err)
 		}
 		serverIDs = append(serverIDs, v.ID)

@@ -155,10 +155,16 @@ func (s *Service) Apply(ctx context.Context, m Manifest, opt ApplyOptions) ([]Ch
 	if opt.CheckCredentials {
 		var errs []error
 		for _, srv := range m.Servers {
-			if b, err := os.ReadFile(srv.CredentialFile); err != nil {
-				errs = append(errs, fmt.Errorf("%w: server %s: %s: %w", ErrCredentialFile, srv.ID, srv.CredentialFile, err))
-			} else if strings.TrimSpace(string(b)) == "" {
-				errs = append(errs, fmt.Errorf("%w: server %s: %s is empty", ErrCredentialFile, srv.ID, srv.CredentialFile))
+			files := []string{srv.CredentialFile}
+			if srv.Feed != nil {
+				files = append(files, srv.Feed.TokenFile)
+			}
+			for _, f := range files {
+				if b, err := os.ReadFile(f); err != nil {
+					errs = append(errs, fmt.Errorf("%w: server %s: %s: %w", ErrCredentialFile, srv.ID, f, err))
+				} else if strings.TrimSpace(string(b)) == "" {
+					errs = append(errs, fmt.Errorf("%w: server %s: %s is empty", ErrCredentialFile, srv.ID, f))
+				}
 			}
 		}
 		if len(errs) > 0 {
@@ -251,6 +257,13 @@ func toRow(s Server) (store.ManagedServer, error) {
 		}
 		r.Seeding = b
 	}
+	if s.Feed != nil {
+		b, err := json.Marshal(s.Feed)
+		if err != nil {
+			return store.ManagedServer{}, err
+		}
+		r.Feed = b
+	}
 	return r, nil
 }
 
@@ -265,6 +278,13 @@ func fromRow(r store.ManagedServer) (Server, error) {
 			return Server{}, fmt.Errorf("servers: server %s: seeding: %w", r.ID, err)
 		}
 		s.Seeding = &sd
+	}
+	if len(r.Feed) > 0 && string(r.Feed) != "null" {
+		var f Feed
+		if err := json.Unmarshal(r.Feed, &f); err != nil {
+			return Server{}, fmt.Errorf("servers: server %s: feed: %w", r.ID, err)
+		}
+		s.Feed = &f
 	}
 	return s, nil
 }

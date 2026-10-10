@@ -12,16 +12,17 @@ import (
 )
 
 // What the hub owns in a War Dogs configuration document. The deployment's document leaves these
-// out: the driver copies the owned sections from the server's own document (the RCON block holds
-// the password the hub authenticates with and AllowedHosts, which can lock the hub out; the feed
-// holds its token), and writes the ban list from the hub's (John, 2026-10-10: the hub owns
-// DefaultBannedPlayerIds).
+// out: the driver copies the RCON block from the server's own document (it holds the password the
+// hub authenticates with and AllowedHosts, which can lock the hub out), writes the feed section
+// from the hub's servers.yaml when the server has a feed (ADR-0011; copied too when it has none),
+// and writes the ban list from the hub's (John, 2026-10-10: the hub owns DefaultBannedPlayerIds).
 const (
 	sectionGameSession = "/Script/WDGame.WDGameSession"
 	keyBannedIDs       = "DefaultBannedPlayerIds"
+	sectionFeed        = "WDServerFeed"
 )
 
-var ownedSections = []string{"/Script/WDRCON.WDRCONSettings", "WDServerFeed"}
+var ownedSections = []string{"/Script/WDRCON.WDRCONSettings", sectionFeed}
 
 func owned(section string) bool {
 	for _, s := range ownedSections {
@@ -135,7 +136,7 @@ func merge(draft drivers.ConfigDraft, current string) (wardogs.Doc, error) {
 	for _, s := range want.Sections {
 		if owned(s.Name) {
 			problems = append(problems, drivers.ConfigProblem{Section: s.Name, Code: drivers.ProblemHubOwned,
-				Message: "the hub keeps this section from the server's own document; leave it out"})
+				Message: "the hub owns this section (the RCON block from the server's own document, the feed from servers.yaml); leave it out"})
 		}
 		if strings.EqualFold(s.Name, sectionGameSession) && s.HasKey(keyBannedIDs) {
 			problems = append(problems, drivers.ConfigProblem{Section: s.Name, Key: keyBannedIDs, Code: drivers.ProblemHubOwned,
@@ -164,6 +165,13 @@ func merge(draft drivers.ConfigDraft, current string) (wardogs.Doc, error) {
 		if cs := cur.Section(name); cs != nil {
 			want.SetSection(*cs)
 		}
+	}
+	if f := draft.Feed; f != nil {
+		// The game appends /api/ingest/events to Url.
+		want.SetSection(wardogs.DocSection{Name: sectionFeed, Lines: []wardogs.DocLine{
+			{Key: "Url", Value: strings.TrimRight(f.URL, "/")},
+			{Key: "Token", Value: f.Token},
+		}})
 	}
 	if draft.Bans != nil {
 		ids, err := steamIDs(draft.Bans)

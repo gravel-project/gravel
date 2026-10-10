@@ -6,6 +6,9 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -236,5 +239,51 @@ func TestConfigPlanAndApply(t *testing.T) {
 	}
 	if _, _, err := r.mod.ApplyConfig(ctx, r.asOwner(), "wd-1", wantedDoc, "", ""); !errors.Is(err, ErrInvalidModeration) {
 		t.Errorf("no revision: %v", err)
+	}
+}
+
+// A server with a feed gets [WDServerFeed] written from servers.yaml and the token file's first
+// line; the plan shows the keys and never the values.
+func TestConfigWritesTheFeed(t *testing.T) {
+	r, lc := newConfigRig(t, wardogstest.Options{}, nil)
+	ctx := context.Background()
+	tokenFile := filepath.Join(t.TempDir(), "feed")
+	if err := os.WriteFile(tokenFile, []byte("feed-new-token\nfeed-old-token\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	r.m.Servers[0].Feed = &Feed{URL: "https://ingest.example.com/", TokenFile: tokenFile}
+	r.apply(t)
+
+	plan, err := r.mod.PlanConfig(ctx, "wd-1", wantedDoc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	keys := map[string]bool{}
+	for _, c := range plan.Changes {
+		if c.Section == "WDServerFeed" {
+			keys[c.Key] = true
+		}
+		for _, v := range slices.Concat(c.Before, c.After) {
+			if strings.Contains(v, "feed-new-token") {
+				t.Errorf("the token in the plan: %+v", c)
+			}
+		}
+	}
+	if !keys["Url"] || !keys["Token"] {
+		t.Errorf("the feed's keys are not in the plan: %v", keys)
+	}
+	if _, res, err := r.mod.ApplyConfig(ctx, r.asOwner(), "wd-1", wantedDoc, plan.Revision, ""); err != nil || !res.OK {
+		t.Fatalf("apply = %+v, %v", res, err)
+	}
+	if !strings.Contains(lc.text, "[WDServerFeed]\r\nUrl=https://ingest.example.com\r\nToken=feed-new-token\r\n") || strings.Contains(lc.text, "feed-old-token") {
+		t.Errorf("document after:\n%s", lc.text)
+	}
+
+	// The token file gone: refused before anything is sent.
+	if err := os.Remove(tokenFile); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := r.mod.PlanConfig(ctx, "wd-1", wantedDoc); !errors.Is(err, ErrCredentialFile) {
+		t.Errorf("no token file: %v", err)
 	}
 }

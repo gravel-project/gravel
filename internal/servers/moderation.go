@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"slices"
 	"strings"
 	"time"
@@ -130,13 +131,15 @@ type Moderation struct {
 	orgID  uuid.UUID
 	logger *slog.Logger
 	now    func() time.Time
-	total  *prometheus.CounterVec
+	// readFile reads a feed token file; a test replaces it.
+	readFile func(string) ([]byte, error)
+	total    *prometheus.CounterVec
 }
 
 // NewModeration builds the service and registers its metric.
 func NewModeration(svc *Service, src DriverSource, st AuditStore, bans BanStore, orgID uuid.UUID, reg prometheus.Registerer, logger *slog.Logger) *Moderation {
 	m := &Moderation{
-		svc: svc, src: src, st: st, bans: bans, orgID: orgID, logger: logger, now: time.Now,
+		svc: svc, src: src, st: st, bans: bans, orgID: orgID, logger: logger, now: time.Now, readFile: os.ReadFile,
 		total: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Name: "gravel_moderation_actions_total", Help: "Moderation and configuration calls the hub made to a server, by server, action and outcome.",
 		}, []string{"server", "action", "outcome"}),
