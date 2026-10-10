@@ -210,3 +210,34 @@ func TestModerationCallsAsTheApp(t *testing.T) {
 		t.Errorf("audit id %d, auth %v", got.Msg.GetAuditId(), mh.auth.Load())
 	}
 }
+
+type configHub struct {
+	hubv1connect.UnimplementedServerConfigServiceHandler
+	auth atomic.Value
+}
+
+func (h *configHub) GetServerConfig(_ context.Context, req *connect.Request[hubv1.GetServerConfigRequest]) (*connect.Response[hubv1.GetServerConfigResponse], error) {
+	h.auth.Store(req.Header().Get("Authorization"))
+	return connect.NewResponse(&hubv1.GetServerConfigResponse{Revision: req.Msg.GetServerId()}), nil
+}
+
+// ServerConfig calls ServerConfigService as the app, with its token.
+func TestServerConfigCallsAsTheApp(t *testing.T) {
+	ch := &configHub{}
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /oauth/token", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"access_token":"tok1","token_type":"Bearer","expires_in":3600}`))
+	})
+	mux.Handle(hubv1connect.NewServerConfigServiceHandler(ch))
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	c, err := hubclient.New(hubclient.Config{URL: srv.URL, ClientID: "gravel_x", ClientSecret: "s"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := c.ServerConfig().GetServerConfig(context.Background(), connect.NewRequest(&hubv1.GetServerConfigRequest{ServerId: "wd-1"}))
+	if err != nil || got.Msg.GetRevision() != "wd-1" || ch.auth.Load() != "Bearer tok1" {
+		t.Errorf("config %v, %v, auth %v", got, err, ch.auth.Load())
+	}
+}

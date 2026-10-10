@@ -36,11 +36,16 @@ const ScopeServersRead = "servers:read"
 // audit log (ADR-0010 §5).
 const ScopeServersModerate = "servers:moderate"
 
+// ScopeServersConfigure admits ServerConfigService: reading, planning and applying a server's
+// configuration (ADR-0010 §6).
+const ScopeServersConfigure = "servers:configure"
+
 // Scopes is every scope an app may hold, with what it admits.
 var Scopes = map[string]string{
-	ScopeIdentityRead:    "look up members and their identities (LookupUser, ListUsers, ListIdentityEvents)",
-	ScopeServersRead:     "see who is on a server: names and provider identities (ListServerPlayers)",
-	ScopeServersModerate: "kick, ban, unban, message, broadcast to and move a server's players, list its bans and read the audit log (ModerationService)",
+	ScopeIdentityRead:     "look up members and their identities (LookupUser, ListUsers, ListIdentityEvents)",
+	ScopeServersRead:      "see who is on a server: names and provider identities (ListServerPlayers)",
+	ScopeServersModerate:  "kick, ban, unban, message, broadcast to and move a server's players, list its bans and read the audit log (ModerationService)",
+	ScopeServersConfigure: "read, plan and apply a server's configuration (ServerConfigService)",
 }
 
 // Limits.

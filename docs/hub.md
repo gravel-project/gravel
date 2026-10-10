@@ -250,6 +250,7 @@ curl -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{
 | `identity:read` | `LookupUser`, `ListUsers`, `ListIdentityEvents`: members and their identities, for role sync |
 | `servers:read` | `ListServerPlayers`: who is on a server, for a live card (the rest of `ServerService` is public) |
 | `servers:moderate` | `ModerationService`: kick, ban, unban, message, broadcast and move players, list a server's bans, read the audit log |
+| `servers:configure` | `ServerConfigService`: read, plan and apply a server's configuration |
 
 Rules: a token lives `apps.token_ttl` (an hour by default) and is pruned after; `scope` at the
 token endpoint may narrow a token to a subset of the app's scopes, never widen it; an unknown,
@@ -330,8 +331,41 @@ warning naming the old and the new build and the capabilities gained and lost, a
 the route-level diff (War Dogs: routes added, removed or renamed), which is what re-recording the
 fixtures needs (`games/wardogs/README.md`). `gravel_driver_build_info{server,game,build}` names the
 build each server runs, and `gravel_driver_build_changes_total{server,game}` counts the changes;
-alert on an increase of the counter (a host's Prometheus rule). Configuration plan and apply come
-next (ADR-0010's last step).
+alert on an increase of the counter (a host's Prometheus rule). 
+
+### Configuration and the hub's ban list
+
+`ServerConfigService` reads and writes a server's configuration through its driver, for the owner
+or an app with `servers:configure` (a deployment's CI, applying the document it keeps in its own
+repository). `GetServerConfig` is the current document, every secret redacted, with the server's
+schema (when each section takes effect, the keys a switch locks). `PlanServerConfig` takes the
+deployment's document and shows what applying it would change, key by key and redacted, with the
+server's own validation; it writes nothing. `ApplyServerConfig` writes it, only if the server is
+still at the revision the plan answered (`aborted` otherwise: plan again), and leaves an audit
+entry (action `apply_config`, the revision, the caller's reason).
+
+```sh
+curl -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d "$(jq -n --rawfile t ServerSettings.ini '{server_id:"htg-wardogs-1",text:$t}')" \
+  https://app.example.com/gravel.hub.v1.ServerConfigService/PlanServerConfig | jq '.changes, .result'
+```
+
+**What the deployment's document leaves out.** The hub owns some of it, and the driver merges it in:
+for War Dogs, the RCON section (the password the hub authenticates with, and `AllowedHosts`, which
+could lock the hub out) and the feed section are copied from the server's own document; a secret the
+document writes as `<redacted>` keeps the server's value; and `DefaultBannedPlayerIds` is the hub's
+ban list. A document that sets any of these is refused (`invalid_argument`, problem `hub_owned`),
+and so is a value outside the game's bands (`out_of_band`), before anything is sent.
+
+**The ban list.** When the server lets the hub write its configuration, `BanPlayer` bans a player
+whether or not they are on: the ban joins the hub's list (migration 8, `bans`), the hub writes the
+list into the configuration, and a player who is on is also banned through the server's own route,
+which kicks them. The first time the hub writes a server's list it adopts the one there (each entry
+becomes a hub ban with no audit entry), so nothing a host banned before is dropped. Both directions
+fail toward banned: a ban the server refuses is rolled back in the hub, and an unban is written to
+the server before the hub's record is lifted. `ListServerBans` shows the server's bans with the
+hub's record (`hub`, `audit_id`). A server that does not let the hub write its configuration bans
+through its own route only, which needs the player on.
 
 ### Moderation and the audit log
 

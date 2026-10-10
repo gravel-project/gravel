@@ -39,7 +39,14 @@ const (
 	OutcomeNotAvailable   = "not_available"    // the server stopped offering the action mid-call
 	// OutcomeMovedNotRespawned is a move that worked followed by a respawn that did not.
 	OutcomeMovedNotRespawned = "moved_not_respawned"
+	OutcomeConflict          = "conflict" // the configuration moved since it was planned
 )
+
+// ActionApplyConfig is a configuration write, audited like a moderation call.
+const ActionApplyConfig = "apply_config"
+
+// MaxConfigBytes is the largest document the hub sends (War Dogs advertises 64 KiB).
+const MaxConfigBytes = 64 << 10
 
 // Limits on what a moderator sends. The game may cap lower (War Dogs: 256 characters for a
 // message) and its refusal is OutcomeRejected.
@@ -96,18 +103,30 @@ type AuditStore interface {
 	ListAuditEntries(ctx context.Context, orgID uuid.UUID, f store.AuditFilter) ([]store.AuditEntry, error)
 }
 
+// BanStore is the hub's ban list.
+type BanStore interface {
+	BanListAdopted(ctx context.Context, orgID uuid.UUID, serverID string) (bool, error)
+	AdoptBanList(ctx context.Context, orgID uuid.UUID, serverID string, imported []store.Ban, at time.Time) (bool, error)
+	ActiveBans(ctx context.Context, orgID uuid.UUID, serverID string) ([]store.Ban, error)
+	AddBan(ctx context.Context, b store.Ban) (int64, error)
+	LiftBan(ctx context.Context, orgID uuid.UUID, serverID, provider, subject string, liftAuditID *int64, at time.Time) error
+}
+
 // DriverSource hands out the driver the monitor runs for a server, with the capabilities it
 // last read; ok is false for a server the monitor does not watch.
 type DriverSource interface {
 	Driver(id string) (drv drivers.ExternalReachable, capabilities []string, ok bool)
 }
 
-// Moderation performs moderation calls through a server's driver and records each in the audit
-// log (ADR-0010 §5). The row is written before the call, so nothing is done unrecorded.
+// Moderation performs the calls that change a server, moderation and configuration, through its
+// driver, and records each in the audit log (ADR-0010 §5–6). The row is written before the call,
+// so nothing is done unrecorded. It keeps the hub's ban list, which it writes into a server's
+// configuration when the server lets the hub write it.
 type Moderation struct {
 	svc    *Service
 	src    DriverSource
 	st     AuditStore
+	bans   BanStore
 	orgID  uuid.UUID
 	logger *slog.Logger
 	now    func() time.Time
@@ -115,11 +134,11 @@ type Moderation struct {
 }
 
 // NewModeration builds the service and registers its metric.
-func NewModeration(svc *Service, src DriverSource, st AuditStore, orgID uuid.UUID, reg prometheus.Registerer, logger *slog.Logger) *Moderation {
+func NewModeration(svc *Service, src DriverSource, st AuditStore, bans BanStore, orgID uuid.UUID, reg prometheus.Registerer, logger *slog.Logger) *Moderation {
 	m := &Moderation{
-		svc: svc, src: src, st: st, orgID: orgID, logger: logger, now: time.Now,
+		svc: svc, src: src, st: st, bans: bans, orgID: orgID, logger: logger, now: time.Now,
 		total: prometheus.NewCounterVec(prometheus.CounterOpts{
-			Name: "gravel_moderation_actions_total", Help: "Moderation calls the hub made to a server, by server, action and outcome.",
+			Name: "gravel_moderation_actions_total", Help: "Moderation and configuration calls the hub made to a server, by server, action and outcome.",
 		}, []string{"server", "action", "outcome"}),
 	}
 	reg.MustRegister(m.total)
@@ -143,9 +162,15 @@ func (m *Moderation) Do(ctx context.Context, actor Actor, a Action) (int64, erro
 	if !ok || caps == nil {
 		return 0, ErrNotObserved
 	}
-	for _, c := range needs(a) {
+	for _, c := range needs(a, caps) {
 		if !slices.Contains(caps, c) {
 			return 0, fmt.Errorf("%w: %s", drivers.ErrNotSupported, c)
+		}
+	}
+	hubBans := (a.Kind == ActionBan || a.Kind == ActionUnban) && slices.Contains(caps, drivers.CapConfigWrite)
+	if hubBans {
+		if err := m.adopt(ctx, srv.ID, drv); err != nil {
+			return 0, err
 		}
 	}
 
@@ -165,28 +190,42 @@ func (m *Moderation) Do(ctx context.Context, actor Actor, a Action) (int64, erro
 		return 0, err // not recorded, so not done
 	}
 
-	callErr := m.call(ctx, drv, a)
-	outcome := outcomeOf(callErr)
+	var callErr error
+	if hubBans {
+		callErr = m.hubBan(ctx, srv.ID, drv, caps, a, id)
+	} else {
+		callErr = m.call(ctx, drv, a)
+	}
+	outcome := ""
 	if a.Kind == ActionMovePlayer && errors.Is(callErr, ErrRespawnFailed) {
 		outcome = OutcomeMovedNotRespawned
 	}
-	// The outcome is recorded even when the caller has gone: the call was made.
+	m.finish(ctx, srv.ID, a.Kind, id, actor.RequestID, a.Player.Provider+":"+a.Player.Subject, callErr, outcome)
+	return id, callErr
+}
+
+// finish records a call's outcome (a word: the given one, or the error's), counts it and logs it.
+// The outcome is recorded even when the caller has gone: the call was made.
+func (m *Moderation) finish(ctx context.Context, serverID, action string, id int64, requestID, target string, callErr error, outcome ...string) {
+	word := outcomeOf(callErr)
+	if len(outcome) > 0 && outcome[0] != "" {
+		word = outcome[0]
+	}
 	fctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer cancel()
-	if err := m.st.FinishAuditEntry(fctx, m.orgID, id, outcome, m.now().UTC()); err != nil {
-		m.logger.Error("moderation outcome not recorded; the audit entry stays unfinished", "audit_id", id, "outcome", outcome, "error", err.Error())
+	if err := m.st.FinishAuditEntry(fctx, m.orgID, id, word, m.now().UTC()); err != nil {
+		m.logger.Error("outcome not recorded; the audit entry stays unfinished", "audit_id", id, "outcome", word, "error", err.Error())
 	}
-	m.total.WithLabelValues(srv.ID, a.Kind, outcome).Inc()
-	attrs := []any{"server", srv.ID, "action", a.Kind, "outcome", outcome, "audit_id", id, "request_id", actor.RequestID}
-	if a.Player.Subject != "" {
-		attrs = append(attrs, "target", a.Player.Provider+":"+a.Player.Subject)
+	m.total.WithLabelValues(serverID, action, word).Inc()
+	attrs := []any{"server", serverID, "action", action, "outcome", word, "audit_id", id, "request_id", requestID}
+	if target != "" && target != ":" {
+		attrs = append(attrs, "target", target)
 	}
-	if callErr != nil && outcome != OutcomePlayerNotFound && outcome != OutcomeBanNotFound {
-		m.logger.Warn("moderation call failed", append(attrs, "error", callErr.Error())...)
+	if callErr != nil && word != OutcomePlayerNotFound && word != OutcomeBanNotFound {
+		m.logger.Warn("server call failed", append(attrs, "error", callErr.Error())...)
 	} else {
-		m.logger.Info("moderation call", attrs...)
+		m.logger.Info("server call", attrs...)
 	}
-	return id, callErr
 }
 
 func (m *Moderation) call(ctx context.Context, drv drivers.ExternalReachable, a Action) error {
@@ -215,22 +254,6 @@ func (m *Moderation) call(ctx context.Context, drv drivers.ExternalReachable, a 
 	return fmt.Errorf("%w: unknown action %q", ErrInvalidModeration, a.Kind)
 }
 
-// Bans are the bans a server holds, read through its driver; not audited (a read).
-func (m *Moderation) Bans(ctx context.Context, server string) ([]drivers.Ban, error) {
-	srv, err := m.svc.Server(ctx, server)
-	if err != nil {
-		return nil, err
-	}
-	drv, caps, ok := m.src.Driver(srv.ID)
-	if !ok || caps == nil {
-		return nil, ErrNotObserved
-	}
-	if !slices.Contains(caps, drivers.CapBans) {
-		return nil, fmt.Errorf("%w: %s", drivers.ErrNotSupported, drivers.CapBans)
-	}
-	return drv.Bans(ctx)
-}
-
 // Log is a page of the audit log, newest first: at most limit entries (MaxAuditPage when 0 or
 // over it) before the id (0 = the newest), for one server or ("") all. more says whether older
 // entries exist.
@@ -248,14 +271,22 @@ func (m *Moderation) Log(ctx context.Context, server string, before int64, limit
 	return entries, false, nil
 }
 
-// needs are the capabilities an action uses.
-func needs(a Action) []string {
+// needs are the capabilities an action uses. A ban or an unban goes into the server's
+// configuration when the server lets the hub write it (the hub's list), else through the
+// server's own ban route, which bans only a player who is on.
+func needs(a Action, caps []string) []string {
 	switch a.Kind {
 	case ActionKick:
 		return []string{drivers.CapKick}
 	case ActionBan:
+		if slices.Contains(caps, drivers.CapConfigWrite) {
+			return []string{drivers.CapConfigWrite}
+		}
 		return []string{drivers.CapBan}
 	case ActionUnban:
+		if slices.Contains(caps, drivers.CapConfigWrite) {
+			return []string{drivers.CapConfigWrite}
+		}
 		return []string{drivers.CapUnban}
 	case ActionMessage:
 		return []string{drivers.CapMessage}
@@ -357,6 +388,10 @@ func outcomeOf(err error) string {
 		return OutcomeRejected
 	case errors.Is(err, drivers.ErrNotSupported):
 		return OutcomeNotAvailable
+	case errors.Is(err, drivers.ErrConfigRejected), errors.Is(err, drivers.ErrInvalidConfig):
+		return OutcomeRejected
+	case errors.Is(err, drivers.ErrConfigConflict):
+		return OutcomeConflict
 	}
 	return stateOf(err)
 }

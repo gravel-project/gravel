@@ -1,0 +1,134 @@
+syntax = "proto3";
+
+package gravel.hub.v1;
+
+import "gravel/hub/v1/moderation.proto";
+
+option go_package = "github.com/gravel-project/gravel/gen/gravel/hub/v1;hubv1";
+
+// ConfigSection is the server's schema for one section of its configuration.
+message ConfigSection {
+  string name = 1;
+  // When a change takes effect: "applied", "next-match", "next-restart".
+  string applies_when = 2;
+  repeated string keys = 3;
+  // Keys that may not be written, with what locks them: "Port: RCONPort".
+  repeated string locked = 4;
+}
+
+// ConfigChange is one key a plan changes; values are redacted.
+message ConfigChange {
+  string section = 1;
+  string key = 2;
+  // The key's lines in order (array lines keep their prefix); empty when absent on that side.
+  repeated string before = 3;
+  repeated string after = 4;
+}
+
+// ConfigProblem is one reason a document is refused: by the hub (code "out_of_band",
+// "hub_owned", "not_a_number") or by the server (its own codes).
+message ConfigProblem {
+  string section = 1;
+  string key = 2;
+  string code = 3;
+  string message = 4;
+}
+
+// ConfigOutcome is when a section's change takes effect: state "applied", "next-match",
+// "next-restart" or "pending".
+message ConfigOutcome {
+  string section = 1;
+  string state = 2;
+  string detail = 3;
+}
+
+// ConfigShadowed is a key whose value in force comes from elsewhere (a command-line switch).
+message ConfigShadowed {
+  string section = 1;
+  string key = 2;
+  string declared = 3;
+  string effective = 4;
+  string branch = 5;
+}
+
+// ConfigStripped is a key, or a whole section with no key, the server drops.
+message ConfigStripped {
+  string section = 1;
+  string key = 2;
+  string reason = 3;
+}
+
+// ConfigResult is what the server said of a document it validated or applied.
+message ConfigResult {
+  bool ok = 1;
+  // The revision after an apply.
+  string revision = 2;
+  repeated ConfigProblem problems = 3;
+  // The sections the document changes.
+  repeated string changed = 4;
+  repeated ConfigOutcome outcomes = 5;
+  repeated ConfigShadowed shadowed = 6;
+  repeated ConfigStripped stripped = 7;
+  repeated string warnings = 8;
+}
+
+message GetServerConfigRequest {
+  string server_id = 1;
+}
+
+message GetServerConfigResponse {
+  string revision = 1;
+  // The document with every secret redacted (War Dogs: INI).
+  string text = 2;
+  bool writable = 3;
+  repeated ConfigSection sections = 4;
+  repeated string warnings = 5;
+}
+
+message PlanServerConfigRequest {
+  string server_id = 1;
+  // The deployment's document: secrets redacted, the sections and keys the hub owns left out
+  // (War Dogs: the RCON and feed sections, DefaultBannedPlayerIds).
+  string text = 2;
+}
+
+message PlanServerConfigResponse {
+  // The server's revision the plan was made against; ApplyServerConfig needs it.
+  string revision = 1;
+  repeated ConfigChange changes = 2;
+  // The server's validation; not ok means applying would be refused.
+  ConfigResult result = 3;
+}
+
+message ApplyServerConfigRequest {
+  string server_id = 1;
+  string text = 2;
+  // The revision PlanServerConfig answered; a server that moved since refuses (aborted).
+  string revision = 3;
+  // Recorded in the audit log: a commit, a change request.
+  string reason = 4;
+  Actor on_behalf_of = 5;
+}
+
+message ApplyServerConfigResponse {
+  int64 audit_id = 1;
+  ConfigResult result = 2;
+}
+
+// ServerConfigService reads and writes a server's configuration through its driver (ADR-0010
+// §6): the owner, or an app with the servers:configure scope. A deployment keeps its document in
+// its own repository without what the hub owns; the hub merges the server's secrets and its own
+// ban list in, checks the game's bands, has the server validate, and writes only against the
+// revision it planned on. An apply leaves an audit entry (action "apply_config").
+//
+// The errors: invalid_argument for a document the hub refuses (the problems are in the message);
+// aborted for a server whose configuration moved since the plan; failed_precondition for a server
+// that does not let the hub read or write its configuration now; unavailable as for moderation.
+service ServerConfigService {
+  // GetServerConfig is the current document, redacted, with its schema.
+  rpc GetServerConfig(GetServerConfigRequest) returns (GetServerConfigResponse);
+  // PlanServerConfig shows what applying a document would change; it writes nothing.
+  rpc PlanServerConfig(PlanServerConfigRequest) returns (PlanServerConfigResponse);
+  // ApplyServerConfig writes a planned document.
+  rpc ApplyServerConfig(ApplyServerConfigRequest) returns (ApplyServerConfigResponse);
+}

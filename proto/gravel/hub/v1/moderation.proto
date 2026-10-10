@@ -57,6 +57,12 @@ message Ban {
   string reason = 5;
   // The member the identity is linked to, resolved now; empty for a player who is not one.
   string user_id = 6;
+  // Whether the hub holds this ban (its list, written into the server's configuration); false
+  // for one only the server knows.
+  bool hub = 7;
+  // The audit entry of the BanPlayer call that made it; 0 for a hub ban imported when the hub
+  // adopted the server's list, or a ban the hub does not hold.
+  int64 audit_id = 8;
 }
 
 message KickPlayerRequest {
@@ -167,8 +173,9 @@ message ListAuditLogResponse {
 service ModerationService {
   // KickPlayer removes a connected player.
   rpc KickPlayer(KickPlayerRequest) returns (KickPlayerResponse);
-  // BanPlayer bans a connected player; not_found when they are not on (a ban of a player who is
-  // not on goes in the server's configuration).
+  // BanPlayer bans a player, on the server or not: the ban joins the hub's list, which the hub
+  // writes into the server's configuration, and a player who is on is kicked. A server that does
+  // not let the hub write its configuration bans only a player who is on (not_found otherwise).
   rpc BanPlayer(BanPlayerRequest) returns (BanPlayerResponse);
   // UnbanPlayer lifts a ban.
   rpc UnbanPlayer(UnbanPlayerRequest) returns (UnbanPlayerResponse);

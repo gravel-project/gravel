@@ -29,6 +29,7 @@ type fakeDriver struct {
 	errs  map[string]error
 	calls []string
 	bans  []drivers.Ban
+	draft drivers.ConfigDraft
 }
 
 func (f *fakeDriver) Driver(id string) (drivers.ExternalReachable, []string, bool) {
@@ -75,6 +76,23 @@ func (f *fakeDriver) Unban(_ context.Context, p drivers.Identity) error {
 }
 func (f *fakeDriver) Bans(context.Context) ([]drivers.Ban, error) {
 	return f.bans, f.record("bans")
+}
+func (f *fakeDriver) Config(context.Context) (drivers.ConfigDocument, error) {
+	return drivers.ConfigDocument{Revision: "r1", Text: "[S]\r\nPassword=<redacted>\r\n", Writable: true,
+		Sections: []drivers.ConfigSection{{Name: "S", AppliesWhen: "applied", Keys: []string{"Password"}, Locked: []string{"Port: RCONPort"}}}}, f.record("config")
+}
+func (f *fakeDriver) PlanConfig(_ context.Context, d drivers.ConfigDraft) (drivers.ConfigPlan, error) {
+	f.mu.Lock()
+	f.draft = d
+	f.mu.Unlock()
+	return drivers.ConfigPlan{Revision: "r1", Changes: []drivers.ConfigChange{{Section: "K", Key: "ScorePeriod", Before: []string{"24"}, After: []string{"27"}}},
+		Result: drivers.ConfigResult{OK: true, Outcomes: []drivers.ConfigOutcome{{Section: "K", State: "next-match"}}}}, f.record("plan")
+}
+func (f *fakeDriver) ApplyConfig(_ context.Context, d drivers.ConfigDraft, revision string) (drivers.ConfigResult, error) {
+	return drivers.ConfigResult{OK: true, Revision: revision + "+1"}, f.record("apply " + revision)
+}
+func (f *fakeDriver) SetConfigBans(_ context.Context, bans []drivers.Identity) (drivers.ConfigResult, error) {
+	return drivers.ConfigResult{OK: true}, f.record(fmt.Sprint("setbans ", len(bans)))
 }
 
 var allCaps = []string{drivers.CapBan, drivers.CapBans, drivers.CapBroadcast, drivers.CapKick, drivers.CapKill,

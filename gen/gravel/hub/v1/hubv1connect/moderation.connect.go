@@ -63,8 +63,9 @@ const (
 type ModerationServiceClient interface {
 	// KickPlayer removes a connected player.
 	KickPlayer(context.Context, *connect.Request[v1.KickPlayerRequest]) (*connect.Response[v1.KickPlayerResponse], error)
-	// BanPlayer bans a connected player; not_found when they are not on (a ban of a player who is
-	// not on goes in the server's configuration).
+	// BanPlayer bans a player, on the server or not: the ban joins the hub's list, which the hub
+	// writes into the server's configuration, and a player who is on is kicked. A server that does
+	// not let the hub write its configuration bans only a player who is on (not_found otherwise).
 	BanPlayer(context.Context, *connect.Request[v1.BanPlayerRequest]) (*connect.Response[v1.BanPlayerResponse], error)
 	// UnbanPlayer lifts a ban.
 	UnbanPlayer(context.Context, *connect.Request[v1.UnbanPlayerRequest]) (*connect.Response[v1.UnbanPlayerResponse], error)
@@ -198,8 +199,9 @@ func (c *moderationServiceClient) ListAuditLog(ctx context.Context, req *connect
 type ModerationServiceHandler interface {
 	// KickPlayer removes a connected player.
 	KickPlayer(context.Context, *connect.Request[v1.KickPlayerRequest]) (*connect.Response[v1.KickPlayerResponse], error)
-	// BanPlayer bans a connected player; not_found when they are not on (a ban of a player who is
-	// not on goes in the server's configuration).
+	// BanPlayer bans a player, on the server or not: the ban joins the hub's list, which the hub
+	// writes into the server's configuration, and a player who is on is kicked. A server that does
+	// not let the hub write its configuration bans only a player who is on (not_found otherwise).
 	BanPlayer(context.Context, *connect.Request[v1.BanPlayerRequest]) (*connect.Response[v1.BanPlayerResponse], error)
 	// UnbanPlayer lifts a ban.
 	UnbanPlayer(context.Context, *connect.Request[v1.UnbanPlayerRequest]) (*connect.Response[v1.UnbanPlayerResponse], error)

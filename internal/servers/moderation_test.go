@@ -62,6 +62,7 @@ type moderationRig struct {
 	*monitorRig
 	mod   *Moderation
 	audit *serverstest.AuditStore
+	bans  *serverstest.BanStore
 	b     *bodies
 	owner uuid.UUID
 }
@@ -81,14 +82,15 @@ func newModerationRig(t *testing.T, opt wardogstest.Options, handlers map[string
 		"POST /v1/broadcast":          {"", `{"ok":true,"pending":false,"message":"sent"}`},
 		"POST /v1/bans":               {"", ok},
 		"DELETE /v1/bans/{}":          {"", ok},
+		"PUT /v1/config":              {"", `{"ok":true,"revision":"r2","outcomes":[{"section":"/Script/WDGame.WDGameSession","state":"applied"}]}`},
 	} {
 		if o, set := handlers[shape]; set {
 			h = o
 		}
 		opt.Handle[shape] = b.handler(shape, h[0], h[1])
 	}
-	r := &moderationRig{monitorRig: newMonitorRig(t, opt), audit: serverstest.NewAuditStore(), b: b, owner: uuid.New()}
-	r.mod = NewModeration(r.svc, r.mon, r.audit, r.svc.orgID, prometheus.NewRegistry(), slog.New(slog.NewTextHandler(io.Discard, nil)))
+	r := &moderationRig{monitorRig: newMonitorRig(t, opt), audit: serverstest.NewAuditStore(), bans: serverstest.NewBanStore(), b: b, owner: uuid.New()}
+	r.mod = NewModeration(r.svc, r.mon, r.audit, r.bans, r.svc.orgID, prometheus.NewRegistry(), slog.New(slog.NewTextHandler(io.Discard, nil)))
 	return r
 }
 
