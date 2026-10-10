@@ -8,9 +8,15 @@ patch release is everything else.
 
 ## [Unreleased]
 
+## [0.6.6] - 2026-10-10
+
 ### Fixed
 
 - The War Dogs driver no longer writes the hub's empty ban list to a server that holds none. The server drops an empty array when it saves, so `!DefaultBannedPlayerIds=ClearArray` came back on every plan as a change. A daily drift check (hidden-token-gaming/wardogs-server#12) would have reported it forever, and every apply rewrote it. An empty list is now written only to clear the entries a server has.
+
+### Changed
+
+- The quadlet units pin the 0.6.5 images by index digest, all three verified with cosign 3 against the release workflow at `v0.6.5` (the 0.6.4 hub as a control, a wrong-tag identity refused): `ghcr.io/gravel-project/gravel-hub@sha256:db3bc81341d4eccb57ad110ba94536c0d7fd195853effe224214221cf859cef2` in `gravel-hub.container`, `ghcr.io/gravel-project/gravel-bot@sha256:6fb7c094a806ec8959e8b6025ca566f9ff6c1435f0ebd57c99194d719485ccfa` in `gravel-bot.container`, and `ghcr.io/gravel-project/gravel-postgres@sha256:845a94d51c80fc436c1757d90d7e43e5b8a5a3790442e12d6045737834d656ce` in the backup set. `docs/hub.md` names 0.6.5 as the tag example.
 
 ## [0.6.5] - 2026-10-10
 
@@ -187,7 +193,8 @@ patch release is everything else.
 
 - README and CLAUDE.md follow ADR-0001: status line, principle 2 (the resource lives in the hub's database), the hub and backup paragraphs, the adapter-repo rule, the local-dev default, and a seven-step build order with the issues behind each step. The launch games are the five Hidden Token Gaming plays, in three shapes, with War Dogs first; the open threads link the design-delta issues #2–#9 (#1).
 
-[Unreleased]: https://github.com/gravel-project/gravel/compare/v0.6.5...HEAD
+[Unreleased]: https://github.com/gravel-project/gravel/compare/v0.6.6...HEAD
+[0.6.6]: https://github.com/gravel-project/gravel/compare/v0.6.5...v0.6.6
 [0.6.5]: https://github.com/gravel-project/gravel/compare/v0.6.4...v0.6.5
 [0.6.4]: https://github.com/gravel-project/gravel/compare/v0.6.3...v0.6.4
 [0.6.3]: https://github.com/gravel-project/gravel/compare/v0.6.2...v0.6.3
