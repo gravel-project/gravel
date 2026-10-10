@@ -68,3 +68,23 @@ Two more constraints. The feed's format is unverified: S1 (deploy#49) is meant t
 - **Releases.** The first PR is a patch release. HTG needs it deployed before S1 can capture anything, so it is released on its own when S1 is scheduled, not per PR.
 - **Applying the config.** Turning the feed on is a config apply. Until wardogs-server#12 keeps the document in git, the owner calls `ApplyServerConfig` with the live document. The plan shows the feed section as the only change.
 - **Exposure.** The ingest route is reachable from the internet. Its answers carry no server list and no error text. A wrong token costs a constant-time compare per configured server, and the per-IP rate limit (`internal/ratelimit`) bounds it.
+
+## Amendments
+
+- **2026-10-10, decisions.** John kept both open values for now: raw batches are kept 30 days, and a
+  `silence` gap is 10 minutes with no batch while the poll reports 10 or more players.
+- **2026-10-10, the raw route as built (step 1).**
+  - **Middleware.** The route is mounted ahead of the session and app middlewares. The app
+    middleware answers 401 to any bearer that is not an app token, so it would refuse every feed
+    batch. The route keeps the request id, client address, recovery and access log.
+  - **Rate limits.** The per-address limit charges only requests with no valid token (10 a minute,
+    then 429). A host that runs many servers posts from one address, and their good batches are
+    limited per server instead (600 a minute).
+  - **Rotation grace.** It runs 48 hours from when the hub first reads a second line in the token
+    file, not from a restart the watcher detects: the poll does not read the server's uptime.
+  - **Feed tokens** are read every 30 s (job `ingest_feeds`), as the monitor reads credentials.
+  - **The parse job comes with the parser** (step 3). Batches wait as `pending` until then, which
+    is how S1 reads them.
+  - **`gravel-hub ingest export --server ID`** prints them as JSON lines for that.
+  - **Migration 9** adds `ingest_batches` and the `feed` column on `managed_servers`.
+

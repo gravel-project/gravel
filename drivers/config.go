@@ -62,6 +62,15 @@ type ConfigDraft struct {
 	Bans []Identity
 	// Bands are checked before anything is sent.
 	Bands []Band
+	// Feed is where the server should push its events and the token it posts with (ADR-0011);
+	// the driver writes it into the game's feed settings. Nil keeps the server's own.
+	Feed *Feed
+}
+
+// Feed is a server's event feed: the origin it posts to and its token.
+type Feed struct {
+	URL   string
+	Token string
 }
 
 // ConfigSection is the server's schema for one section.

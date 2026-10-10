@@ -2,6 +2,7 @@ package servers
 
 import (
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -29,6 +30,9 @@ servers:
       hours: "17:00-23:00"
       quiet: "23:30-09:00"
       timezone: America/Chicago
+    feed:
+      url: https://ingest.example.com
+      token_file: /run/secrets/htg-wardogs-feed-token
 `
 
 func i64(v int64) *int64 { return &v }
@@ -142,6 +146,10 @@ func TestValidate(t *testing.T) {
 		{"seeding quiet", func(m *Manifest) { m.Servers[0].Seeding.Quiet = "24:00-01:00" }, "seeding.quiet"},
 		{"seeding zone", func(m *Manifest) { m.Servers[0].Seeding.Timezone = "Central" }, `seeding.timezone: "Central"`},
 		{"seeding cooldown", func(m *Manifest) { m.Servers[0].Seeding.Cooldown = Duration(time.Second) }, "seeding.cooldown"},
+		{"feed url path", func(m *Manifest) { m.Servers[0].Feed.URL = "https://ingest.example.com/api/ingest/events" }, "servers[0].feed.url"},
+		{"feed url scheme", func(m *Manifest) { m.Servers[0].Feed.URL = "ingest.example.com" }, "servers[0].feed.url"},
+		{"feed token relative", func(m *Manifest) { m.Servers[0].Feed.TokenFile = "feed.txt" }, "servers[0].feed.token_file"},
+		{"feed token is the credential", func(m *Manifest) { m.Servers[0].Feed.TokenFile = m.Servers[0].CredentialFile }, "must not be the RCON credential"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			m := base()
@@ -172,5 +180,36 @@ func TestTighten(t *testing.T) {
 	}
 	if b, _ := spec.Band("MatchState.Playing.KOTH", "ScorePeriod"); *b.Min != 18 {
 		t.Error("Tighten changed the spec")
+	}
+}
+
+// A feed survives the manifest's round trip, and a server without one has none.
+func TestFeedRoundTrip(t *testing.T) {
+	m, err := ParseManifest([]byte(goodManifest))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f := m.Servers[0].Feed; f == nil || f.URL != "https://ingest.example.com" || f.TokenFile != "/run/secrets/htg-wardogs-feed-token" {
+		t.Fatalf("feed = %+v", f)
+	}
+	out, err := m.Normalized().Marshal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	again, err := ParseManifest(out)
+	if err != nil || !reflect.DeepEqual(again.Normalized(), m.Normalized()) {
+		t.Errorf("round trip: %v\n%s", err, out)
+	}
+	row, err := toRow(m.Servers[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	back, err := fromRow(row)
+	if err != nil || !reflect.DeepEqual(back.Feed, m.Servers[0].Feed) {
+		t.Errorf("row round trip: %+v %v", back.Feed, err)
+	}
+	m.Servers[0].Feed = nil
+	if row, _ := toRow(m.Servers[0]); row.Feed != nil {
+		t.Errorf("no feed stores %s", row.Feed)
 	}
 }

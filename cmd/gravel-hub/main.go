@@ -70,6 +70,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		return appsCmd(ctx, args, stdout, stderr)
 	case "servers":
 		return serversCmd(ctx, args, stdout, stderr)
+	case "ingest":
+		return ingestCmd(ctx, args, stdout, stderr)
 	case "wardogs":
 		return wardogsCmd(ctx, args, stdout, stderr)
 	case "version":
@@ -99,6 +101,7 @@ func usage(w io.Writer) {
   servers       export the games and servers as a servers.yaml manifest, apply one (--dry-run exits 3 on a
                 change), or check one without a config or database
   wardogs       record a War Dogs server's read-only answers as per-build test fixtures
+  ingest        export the batches a server pushed to the ingest route, as stored (they hold SteamIDs)
   version       print the version
 
 The config path comes from --config, then $GRAVEL_CONFIG, then `+defaultConfigPath+`.

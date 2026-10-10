@@ -45,6 +45,18 @@ type Server struct {
 	PollInterval   Duration `yaml:"poll_interval,omitempty"`
 	Trust          string   `yaml:"trust"`
 	Seeding        *Seeding `yaml:"seeding,omitempty"`
+	Feed           *Feed    `yaml:"feed,omitempty"`
+}
+
+// Feed is where a server that pushes events posts them, and the token it posts with (ADR-0011).
+// The driver writes both into the server's configuration (War Dogs: [WDServerFeed]); the hub's
+// ingest route takes the token as the server's. Like the credential, the token is a file the hub
+// reads and never stores: its first line is the token, an optional second line the previous one,
+// accepted for RotationGrace while the server still has it.
+type Feed struct {
+	// URL is the origin the server posts to; the game appends its own path (/api/ingest/events).
+	URL       string `yaml:"url" json:"url"`
+	TokenFile string `yaml:"token_file" json:"token_file"`
 }
 
 // Seeding is when a server wants players (hidden-token-gaming/htg#32 reads it): below Threshold
@@ -196,6 +208,16 @@ func (m Manifest) Validate(specs map[string]Spec, drivers []string) error {
 		}
 		if s.Seeding != nil {
 			validateSeeding(at+".seeding", *s.Seeding, bad)
+		}
+		if f := s.Feed; f != nil {
+			if u, err := url.Parse(f.URL); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || (u.Path != "" && u.Path != "/") || u.RawQuery != "" || u.User != nil {
+				bad("%s.feed.url: %q must be an http(s) origin with no path, query or credentials (the game adds its path)", at, f.URL)
+			}
+			if !filepath.IsAbs(f.TokenFile) || filepath.Clean(f.TokenFile) != f.TokenFile {
+				bad("%s.feed.token_file: %q must be a clean absolute path (a podman secret: /run/secrets/<name>)", at, f.TokenFile)
+			} else if f.TokenFile == s.CredentialFile {
+				bad("%s.feed.token_file: the feed token must not be the RCON credential", at)
+			}
 		}
 	}
 	if len(errs) == 0 {

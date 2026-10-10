@@ -212,3 +212,21 @@ func TestSetConfigBans(t *testing.T) {
 		t.Errorf("a non-steam ban: %v", err)
 	}
 }
+
+// A draft with a feed writes [WDServerFeed] from it in place of the server's; without one the
+// server's section is kept.
+func TestPlanWritesTheFeed(t *testing.T) {
+	d, cs := newConfigDriver(t)
+	draft := drivers.ConfigDraft{Text: desired, Bands: bands, Feed: &drivers.Feed{URL: "https://hub.example/", Token: "tok-new-feed"}}
+	if _, err := d.PlanConfig(context.Background(), draft); err != nil {
+		t.Fatal(err)
+	}
+	if sent := cs.sent[0]; !strings.Contains(sent, "[WDServerFeed]\r\nUrl=https://hub.example\r\nToken=tok-new-feed\r\n") || strings.Contains(sent, secretToken) {
+		t.Errorf("the feed section sent:\n%s", sent)
+	}
+	// The deployment's document may not set it.
+	draft.Text = desired + "\r\n[WDServerFeed]\r\nUrl=https://elsewhere.example\r\n"
+	if _, err := d.PlanConfig(context.Background(), draft); !errors.Is(err, drivers.ErrInvalidConfig) {
+		t.Errorf("a draft with the feed section: %v", err)
+	}
+}
