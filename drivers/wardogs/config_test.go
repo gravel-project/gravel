@@ -258,3 +258,49 @@ func TestEmptyBanListOnlyClears(t *testing.T) {
 		t.Errorf("the server's bans were not cleared:\n%s", cs.sent[0])
 	}
 }
+
+// The Game spec's other band kinds, checked before anything is sent (gravel#8).
+func TestPlanChecksEveryBandKind(t *testing.T) {
+	const gs = "/Script/WDGame.WDGameSession"
+	kinds := append(slices.Clone(bands),
+		drivers.Band{Section: gs, Key: "ServerName", MaxLength: i64(10)},
+		drivers.Band{Section: gs, Key: "ServerImageURL", Hosts: []string{"ibb.co", "postimg.cc"}},
+		drivers.Band{Section: gs, Key: "MaxReservedSlots", Max: i64(0), UnlessSet: "DefaultReservedPlayerIds"})
+	withLine := func(line string) string {
+		return strings.Replace(desired, "MaxReservedSlots=0", "MaxReservedSlots=0\r\n"+line, 1)
+	}
+	for name, c := range map[string]struct {
+		text string
+		code string // "" = accepted
+	}{
+		"the document as it is":   {desired, ""},
+		"a name too long":         {strings.Replace(desired, "ServerName=HTG | NA", "ServerName=HTG | NA WEST", 1), drivers.ProblemTooLong},
+		"a name of 10 runes":      {strings.Replace(desired, "ServerName=HTG | NA", `ServerName="HTG ★ NA ★"`, 1), ""},
+		"a banner on a subdomain": {withLine(`ServerImageURL="https://i.ibb.co/x/banner.png"`), ""},
+		"a banner off the list":   {withLine(`ServerImageURL="https://imgur.com/banner.png"`), drivers.ProblemHostNotAllowed},
+		"a look-alike host":       {withLine(`ServerImageURL="https://evilibb.co/banner.png"`), drivers.ProblemHostNotAllowed},
+		"a banner over http":      {withLine(`ServerImageURL="http://i.ibb.co/x/banner.png"`), drivers.ProblemHostNotAllowed},
+		"no banner":               {withLine(`ServerImageURL=""`), ""},
+		"reserved slots for none": {strings.Replace(desired, "MaxReservedSlots=0", "MaxReservedSlots=4", 1), drivers.ProblemOutOfBand},
+		"reserved slots for some": {strings.Replace(desired, "MaxReservedSlots=0", "MaxReservedSlots=4\r\n.DefaultReservedPlayerIds=\"76561190000000001\"", 1), ""},
+		"reserved list cleared":   {strings.Replace(desired, "MaxReservedSlots=0", "MaxReservedSlots=4\r\n!DefaultReservedPlayerIds=ClearArray", 1), drivers.ProblemOutOfBand},
+	} {
+		t.Run(name, func(t *testing.T) {
+			d, _ := newConfigDriver(t)
+			_, err := d.PlanConfig(context.Background(), drivers.ConfigDraft{Text: c.text, Bands: kinds})
+			if c.code == "" {
+				if err != nil {
+					t.Fatalf("refused: %v", err)
+				}
+				return
+			}
+			var ie *drivers.InvalidConfigError
+			if !errors.As(err, &ie) || len(ie.Problems) != 1 || ie.Problems[0].Code != c.code {
+				t.Fatalf("err = %v, want %s", err, c.code)
+			}
+			if c.code == drivers.ProblemOutOfBand && !strings.Contains(err.Error(), "while DefaultReservedPlayerIds is empty") {
+				t.Errorf("the condition is not named: %v", err)
+			}
+		})
+	}
+}

@@ -8,6 +8,17 @@ patch release is everything else.
 
 ## [Unreleased]
 
+### Added
+
+- Publisher policy guardrails in the Game specs (#8).
+  - **Band kinds.** Besides a range (`min`, `max`), a band is now a longest value (`max_length`) or the hosts a URL may point at (`hosts`: https, the host or a subdomain of one). `unless_set` lifts a band while another key of its section has a value. The War Dogs driver checks all of them before a config plan or apply leaves the hub, with new problem codes `too_long` and `host_not_allowed`. `servers.yaml` may tighten a band of the same kind, never loosen one or change its condition.
+  - **War Dogs** gains three bands: `ServerName` at most 64 characters, `ServerImageURL` on Bulkhead's image allow-list (catbox.moe, imgbb.com, ibb.co, postimg.cc; an off-list banner otherwise fails every later edit), and `MaxReservedSlots` 0 unless `DefaultReservedPlayerIds` lists someone. A test checks every band against the newest recorded build's schema.
+  - **Plugin policy.** A spec's `plugins` holds a denylist (each rule a match and the publisher's reason) and an optional allow list. `Spec.CheckPlugins` refuses a set and names every refused plugin; the Counter-Strike 2 image build and driver use it in P4.
+  - **`no_paid_perks`.** A spec flag for a publisher that forbids paid benefits tied to its game. `ListGames` shows it (`Game.no_paid_perks`), for the benefit logic in P6.
+  - **Catalog specs.** `games/cs2`, `games/seaofthieves`, `games/starcitizen` and `games/pubg` ship each game's identity key and publisher rules, with no driver yet: the Counter-Strike 2 item-spoofing denylist (Valve's server guidelines), and `no_paid_perks` for all four. A manifest may enable a catalog game; a server for one is refused.
+  - **API:** `Band` gains `max_length`, `hosts` and `unless_set`, and `Game` gains `no_paid_perks`. All additive.
+  - **Docs:** docs/hub.md, "Game specs and publisher rules".
+
 ### Changed
 
 - The release workflow builds `gravel-postgres` only when `deploy/postgres/` changed since the previous release tag (#106). Its base is pinned by digest, so every rebuild of the unchanged directory was the same image under a new hash, and every cut moved the backup set's pin for nothing.

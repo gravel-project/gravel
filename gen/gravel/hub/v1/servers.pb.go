@@ -23,14 +23,19 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Band is the range a game's configuration key may take (a publisher guardrail); an unset bound
-// is open.
+// Band is a publisher guardrail on one of a game's configuration keys, of one kind: a range (min,
+// max; an unset bound is open), a longest value (max_length, in characters) or the hosts a URL
+// value may point at (hosts: https, the host or a subdomain of one; an empty value passes).
 type Band struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Section       string                 `protobuf:"bytes,1,opt,name=section,proto3" json:"section,omitempty"`
-	Key           string                 `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
-	Min           *int64                 `protobuf:"varint,3,opt,name=min,proto3,oneof" json:"min,omitempty"`
-	Max           *int64                 `protobuf:"varint,4,opt,name=max,proto3,oneof" json:"max,omitempty"`
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	Section   string                 `protobuf:"bytes,1,opt,name=section,proto3" json:"section,omitempty"`
+	Key       string                 `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
+	Min       *int64                 `protobuf:"varint,3,opt,name=min,proto3,oneof" json:"min,omitempty"`
+	Max       *int64                 `protobuf:"varint,4,opt,name=max,proto3,oneof" json:"max,omitempty"`
+	MaxLength *int64                 `protobuf:"varint,5,opt,name=max_length,json=maxLength,proto3,oneof" json:"max_length,omitempty"`
+	Hosts     []string               `protobuf:"bytes,6,rep,name=hosts,proto3" json:"hosts,omitempty"`
+	// The band applies only while this key of the same section is empty ("" = always).
+	UnlessSet     string `protobuf:"bytes,7,opt,name=unless_set,json=unlessSet,proto3" json:"unless_set,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -93,6 +98,27 @@ func (x *Band) GetMax() int64 {
 	return 0
 }
 
+func (x *Band) GetMaxLength() int64 {
+	if x != nil && x.MaxLength != nil {
+		return *x.MaxLength
+	}
+	return 0
+}
+
+func (x *Band) GetHosts() []string {
+	if x != nil {
+		return x.Hosts
+	}
+	return nil
+}
+
+func (x *Band) GetUnlessSet() string {
+	if x != nil {
+		return x.UnlessSet
+	}
+	return ""
+}
+
 // Game is a game this hub's servers run: a Game spec gravel ships, with the deployment's
 // tightenings of its bands applied.
 type Game struct {
@@ -103,8 +129,11 @@ type Game struct {
 	// The provider its players are keyed by: "steam".
 	IdentityProvider string  `protobuf:"bytes,3,opt,name=identity_provider,json=identityProvider,proto3" json:"identity_provider,omitempty"`
 	Bands            []*Band `protobuf:"bytes,4,rep,name=bands,proto3" json:"bands,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// The publisher forbids any paid benefit (a supporter perk, a crowdfunding reward) that depends
+	// on the game's data or features.
+	NoPaidPerks   bool `protobuf:"varint,5,opt,name=no_paid_perks,json=noPaidPerks,proto3" json:"no_paid_perks,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Game) Reset() {
@@ -163,6 +192,13 @@ func (x *Game) GetBands() []*Band {
 		return x.Bands
 	}
 	return nil
+}
+
+func (x *Game) GetNoPaidPerks() bool {
+	if x != nil {
+		return x.NoPaidPerks
+	}
+	return false
 }
 
 // Seeding is when a server wants players: below threshold during hours (HH:MM-HH:MM in
@@ -1015,19 +1051,26 @@ var File_gravel_hub_v1_servers_proto protoreflect.FileDescriptor
 
 const file_gravel_hub_v1_servers_proto_rawDesc = "" +
 	"\n" +
-	"\x1bgravel/hub/v1/servers.proto\x12\rgravel.hub.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"p\n" +
+	"\x1bgravel/hub/v1/servers.proto\x12\rgravel.hub.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xd8\x01\n" +
 	"\x04Band\x12\x18\n" +
 	"\asection\x18\x01 \x01(\tR\asection\x12\x10\n" +
 	"\x03key\x18\x02 \x01(\tR\x03key\x12\x15\n" +
 	"\x03min\x18\x03 \x01(\x03H\x00R\x03min\x88\x01\x01\x12\x15\n" +
-	"\x03max\x18\x04 \x01(\x03H\x01R\x03max\x88\x01\x01B\x06\n" +
+	"\x03max\x18\x04 \x01(\x03H\x01R\x03max\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"max_length\x18\x05 \x01(\x03H\x02R\tmaxLength\x88\x01\x01\x12\x14\n" +
+	"\x05hosts\x18\x06 \x03(\tR\x05hosts\x12\x1d\n" +
+	"\n" +
+	"unless_set\x18\a \x01(\tR\tunlessSetB\x06\n" +
 	"\x04_minB\x06\n" +
-	"\x04_max\"\x82\x01\n" +
+	"\x04_maxB\r\n" +
+	"\v_max_length\"\xa6\x01\n" +
 	"\x04Game\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12+\n" +
 	"\x11identity_provider\x18\x03 \x01(\tR\x10identityProvider\x12)\n" +
-	"\x05bands\x18\x04 \x03(\v2\x13.gravel.hub.v1.BandR\x05bands\"\xa6\x01\n" +
+	"\x05bands\x18\x04 \x03(\v2\x13.gravel.hub.v1.BandR\x05bands\x12\"\n" +
+	"\rno_paid_perks\x18\x05 \x01(\bR\vnoPaidPerks\"\xa6\x01\n" +
 	"\aSeeding\x12\x1c\n" +
 	"\tthreshold\x18\x01 \x01(\x05R\tthreshold\x12\x14\n" +
 	"\x05hours\x18\x02 \x01(\tR\x05hours\x12\x14\n" +

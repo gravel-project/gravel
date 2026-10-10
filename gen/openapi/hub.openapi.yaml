@@ -1492,11 +1492,27 @@ components:
             - "null"
           title: max
           format: int64
+        maxLength:
+          type:
+            - string
+            - "null"
+          title: max_length
+          format: int64
+        hosts:
+          type: array
+          items:
+            type: string
+          title: hosts
+        unlessSet:
+          type: string
+          title: unless_set
+          description: The band applies only while this key of the same section is empty ("" = always).
       title: Band
       additionalProperties: false
       description: |-
-        Band is the range a game's configuration key may take (a publisher guardrail); an unset bound
-         is open.
+        Band is a publisher guardrail on one of a game's configuration keys, of one kind: a range (min,
+         max; an unset bound is open), a longest value (max_length, in characters) or the hosts a URL
+         value may point at (hosts: https, the host or a subdomain of one; an empty value passes).
     gravel.hub.v1.BoardEntry:
       type: object
       properties:
@@ -1846,6 +1862,12 @@ components:
           items:
             $ref: '#/components/schemas/gravel.hub.v1.Band'
           title: bands
+        noPaidPerks:
+          type: boolean
+          title: no_paid_perks
+          description: |-
+            The publisher forbids any paid benefit (a supporter perk, a crowdfunding reward) that depends
+             on the game's data or features.
       title: Game
       additionalProperties: false
       description: |-

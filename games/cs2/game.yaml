@@ -1,0 +1,32 @@
+# The Counter-Strike 2 Game spec gravel ships: a catalog entry until the driver arrives (P4).
+id: cs2
+name: Counter-Strike 2
+# Logs carry SteamID3 ([U:1:N]); gravel keys players by the SteamID64 it converts to.
+identity_provider: steam
+drivers: []
+plugins:
+  # Valve's server guidelines forbid item spoofing (weapon skins, knives, gloves, stickers, music
+  # kits, fake ranks or coins). The penalty is every GSLT on the operator's account disabled and
+  # the account barred from making new ones: https://blog.counter-strike.net/server_guidelines/
+  deny:
+    - match: weaponpaint
+      reason: weapon skins are item spoofing (Valve server guidelines)
+    - match: skin
+      reason: skins are item spoofing (Valve server guidelines)
+    - match: knife
+      reason: knives are item spoofing (Valve server guidelines)
+    - match: glove
+      reason: gloves are item spoofing (Valve server guidelines)
+    - match: sticker
+      reason: stickers are item spoofing (Valve server guidelines)
+    - match: musickit
+      reason: music kits are item spoofing (Valve server guidelines)
+    - match: inventory
+      reason: inventory changers are item spoofing (Valve server guidelines)
+    - match: fakerank
+      reason: fake ranks are forbidden (Valve server guidelines)
+    - match: coin
+      reason: fake coins are forbidden (Valve server guidelines)
+# CS2 items are never a paid benefit, and supporter reserved slots are a grey area under the same
+# guidelines: off until counsel says otherwise.
+no_paid_perks: true

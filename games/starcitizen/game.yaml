@@ -1,0 +1,9 @@
+# The Star Citizen Game spec gravel ships: no private servers, so no drivers and no bands.
+id: starcitizen
+name: Star Citizen
+# Players are keyed by their RSI handle, proven by a one-time code in the RSI bio.
+identity_provider: rsi
+drivers: []
+# CIG's fan kit FAQ forbids donations, fundraising and paywalls tied to Star Citizen IP:
+# https://support.robertsspaceindustries.com/hc/en-us/articles/360006895793
+no_paid_perks: true

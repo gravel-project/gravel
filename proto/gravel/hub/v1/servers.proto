@@ -7,13 +7,18 @@ import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/gravel-project/gravel/gen/gravel/hub/v1;hubv1";
 
-// Band is the range a game's configuration key may take (a publisher guardrail); an unset bound
-// is open.
+// Band is a publisher guardrail on one of a game's configuration keys, of one kind: a range (min,
+// max; an unset bound is open), a longest value (max_length, in characters) or the hosts a URL
+// value may point at (hosts: https, the host or a subdomain of one; an empty value passes).
 message Band {
   string section = 1;
   string key = 2;
   optional int64 min = 3;
   optional int64 max = 4;
+  optional int64 max_length = 5;
+  repeated string hosts = 6;
+  // The band applies only while this key of the same section is empty ("" = always).
+  string unless_set = 7;
 }
 
 // Game is a game this hub's servers run: a Game spec gravel ships, with the deployment's
@@ -25,6 +30,9 @@ message Game {
   // The provider its players are keyed by: "steam".
   string identity_provider = 3;
   repeated Band bands = 4;
+  // The publisher forbids any paid benefit (a supporter perk, a crowdfunding reward) that depends
+  // on the game's data or features.
+  bool no_paid_perks = 5;
 }
 
 // Seeding is when a server wants players: below threshold during hours (HH:MM-HH:MM in

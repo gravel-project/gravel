@@ -1,0 +1,11 @@
+# The PUBG Game spec gravel ships: no hostable servers (Custom Match has no API), so no drivers
+# and no bands; stats come from the official API.
+id: pubg
+name: PUBG
+# Players are keyed by their PUBG accountId, one per shard (steam, psn, xbox, kakao); the name can
+# change, and there is no OAuth and no Steam-to-PUBG mapping.
+identity_provider: pubg
+drivers: []
+# The PUBG API terms forbid paywalling API-derived features or offering them as crowdfunding
+# rewards: https://developer.pubg.com/tos
+no_paid_perks: true

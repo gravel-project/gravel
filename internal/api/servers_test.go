@@ -63,8 +63,14 @@ func TestServerReadsArePublicAndCarryNoControlDetails(t *testing.T) {
 		t.Fatal(err)
 	}
 	g := games.Msg.GetGames()
-	if len(g) != 1 || g[0].GetId() != "wardogs" || g[0].GetIdentityProvider() != "steam" || len(g[0].GetBands()) != 2 {
+	if len(g) != 1 || g[0].GetId() != "wardogs" || g[0].GetIdentityProvider() != "steam" || len(g[0].GetBands()) != 5 || g[0].GetNoPaidPerks() {
 		t.Errorf("games = %v", g)
+	}
+	for _, b := range g[0].GetBands() {
+		if (b.GetKey() == "ServerImageURL" && len(b.GetHosts()) != 4) || (b.GetKey() == "ServerName" && b.GetMaxLength() != 64) ||
+			(b.GetKey() == "MaxReservedSlots" && (b.GetUnlessSet() != "DefaultReservedPlayerIds" || b.GetMax() != 0 || b.Max == nil)) {
+			t.Errorf("band = %v", b)
+		}
 	}
 
 	list, err := anon.ListServers(ctx, connect.NewRequest(&hubv1.ListServersRequest{}))

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/gravel-project/gravel/drivers"
 	"github.com/gravel-project/gravel/games/wardogs"
@@ -203,6 +204,9 @@ func merge(draft drivers.ConfigDraft, current string) (wardogs.Doc, error) {
 
 func checkBands(doc wardogs.Doc, bands []drivers.Band) []drivers.ConfigProblem {
 	var out []drivers.ConfigProblem
+	problem := func(b drivers.Band, code, format string, a ...any) {
+		out = append(out, drivers.ConfigProblem{Section: b.Section, Key: b.Key, Code: code, Message: fmt.Sprintf(format, a...)})
+	}
 	for _, b := range bands {
 		s := doc.Section(b.Section)
 		if s == nil {
@@ -212,18 +216,45 @@ func checkBands(doc wardogs.Doc, bands []drivers.Band) []drivers.ConfigProblem {
 		if !ok {
 			continue
 		}
-		v, err := strconv.ParseInt(strings.Trim(strings.TrimSpace(raw), `"`), 10, 64)
-		if err != nil {
-			out = append(out, drivers.ConfigProblem{Section: b.Section, Key: b.Key, Code: drivers.ProblemNotNumber,
-				Message: fmt.Sprintf("%q is not a whole number", raw)})
+		if b.UnlessSet != "" && isSet(s, b.UnlessSet) {
 			continue
 		}
-		if (b.Min != nil && v < *b.Min) || (b.Max != nil && v > *b.Max) {
-			out = append(out, drivers.ConfigProblem{Section: b.Section, Key: b.Key, Code: drivers.ProblemOutOfBand,
-				Message: fmt.Sprintf("%d is outside the band %s", v, bandText(b))})
+		v := strings.Trim(strings.TrimSpace(raw), `"`)
+		switch {
+		case b.MaxLength != nil:
+			if n := utf8.RuneCountInString(v); int64(n) > *b.MaxLength {
+				problem(b, drivers.ProblemTooLong, "%d characters, at most %d", n, *b.MaxLength)
+			}
+		case b.Hosts != nil:
+			if !b.AllowsHost(v) {
+				problem(b, drivers.ProblemHostNotAllowed, "%q must be an https URL on %s", v, strings.Join(b.Hosts, ", "))
+			}
+		default:
+			n, err := strconv.ParseInt(v, 10, 64)
+			if err != nil {
+				problem(b, drivers.ProblemNotNumber, "%q is not a whole number", raw)
+				continue
+			}
+			if (b.Min != nil && n < *b.Min) || (b.Max != nil && n > *b.Max) {
+				msg := fmt.Sprintf("%d is outside the band %s", n, bandText(b))
+				if b.UnlessSet != "" {
+					msg += " while " + b.UnlessSet + " is empty"
+				}
+				problem(b, drivers.ProblemOutOfBand, "%s", msg)
+			}
 		}
 	}
 	return out
+}
+
+// isSet reports whether a key has a value: a plain key that isn't empty, or an array with an
+// element.
+func isSet(s *wardogs.DocSection, key string) bool {
+	if len(s.Array(key)) > 0 {
+		return true
+	}
+	v, ok := s.Value(key)
+	return ok && strings.Trim(strings.TrimSpace(v), `"`) != ""
 }
 
 func bandText(b drivers.Band) string {

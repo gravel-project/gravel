@@ -1,0 +1,9 @@
+# The Sea of Thieves Game spec gravel ships: no dedicated servers, so no drivers and no bands.
+id: seaofthieves
+name: Sea of Thieves
+# Players are keyed by their XUID (every player has a Microsoft account, PlayStation included).
+identity_provider: xbox
+drivers: []
+# Microsoft's Game Content Usage Rules keep game content off paid or supporter pages:
+# https://www.xbox.com/en-US/developers/rules
+no_paid_perks: true
