@@ -10,6 +10,12 @@ patch release is everything else.
 
 ### Added
 
+- ADR-0015 (proposed): members sign in to first-party apps with the authorization-code flow, and apps verify tokens by introspection (#6).
+  - **OAuth 2.0, not OIDC:** the code grant with PKCE (`S256`, required), opaque member tokens in `app_tokens`, and `GetMe` for who signed in. No ID token and no signing key, keeping ADR-0004's and ADR-0008's no-key-at-rest line. `zitadel/oidc` and fosite are weighed and set aside in the ADR.
+  - **The flow:** exact redirect URIs per app, single-use 60-second codes (a replay revokes their tokens), a remembered consent per member and app that the account page lists and revokes, one-hour tokens with no refresh.
+  - **Introspection:** RFC 7662 for apps, cacheable for at most 60 seconds.
+  - **First consumer:** Muster (hidden-token-gaming/htg ADR-0002).
+
 - The server card shows the map (#97).
   - **Card:** while the server is live, a full-width picture of the map in play under the name (a Components V2 media gallery), and a "Next: <map>" line after the score. A degraded card shows neither. The picture's URL is part of the card, so a map change is one edit.
   - **Pictures:** the Organization settings' `games.<id>.maps` (https URLs by map name as the game spells it, at most 50) and `games.<id>.map_fallback`. The card takes the level's picture, else the rotation map's (War Dogs: the theatre), else the game's fallback, else gravel's generic placeholder. A game with neither key gets no picture.
