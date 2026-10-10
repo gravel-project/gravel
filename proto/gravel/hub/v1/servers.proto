@@ -2,7 +2,6 @@ syntax = "proto3";
 
 package gravel.hub.v1;
 
-import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/gravel-project/gravel/gen/gravel/hub/v1;hubv1";
@@ -41,17 +40,6 @@ message Game {
 message GameLayout {
   // A board's columns in order, each a GetBoardRequest metric; the first is the default ranking.
   repeated string board = 1;
-}
-
-// Seeding is when a server wants players: below threshold during hours (HH:MM-HH:MM in
-// timezone), at most once per cooldown, never during quiet.
-message Seeding {
-  int32 threshold = 1;
-  string hours = 2;
-  string quiet = 3;
-  // An IANA zone: "America/Chicago".
-  string timezone = 4;
-  google.protobuf.Duration cooldown = 5;
 }
 
 // TeamScore is one team's (faction's) score.
@@ -105,8 +93,10 @@ message Server {
   string location = 4;
   // "official" or "community".
   string trust = 5;
-  // Unset when the server does not seed.
-  Seeding seeding = 6;
+  // 6 was seeding, the servers manifest's seeding section, removed in 0.8.0: seeding rules are the
+  // Organization settings' DiscordSettings.seeding (ADR-0016).
+  reserved 6;
+  reserved "seeding";
   ServerStatus status = 7;
 }
 

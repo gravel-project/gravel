@@ -250,13 +250,6 @@ func toRow(s Server) (store.ManagedServer, error) {
 		ID: s.ID, GameID: s.Game, Name: s.Name, Driver: s.Driver, Location: s.Location, Endpoint: s.Endpoint,
 		CredentialFile: s.CredentialFile, PollInterval: time.Duration(s.PollInterval), Trust: s.Trust,
 	}
-	if s.Seeding != nil {
-		b, err := json.Marshal(s.Seeding)
-		if err != nil {
-			return store.ManagedServer{}, err
-		}
-		r.Seeding = b
-	}
 	if s.Feed != nil {
 		b, err := json.Marshal(s.Feed)
 		if err != nil {
@@ -271,13 +264,6 @@ func fromRow(r store.ManagedServer) (Server, error) {
 	s := Server{
 		ID: r.ID, Name: r.Name, Game: r.GameID, Driver: r.Driver, Location: r.Location, Endpoint: r.Endpoint,
 		CredentialFile: r.CredentialFile, PollInterval: Duration(r.PollInterval), Trust: r.Trust,
-	}
-	if len(r.Seeding) > 0 && string(r.Seeding) != "null" {
-		var sd Seeding
-		if err := json.Unmarshal(r.Seeding, &sd); err != nil {
-			return Server{}, fmt.Errorf("servers: server %s: seeding: %w", r.ID, err)
-		}
-		s.Seeding = &sd
 	}
 	if len(r.Feed) > 0 && string(r.Feed) != "null" {
 		var f Feed

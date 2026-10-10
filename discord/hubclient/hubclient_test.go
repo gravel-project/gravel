@@ -241,3 +241,38 @@ func TestServerConfigCallsAsTheApp(t *testing.T) {
 		t.Errorf("config %v, %v, auth %v", got, err, ch.auth.Load())
 	}
 }
+
+type statsHub struct {
+	hubv1connect.UnimplementedStatsServiceHandler
+	auth atomic.Value
+}
+
+func (h *statsHub) RecordParticipation(_ context.Context, req *connect.Request[hubv1.RecordParticipationRequest]) (*connect.Response[hubv1.RecordParticipationResponse], error) {
+	h.auth.Store(req.Header().Get("Authorization"))
+	out := &hubv1.RecordParticipationResponse{}
+	for _, e := range req.Msg.GetEvents() {
+		out.Results = append(out.Results, &hubv1.ParticipationResult{Key: e.GetKey(), Outcome: "recorded"})
+	}
+	return connect.NewResponse(out), nil
+}
+
+// Stats calls StatsService as the app, with its token.
+func TestStatsCallsAsTheApp(t *testing.T) {
+	sh := &statsHub{}
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /oauth/token", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"access_token":"tok1","token_type":"Bearer","expires_in":3600}`))
+	})
+	mux.Handle(hubv1connect.NewStatsServiceHandler(sh))
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	c, err := hubclient.New(hubclient.Config{URL: srv.URL, ClientID: "gravel_x", ClientSecret: "s"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := c.Stats().RecordParticipation(context.Background(), connect.NewRequest(&hubv1.RecordParticipationRequest{Events: []*hubv1.ParticipationEvent{{Key: "k1"}}}))
+	if err != nil || len(got.Msg.GetResults()) != 1 || got.Msg.GetResults()[0].GetKey() != "k1" || sh.auth.Load() != "Bearer tok1" {
+		t.Errorf("stats %v, %v, auth %v", got, err, sh.auth.Load())
+	}
+}

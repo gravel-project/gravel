@@ -202,6 +202,154 @@ func TestSettingsValidateDiscord(t *testing.T) {
 	}
 }
 
+const seeder = "1300000000000000004" // the opt-in seeder role
+
+func htgSeeding() SeedingRule {
+	return SeedingRule{Server: "htg-wardogs-1", Channel: card, Role: seeder, Below: 20,
+		Hours: []SeedingHours{{Days: []string{"wed", "sat", "sun"}, From: "18:00", To: "23:00"}}, Cooldown: "2h", CallAtStart: true, Note: "Join from the server browser."}
+}
+
+func TestSettingsValidateSeeding(t *testing.T) {
+	good := Settings{Version: 1, Stats: Stats{Timezone: "America/Chicago"}, Discord: Discord{GuildID: guild, Seeding: []SeedingRule{
+		htgSeeding(),
+		{Server: "htg-wardogs-2", Channel: card, Role: seeder, Below: 2}, // no hours: never calls
+		{Server: "htg-wardogs-3", Channel: card, Role: seeder, Below: 1000, Cooldown: "15m", Hours: []SeedingHours{{Days: []string{"fri"}, From: "22:00", To: "02:00"}}},
+	}}}
+	if err := good.Validate(); err != nil {
+		t.Fatalf("good rules: %v", err)
+	}
+	if got := good.Discord.RoleIDs(); len(got) != 0 {
+		t.Errorf("a seeder role is the members' own choice; role sync never manages it: %v", got)
+	}
+	if d := good.Discord.Seeding[0].CooldownOrDefault(); d != 2*time.Hour {
+		t.Errorf("cooldown: %s", d)
+	}
+	if d := good.Discord.Seeding[1].CooldownOrDefault(); d != DefaultSeedingCooldown {
+		t.Errorf("default cooldown: %s", d)
+	}
+
+	rule := func(f func(*SeedingRule)) Discord {
+		r := htgSeeding()
+		f(&r)
+		return Discord{GuildID: guild, Seeding: []SeedingRule{r}}
+	}
+	cases := []struct {
+		name string
+		d    Discord
+		want []string
+	}{
+		{"without a guild", Discord{Seeding: []SeedingRule{htgSeeding()}}, []string{"discord.guild_id: required when roles are mapped, server cards placed or seeding set"}},
+		{"server", rule(func(r *SeedingRule) { r.Server = "HTG 1" }), []string{`discord.seeding[0].server: "HTG 1" is not a server id`}},
+		{"channel", rule(func(r *SeedingRule) { r.Channel = "#wd-seeding" }), []string{`discord.seeding[0].channel: "#wd-seeding" is not a Discord id`}},
+		{"role missing", rule(func(r *SeedingRule) { r.Role = "" }), []string{`discord.seeding[0].role: "" is not a Discord id`}},
+		{"@everyone", rule(func(r *SeedingRule) { r.Role = guild }), []string{"discord.seeding[0].role: \"" + guild + "\" is the guild's @everyone role"}},
+		{"below 1", rule(func(r *SeedingRule) { r.Below = 1 }), []string{"discord.seeding[0].below: 1 is not between 2 and 1000"}},
+		{"below 0", rule(func(r *SeedingRule) { r.Below = 0 }), []string{"discord.seeding[0].below: 0"}},
+		{"below 1001", rule(func(r *SeedingRule) { r.Below = 1001 }), []string{"discord.seeding[0].below: 1001"}},
+		{"cooldown not a duration", rule(func(r *SeedingRule) { r.Cooldown = "two hours" }), []string{`discord.seeding[0].cooldown: "two hours" is not a duration`}},
+		{"cooldown short", rule(func(r *SeedingRule) { r.Cooldown = "14m" }), []string{"discord.seeding[0].cooldown: 14m is not between 15m0s and 24h0m0s"}},
+		{"cooldown long", rule(func(r *SeedingRule) { r.Cooldown = "25h" }), []string{"discord.seeding[0].cooldown: 25h"}},
+		{"note", rule(func(r *SeedingRule) { r.Note = strings.Repeat("x", MaxSeedingNote+1) }), []string{"discord.seeding[0].note: one line of at most 200 characters"}},
+		{"note on two lines", rule(func(r *SeedingRule) { r.Note = "a\nb" }), []string{"discord.seeding[0].note"}},
+		{"hours", rule(func(r *SeedingRule) {
+			r.Hours = []SeedingHours{{Days: []string{"wednesday"}, From: "18:00", To: "23:00"}, {Days: []string{"sat"}, From: "18", To: "18"}, {Days: nil, From: "07:00", To: "07:00"}}
+		}), []string{`discord.seeding[0].hours[0].days: "wednesday" is not a day`, `discord.seeding[0].hours[1].from: "18" is not a time of day`, `discord.seeding[0].hours[1].to`,
+			"discord.seeding[0].hours[2].days: required", "discord.seeding[0].hours[2]: from and to are both 07:00"}},
+		{"overlapping hours", rule(func(r *SeedingRule) {
+			r.Hours = append(r.Hours, SeedingHours{Days: []string{"sun"}, From: "22:00", To: "23:30"})
+		}), []string{"discord.seeding[0].hours[1]: overlaps hours[0] on sun"}},
+		{"duplicate server", Discord{GuildID: guild, Seeding: []SeedingRule{htgSeeding(), htgSeeding()}}, []string{`discord.seeding[1].server: "htg-wardogs-1" already has a rule (discord.seeding[0])`}},
+	}
+	for _, c := range cases {
+		err := (Settings{Version: 1, Discord: c.d}).Validate()
+		if !errors.Is(err, ErrInvalidSettings) {
+			t.Errorf("%s: want ErrInvalidSettings, got %v", c.name, err)
+			continue
+		}
+		for _, w := range c.want {
+			if !strings.Contains(err.Error(), w) {
+				t.Errorf("%s: error should contain %q:\n%v", c.name, w, err)
+			}
+		}
+	}
+	var hours []SeedingHours
+	for i := range 15 {
+		hours = append(hours, SeedingHours{Days: []string{"mon"}, From: fmt.Sprintf("%02d:00", i), To: fmt.Sprintf("%02d:30", i)})
+	}
+	if err := (Settings{Version: 1, Discord: rule(func(r *SeedingRule) { r.Hours = hours })}).Validate(); err == nil || !strings.Contains(err.Error(), "discord.seeding[0].hours: 15 windows, at most 14") {
+		t.Errorf("too many windows: %v", err)
+	}
+	many := Settings{Version: 1, Discord: Discord{GuildID: guild}}
+	for i := range MaxSeedingRules + 1 {
+		r := htgSeeding()
+		r.Server = fmt.Sprintf("s%d", i)
+		many.Discord.Seeding = append(many.Discord.Seeding, r)
+	}
+	if err := many.Validate(); err == nil || !strings.Contains(err.Error(), "discord.seeding: 11 rules, at most 10") {
+		t.Errorf("too many rules: %v", err)
+	}
+	n := (Settings{Discord: Discord{GuildID: guild, Seeding: []SeedingRule{{Server: "s", Note: "  padded  ", Hours: []SeedingHours{}}}}}).Normalized()
+	if n.Discord.Seeding[0].Note != "padded" || n.Discord.Seeding[0].Hours != nil {
+		t.Errorf("normalized: %+v", n.Discord.Seeding[0])
+	}
+	if n := (Settings{Discord: Discord{Seeding: []SeedingRule{}}}).Normalized(); n.Discord.Seeding != nil || !n.Discord.IsZero() {
+		t.Errorf("no rules normalizes away: %+v", n.Discord)
+	}
+	if (Discord{Seeding: []SeedingRule{htgSeeding()}}).IsZero() {
+		t.Error("a seeding rule is a setting")
+	}
+}
+
+func TestSettingsSeedingManifest(t *testing.T) {
+	s, err := ParseManifest([]byte(`
+stats:
+  timezone: America/Chicago
+discord:
+  guild_id: "` + guild + `"
+  seeding:
+    - server: htg-wardogs-1
+      channel: "` + card + `"
+      role: "` + seeder + `"
+      below: 20
+      hours:
+        - {days: [wed, sat, sun], from: "18:00", to: "23:00"}
+      cooldown: 2h
+      call_at_start: true
+      note: Join from the server browser.
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(s.Discord.Seeding, []SeedingRule{htgSeeding()}) {
+		t.Errorf("manifest: %+v", s.Discord.Seeding)
+	}
+	out, err := s.Manifest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(out), "days: [wed, sat, sun]") {
+		t.Errorf("days print on one line:\n%s", out)
+	}
+	again, err := ParseManifest(out)
+	if err != nil || !reflect.DeepEqual(again, s) {
+		t.Errorf("round trip: %+v %v\n%s", again, err, out)
+	}
+	raw, err := json.Marshal(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored, err := ParseSettings(raw)
+	if err != nil || !reflect.DeepEqual(stored, s) {
+		t.Errorf("json round trip: %+v %v", stored, err)
+	}
+	if _, err := ParseManifest([]byte("discord:\n  seeding:\n    - server: s\n      threshold: 20\n")); err == nil || !strings.Contains(err.Error(), "threshold") {
+		t.Errorf("unknown keys are refused by name: %v", err)
+	}
+}
+
 func TestSettingsDiscordManifest(t *testing.T) {
 	s, err := ParseManifest([]byte(`
 discord:

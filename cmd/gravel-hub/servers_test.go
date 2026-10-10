@@ -46,6 +46,12 @@ func TestServersCheck(t *testing.T) {
 	if code, _, errOut := run("servers", "check", m); code != 1 || !strings.Contains(errOut, "field extra not found") {
 		t.Errorf("an unknown key: %d %q", code, errOut)
 	}
+	// The seeding section left the manifest in 0.8.0: refused with where the rule lives now.
+	writeFile(t, m, serversManifest("/run/secrets/x", "x")+"    seeding:\n      threshold: 20\n")
+	if code, out, errOut := run("servers", "check", m); code != 1 || out != "" ||
+		!strings.Contains(errOut, "servers[0].seeding (line 13): removed in gravel 0.8.0") || !strings.Contains(errOut, "discord.seeding") {
+		t.Errorf("a removed seeding section: %d %q", code, errOut)
+	}
 	for _, args := range [][]string{{"servers"}, {"servers", "check"}, {"servers", "check", m, m}, {"servers", "nope"}, {"servers", "apply"}} {
 		if code, _, _ := run(args...); code != 2 {
 			t.Errorf("%v: exit %d, want 2", args, code)

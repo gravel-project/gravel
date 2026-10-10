@@ -187,7 +187,7 @@ func hubDashboard() dashboard {
 func botDashboard() dashboard {
 	return dashboard{
 		UID: "gravel-bot", Title: "gravel bot", BuildInfo: "gravel_bot_build_info",
-		Description: "The gravel Discord bot: the gateway, interactions against Discord's three seconds, role sync, Linked Roles, the server cards and the Go runtime (gravel docs/bot.md, Observability).",
+		Description: "The gravel Discord bot: the gateway, interactions against Discord's three seconds, role sync, Linked Roles, the server cards, the mod log, seeding, the moderation command and the Go runtime (gravel docs/bot.md, Observability).",
 		Rows: []row{
 			{Title: "Overview", Panels: []panel{
 				{Title: "Up", Kind: "stat", Width: 3, Mappings: upMap, Thresholds: []step{{Color: "red"}, {Value: 1, Color: "green"}}, Targets: []target{{Expr: `up{` + sel + `}`, Legend: "{{instance}}"}}},
@@ -252,6 +252,20 @@ func botDashboard() dashboard {
 				{Title: "Mod log posts", Kind: "timeseries", Width: 18, Optional: "the mod log is off or nothing was moderated in the range",
 					Description: "posted: an audit-log entry copied to the channel; forbidden: the bot may not read or post there; error: Discord failed, retried at the next pass.",
 					Targets:     []target{{Expr: `sum by (result) (increase(gravel_bot_modlog_posts_total{` + sel + `}[$__rate_interval]))`, Legend: "{{result}}"}}},
+			}},
+			{Title: "Seeding", Panels: []panel{
+				{Title: "Seeding calls", Kind: "timeseries", Width: 6, Optional: "seeding is off or no call went out in the range",
+					Description: "posted: a call pinged the seeder role; forbidden: the bot may not post in the channel; error: Discord failed, retried at the next pass.",
+					Targets:     []target{{Expr: `sum by (server, result) (increase(gravel_bot_seeding_calls_total{` + sel + `}[$__rate_interval]))`, Legend: "{{server}} {{result}}"}}},
+				{Title: "Seeding sessions", Kind: "timeseries", Width: 6, Optional: "seeding is off or no session started or ended in the range",
+					Description: "started: a call opened a session; reached: the server reached its floor; window_closed: the window ended first.",
+					Targets:     []target{{Expr: `sum by (server, outcome) (increase(gravel_bot_seeding_sessions_total{` + sel + `}[$__rate_interval]))`, Legend: "{{server}} {{outcome}}"}}},
+				{Title: "Seeding time recorded", Kind: "timeseries", Unit: "s", Width: 6, Optional: "seeding is off or no session ended in the range",
+					Description: "The seconds of seeding recorded as participation when sessions ended, every player together; a duplicate (a retry, a restart) is not counted.",
+					Targets:     []target{{Expr: `sum by (server) (increase(gravel_bot_seeding_recorded_seconds_total{` + sel + `}[$__rate_interval]))`, Legend: "{{server}}"}}},
+				{Title: "Seeding record errors", Kind: "timeseries", Width: 6, Optional: "nothing failed to record in the range",
+					Description: "Failed attempts to record seeding minutes. They are retried every pass; an event the hub calls invalid is dropped alone and logged. A line that keeps rising is the hub away or the bot's app without participation:write.",
+					Targets:     []target{{Expr: `sum by (server) (increase(gravel_bot_seeding_record_errors_total{` + sel + `}[$__rate_interval]))`, Legend: "{{server}}"}}},
 			}},
 			{Title: "Moderation command", Panels: []panel{
 				{Title: "Moderation commands", Kind: "timeseries", Width: 24, Optional: "the moderation command is off or nobody used it in the range",

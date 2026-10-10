@@ -109,6 +109,12 @@ func (c *Client) ServerConfig() hubv1connect.ServerConfigServiceClient {
 	return hubv1connect.NewServerConfigServiceClient(c.http, c.cfg.URL)
 }
 
+// Stats is the StatsService client, authenticated as the app: the boards (stats:read while the
+// settings keep stats private) and RecordParticipation (the participation:write scope).
+func (c *Client) Stats() hubv1connect.StatsServiceClient {
+	return hubv1connect.NewStatsServiceClient(c.http, c.cfg.URL)
+}
+
 // Token returns a bearer token, fetching or refreshing one when needed.
 func (c *Client) Token(ctx context.Context) (string, error) {
 	c.mu.Lock()

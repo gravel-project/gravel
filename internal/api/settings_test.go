@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/proto"
 
 	hubv1 "github.com/gravel-project/gravel/gen/gravel/hub/v1"
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
@@ -28,7 +29,9 @@ func TestOrganizationSettings(t *testing.T) {
 		Discord: &hubv1.DiscordSettings{GuildId: "519496143298756611",
 			Roles:       &hubv1.DiscordRoles{Linked: "1300000000000000001", Providers: map[string]string{"steam": "1300000000000000002"}},
 			Recognition: []*hubv1.DiscordRecognition{{Role: "1300000000000000003", Rule: "first_members", Count: 50}},
-			ServerCards: []*hubv1.DiscordServerCard{{Server: "htg-wardogs-1", Channel: "1300000000000000100", Note: "Matches start at 20 players."}}, ModLog: "1300000000000000200"},
+			ServerCards: []*hubv1.DiscordServerCard{{Server: "htg-wardogs-1", Channel: "1300000000000000100", Note: "Matches start at 20 players."}}, ModLog: "1300000000000000200",
+			Seeding: []*hubv1.DiscordSeeding{{Server: "htg-wardogs-1", Channel: "1300000000000000101", Role: "1300000000000000004", Below: 20,
+				Hours: []*hubv1.DiscordSeedingHours{{Days: []string{"wed", "sat", "sun"}, From: "18:00", To: "23:00"}}, Cooldown: "2h", CallAtStart: true, Note: "Join from the server browser."}}},
 		Stats: &hubv1.StatsSettings{MinMatches: 5, Timezone: "America/Chicago", RawRetentionMonths: 6, Seasons: []*hubv1.StatsSeason{{Name: "Season 02", Game: "wardogs", From: "2026-10-15", To: "2027-01-15"}}},
 		Games: map[string]*hubv1.GameSettings{"wardogs": {
 			Theme: &hubv1.GameTheme{Light: &hubv1.ThemeTokens{Accent: "#8a5a00"}, Dark: &hubv1.ThemeTokens{Accent: "#f0b429"}, BannerUrl: "https://hiddentoken.com/brand/wardogs.png", BannerAlt: "War Dogs"},
@@ -70,6 +73,9 @@ func TestOrganizationSettings(t *testing.T) {
 		d.GetModLog() != "1300000000000000200" || len(d.GetServerCards()) != 1 || d.GetServerCards()[0].GetServer() != "htg-wardogs-1" || d.GetServerCards()[0].GetNote() != "Matches start at 20 players." {
 		t.Errorf("discord read back: %v", d)
 	}
+	if !proto.Equal(&hubv1.DiscordSettings{Seeding: d.GetSeeding()}, &hubv1.DiscordSettings{Seeding: want.GetDiscord().GetSeeding()}) {
+		t.Errorf("seeding read back: %v", d.GetSeeding())
+	}
 	if st := got.Msg.GetSettings().GetStats(); st.GetMinMatches() != 5 || st.GetRawRetentionMonths() != 6 || st.GetTimezone() != "America/Chicago" || len(st.GetSeasons()) != 1 || st.GetSeasons()[0].GetGame() != "wardogs" || st.GetPublic() {
 		t.Errorf("stats read back: %v", st)
 	}
@@ -83,14 +89,16 @@ func TestOrganizationSettings(t *testing.T) {
 	}
 
 	bad := &hubv1.OrganizationSettings{Theme: &hubv1.Theme{Light: &hubv1.ThemeTokens{Accent: "red; }"}, LogoUrl: "http://insecure.example/x.png"}, Nav: []*hubv1.NavLink{{Label: "", Url: "javascript:alert(1)", Placement: "sidebar"}},
-		Discord: &hubv1.DiscordSettings{Roles: &hubv1.DiscordRoles{Providers: map[string]string{"xbox": "1300000000000000002"}}},
+		Discord: &hubv1.DiscordSettings{Roles: &hubv1.DiscordRoles{Providers: map[string]string{"xbox": "1300000000000000002"}},
+			Seeding: []*hubv1.DiscordSeeding{{Server: "htg-wardogs-1", Channel: "1300000000000000101", Role: "1300000000000000004", Below: 1,
+				Hours: []*hubv1.DiscordSeedingHours{{Days: []string{"wed"}, From: "18:00", To: "18:00"}}}}},
 		Games: map[string]*hubv1.GameSettings{"wardogs": {Theme: &hubv1.GameTheme{Light: &hubv1.ThemeTokens{Background: "#fff"}}, Nav: []*hubv1.NavLink{{Label: "x", Url: "/x", Placement: "footer"}},
 			Maps: map[string]string{"Ozeti": "/o.jpg"}}}}
 	_, err = joClient.UpdateOrganizationSettings(ctx, connect.NewRequest(&hubv1.UpdateOrganizationSettingsRequest{Settings: bad}))
 	if connect.CodeOf(err) != connect.CodeInvalidArgument {
 		t.Fatalf("invalid: %v", err)
 	}
-	for _, want := range []string{"theme.light.accent", "theme.logo_url", "nav[0].label", "nav[0].url", "nav[0].placement", "discord.guild_id", "discord.roles.providers.xbox",
+	for _, want := range []string{"theme.light.accent", "theme.logo_url", "nav[0].label", "nav[0].url", "nav[0].placement", "discord.guild_id", "discord.roles.providers.xbox", "discord.seeding[0].below", "discord.seeding[0].hours[0]: from and to",
 		"games.wardogs.theme.light: a game overlays only the accent", "games.wardogs.nav[0].placement", "games.wardogs.maps.Ozeti"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("the error names %s: %v", want, err)

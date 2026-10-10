@@ -5,10 +5,8 @@ import (
 	"errors"
 	"log/slog"
 	"strings"
-	"time"
 
 	"connectrpc.com/connect"
-	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	hubv1 "github.com/gravel-project/gravel/gen/gravel/hub/v1"
@@ -139,13 +137,6 @@ func (s *ServerServer) lookup(ctx context.Context, id string) (servers.Server, e
 // server is the public view: never the endpoint or the credential file.
 func (s *ServerServer) server(srv servers.Server) *hubv1.Server {
 	p := &hubv1.Server{Id: srv.ID, Name: srv.Name, GameId: srv.Game, Location: srv.Location, Trust: srv.Trust}
-	if sd := srv.Seeding; sd != nil {
-		p.Seeding = &hubv1.Seeding{
-			Threshold: int32(sd.Threshold), //nolint:gosec // bounded by validation
-			Hours:     sd.Hours, Quiet: sd.Quiet, Timezone: sd.Timezone,
-			Cooldown: durationpb.New(time.Duration(sd.Cooldown)),
-		}
-	}
 	st := &hubv1.ServerStatus{State: servers.StateUnknown, RotationIndex: -1, NextRotationIndex: -1}
 	if o, ok := s.obs.Observation(srv.ID); ok {
 		st.State, st.Reachable, st.Build, st.Capabilities = o.State, o.Reachable, o.Build, o.Capabilities

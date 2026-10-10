@@ -12,10 +12,13 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	_ "time/tzdata" // stats.timezone resolves in a container with no zoneinfo
 	"unicode"
 	"unicode/utf8"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/gravel-project/gravel/discord/seedhours"
 )
 
 // SettingsVersion is the settings document format this build reads and writes.
@@ -186,6 +189,71 @@ type Discord struct {
 	// ModLog is the channel the bot posts every moderation action to (discord/modules/modlog):
 	// the hub's audit log, from the web and from Discord alike. Empty is none.
 	ModLog string `json:"mod_log,omitempty" yaml:"mod_log,omitempty"`
+	// Seeding are the seeding rules (discord/modules/seeding, ADR-0016): when the bot calls the
+	// seeder role to a server under its player floor, one rule per server.
+	Seeding []SeedingRule `json:"seeding,omitempty" yaml:"seeding,omitempty"`
+}
+
+// SeedingRule is when and where the bot calls for seeders for one server: inside one of its
+// weekly windows, while the server is live and under Below, at most once per Cooldown. Outside
+// every window nothing is posted, so a rule without hours never calls.
+type SeedingRule struct {
+	// Server is the server's id in the hub: "htg-wardogs-1".
+	Server string `json:"server" yaml:"server"`
+	// Channel is where the call is posted; Role is the opt-in seeder role it pings, and nothing
+	// else.
+	Channel string `json:"channel" yaml:"channel"`
+	Role    string `json:"role" yaml:"role"`
+	// Below is the player count under which a call is due: the game's own floor (War Dogs, 20).
+	Below int `json:"below" yaml:"below"`
+	// Hours are the weekly windows, in stats.timezone (UTC when unset).
+	Hours []SeedingHours `json:"hours,omitempty" yaml:"hours,omitempty"`
+	// Cooldown is the least time between two calls, a Go duration ("2h"); empty is
+	// DefaultSeedingCooldown.
+	Cooldown string `json:"cooldown,omitempty" yaml:"cooldown,omitempty"`
+	// CallAtStart makes each window's first call without waiting out a cooldown left from
+	// before the window: at the window's start, while the server is under Below.
+	CallAtStart bool `json:"call_at_start,omitempty" yaml:"call_at_start,omitempty"`
+	// Note is a line the host appends to the call: how to join.
+	Note string `json:"note,omitempty" yaml:"note,omitempty"`
+}
+
+// SeedingHours is one weekly window: the days it starts on (mon … sun) and the time of day from
+// and to ("18:00", "23:00"); a to before from ends the next day (discord/seedhours).
+type SeedingHours struct {
+	Days []string `json:"days" yaml:"days,flow"`
+	From string   `json:"from" yaml:"from"`
+	To   string   `json:"to" yaml:"to"`
+}
+
+// DefaultSeedingCooldown is a seeding rule's cooldown when it sets none.
+const DefaultSeedingCooldown = 2 * time.Hour
+
+// Seeding rules' bounds.
+const (
+	MaxSeedingRules    = 10
+	MinSeedingBelow    = 2
+	MaxSeedingBelow    = 1000
+	MinSeedingCooldown = 15 * time.Minute
+	MaxSeedingCooldown = 24 * time.Hour
+	MaxSeedingNote     = 200
+)
+
+// CooldownOrDefault is the rule's cooldown, DefaultSeedingCooldown when it sets none.
+func (r SeedingRule) CooldownOrDefault() time.Duration {
+	if d, err := time.ParseDuration(r.Cooldown); err == nil && r.Cooldown != "" {
+		return d
+	}
+	return DefaultSeedingCooldown
+}
+
+// Windows are the rule's hours as discord/seedhours reads them.
+func (r SeedingRule) Windows() []seedhours.Window {
+	out := make([]seedhours.Window, 0, len(r.Hours))
+	for _, h := range r.Hours {
+		out = append(out, seedhours.Window{Days: h.Days, From: h.From, To: h.To})
+	}
+	return out
 }
 
 // ServerCard places one server's status card in a channel of the guild.
@@ -223,7 +291,7 @@ var MappedProviders = []string{"discord", "steam"}
 
 // IsZero reports whether nothing is set.
 func (d Discord) IsZero() bool {
-	return d.GuildID == "" && d.Roles.IsZero() && len(d.Recognition) == 0 && len(d.ServerCards) == 0 && d.ModLog == ""
+	return d.GuildID == "" && d.Roles.IsZero() && len(d.Recognition) == 0 && len(d.ServerCards) == 0 && d.ModLog == "" && len(d.Seeding) == 0
 }
 
 // IsZero reports whether no role is mapped.
@@ -424,7 +492,7 @@ func validateDiscord(d Discord, bad func(string, ...any)) {
 		return
 	}
 	if d.GuildID == "" {
-		bad("discord.guild_id: required when roles are mapped or server cards placed")
+		bad("discord.guild_id: required when roles are mapped, server cards placed or seeding set")
 	} else if !snowflakeOK(d.GuildID) {
 		bad("discord.guild_id: %q is not a Discord id", d.GuildID)
 	}
@@ -489,6 +557,53 @@ func validateDiscord(d Discord, bad func(string, ...any)) {
 		note := strings.TrimSpace(c.Note)
 		if len([]rune(note)) > MaxCardNote || strings.ContainsFunc(note, unicode.IsControl) {
 			bad("%s.note: one line of at most %d characters", field, MaxCardNote)
+		}
+	}
+	validateSeeding(d, bad)
+}
+
+func validateSeeding(d Discord, bad func(string, ...any)) {
+	if len(d.Seeding) > MaxSeedingRules {
+		bad("discord.seeding: %d rules, at most %d", len(d.Seeding), MaxSeedingRules)
+	}
+	servers := map[string]int{}
+	for i, r := range d.Seeding {
+		field := fmt.Sprintf("discord.seeding[%d]", i)
+		if !serverID.MatchString(r.Server) {
+			bad("%s.server: %q is not a server id (lower-case letters, digits and hyphens)", field, r.Server)
+		} else if j, dup := servers[r.Server]; dup {
+			bad("%s.server: %q already has a rule (discord.seeding[%d])", field, r.Server, j)
+		} else {
+			servers[r.Server] = i
+		}
+		if !snowflakeOK(r.Channel) {
+			bad("%s.channel: %q is not a Discord id", field, r.Channel)
+		}
+		switch {
+		case !snowflakeOK(r.Role):
+			bad("%s.role: %q is not a Discord id", field, r.Role)
+		case r.Role == d.GuildID:
+			bad("%s.role: %q is the guild's @everyone role; a call pings only an opt-in role", field, r.Role)
+		}
+		if r.Below < MinSeedingBelow || r.Below > MaxSeedingBelow {
+			bad("%s.below: %d is not between %d and %d", field, r.Below, MinSeedingBelow, MaxSeedingBelow)
+		}
+		if r.Cooldown != "" {
+			cd, err := time.ParseDuration(r.Cooldown)
+			switch {
+			case err != nil:
+				bad("%s.cooldown: %q is not a duration (2h, 90m)", field, r.Cooldown)
+			case cd < MinSeedingCooldown || cd > MaxSeedingCooldown:
+				bad("%s.cooldown: %s is not between %s and %s", field, r.Cooldown, MinSeedingCooldown, MaxSeedingCooldown)
+			}
+		}
+		_, probs := seedhours.Parse(r.Windows())
+		for _, p := range probs {
+			bad("%s.hours%s: %s", field, p.Field, p.Reason)
+		}
+		note := strings.TrimSpace(r.Note)
+		if utf8.RuneCountInString(note) > MaxSeedingNote || strings.ContainsFunc(note, unicode.IsControl) {
+			bad("%s.note: one line of at most %d characters", field, MaxSeedingNote)
 		}
 	}
 }
@@ -613,6 +728,15 @@ func (s Settings) Normalized() Settings {
 	}
 	if len(s.Discord.ServerCards) == 0 {
 		s.Discord.ServerCards = nil
+	}
+	for i := range s.Discord.Seeding {
+		s.Discord.Seeding[i].Note = strings.TrimSpace(s.Discord.Seeding[i].Note)
+		if len(s.Discord.Seeding[i].Hours) == 0 {
+			s.Discord.Seeding[i].Hours = nil
+		}
+	}
+	if len(s.Discord.Seeding) == 0 {
+		s.Discord.Seeding = nil
 	}
 	if len(s.Games) == 0 {
 		s.Games = nil

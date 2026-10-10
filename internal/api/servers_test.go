@@ -31,8 +31,7 @@ func (r *rig) withServer(t *testing.T) time.Time {
 	m := servers.Manifest{
 		Games: []servers.GameRef{{ID: "wardogs"}},
 		Servers: []servers.Server{{ID: "wd-1", Name: "War Dogs #1", Game: "wardogs", Driver: "wardogs", Location: "slc",
-			Endpoint: endpoint, CredentialFile: credFile, Trust: servers.TrustOfficial,
-			Seeding: &servers.Seeding{Threshold: 20, Hours: "17:00-23:00", Timezone: "America/Chicago"}}},
+			Endpoint: endpoint, CredentialFile: credFile, Trust: servers.TrustOfficial}},
 	}
 	if _, err := r.srvs.Apply(context.Background(), m, servers.ApplyOptions{}); err != nil {
 		t.Fatal(err)
@@ -86,7 +85,7 @@ func TestServerReadsArePublicAndCarryNoControlDetails(t *testing.T) {
 	}
 	s := got.Msg.GetServer()
 	st := s.GetStatus()
-	if s.GetName() != "War Dogs #1" || s.GetTrust() != "official" || s.GetSeeding().GetThreshold() != 20 || s.GetSeeding().GetCooldown().AsDuration() != time.Hour {
+	if s.GetName() != "War Dogs #1" || s.GetTrust() != "official" || s.GetLocation() != "slc" {
 		t.Errorf("server = %v", s)
 	}
 	if st.GetState() != "ok" || !st.GetReachable() || !st.GetObservedAt().AsTime().Equal(at) || st.GetPlayers() != 2 || st.GetMaxPlayers() != 100 ||

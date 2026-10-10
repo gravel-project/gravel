@@ -49,6 +49,9 @@ mod_log:                         # the mod log, off by default (below); the chan
 server_cards:                    # the status cards; which server goes where is the Organization settings' discord section
   enabled: true
   interval: 15s                  # how often the cards are read and edited where they changed; at least 5s
+seeding:                         # seeding calls and minutes, off by default (below); the rules are the Organization settings' discord.seeding
+  enabled: false
+  interval: 30s                  # how often the rules are checked and, during a session, who is on is read; at least 10s
 server:
   listen: 127.0.0.1:8081         # /interactions, /healthz, /readyz; put TLS termination in front
   internal_listen: 127.0.0.1:9091   # /metrics; keep it off the public network
@@ -201,6 +204,95 @@ The bot's app needs **`servers:moderate`** (reading the audit log), and in the c
 Channel, Send Messages and Read Message History**. Metrics: `gravel_bot_modlog_posts_total{result}`
 (`posted`, `forbidden`, `error`) and `gravel_bot_modlog_last_success_timestamp_seconds`.
 
+### Seeding (`discord/modules/seeding`)
+
+Some games start a match only once enough players are on: War Dogs needs 20. An empty server stays
+empty unless people join it together, which is called seeding. The module calls an opt-in seeder
+role to a server under its floor during set hours, and records the time each player spent seeding
+as participation (ADR-0016).
+
+**Rules.** The Organization settings' `discord.seeding` (docs/hub.md, "Organization settings") has
+at most one rule per server, ten in all:
+
+- **where:** `server`, `channel` (where the call is posted) and `role` (the seeder role it pings);
+- **when:** `below` (the floor, 2 to 1000) and `hours`, weekly windows in the settings'
+  `stats.timezone` (UTC when unset), such as `{days: [wed, sat, sun], from: "18:00", to: "23:00"}`.
+  A `to` before `from` ends the next day. Times are wall-clock times in the zone, so a window keeps
+  its local hours across a daylight-saving change;
+- **how often:** `cooldown` (default 2h, 15m to 24h) and `call_at_start`;
+- `note`: a line appended to the call, such as how to join.
+
+Outside every window nothing is posted, and a rule without `hours` never calls: quiet is the
+default.
+
+**Calls.** Every `interval`, a pass reads the settings and `ListServers`. A call goes out for a
+server when all of these hold:
+
+- the current time is inside one of the rule's windows;
+- the server is live (`ok` and reachable);
+- it has fewer than `below` players;
+- no session is open;
+- the cooldown has run out since the last call.
+
+The call pings the rule's role and nothing else: allowed mentions name that role only, and a
+server's name is escaped. For example:
+
+```text
+@WD Seeder **HTG WARDOGS | NA WEST | #1** is at 7/20: join to get the match going.
+Join from the server browser: HTG WARDOGS.
+-# seeding htg-wardogs-1 · 1760482800 · open
+```
+
+With `call_at_start: true`, the first call of each window ignores any cooldown left over from
+before the window: at the window's start, while the server is under its floor. Without it, the
+cooldown runs across windows, so the option matters only when windows sit closer together than the
+cooldown. That call counts toward the cooldown like any other. A call Discord refuses or fails
+starts no cooldown and is tried again at the next pass.
+
+**Sessions.** A call opens a seeding session, which runs until the server reaches `below` or the
+window ends.
+
+- **Counting.** Each pass during a session reads who is on (`ListServerPlayers`). It credits every
+  player there with the time since the last pass, by their identity at the game's provider (a
+  SteamID64). That time is measured, at most twice the interval, so a stalled bot does not credit
+  the gap, and never past the window's end. A server that is not live, or a player list that cannot
+  be read, credits nothing for that pass.
+- **The end.** When the server reaches its floor, the call's message is edited to
+  `**…** started: 20/20 at <time>. Thanks for seeding!`. When the window ends first, it is edited to
+  `**…**: the seeding window closed at 12/20.`. An edit pings no one.
+- **Recording.** Each player with 60 seconds or more is recorded as one participation event
+  (`RecordParticipation`, docs/hub.md "Participation"):
+  - kind `seeding`;
+  - their identity, the `server_id`, `occurred_at` (the call's time) and their seconds;
+  - the key `seeding:<server>:<call unix time>:<provider>:<subject>`.
+
+  The hub keeps a key once, so a retry or a restart never counts twice. Seeders are counted by what
+  they did, not by holding the role. A recording that fails stays in memory and is retried every
+  pass. A batch the hub refuses as invalid is resent one event at a time, so the one event it
+  refuses is dropped alone and logged. The minutes appear on the participation board ("seeding")
+  and on profiles.
+
+**Restart.** The bot keeps no state in the hub. At start, and when a rule's channel changes, it
+reads the channel's 100 newest messages for the newest of its own calls for the server: the
+marker's server, start and state (`open`, `reached`, `closed`). The cooldown counts from that call.
+A call still `open` inside the window it was made in resumes its session, counting again from the
+restart. A call whose window has closed is edited to say so. So a restart loses the seeding time of
+the session counted so far, plus any recording not yet sent, and never posts a second call or any
+history. When a rule is removed or its channel changes, its open call is closed.
+
+The bot's app needs **`servers:read`** (who is on) **and `participation:write`** (the minutes):
+`gravel-hub apps create --name bot --scopes identity:read,servers:read,participation:write`. In the
+channel the bot needs **View Channel, Send Messages, Read Message History and Mention Everyone, or a
+role that members may mention**: Discord pings a role from a bot only when the role is mentionable or
+the bot may mention every role. A refusal is counted as `forbidden` and logged once. A server the
+hub does not list is logged once. A Discord or hub failure is logged once while it lasts and
+retried at the next pass. With no rule the module idles and says so once. Metrics:
+
+- `gravel_bot_seeding_calls_total{server,result}` (`posted`, `forbidden`, `error`);
+- `gravel_bot_seeding_sessions_total{server,outcome}` (`started`, `reached`, `window_closed`);
+- `gravel_bot_seeding_recorded_seconds_total{server}`;
+- `gravel_bot_seeding_record_errors_total{server}`.
+
 ### Moderation (`discord/modules/moderation`)
 
 The moderation slash command, `/<moderation.command>` (`/mod` by default), with a subcommand per
@@ -293,6 +385,10 @@ of them (ADR-0009, `deploy/README.md` "Dashboards").
 | `gravel_bot_linked_roles_schema_registered` | gauge | | 1 once the Linked Roles schema is on the application | Linked Roles off |
 | `gravel_bot_servercards_updates_total` | counter | `result` (`posted`, `edited`, `forbidden`, `error`) | card messages posted or edited, and the failures | server cards off, or until the first update |
 | `gravel_bot_servercards_last_success_timestamp_seconds` | gauge | | when the last pass brought every card up to date (an idle pass counts; an unknown server does not) | server cards off (0 until the first such pass) |
+| `gravel_bot_seeding_calls_total` | counter | `server`, `result` (`posted`, `forbidden`, `error`) | seeding calls posted, and the refusals and failures | seeding off, or until the first call |
+| `gravel_bot_seeding_sessions_total` | counter | `server`, `outcome` (`started`, `reached`, `window_closed`) | seeding sessions opened by a call and how they ended | seeding off, or until the first session |
+| `gravel_bot_seeding_recorded_seconds_total` | counter | `server` | seeding time recorded as participation, every player together (a duplicate not counted) | seeding off, or until the first recording |
+| `gravel_bot_seeding_record_errors_total` | counter | `server` | failed attempts to record seeding minutes (retried every pass; an invalid event is dropped) | seeding off, or until the first failure |
 
 ## Tests
 
@@ -306,5 +402,10 @@ identity log; Linked Roles against a fake metadata endpoint, idempotent and retr
 cards are tested as rendering (live, degraded, unobserved, escaped names) and as passes against a
 fake channel API and a fake hub: posted once, then edited in place only on a change, found again
 after a restart without a duplicate, posted again after a deletion, a forbidden channel and an
-unknown server counted, and no mention allowed. The gateway itself is disgo's and is not
+unknown server counted, and no mention allowed. Seeding is tested as its windows (weekdays in a
+zone, both daylight-saving changes, overnight, overlaps) and as passes on a fake clock against a
+fake channel API and a fake hub: calls only inside a window, the cooldown, `call_at_start`, the
+floor and the window's end editing the same message, per-player seconds, recording once with retries
+and an invalid event dropped alone, restarts that resume or close a call, and a call that pings only
+its role. The gateway itself is disgo's and is not
 driven in tests.

@@ -25,11 +25,6 @@ servers:
     endpoint: http://203.0.113.10:7789
     credential_file: /run/secrets/htg-wardogs-rcon-password
     trust: official
-    seeding:
-      threshold: 20
-      hours: "17:00-23:00"
-      quiet: "23:30-09:00"
-      timezone: America/Chicago
     feed:
       url: https://ingest.example.com
       token_file: /run/secrets/htg-wardogs-feed-token
@@ -59,6 +54,34 @@ func TestShippedSpecs(t *testing.T) {
 	}
 }
 
+// The seeding section left the manifest in 0.8.0 (ADR-0016): a manifest that still has one is
+// refused, naming each server's section by line and where the rule lives now.
+func TestRemovedSeedingSection(t *testing.T) {
+	old := strings.Replace(goodManifest, "    trust: official\n", "    trust: official\n    seeding:\n      threshold: 20\n      hours: \"17:00-23:00\"\n      timezone: America/Chicago\n", 1)
+	old += "  - id: htg-wardogs-2\n    name: Two\n    seeding: {threshold: 20}\n"
+	_, err := ParseManifest([]byte(old))
+	if !errors.Is(err, ErrInvalidManifest) {
+		t.Fatalf("want ErrInvalidManifest: %v", err)
+	}
+	for _, want := range []string{
+		"servers[0].seeding (line 18): removed in gravel 0.8.0: seeding rules are the Organization settings' discord.seeding now",
+		"servers[1].seeding (line 27)",
+		"ADR-0016",
+		"delete it here and set the rule there",
+	} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("the error should say %q:\n%v", want, err)
+		}
+	}
+	if strings.Contains(err.Error(), "not found in type") {
+		t.Errorf("the decoder's bare error is not what a host sees: %v", err)
+	}
+	// Any other unknown key is still the strict decoder's.
+	if _, err := ParseManifest([]byte(strings.Replace(goodManifest, "    trust: official\n", "    trust: official\n    threshold: 20\n", 1))); err == nil || !strings.Contains(err.Error(), "threshold") {
+		t.Errorf("unknown key: %v", err)
+	}
+}
+
 func TestParseManifestAndDefaults(t *testing.T) {
 	m, err := ParseManifest([]byte(goodManifest))
 	if err != nil {
@@ -68,8 +91,8 @@ func TestParseManifestAndDefaults(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := m.Servers[0]
-	if time.Duration(s.PollInterval) != DefaultPollInterval || time.Duration(s.Seeding.Cooldown) != DefaultCooldown {
-		t.Errorf("defaults = %s, %s", s.PollInterval, s.Seeding.Cooldown)
+	if time.Duration(s.PollInterval) != DefaultPollInterval {
+		t.Errorf("default poll interval = %s", s.PollInterval)
 	}
 	// Marshal and parse again: the same manifest.
 	out, err := m.Marshal()
@@ -84,7 +107,7 @@ func TestParseManifestAndDefaults(t *testing.T) {
 	if string(out) != string(out2) {
 		t.Errorf("round trip changed the manifest:\n%s\n---\n%s", out, out2)
 	}
-	if !strings.Contains(string(out), "poll_interval: 15s") || !strings.Contains(string(out), "cooldown: 1h0m0s") {
+	if !strings.Contains(string(out), "poll_interval: 15s") {
 		t.Errorf("durations are not written as strings:\n%s", out)
 	}
 	if _, err := ParseManifest([]byte(goodManifest + "    extra: 1\n")); err == nil {
@@ -161,11 +184,6 @@ func TestValidate(t *testing.T) {
 		{"credential unclean", func(m *Manifest) { m.Servers[0].CredentialFile = "/run/secrets/../etc/x" }, "servers[0].credential_file"},
 		{"poll too fast", func(m *Manifest) { m.Servers[0].PollInterval = Duration(time.Second) }, "servers[0].poll_interval: 1s is outside"},
 		{"trust", func(m *Manifest) { m.Servers[0].Trust = "" }, "servers[0].trust"},
-		{"seeding threshold", func(m *Manifest) { m.Servers[0].Seeding.Threshold = 0 }, "seeding.threshold"},
-		{"seeding hours", func(m *Manifest) { m.Servers[0].Seeding.Hours = "5pm-11pm" }, "seeding.hours"},
-		{"seeding quiet", func(m *Manifest) { m.Servers[0].Seeding.Quiet = "24:00-01:00" }, "seeding.quiet"},
-		{"seeding zone", func(m *Manifest) { m.Servers[0].Seeding.Timezone = "Central" }, `seeding.timezone: "Central"`},
-		{"seeding cooldown", func(m *Manifest) { m.Servers[0].Seeding.Cooldown = Duration(time.Second) }, "seeding.cooldown"},
 		{"feed url path", func(m *Manifest) { m.Servers[0].Feed.URL = "https://ingest.example.com/api/ingest/events" }, "servers[0].feed.url"},
 		{"feed url scheme", func(m *Manifest) { m.Servers[0].Feed.URL = "ingest.example.com" }, "servers[0].feed.url"},
 		{"feed token relative", func(m *Manifest) { m.Servers[0].Feed.TokenFile = "feed.txt" }, "servers[0].feed.token_file"},

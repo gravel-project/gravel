@@ -90,13 +90,18 @@ func TestConfigCheck(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("config check: %d %s", code, errOut)
 	}
-	for _, want := range []string{"config ok", "role sync every 10m0s, poll 30s, dry run", "linked roles false", "server cards every 15s", "token from discord.token", "modules core, rolesync, servercards, rules"} {
+	for _, want := range []string{"config ok", "role sync every 10m0s, poll 30s, dry run", "linked roles false", "server cards every 15s", "seeding off", "token from discord.token", "modules core, rolesync, servercards, rules"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("config check should say %q: %s", want, out)
 		}
 	}
 	if strings.Contains(out, "tok,") || strings.Contains(out, "sec,") {
 		t.Errorf("config check prints no secret: %s", out)
+	}
+
+	path = writeConfig(t, botYAML+"seeding:\n  enabled: true\n")
+	if code, out, errOut := run(host(), "config", "check", "--config", path); code != 0 || !strings.Contains(out, "seeding every 30s") || !strings.Contains(out, "modules core, rolesync, linkedroles, servercards, seeding, rules") {
+		t.Errorf("seeding on: %d %s %s", code, out, errOut)
 	}
 
 	path = writeConfig(t, botYAML+"role_sync:\n  interval: 10s\n")
