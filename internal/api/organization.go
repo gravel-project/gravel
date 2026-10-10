@@ -115,6 +115,7 @@ func settingsToProto(set org.Settings, at time.Time) *hubv1.OrganizationSettings
 		for _, l := range g.Nav {
 			pg.Nav = append(pg.Nav, &hubv1.NavLink{Label: l.Label, Url: l.URL, Placement: l.Placement, Role: l.Role})
 		}
+		pg.Maps, pg.MapFallback = g.Maps, g.MapFallback
 		p.Games[id] = pg
 	}
 	if !at.IsZero() {
@@ -160,6 +161,7 @@ func settingsFromProto(p *hubv1.OrganizationSettings) org.Settings {
 		for _, l := range g.GetNav() {
 			og.Nav = append(og.Nav, org.NavLink{Label: l.GetLabel(), URL: l.GetUrl(), Placement: l.GetPlacement(), Role: l.GetRole()})
 		}
+		og.Maps, og.MapFallback = g.GetMaps(), g.GetMapFallback()
 		set.Games[id] = og
 	}
 	return set

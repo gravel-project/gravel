@@ -206,6 +206,12 @@ func describeGames(games map[string]org.GameSettings) string {
 		if n := len(g.Nav); n > 0 {
 			what = append(what, fmt.Sprintf("%d links", n))
 		}
+		if n := len(g.Maps); n > 0 {
+			what = append(what, fmt.Sprintf("%d maps", n))
+		}
+		if g.MapFallback != "" {
+			what = append(what, "map fallback")
+		}
 		parts = append(parts, id+" ("+strings.Join(what, ", ")+")")
 	}
 	return strings.Join(parts, ", ")

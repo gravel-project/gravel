@@ -140,6 +140,7 @@ every page works without it):
 | `POST /auth/logout` | this session (`Logout`), or every session with `everywhere=1` (`RevokeSessions`) |
 | `POST /account/unlink`, `POST /account/claim` | forms; every POST carries the session's CSRF token in `_csrf`; with `HX-Request: true` the answer is the page's content, else a redirect |
 | `GET /theme.css` | the theme's tokens as custom properties, with an ETag |
+| `GET /static/map-placeholder.png` | gravel's generic map picture (1280×720, no text), for a server card's map without an image of its own |
 | `GET /static/app.css`, `GET /static/vendor/htmx.min.js` | the stylesheet and htmx |
 
 The pages send `Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self';
@@ -234,6 +235,10 @@ games:                       # a game's overlay on its pages, by game id; at mos
       - label: Server config
         url: /servers/htg-wardogs-1
         role: owner
+    maps:                    # the server card's picture by map name as the game spells it; https only; at most 50
+      Ozeti: https://example.com/games/wardogs/maps/ozeti.jpg       # a level in play
+      Europe: https://example.com/games/wardogs/maps/europe.jpg     # a theatre, for a level without its own
+    map_fallback: https://example.com/games/wardogs/maps/default.jpg  # any other map; omit for gravel's placeholder
 ```
 
 ```sh
@@ -287,6 +292,14 @@ A key under `games`, and a season's `game`, must be a game this hub ships (`ward
 `seaofthieves`, `starcitizen`, `pubg`): `apply`, `check` and `UpdateOrganizationSettings` refuse
 any other, so a typo can't theme nothing or count a season over no matches. A game that sets
 nothing is dropped from the document.
+
+`maps` and `map_fallback` are the Discord server card's picture of the map in play (docs/bot.md
+"Server cards"): keys as the game names a map (War Dogs: a level such as `Ozeti`, or a rotation
+theatre such as `Europe`), values https URLs, since Discord fetches them itself. A game with either
+set gets a picture for every map: its own, else the fallback, else gravel's generic placeholder
+(`/static/map-placeholder.png` on the hub). The War Dogs driver adds the rotation's current and next
+map to the status (`ServerStatus.rotation_map`, `next_rotation_map`), read at most once a minute;
+the server page shows the next one.
 
 ## Service credentials (ADR-0008)
 
@@ -596,7 +609,7 @@ is the API's to decide, and a page says so in words when it is refused.
 | Page | Shows | Who sees what |
 |---|---|---|
 | `/servers` (also `/`) | every server: name, game, trust, state (Online, Offline, Checking, Unavailable), players and map | everyone |
-| `/servers/{id}` | the status with the team scores and when it was observed, who is on (in-game name, team, kills, deaths, ping, a member badge), the last 10 matches, a link to the server's board | the status: everyone; who is on: members and the owner ("Log in to see who's on" otherwise); matches: as the boards |
+| `/servers/{id}` | the status with the team scores, the next map in the rotation and when it was observed, who is on (in-game name, team, kills, deaths, ping, a member badge), the last 10 matches, a link to the server's board | the status: everyone; who is on: members and the owner ("Log in to see who's on" otherwise); matches: as the boards |
 | `/members/{id}` (`/profile` is yours) | a member's totals over all time, this week, this month and each season running now (Official servers, every linked account), their 20 most recent matches on any server, and on your own profile the switch that shows your name on leaderboards (`SetBoardName`) | the member, the owner and apps with `stats:read`; anyone when the member shows their name and `stats.public` is on; otherwise "no such profile", so a page never says who plays under a pseudonym. A named member on a board links here |
 | `/servers/{id}`, for the owner and moderators | per player in "Who's on": kick, ban or message, with a reason or the message; a Moderation section with a broadcast, a ban by SteamID64 for a player who isn't on, the ban list with unban, and the log link. A control shows only when the server's driver offers it (its capabilities). Every action goes through a confirmation page (`POST /servers/{id}/moderate`) that says exactly what will be sent, and is recorded in the audit log with the moderator's name | the owner and moderators ([Roles](#roles-adr-0013)) |
 | `/servers/{id}/log` | the server's moderation log, newest first: when, who (a member's name, or an app and who it acted for), the action, the player, the reason or message, the result | the owner and moderators |

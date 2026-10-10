@@ -453,3 +453,57 @@ func TestSettingsServiceChecksGames(t *testing.T) {
 		t.Errorf("stored: %+v", stored.Games)
 	}
 }
+
+func TestSettingsValidateGameMaps(t *testing.T) {
+	good := Settings{Version: 1, Games: map[string]GameSettings{"wardogs": {
+		Maps:        map[string]string{"Ozeti": "https://hiddentoken.com/games/wardogs/maps/ozeti.jpg", "NorthAmerica": "https://cdn.example/na.png"},
+		MapFallback: "https://hiddentoken.com/games/wardogs/maps/default.jpg"}}}
+	if err := good.Validate(); err != nil {
+		t.Fatalf("good maps: %v", err)
+	}
+	if good.Games["wardogs"].IsZero() || (GameSettings{MapFallback: "https://x.example/f.png"}).IsZero() {
+		t.Error("maps or a fallback alone are settings")
+	}
+	many := map[string]string{}
+	for i := range MaxGameMaps + 1 {
+		many[fmt.Sprintf("Map%d", i)] = "https://x.example/m.png"
+	}
+	bad := Settings{Version: 1, Games: map[string]GameSettings{
+		"wardogs": {Maps: map[string]string{
+			"Ozeti":                 "/games/wardogs/ozeti.jpg", // site-relative: Discord can't fetch it
+			"Bakurani":              "http://insecure.example/b.jpg",
+			" Padded":               "https://x.example/p.png",
+			"":                      "https://x.example/e.png",
+			strings.Repeat("m", 65): "https://x.example/l.png",
+		}, MapFallback: "javascript:alert(1)"},
+		"cs2": {Maps: many},
+	}}
+	err := bad.Validate()
+	for _, want := range []string{
+		`games.wardogs.maps.Ozeti: "/games/wardogs/ozeti.jpg" must be an https URL`,
+		`games.wardogs.maps.Bakurani: "http://insecure.example/b.jpg" must be an https URL`,
+		`games.wardogs.maps: " Padded" is not a map name`,
+		`games.wardogs.maps: "" is not a map name`,
+		`games.wardogs.maps: "mmmm`,
+		`games.wardogs.map_fallback: "javascript:alert(1)" must be an https URL`,
+		"games.cs2.maps: 51 maps, at most 50",
+	} {
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("missing %q in:\n%v", want, err)
+		}
+	}
+	s, err := ParseManifest([]byte("games:\n  wardogs:\n    maps:\n      Ozeti: https://x.example/o.jpg\n    map_fallback: https://x.example/f.jpg\n  cs2:\n    maps: {}\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w := s.Games["wardogs"]; w.Maps["Ozeti"] != "https://x.example/o.jpg" || w.MapFallback != "https://x.example/f.jpg" {
+		t.Errorf("parsed: %+v", w)
+	}
+	if _, ok := s.Games["cs2"]; ok {
+		t.Error("an empty maps section is no setting")
+	}
+	out, _ := s.Manifest()
+	if again, err := ParseManifest(out); err != nil || !reflect.DeepEqual(again.Games, s.Games) {
+		t.Errorf("round trip: %+v %v\n%s", again.Games, err, out)
+	}
+}

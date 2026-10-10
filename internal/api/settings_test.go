@@ -32,7 +32,8 @@ func TestOrganizationSettings(t *testing.T) {
 		Stats: &hubv1.StatsSettings{MinMatches: 5, Timezone: "America/Chicago", RawRetentionMonths: 6, Seasons: []*hubv1.StatsSeason{{Name: "Season 02", Game: "wardogs", From: "2026-10-15", To: "2027-01-15"}}},
 		Games: map[string]*hubv1.GameSettings{"wardogs": {
 			Theme: &hubv1.GameTheme{Light: &hubv1.ThemeTokens{Accent: "#8a5a00"}, Dark: &hubv1.ThemeTokens{Accent: "#f0b429"}, BannerUrl: "https://hiddentoken.com/brand/wardogs.png", BannerAlt: "War Dogs"},
-			Nav:   []*hubv1.NavLink{{Label: "Playbook", Url: "https://hiddentoken.com/wardogs/"}, {Label: "Config", Url: "/servers/htg-wardogs-1", Role: "owner"}}}},
+			Nav:   []*hubv1.NavLink{{Label: "Playbook", Url: "https://hiddentoken.com/wardogs/"}, {Label: "Config", Url: "/servers/htg-wardogs-1", Role: "owner"}},
+			Maps:  map[string]string{"Ozeti": "https://hiddentoken.com/games/wardogs/maps/ozeti.jpg"}, MapFallback: "https://hiddentoken.com/games/wardogs/maps/default.jpg"}},
 	}
 	if _, err := anon.UpdateOrganizationSettings(ctx, connect.NewRequest(&hubv1.UpdateOrganizationSettingsRequest{Settings: want})); connect.CodeOf(err) != connect.CodeUnauthenticated {
 		t.Errorf("anonymous update: %v", err)
@@ -76,19 +77,21 @@ func TestOrganizationSettings(t *testing.T) {
 	// The games are public too: the pages read them anonymously.
 	if g := got.Msg.GetSettings().GetGames()["wardogs"]; len(got.Msg.GetSettings().GetGames()) != 1 || g.GetTheme().GetLight().GetAccent() != "#8a5a00" || g.GetTheme().GetDark().GetAccent() != "#f0b429" ||
 		g.GetTheme().GetBannerUrl() != "https://hiddentoken.com/brand/wardogs.png" || g.GetTheme().GetBannerAlt() != "War Dogs" ||
-		len(g.GetNav()) != 2 || g.GetNav()[1].GetRole() != "owner" || g.GetNav()[0].GetPlacement() != "" {
+		len(g.GetNav()) != 2 || g.GetNav()[1].GetRole() != "owner" || g.GetNav()[0].GetPlacement() != "" ||
+		g.GetMaps()["Ozeti"] != "https://hiddentoken.com/games/wardogs/maps/ozeti.jpg" || g.GetMapFallback() != "https://hiddentoken.com/games/wardogs/maps/default.jpg" {
 		t.Errorf("games read back: %v", got.Msg.GetSettings().GetGames())
 	}
 
 	bad := &hubv1.OrganizationSettings{Theme: &hubv1.Theme{Light: &hubv1.ThemeTokens{Accent: "red; }"}, LogoUrl: "http://insecure.example/x.png"}, Nav: []*hubv1.NavLink{{Label: "", Url: "javascript:alert(1)", Placement: "sidebar"}},
 		Discord: &hubv1.DiscordSettings{Roles: &hubv1.DiscordRoles{Providers: map[string]string{"xbox": "1300000000000000002"}}},
-		Games:   map[string]*hubv1.GameSettings{"wardogs": {Theme: &hubv1.GameTheme{Light: &hubv1.ThemeTokens{Background: "#fff"}}, Nav: []*hubv1.NavLink{{Label: "x", Url: "/x", Placement: "footer"}}}}}
+		Games: map[string]*hubv1.GameSettings{"wardogs": {Theme: &hubv1.GameTheme{Light: &hubv1.ThemeTokens{Background: "#fff"}}, Nav: []*hubv1.NavLink{{Label: "x", Url: "/x", Placement: "footer"}},
+			Maps: map[string]string{"Ozeti": "/o.jpg"}}}}
 	_, err = joClient.UpdateOrganizationSettings(ctx, connect.NewRequest(&hubv1.UpdateOrganizationSettingsRequest{Settings: bad}))
 	if connect.CodeOf(err) != connect.CodeInvalidArgument {
 		t.Fatalf("invalid: %v", err)
 	}
 	for _, want := range []string{"theme.light.accent", "theme.logo_url", "nav[0].label", "nav[0].url", "nav[0].placement", "discord.guild_id", "discord.roles.providers.xbox",
-		"games.wardogs.theme.light: a game overlays only the accent", "games.wardogs.nav[0].placement"} {
+		"games.wardogs.theme.light: a game overlays only the accent", "games.wardogs.nav[0].placement", "games.wardogs.maps.Ozeti"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("the error names %s: %v", want, err)
 		}

@@ -28,7 +28,7 @@ func Modules(cfg bot.Config, hub *hubclient.Client) []bot.Module {
 		mods = append(mods, linkedroles.New())
 	}
 	if cfg.ServerCards.Enabled {
-		mods = append(mods, servercards.New(hub, servercards.Config{Interval: cfg.ServerCards.Interval}))
+		mods = append(mods, servercards.New(hub, servercards.Config{Interval: cfg.ServerCards.Interval, Placeholder: servercards.PlaceholderURL(cfg.Hub.PublicURL)}))
 	}
 	if cfg.Moderation.Enabled {
 		account := ""

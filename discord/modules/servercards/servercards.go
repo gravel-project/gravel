@@ -12,6 +12,7 @@
 package servercards
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -38,6 +39,22 @@ import (
 type Config struct {
 	// Interval is the time between passes.
 	Interval time.Duration
+	// Placeholder is gravel's generic map image on the hub (https), for a game with map images
+	// whose map has none and no map_fallback; empty shows no image then.
+	Placeholder string
+}
+
+// PlaceholderPath is where the hub serves gravel's generic map image, under its public URL.
+const PlaceholderPath = "/static/map-placeholder.png"
+
+// PlaceholderURL is the placeholder's URL on a hub whose public URL is publicURL. Discord fetches
+// the image itself, so only a public https hub can serve it: empty otherwise.
+func PlaceholderURL(publicURL string) string {
+	pub := strings.TrimSuffix(publicURL, "/")
+	if !strings.HasPrefix(pub, "https://") || len(pub) == len("https://") {
+		return ""
+	}
+	return pub + PlaceholderPath
 }
 
 // Discord is the part of Discord's REST API the cards use; the runtime's client is one.
@@ -197,9 +214,17 @@ func (m *Module) Pass(ctx context.Context) (Result, error) {
 	for _, s := range list.Msg.GetServers() {
 		servers[s.GetId()] = s
 	}
+	games := set.Msg.GetSettings().GetGames()
 	res := Result{Cards: len(placed)}
 	for _, p := range placed {
-		m.update(ctx, p, servers[p.key.server], &res)
+		s := servers[p.key.server]
+		c := Card{Note: p.note}
+		// Images only for a game that has them: a map without one gets the game's fallback, else
+		// the hub's placeholder, so the card keeps its shape.
+		if g := games[s.GetGameId()]; len(g.GetMaps()) > 0 || g.GetMapFallback() != "" {
+			c.Maps, c.Fallback = g.GetMaps(), cmp.Or(g.GetMapFallback(), m.cfg.Placeholder)
+		}
+		m.update(ctx, p, s, c, &res)
 	}
 	if res.Failed+res.Forbidden+res.Unknown == 0 {
 		m.lastPassOK.SetToCurrentTime()
@@ -228,7 +253,7 @@ func placementsFrom(d *hubv1.DiscordSettings) ([]placement, error) {
 }
 
 // update brings one card up to date: find or post its message, edit it when the card changed.
-func (m *Module) update(ctx context.Context, p placement, s *hubv1.Server, res *Result) {
+func (m *Module) update(ctx context.Context, p placement, s *hubv1.Server, view Card, res *Result) {
 	m.mu.Lock()
 	c, ok := m.cards[p.key]
 	if !ok {
@@ -242,7 +267,7 @@ func (m *Module) update(ctx context.Context, p placement, s *hubv1.Server, res *
 		m.fail(ctx, p.key, c, "unknown", "server cards: the hub lists no such server; check discord.server_cards", nil)
 		return
 	}
-	components := Render(s, p.note)
+	components := RenderCard(s, view)
 	rendered, err := json.Marshal(components)
 	if err != nil {
 		res.Failed++
@@ -381,9 +406,28 @@ func CardServer(components []discord.LayoutComponent) string {
 	return ""
 }
 
-// Render is a server's card: one container with the name, the numbers or the degraded state,
-// the host's note, and a footer naming the server. A field the game does not report is left out.
+// Render is a server's card with the host's note and no map images: RenderCard with only Note.
 func Render(s *hubv1.Server, note string) []discord.LayoutComponent {
+	return RenderCard(s, Card{Note: note})
+}
+
+// Card is what a card shows besides the server's status: the host's note from the settings'
+// server card, and the game's map images from the settings' games.<id>.maps.
+type Card struct {
+	Note string
+	// Maps are image URLs by map name as the game names it: the level in play first, else the
+	// rotation's current map (War Dogs: "Ozeti", else "Europe").
+	Maps map[string]string
+	// Fallback is the image when Maps names neither; empty shows none.
+	Fallback string
+}
+
+// RenderCard is a server's card: one container with the name, the current map's image while the
+// server is live, the numbers and the next map or the degraded state, the host's note, and a
+// footer naming the server. A field the game does not report is left out. The image's URL is part
+// of the card, so a map change is one edit like any other.
+func RenderCard(s *hubv1.Server, c Card) []discord.LayoutComponent {
+	note := c.Note
 	st := s.GetStatus()
 	var observed int64
 	if t := st.GetObservedAt(); t != nil && t.IsValid() {
@@ -394,9 +438,15 @@ func Render(s *hubv1.Server, note string) []discord.LayoutComponent {
 	switch {
 	case st.GetState() == "ok" && st.GetReachable():
 		colour = colourLive
+		if name, url := mapImage(st, c.Maps, c.Fallback); url != "" {
+			parts = append(parts, discord.NewMediaGallery(discord.MediaGalleryItem{Media: discord.UnfurledMediaItem{URL: url}, Description: name}))
+		}
 		parts = append(parts, discord.NewTextDisplay(liveLine(st)))
 		if teams := teamLine(st.GetTeams()); teams != "" {
 			parts = append(parts, discord.NewTextDisplay(teams))
+		}
+		if next := plain(st.GetNextRotationMap()); next != "" {
+			parts = append(parts, discord.NewTextDisplay("Next: "+next))
 		}
 		footer = "Live"
 		if observed > 0 {
@@ -424,6 +474,21 @@ func Render(s *hubv1.Server, note string) []discord.LayoutComponent {
 	box := discord.NewContainer(parts...)
 	box.AccentColor = colour
 	return []discord.LayoutComponent{box}
+}
+
+// mapImage is the image for the level in play, else for the rotation's current map, else the
+// fallback, with the name it shows for (the image's description, the level's when there is one);
+// empty when there is none.
+func mapImage(st *hubv1.ServerStatus, images map[string]string, fallback string) (name, url string) {
+	for _, n := range []string{st.GetMap(), st.GetRotationMap()} {
+		if u := images[n]; n != "" && strings.HasPrefix(u, "https://") {
+			return n, u
+		}
+	}
+	if strings.HasPrefix(fallback, "https://") {
+		return cmp.Or(st.GetMap(), st.GetRotationMap()), fallback
+	}
+	return "", ""
 }
 
 func liveLine(st *hubv1.ServerStatus) string {

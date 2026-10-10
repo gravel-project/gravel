@@ -1997,6 +1997,21 @@ components:
           description: |-
             Links shown on the game's pages, in the game's own navigation; at most 6. placement is
              unused and must be empty.
+        maps:
+          type: object
+          title: maps
+          additionalProperties:
+            type: string
+            title: value
+          description: |-
+            Image URLs (https) by map name as the game names it, a map in play or in its rotation
+             (War Dogs: "Ozeti", "Europe"): the server card's picture. At most 50.
+        mapFallback:
+          type: string
+          title: map_fallback
+          description: |-
+            The image (https) for a map maps doesn't name; empty is gravel's generic placeholder, served
+             by the hub, once the game has map images at all (maps or map_fallback set).
       title: GameSettings
       additionalProperties: false
       description: |-
@@ -3031,6 +3046,15 @@ components:
           type: integer
           title: next_rotation_index
           format: int32
+        rotationMap:
+          type: string
+          title: rotation_map
+          description: |-
+            The rotation's current and next map as the game names them in its rotation and catalog (War
+             Dogs: the theatre, "Europe", where map is the level in play); empty when unknown.
+        nextRotationMap:
+          type: string
+          title: next_rotation_map
       title: ServerStatus
       additionalProperties: false
       description: ServerStatus is the hub's last observation of a server. It carries no personal data.

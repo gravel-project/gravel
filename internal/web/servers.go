@@ -130,7 +130,7 @@ func (h *Handler) server(w http.ResponseWriter, r *http.Request) {
 	}
 	row := serverRow(s, games)
 	withGame(&p.Page, s.GetGameId(), row.Game)
-	sp := templates.ServerPage{Page: p.Page, Server: row, Build: s.GetStatus().GetBuild(),
+	sp := templates.ServerPage{Page: p.Page, Server: row, Build: s.GetStatus().GetBuild(), NextMap: s.GetStatus().GetNextRotationMap(),
 		BoardURL: "/boards?scope=" + url.QueryEscape("server:"+s.GetId())}
 	if t := s.GetStatus().GetObservedAt(); t != nil {
 		at := t.AsTime()

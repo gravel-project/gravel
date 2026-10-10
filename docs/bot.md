@@ -157,6 +157,17 @@ channel's 100 newest messages for its own card (its author, Components V2, the s
 footer). It edits that card and posts a new one only when none is there. A card's message pings
 no one, whatever a name or the note says.
 
+**The map.** While the server is live, a card shows the current map's picture, full width under
+the name, and a "Next: <map>" line after the score when the game reports its rotation. The picture
+comes from the Organization settings' `games.<id>.maps` (docs/hub.md): the image for the level in
+play (War Dogs: `Ozeti`), else for the rotation's current map (the theatre, `Europe`), else the
+game's `map_fallback`, else gravel's generic placeholder, which the hub serves at
+`/static/map-placeholder.png` under `hub.public_url` (only an https hub: Discord fetches the image
+itself). A game with neither `maps` nor `map_fallback` gets no picture, so a host opts in. The
+picture's URL is part of the card, so a map change is one edit; a degraded card shows no map at
+all. The War Dogs driver reads the rotation at most once a minute: the status names only its
+positions.
+
 In each card's channel the bot needs **View Channel, Send Messages and Read Message History**.
 A refusal is counted as `forbidden` and logged once. A server the hub does not list is logged
 once. A Discord or hub failure is logged once while it lasts and retried at the next pass. With

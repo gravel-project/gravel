@@ -74,6 +74,10 @@ type Status struct {
 	// RotationIndex and NextRotationIndex are the map rotation's position; -1 when unknown.
 	RotationIndex     int
 	NextRotationIndex int
+	// RotationMap and NextRotationMap are the rotation's current and next map as the game names
+	// them in its rotation (War Dogs: the theatre, where Map is the level); empty when unknown.
+	RotationMap     string
+	NextRotationMap string
 }
 
 // TeamScore is one team's (faction's) score.

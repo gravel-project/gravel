@@ -424,8 +424,12 @@ type ServerStatus struct {
 	// The map rotation's position; -1 when unknown.
 	RotationIndex     int32 `protobuf:"varint,13,opt,name=rotation_index,json=rotationIndex,proto3" json:"rotation_index,omitempty"`
 	NextRotationIndex int32 `protobuf:"varint,14,opt,name=next_rotation_index,json=nextRotationIndex,proto3" json:"next_rotation_index,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// The rotation's current and next map as the game names them in its rotation and catalog (War
+	// Dogs: the theatre, "Europe", where map is the level in play); empty when unknown.
+	RotationMap     string `protobuf:"bytes,15,opt,name=rotation_map,json=rotationMap,proto3" json:"rotation_map,omitempty"`
+	NextRotationMap string `protobuf:"bytes,16,opt,name=next_rotation_map,json=nextRotationMap,proto3" json:"next_rotation_map,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *ServerStatus) Reset() {
@@ -554,6 +558,20 @@ func (x *ServerStatus) GetNextRotationIndex() int32 {
 		return x.NextRotationIndex
 	}
 	return 0
+}
+
+func (x *ServerStatus) GetRotationMap() string {
+	if x != nil {
+		return x.RotationMap
+	}
+	return ""
+}
+
+func (x *ServerStatus) GetNextRotationMap() string {
+	if x != nil {
+		return x.NextRotationMap
+	}
+	return ""
 }
 
 // Server is a server a driver controls (ManagedServer), as the public sees it: never its control
@@ -1139,7 +1157,7 @@ const file_gravel_hub_v1_servers_proto_rawDesc = "" +
 	"\tTeamScore\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05color\x18\x02 \x01(\tR\x05color\x12\x14\n" +
-	"\x05score\x18\x03 \x01(\x03R\x05score\"\xea\x03\n" +
+	"\x05score\x18\x03 \x01(\x03R\x05score\"\xb9\x04\n" +
 	"\fServerStatus\x12\x14\n" +
 	"\x05state\x18\x01 \x01(\tR\x05state\x12\x1c\n" +
 	"\treachable\x18\x02 \x01(\bR\treachable\x12;\n" +
@@ -1158,7 +1176,9 @@ const file_gravel_hub_v1_servers_proto_rawDesc = "" +
 	"\n" +
 	"score_tick\x18\f \x01(\x05R\tscoreTick\x12%\n" +
 	"\x0erotation_index\x18\r \x01(\x05R\rrotationIndex\x12.\n" +
-	"\x13next_rotation_index\x18\x0e \x01(\x05R\x11nextRotationIndex\"\xde\x01\n" +
+	"\x13next_rotation_index\x18\x0e \x01(\x05R\x11nextRotationIndex\x12!\n" +
+	"\frotation_map\x18\x0f \x01(\tR\vrotationMap\x12*\n" +
+	"\x11next_rotation_map\x18\x10 \x01(\tR\x0fnextRotationMap\"\xde\x01\n" +
 	"\x06Server\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x17\n" +

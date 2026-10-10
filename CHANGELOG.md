@@ -10,6 +10,15 @@ patch release is everything else.
 
 ### Added
 
+- The server card shows the map (#97).
+  - **Card:** while the server is live, a full-width picture of the map in play under the name (a Components V2 media gallery), and a "Next: <map>" line after the score. A degraded card shows neither. The picture's URL is part of the card, so a map change is one edit.
+  - **Pictures:** the Organization settings' `games.<id>.maps` (https URLs by map name as the game spells it, at most 50) and `games.<id>.map_fallback`. The card takes the level's picture, else the rotation map's (War Dogs: the theatre), else the game's fallback, else gravel's generic placeholder. A game with neither key gets no picture.
+  - **Placeholder:** the hub serves a generic map picture at `/static/map-placeholder.png` (1280×720 PNG, no text, drawn in Go at start). The bot uses it under `hub.public_url` when that is https, since Discord fetches it (`servercards.PlaceholderURL`).
+  - **Status:** `ServerStatus.rotation_map` and `next_rotation_map` (additive), the rotation's current and next map as the game names them. The War Dogs driver reads `/v1/rotation` at most once a minute (`RotationTTL`) on its own lock. A build without the route, or a failed read, leaves the names out and never fails the status; a failed read keeps the last good names. The server page shows the next map.
+  - **API:** `GameSettings.maps` and `map_fallback`, `ServerStatus.rotation_map` and `next_rotation_map`, all additive. `servercards.RenderCard` and `Card` are new, and `Render` keeps its signature.
+  - **Tests:** the card's picture (the level, the theatre, the fallback, the placeholder, none, non-https refused, degraded, escaping), a map change as one edit, the fallback chain through passes, `PlaceholderURL`, the driver's rotation (the recorded build, the minute, a failed read, a build without the route), validation, the API and CLI round trips, and the placeholder route matching the bot's path.
+  - **Docs:** docs/bot.md "Server cards", docs/hub.md (the manifest, "Game overlays", the endpoint table, Pages).
+
 - Per-game overlays in the Organization settings (#66, ADR-0007 amendment).
   - **Settings:** `games.<id>` gives a game its accent in each scheme, a banner (`banner_url`, `banner_alt`) and up to 6 links of its own, at most 20 games. Only the accent is overlaid: the overlay colours the content of a page under the organization's header, where another background would paint a patch.
   - **Pages:** a game's pages (a server of the game, its moderation confirmation and log, a board scoped to the game or one of its servers) render their content inside the overlay: the banner, the game's links in a navigation named for the game (owner-only links for the owner), and the accent. Other pages and the site's header and footer are unchanged. The overlay is part of the content, so an htmx swap of a board's scope carries it in and out.

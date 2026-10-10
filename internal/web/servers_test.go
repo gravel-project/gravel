@@ -34,7 +34,7 @@ func newFakeServers() *fakeServers {
 		games: []*hubv1.Game{{Id: "wardogs", Name: "War Dogs", Layout: &hubv1.GameLayout{Board: []string{"kills", "deaths", "kd", "time", "matches"}}}},
 		servers: []*hubv1.Server{
 			{Id: "htg-wardogs-1", Name: "HTG WARDOGS | NA WEST | #1", GameId: "wardogs", Location: "qonzer-slc", Trust: "official",
-				Status: &hubv1.ServerStatus{State: "ok", Reachable: true, ObservedAt: observed, Players: 24, MaxPlayers: 80, Map: "Ozeti",
+				Status: &hubv1.ServerStatus{State: "ok", Reachable: true, ObservedAt: observed, Players: 24, MaxPlayers: 80, Map: "Ozeti", RotationMap: "Europe", NextRotationMap: "NorthAmerica",
 					Capabilities: []string{"status", "players", "kick", "message", "broadcast", "bans", "ban", "unban"},
 					Teams:        []*hubv1.TeamScore{{Name: "Lonestar", Score: 412}, {Name: "Boreal", Score: 388}}}},
 			{Id: "friends-1", Name: "Friends' server", GameId: "wardogs", Location: "home", Trust: "community",
@@ -202,7 +202,7 @@ func TestServerPage(t *testing.T) {
 		t.Fatalf("server: %d", resp.StatusCode)
 	}
 	for _, want := range []string{"<h1>HTG WARDOGS | NA WEST | #1</h1>", "As of Oct 10, 20:00 UTC", "Lonestar", "412", "Jo &lt;script&gt;", ">member<",
-		"41 ms", "Bakurani", "42m", ">live<", `href="/boards?scope=server%3Ahtg-wardogs-1"`} {
+		"41 ms", "Bakurani", "42m", ">live<", `href="/boards?scope=server%3Ahtg-wardogs-1"`, "<p>Next map: NorthAmerica</p>"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("the server page lacks %q", want)
 		}

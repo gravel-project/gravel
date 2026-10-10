@@ -93,9 +93,9 @@ func TestSettingsCheck(t *testing.T) {
 
 	// The summary names the mod log and each game's overlay.
 	writeFile(t, manifest, "discord:\n  guild_id: \"519496143298756611\"\n  mod_log: \"1300000000000000200\"\n"+
-		"games:\n  wardogs:\n    theme:\n      dark: {accent: \"#f0b429\"}\n      banner_url: /b.png\n    nav:\n      - {label: Playbook, url: /p}\n  cs2:\n    nav:\n      - {label: Rules, url: /r}\n")
+		"games:\n  wardogs:\n    theme:\n      dark: {accent: \"#f0b429\"}\n      banner_url: /b.png\n    nav:\n      - {label: Playbook, url: /p}\n    maps: {Ozeti: \"https://x.example/o.jpg\"}\n    map_fallback: https://x.example/f.jpg\n  cs2:\n    nav:\n      - {label: Rules, url: /r}\n")
 	if code, out, errOut := run("settings", "check", manifest); code != 0 ||
-		out != "settings valid (0 nav links, theme default, discord guild 519496143298756611, 0 roles, mod log, games cs2 (1 links), wardogs (accent, banner, 1 links))\n" || errOut != "" {
+		out != "settings valid (0 nav links, theme default, discord guild 519496143298756611, 0 roles, mod log, games cs2 (1 links), wardogs (accent, banner, 1 links, 1 maps, map fallback))\n" || errOut != "" {
 		t.Errorf("games and the mod log: %d %q %q", code, out, errOut)
 	}
 

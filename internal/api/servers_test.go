@@ -42,7 +42,7 @@ func (r *rig) withServer(t *testing.T) time.Time {
 		ServerID: "wd-1", State: servers.StateOK, Reachable: true, ObservedAt: at, Build: "++Wardogs+Live-CL-509546",
 		Capabilities: []string{drivers.CapKick, drivers.CapPlayers, drivers.CapStatus},
 		Status: drivers.Status{Name: "War Dogs #1", Map: "Ozeti", Experiences: []string{"Madrid_KOTH_01"}, Lighting: "DayClear",
-			Players: 2, MaxPlayers: 100, ScoreTick: 24, RotationIndex: 0, NextRotationIndex: 1,
+			Players: 2, MaxPlayers: 100, ScoreTick: 24, RotationIndex: 0, NextRotationIndex: 1, RotationMap: "Europe", NextRotationMap: "NorthAmerica",
 			Teams: []drivers.TeamScore{{Name: "Valkyra", Color: "#FA503E", Score: 120}}},
 		Players: []drivers.Player{
 			{Name: "Linked", Identity: drivers.Identity{Provider: "steam", Subject: "76561190000000001"}, Team: "Valkyra", Kills: 3},
@@ -90,7 +90,7 @@ func TestServerReadsArePublicAndCarryNoControlDetails(t *testing.T) {
 		t.Errorf("server = %v", s)
 	}
 	if st.GetState() != "ok" || !st.GetReachable() || !st.GetObservedAt().AsTime().Equal(at) || st.GetPlayers() != 2 || st.GetMaxPlayers() != 100 ||
-		st.GetMap() != "Ozeti" || st.GetScoreTick() != 24 || st.GetNextRotationIndex() != 1 || st.GetTeams()[0].GetColor() != "#FA503E" || len(st.GetCapabilities()) != 3 {
+		st.GetMap() != "Ozeti" || st.GetScoreTick() != 24 || st.GetNextRotationIndex() != 1 || st.GetRotationMap() != "Europe" || st.GetNextRotationMap() != "NorthAmerica" || st.GetTeams()[0].GetColor() != "#FA503E" || len(st.GetCapabilities()) != 3 {
 		t.Errorf("status = %v", st)
 	}
 	for _, msg := range []proto.Message{list.Msg, got.Msg} {
@@ -120,7 +120,7 @@ func TestAnUnpolledServerIsUnknown(t *testing.T) {
 		t.Fatal(err)
 	}
 	st := got.Msg.GetServer().GetStatus()
-	if st.GetState() != servers.StateUnknown || st.GetReachable() || st.GetObservedAt() != nil || st.GetRotationIndex() != -1 {
+	if st.GetState() != servers.StateUnknown || st.GetReachable() || st.GetObservedAt() != nil || st.GetRotationIndex() != -1 || st.GetRotationMap() != "" {
 		t.Errorf("status = %v", st)
 	}
 }
