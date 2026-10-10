@@ -33,3 +33,8 @@ auth:
   steam:
     enabled: false
     api_key_file: /run/secrets/gravel-steam-api-key
+
+# Stats (docs/hub.md "Stats"): the key pseudonyms are chosen with. Development only, inline; a
+# deployment uses stats.pseudonym_key_file and a podman secret, and keeps the key once set.
+stats:
+  pseudonym_key: development-only-pseudonym-key-not-for-production

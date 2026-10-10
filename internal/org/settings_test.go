@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gravel-project/gravel/internal/org/orgtest"
 )
@@ -255,5 +256,38 @@ discord:
 	}
 	if s := (Settings{Discord: Discord{Roles: DiscordRoles{Providers: map[string]string{}}}}).Normalized(); s.Discord.Roles.Providers != nil || !s.Discord.IsZero() {
 		t.Errorf("an empty provider map normalizes away: %+v", s.Discord)
+	}
+}
+
+func TestSettingsValidateStats(t *testing.T) {
+	good := Settings{Version: 1, Stats: Stats{Public: true, MinMatches: 5, Timezone: "America/Chicago",
+		Seasons: []Season{{Name: "Season 02", Game: "wardogs", From: "2026-10-15", To: "2027-01-15"}, {Name: "Launch", From: "2026-10-01", To: "2026-11-01"}}}}
+	if err := good.Validate(); err != nil {
+		t.Fatalf("good stats: %v", err)
+	}
+	if loc := good.Stats.Location(); loc.String() != "America/Chicago" || (Stats{}).Location() != time.UTC {
+		t.Errorf("locations: %v", loc)
+	}
+	if (Stats{}).MinMatchesOrDefault() != DefaultMinMatches || good.Stats.MinMatchesOrDefault() != 5 || !(Stats{}).IsZero() || good.Stats.IsZero() {
+		t.Error("defaults")
+	}
+	bad := Settings{Version: 1, Stats: Stats{MinMatches: MaxMinMatches + 1, Timezone: "Central", Seasons: []Season{
+		{Name: "", From: "2026-10-15", To: "2027-01-15"},
+		{Name: "Same", From: "15/10/2026", To: "2027-01-15"},
+		{Name: "same", Game: "War Dogs", From: "2027-01-15", To: "2026-10-15"},
+	}}}
+	err := bad.Validate()
+	for _, want := range []string{"stats.min_matches", "stats.timezone: \"Central\"", "stats.seasons[0].name: required", "stats.seasons[1]: from and to must be dates",
+		"stats.seasons[2].name: \"same\" is also stats.seasons[1]", "stats.seasons[2].game", "stats.seasons[2]: from 2027-01-15 is not before"} {
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("missing %q in %v", want, err)
+		}
+	}
+	m, err := ParseManifest([]byte("stats:\n  public: true\n  timezone: America/Chicago\n  seasons:\n    - name: \" Season 02 \"\n      from: \"2026-10-15\"\n      to: \"2027-01-15\"\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := m.Normalized(); n.Stats.Seasons[0].Name != "Season 02" || !n.Stats.Public {
+		t.Errorf("manifest: %+v", n.Stats)
 	}
 }

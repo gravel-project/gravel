@@ -178,7 +178,23 @@ func readManifest(path string) (org.Settings, error) {
 }
 
 func summarize(s org.Settings) string {
-	return fmt.Sprintf("%d nav links, theme %s, discord %s", len(s.Nav), describeTheme(s.Theme), describeDiscord(s.Discord))
+	out := fmt.Sprintf("%d nav links, theme %s, discord %s", len(s.Nav), describeTheme(s.Theme), describeDiscord(s.Discord))
+	if !s.Stats.IsZero() {
+		out += ", stats " + describeStats(s.Stats)
+	}
+	return out
+}
+
+func describeStats(st org.Stats) string {
+	vis := "owner only"
+	if st.Public {
+		vis = "public"
+	}
+	tz := st.Timezone
+	if tz == "" {
+		tz = "UTC"
+	}
+	return fmt.Sprintf("%s, K/D from %d matches, %s, %d seasons", vis, st.MinMatchesOrDefault(), tz, len(st.Seasons))
 }
 
 func describeTheme(t org.Theme) string {

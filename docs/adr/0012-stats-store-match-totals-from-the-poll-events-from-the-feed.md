@@ -56,3 +56,13 @@ ADR-0011 already decided how they meet: the feed is reconciled against the poll,
 - **Pages:** #18 renders boards, match lists and profiles from `StatsService`. The live card (htg#31) is unchanged.
 - **Metrics,** on the hub dashboard: `gravel_stats_matches_total{server,game}`, `gravel_stats_rows_written_total{server}`, `gravel_stats_feed_shortfall_total{server}` (the feed below the poll), `gravel_stats_rollup_last_success_timestamp_seconds`.
 - **Sanity bounds** (README, Trust) apply at `RecordObservation`: a count that rises faster than the Game spec allows is refused and flagged. The bounds are #8's, written into the spec; until they exist nothing is refused, and the decision is recorded so the hook is in the interface from the start.
+
+## Amendments
+
+- **2026-10-10, step 1 as built.**
+  - **Migration 10** holds `matches`, `match_stats`, `pseudonyms` and `users.show_name_on_boards`. `stats_events` comes with the feed's parser and `stats_monthly` with the rollup, so no table exists before what writes it. Seasons live only in the Organization settings' `stats` section (ADR-0007), not in a table.
+  - **No uptime.** The poll's status carries the rotation index but no uptime, so a restart is found the way a reset is: every player who stayed has lower counters (two or more players), or the server emptied, which ends the match.
+  - **No retention yet.** The settings have no `raw_retention_months` until the rollup that reads it exists.
+  - **The interface** is the `Recorder` (the monitor's `ObservationSink`) and `Boards`. `PlayerStats` comes with the profile pages (#18).
+  - **Answers to this ADR's three questions,** pending John's word: show-name off by default, K/D from 3 matches, timezone from the settings (UTC by default).
+

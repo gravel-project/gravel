@@ -72,9 +72,11 @@ rate_limit:
   per_app:  {requests_per_minute: 600, burst: 100}   # requests carrying an app's bearer token, per app
 apps:
   token_ttl: 1h                  # how long a bearer token from /oauth/token lives
+stats:
+  pseudonym_key_file: /run/secrets/gravel-stats-pseudonym-key   # the key pseudonyms are chosen with ([Stats](#stats-adr-0012))
 ```
 
-**Secrets.** Three, each with the same precedence: the environment variable, then the `*_file`
+**Secrets.** Four, each with the same precedence: the environment variable, then the `*_file`
 key (a podman secret mount), then the inline key, which is for development only.
 
 | Secret | Environment | File key | Inline key |
@@ -82,6 +84,7 @@ key (a podman secret mount), then the inline key, which is for development only.
 | Database URL | `GRAVEL_DATABASE_URL` | `database.url_file` | `database.url` |
 | Discord OAuth2 client secret | `GRAVEL_DISCORD_CLIENT_SECRET` | `auth.discord.client_secret_file` | `auth.discord.client_secret` |
 | Steam Web API key (optional) | `GRAVEL_STEAM_API_KEY` | `auth.steam.api_key_file` | `auth.steam.api_key` |
+| Stats pseudonym key (optional; at least 32 characters, `openssl rand -hex 32`) | `GRAVEL_STATS_PSEUDONYM_KEY` | `stats.pseudonym_key_file` | `stats.pseudonym_key` |
 
 Production uses podman secrets (`Secret=gravel-db-url` in the quadlet unit lands at
 `/run/secrets/gravel-db-url`, and so on). The hub logs the database URL with the password
@@ -108,6 +111,9 @@ Public listener (`server.listen`), HTTP/1.1 and unencrypted HTTP/2 so gRPC works
 | `/gravel.hub.v1.ServerService/ListGames` | the enabled games, their identity provider and bands; public |
 | `/gravel.hub.v1.ServerService/ListServers` | every server with its last observation (state, reachable, players and max, map, teams, capabilities, build, `observed_at`); public, no personal data, never a control address |
 | `/gravel.hub.v1.ServerService/GetServerStatus` | `{"server_id": "…"}` → one server; public; `not_found` for an unknown id |
+| `/gravel.hub.v1.StatsService/GetBoard` | `{"server_id"/"game_id", "window": "week", "metric": "kd"}` → a ranked page of players under pseudonyms or opted-in names ([Stats](#stats-adr-0012)); public when the settings make stats public, else the owner or `stats:read` |
+| `/gravel.hub.v1.StatsService/ListMatches` | `{"server_id": "…"}` → a server's matches, newest first; the same access |
+| `/gravel.hub.v1.StatsService/GetBoardName`, `SetBoardName` | a logged-in member's choice to be shown by name on boards (off by default) |
 | `/gravel.hub.v1.ServerService/ListServerPlayers` | `{"server_id": "…"}` → who was on at the last poll (name, provider identity, team, kills, deaths, ping, and the member's user id when that identity is linked); a logged-in member, the owner, or an app with `servers:read` |
 | `/grpc.health.v1.Health/Check` | gRPC health |
 | `/grpc.reflection.v1.ServerReflection/…` (and v1alpha) | gRPC reflection, so `grpcurl` and `buf curl` discover the API |
@@ -201,6 +207,15 @@ discord:                     # what the bot manages (docs/bot.md); ids as quoted
     - server: htg-wardogs-1  # the server's id in servers.yaml, one card each
       channel: "…"           # the bot needs View Channel, Send Messages, Read Message History
       note: Matches start at 20 players.   # optional, one line of at most 200 characters
+stats:                       # the boards ([Stats](#stats-adr-0012))
+  public: false              # true once the host's privacy policy covers stats; until then the owner and stats:read
+  min_matches: 3             # a player's matches before a K/D board shows them (default 3)
+  timezone: America/Chicago  # weeks, months and season dates (default UTC)
+  seasons:                   # named windows; at most 50; ending one deletes nothing
+    - name: Season 02
+      game: wardogs          # optional: one game's matches
+      from: "2026-10-15"     # included
+      to: "2027-01-15"       # excluded
 ```
 
 ```sh
@@ -256,6 +271,7 @@ curl -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{
 | `servers:read` | `ListServerPlayers`: who is on a server, for a live card (the rest of `ServerService` is public) |
 | `servers:moderate` | `ModerationService`: kick, ban, unban, message, broadcast and move players, list a server's bans, read the audit log |
 | `servers:configure` | `ServerConfigService`: read, plan and apply a server's configuration |
+| `stats:read` | `StatsService` `GetBoard` and `ListMatches` while the settings keep stats private |
 
 Rules: a token lives `apps.token_ttl` (an hour by default) and is pruned after; `scope` at the
 token endpoint may narrow a token to a subset of the app's scopes, never widen it; an unknown,
@@ -444,6 +460,39 @@ the edge, as HTG does with `ingest.hiddentoken.com` through its Tunnel).
 Metrics: `gravel_ingest_batches_total{server,source,result}` (`server="unknown"` when the token
 matched none) and `gravel_ingest_last_batch_timestamp_seconds{server}`, on the hub dashboard's
 Ingestion row.
+
+## Stats (ADR-0012)
+
+The hub records stats from its own polls of each server: every good poll (ADR-0010) becomes a
+**match** and each player's **totals in it** (kills, deaths, time on). A new match starts when the
+rotation moves, when every player's counters drop together, or with the first player on an
+empty server; an empty server ends its match. A player who leaves and rejoins keeps their totals
+(the game counts from the rejoin). After a hub restart the open match is picked up again. Rows are
+keyed by the identity the game reports (Steam), never a member, and carry the server's trust when
+written: a server's board counts its own matches, a game's or the organization's counts Official
+servers' only (ADR-0011's trust mapping). The feed's events (#4) will add who killed whom; boards
+count the totals, so they are right without a feed.
+
+**Names.** A player who has not linked the identity, or has not chosen to be shown by name
+(`SetBoardName`, off by default), appears under a **pseudonym**: two words chosen by a keyed hash of
+the identity, stored the first time and never changed, unique in the organization, numbered on a
+collision ("Brave Falcon 2"). The key is `stats.pseudonym_key_file` (above); without it no
+pseudonym is made and such players show as "Unnamed player". Keep the key once set: a pseudonym is
+chosen once, and a different key only changes names not yet given.
+
+**Boards.** `GetBoard` ranks by `kills` (default), `deaths`, `kd` (kills / max(deaths, 1), from
+`stats.min_matches` matches), `time` or `matches`, over `all` (default), `week` (ISO, Monday to
+Monday), `month` or a named `season`, in `stats.timezone`. Until `stats.public` is on, only the
+owner and apps with `stats:read` can read boards and match lists: turn it on when the host's
+privacy policy covers stats.
+
+```sh
+curl -s -H 'Content-Type: application/json' -d '{"server_id":"htg-wardogs-1","window":"week"}' \
+  https://app.example.com/gravel.hub.v1.StatsService/GetBoard | jq '.entries[] | {rank, name, kills, deaths, kd}'
+```
+
+Metrics: `gravel_stats_matches_total{server,game}`, `gravel_stats_rows_written_total{server}`,
+`gravel_stats_record_errors_total{server}`, on the hub dashboard's Stats row.
 
 ## Login (ADR-0004)
 
@@ -638,6 +687,9 @@ command and the digest-pin procedure.
 | `gravel_server_reachable` | gauge | `server`, `game` | 1 while a server answers its polls, 0 after two failed polls in a row | until the server's first poll; gone when it is removed |
 | `gravel_server_players`, `gravel_server_max_players` | gauge | `server`, `game` | players on, and public slots, at the last successful poll | until the first successful poll |
 | `gravel_server_last_observed_timestamp_seconds` | gauge | `server`, `game` | the last successful poll | until the first successful poll |
+| `gravel_stats_matches_total` | counter | `server`, `game` | matches the stats store started (ADR-0012) | until the first match |
+| `gravel_stats_rows_written_total` | counter | `server` | player rows written from polls | until someone is on |
+| `gravel_stats_record_errors_total` | counter | `server` | polls the stats store could not write | until one fails |
 
 - **Secrets in logs:** the owner-claim token is the only secret the hub ever logs, once, at WARN.
   Provider secrets are logged by source only.

@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 	"unicode"
+	"unicode/utf8"
 
 	"gopkg.in/yaml.v3"
 )
@@ -30,6 +31,69 @@ type Settings struct {
 	Theme   Theme     `json:"theme" yaml:"theme"`
 	Nav     []NavLink `json:"nav,omitempty" yaml:"nav,omitempty"`
 	Discord Discord   `json:"discord,omitzero" yaml:"discord,omitempty"`
+	Stats   Stats     `json:"stats,omitzero" yaml:"stats,omitempty"`
+}
+
+// Stats is how the stats boards behave (ADR-0012). Zero values are the defaults: boards for the
+// owner only, K/D from 3 matches, weeks and seasons in UTC, no named season.
+type Stats struct {
+	// Public shows the boards and match lists to everyone; until the host's privacy policy covers
+	// stats, leave it off (the owner and apps with stats:read still see them).
+	Public bool `json:"public,omitempty" yaml:"public,omitempty"`
+	// MinMatches is how many matches a player needs before a K/D board shows them.
+	MinMatches int `json:"min_matches,omitempty" yaml:"min_matches,omitempty"`
+	// Timezone is the IANA zone weeks, months and season dates are in.
+	Timezone string `json:"timezone,omitempty" yaml:"timezone,omitempty"`
+	// Seasons are named windows; ending one deletes nothing.
+	Seasons []Season `json:"seasons,omitempty" yaml:"seasons,omitempty"`
+}
+
+// Season is a named window of matches: From (included) to To (excluded), dates in Stats.Timezone.
+// Game limits it to one game's matches; empty is every game.
+type Season struct {
+	Name string `json:"name" yaml:"name"`
+	Game string `json:"game,omitempty" yaml:"game,omitempty"`
+	From string `json:"from" yaml:"from"`
+	To   string `json:"to" yaml:"to"`
+}
+
+// DefaultMinMatches is MinMatches when it is 0.
+const DefaultMinMatches = 3
+
+// IsZero reports whether every stats setting is its default.
+func (s Stats) IsZero() bool {
+	return !s.Public && s.MinMatches == 0 && s.Timezone == "" && len(s.Seasons) == 0
+}
+
+// Location is the timezone, UTC when unset; Validate checked it loads.
+func (s Stats) Location() *time.Location {
+	if s.Timezone == "" {
+		return time.UTC
+	}
+	loc, err := time.LoadLocation(s.Timezone)
+	if err != nil {
+		return time.UTC
+	}
+	return loc
+}
+
+// MinMatchesOrDefault is MinMatches, or DefaultMinMatches when it is 0.
+func (s Stats) MinMatchesOrDefault() int {
+	if s.MinMatches == 0 {
+		return DefaultMinMatches
+	}
+	return s.MinMatches
+}
+
+// Window is a season's start and end as instants.
+func (se Season) Window(loc *time.Location) (from, to time.Time, err error) {
+	if from, err = time.ParseInLocation(time.DateOnly, se.From, loc); err != nil {
+		return time.Time{}, time.Time{}, err
+	}
+	if to, err = time.ParseInLocation(time.DateOnly, se.To, loc); err != nil {
+		return time.Time{}, time.Time{}, err
+	}
+	return from, to, nil
 }
 
 // Theme is how the organization's pages look.
@@ -148,6 +212,9 @@ const (
 	MaxFirstMembers = 100000
 	MaxServerCards  = 10
 	MaxCardNote     = 200
+	MaxMinMatches   = 100
+	MaxSeasons      = 50
+	MaxSeasonName   = 40
 )
 
 // ErrInvalidSettings wraps every validation failure; the message says which field and why.
@@ -203,6 +270,7 @@ func (s Settings) Validate() error {
 		}
 	}
 	validateDiscord(s.Discord, bad)
+	validateStats(s.Stats, bad)
 	if len(errs) == 0 {
 		return nil
 	}
@@ -280,6 +348,45 @@ func validateDiscord(d Discord, bad func(string, ...any)) {
 	}
 }
 
+func validateStats(st Stats, bad func(string, ...any)) {
+	if st.MinMatches < 0 || st.MinMatches > MaxMinMatches {
+		bad("stats.min_matches: %d is not between 0 (the default, %d) and %d", st.MinMatches, DefaultMinMatches, MaxMinMatches)
+	}
+	loc := time.UTC
+	if st.Timezone != "" {
+		l, err := time.LoadLocation(st.Timezone)
+		if err != nil || st.Timezone == "Local" {
+			bad("stats.timezone: %q is not an IANA zone (America/Chicago)", st.Timezone)
+		} else {
+			loc = l
+		}
+	}
+	if len(st.Seasons) > MaxSeasons {
+		bad("stats.seasons: %d seasons, at most %d", len(st.Seasons), MaxSeasons)
+	}
+	names := map[string]int{}
+	for i, se := range st.Seasons {
+		field := fmt.Sprintf("stats.seasons[%d]", i)
+		name := strings.TrimSpace(se.Name)
+		if name == "" || utf8.RuneCountInString(name) > MaxSeasonName || strings.ContainsFunc(name, unicode.IsControl) {
+			bad("%s.name: required, one line of at most %d characters", field, MaxSeasonName)
+		} else if j, dup := names[strings.ToLower(name)]; dup {
+			bad("%s.name: %q is also stats.seasons[%d]", field, name, j)
+		} else {
+			names[strings.ToLower(name)] = i
+		}
+		if se.Game != "" && !serverID.MatchString(se.Game) {
+			bad("%s.game: %q is not a game id", field, se.Game)
+		}
+		from, to, err := se.Window(loc)
+		if err != nil {
+			bad("%s: from and to must be dates (2026-10-15)", field)
+		} else if !from.Before(to) {
+			bad("%s: from %s is not before to %s", field, se.From, se.To)
+		}
+	}
+}
+
 // snowflakeOK reports whether s is a Discord id: 17 to 20 digits.
 func snowflakeOK(s string) bool {
 	if len(s) < 17 || len(s) > 20 || strings.Trim(s, "0123456789") != "" {
@@ -314,6 +421,12 @@ func navURLOK(u string) bool {
 // Normalized returns s with the version set and the nav placements made explicit.
 func (s Settings) Normalized() Settings {
 	s.Version = SettingsVersion
+	for i := range s.Stats.Seasons {
+		s.Stats.Seasons[i].Name = strings.TrimSpace(s.Stats.Seasons[i].Name)
+	}
+	if len(s.Stats.Seasons) == 0 {
+		s.Stats.Seasons = nil
+	}
 	for i := range s.Nav {
 		if s.Nav[i].Placement == "" {
 			s.Nav[i].Placement = PlacementHeader

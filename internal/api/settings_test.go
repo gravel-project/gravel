@@ -29,6 +29,7 @@ func TestOrganizationSettings(t *testing.T) {
 			Roles:       &hubv1.DiscordRoles{Linked: "1300000000000000001", Providers: map[string]string{"steam": "1300000000000000002"}},
 			Recognition: []*hubv1.DiscordRecognition{{Role: "1300000000000000003", Rule: "first_members", Count: 50}},
 			ServerCards: []*hubv1.DiscordServerCard{{Server: "htg-wardogs-1", Channel: "1300000000000000100", Note: "Matches start at 20 players."}}},
+		Stats: &hubv1.StatsSettings{MinMatches: 5, Timezone: "America/Chicago", Seasons: []*hubv1.StatsSeason{{Name: "Season 02", Game: "wardogs", From: "2026-10-15", To: "2027-01-15"}}},
 	}
 	if _, err := anon.UpdateOrganizationSettings(ctx, connect.NewRequest(&hubv1.UpdateOrganizationSettingsRequest{Settings: want})); connect.CodeOf(err) != connect.CodeUnauthenticated {
 		t.Errorf("anonymous update: %v", err)
@@ -64,6 +65,9 @@ func TestOrganizationSettings(t *testing.T) {
 		len(d.GetRecognition()) != 1 || d.GetRecognition()[0].GetRule() != "first_members" || d.GetRecognition()[0].GetCount() != 50 ||
 		len(d.GetServerCards()) != 1 || d.GetServerCards()[0].GetServer() != "htg-wardogs-1" || d.GetServerCards()[0].GetNote() != "Matches start at 20 players." {
 		t.Errorf("discord read back: %v", d)
+	}
+	if st := got.Msg.GetSettings().GetStats(); st.GetMinMatches() != 5 || st.GetTimezone() != "America/Chicago" || len(st.GetSeasons()) != 1 || st.GetSeasons()[0].GetGame() != "wardogs" || st.GetPublic() {
+		t.Errorf("stats read back: %v", st)
 	}
 
 	bad := &hubv1.OrganizationSettings{Theme: &hubv1.Theme{Light: &hubv1.ThemeTokens{Accent: "red; }"}, LogoUrl: "http://insecure.example/x.png"}, Nav: []*hubv1.NavLink{{Label: "", Url: "javascript:alert(1)", Placement: "sidebar"}},

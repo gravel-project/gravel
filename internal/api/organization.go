@@ -100,6 +100,12 @@ func settingsToProto(set org.Settings, at time.Time) *hubv1.OrganizationSettings
 			p.Discord.ServerCards = append(p.Discord.ServerCards, &hubv1.DiscordServerCard{Server: c.Server, Channel: c.Channel, Note: c.Note})
 		}
 	}
+	if st := set.Stats; !st.IsZero() {
+		p.Stats = &hubv1.StatsSettings{Public: st.Public, MinMatches: int32(st.MinMatches), Timezone: st.Timezone} //nolint:gosec // bounded by validation
+		for _, se := range st.Seasons {
+			p.Stats.Seasons = append(p.Stats.Seasons, &hubv1.StatsSeason{Name: se.Name, Game: se.Game, From: se.From, To: se.To})
+		}
+	}
 	if !at.IsZero() {
 		p.UpdatedAt = timestamppb.New(at)
 	}
@@ -127,6 +133,11 @@ func settingsFromProto(p *hubv1.OrganizationSettings) org.Settings {
 	}
 	for _, c := range d.GetServerCards() {
 		set.Discord.ServerCards = append(set.Discord.ServerCards, org.ServerCard{Server: c.GetServer(), Channel: c.GetChannel(), Note: c.GetNote()})
+	}
+	st := p.GetStats()
+	set.Stats = org.Stats{Public: st.GetPublic(), MinMatches: int(st.GetMinMatches()), Timezone: st.GetTimezone()}
+	for _, se := range st.GetSeasons() {
+		set.Stats.Seasons = append(set.Stats.Seasons, org.Season{Name: se.GetName(), Game: se.GetGame(), From: se.GetFrom(), To: se.GetTo()})
 	}
 	return set
 }

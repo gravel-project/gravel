@@ -1,0 +1,101 @@
+syntax = "proto3";
+
+package gravel.hub.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/gravel-project/gravel/gen/gravel/hub/v1;hubv1";
+
+// BoardEntry is one player on a board. A player who has not linked the identity, or has not
+// chosen to be shown by name, appears under their pseudonym (pseudonymous true, no user_id).
+message BoardEntry {
+  int32 rank = 1;
+  string name = 2;
+  bool pseudonymous = 3;
+  // The member, when shown by name.
+  string user_id = 4;
+  int32 kills = 5;
+  int32 deaths = 6;
+  // kills / max(deaths, 1).
+  double kd = 7;
+  int32 seconds_on = 8;
+  int32 matches = 9;
+}
+
+message GetBoardRequest {
+  // At most one of server_id and game_id; neither is the organization's board. A server's board
+  // counts its matches whatever its trust; a game's or the organization's counts Official
+  // servers' only (ADR-0011's trust mapping).
+  string server_id = 1;
+  string game_id = 2;
+  // "week" (this week), "month" (this month), "season" (the named one), "all" (the default).
+  string window = 3;
+  string season = 4;
+  // "kills" (the default), "deaths", "kd", "time", "matches".
+  string metric = 5;
+  int32 page_size = 6;
+  // The next_page_token of the previous page; empty for the first.
+  string page_token = 7;
+}
+
+message GetBoardResponse {
+  repeated BoardEntry entries = 1;
+  string next_page_token = 2;
+  // The window's bounds; unset for "all".
+  google.protobuf.Timestamp from = 3;
+  google.protobuf.Timestamp to = 4;
+}
+
+// MatchSummary is one match on a server.
+message MatchSummary {
+  string id = 1;
+  string server_id = 2;
+  string game_id = 3;
+  google.protobuf.Timestamp started_at = 4;
+  // Unset while the match is on.
+  google.protobuf.Timestamp ended_at = 5;
+  string map = 6;
+  int32 players = 7;
+  int32 kills = 8;
+}
+
+message ListMatchesRequest {
+  string server_id = 1;
+  int32 page_size = 2;
+  // The next_page_token of the previous page; empty for the first.
+  string page_token = 3;
+}
+
+message ListMatchesResponse {
+  repeated MatchSummary matches = 1;
+  string next_page_token = 2;
+}
+
+message GetBoardNameRequest {}
+
+message GetBoardNameResponse {
+  bool show_name = 1;
+}
+
+message SetBoardNameRequest {
+  // Show the member's display name on boards instead of their pseudonym.
+  bool show_name = 1;
+}
+
+message SetBoardNameResponse {
+  bool show_name = 1;
+}
+
+// StatsService is the stats boards (ADR-0012): counts from the hub's own polls of each server,
+// keyed by provider identity, unlinked players under pseudonyms.
+service StatsService {
+  // GetBoard ranks the players of a server, a game or the organization over a window. Public when
+  // the Organization settings make stats public; otherwise the owner or an app with stats:read.
+  rpc GetBoard(GetBoardRequest) returns (GetBoardResponse);
+  // ListMatches is a server's matches, newest first; the same access as GetBoard.
+  rpc ListMatches(ListMatchesRequest) returns (ListMatchesResponse);
+  // GetBoardName is the logged-in member's choice to be shown by name on boards.
+  rpc GetBoardName(GetBoardNameRequest) returns (GetBoardNameResponse);
+  // SetBoardName changes it; a logged-in member, for themselves only.
+  rpc SetBoardName(SetBoardNameRequest) returns (SetBoardNameResponse);
+}
