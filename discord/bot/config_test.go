@@ -110,6 +110,8 @@ role_sync:
   poll_interval: 1s
 server_cards:
   interval: 1s
+moderation:
+  command: "Kick Players"
 server:
   listen: ""
   shutdown_timeout: 0s
@@ -121,7 +123,7 @@ log:
 	if err == nil {
 		t.Fatal("expected errors")
 	}
-	for _, want := range []string{"version:", "discord.application_id", "discord.guild_ids[0]", "discord.public_key", "discord: no token", "hub.url", "hub.public_url", "hub.client_id", "hub: no client secret", "role_sync.interval", "role_sync.poll_interval", "server_cards.interval", "server.listen", "shutdown_timeout", "log.level", "log.format"} {
+	for _, want := range []string{"version:", "discord.application_id", "discord.guild_ids[0]", "discord.public_key", "discord: no token", "hub.url", "hub.public_url", "hub.client_id", "hub: no client secret", "role_sync.interval", "role_sync.poll_interval", "server_cards.interval", "moderation.command", "server.listen", "shutdown_timeout", "log.level", "log.format"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("missing %q in %v", want, err)
 		}
