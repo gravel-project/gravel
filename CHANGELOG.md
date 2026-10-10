@@ -8,6 +8,10 @@ patch release is everything else.
 
 ## [Unreleased]
 
+### Fixed
+
+- The War Dogs driver no longer writes the hub's empty ban list to a server that holds none. The server drops an empty array when it saves, so `!DefaultBannedPlayerIds=ClearArray` came back on every plan as a change. A daily drift check (hidden-token-gaming/wardogs-server#12) would have reported it forever, and every apply rewrote it. An empty list is now written only to clear the entries a server has.
+
 ## [0.6.5] - 2026-10-10
 
 ### Added

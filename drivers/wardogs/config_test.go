@@ -230,3 +230,31 @@ func TestPlanWritesTheFeed(t *testing.T) {
 		t.Errorf("a draft with the feed section: %v", err)
 	}
 }
+
+// The server drops an empty ban array when it saves, so the hub's empty list is written only to
+// clear one the server holds; otherwise every plan would show it as a change.
+func TestEmptyBanListOnlyClears(t *testing.T) {
+	d, cs := newConfigDriver(t)
+	cs.text = strings.Replace(current, "!DefaultBannedPlayerIds=ClearArray\r\n.DefaultBannedPlayerIds=\"76561190000000009\"\r\n", "", 1)
+	plan, err := d.PlanConfig(context.Background(), drivers.ConfigDraft{Text: desired, Bans: []drivers.Identity{}, Bands: bands})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(cs.sent[0], "DefaultBannedPlayerIds") {
+		t.Errorf("an empty list was written to a server with none:\n%s", cs.sent[0])
+	}
+	for _, c := range plan.Changes {
+		if c.Key == "DefaultBannedPlayerIds" {
+			t.Errorf("the plan shows the ban list: %+v", c)
+		}
+	}
+
+	// A server that holds bans: the empty list clears them.
+	d, cs = newConfigDriver(t)
+	if _, err := d.PlanConfig(context.Background(), drivers.ConfigDraft{Text: desired, Bans: []drivers.Identity{}, Bands: bands}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(cs.sent[0], "!DefaultBannedPlayerIds=ClearArray") || strings.Contains(cs.sent[0], "76561190000000009") {
+		t.Errorf("the server's bans were not cleared:\n%s", cs.sent[0])
+	}
+}
