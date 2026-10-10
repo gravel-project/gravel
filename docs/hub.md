@@ -726,8 +726,8 @@ command and the digest-pin procedure.
 | `gravel_database_size_bytes` | gauge | | `pg_database_size` of the hub's database | when `gravel_store_stats_readable` is 0 |
 | `gravel_store_stats_readable` | gauge | | 1 when the three above were read at this scrape (2 s limit), 0 when the database did not answer | never |
 | `gravel_backup_*`, `gravel_wal_*` | | | the backup status file and `pg_stat_archiver` | see [Backups](#backups-adr-0006) |
-| `gravel_hub_jobs_total` | counter | `job` (`prune`, `servers_reconcile`, `server_poll`), `result` (`ok`, `error`) | background job runs; a failure is retried with backoff and never stops the hub | until a job's first run |
-| `gravel_hub_job_last_success_timestamp_seconds` | gauge | `job` | when each job last ran without an error | until a job's first success |
+| `gravel_hub_jobs_total` | counter | `job` (`prune`, `servers_reconcile`, `server_poll`; stored by Prometheus as `exported_job`, since the scrape's own `job` wins), `result` (`ok`, `error`) | background job runs; a failure is retried with backoff and never stops the hub | until a job's first run |
+| `gravel_hub_job_last_success_timestamp_seconds` | gauge | `job` (stored as `exported_job`) | when each job last ran without an error | until a job's first success |
 | `gravel_server_reachable` | gauge | `server`, `game` | 1 while a server answers its polls, 0 after two failed polls in a row | until the server's first poll; gone when it is removed |
 | `gravel_server_players`, `gravel_server_max_players` | gauge | `server`, `game` | players on, and public slots, at the last successful poll | until the first successful poll |
 | `gravel_server_last_observed_timestamp_seconds` | gauge | `server`, `game` | the last successful poll | until the first successful poll |

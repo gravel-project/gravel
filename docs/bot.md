@@ -219,7 +219,7 @@ of them (ADR-0009, `deploy/README.md` "Dashboards").
 | `gravel_bot_gateway_latency_seconds` | gauge | | the last heartbeat's round trip | the session is not ready, or a heartbeat is in flight before the first answer |
 | `gravel_bot_interactions_total` | counter | `route` (`/<command>`, or `other`), `result` (`ok`, `error`) | interactions handled | until the first interaction |
 | `gravel_bot_interaction_duration_seconds` | histogram (.025 to 10 s, dense around Discord's 3 s) | `route` | from arrival to the handler's return, which includes the first answer | until the first interaction |
-| `gravel_bot_jobs_total` | counter | `job` (`reconcile`, `register-metadata`, `update`, a host's own), `result` (`ok`, `error`) | background jobs that ended | until a job ends |
+| `gravel_bot_jobs_total` | counter | `job` (`reconcile`, `register-metadata`, `update`, a host's own; stored by Prometheus as `exported_job`, since the scrape's own `job` wins), `result` (`ok`, `error`) | background jobs that ended | until a job ends |
 | `gravel_bot_rolesync_passes_total` | counter | `result` (`ok`, `idle` = no mapping, `error`) | role sync passes | role sync off |
 | `gravel_bot_rolesync_changes_total` | counter | `action` (`add`, `remove`), `result` (`ok`, `dry_run`, `forbidden`, `gone`) | role changes made or, in a dry run, logged | role sync off, or until the first change |
 | `gravel_bot_rolesync_last_success_timestamp_seconds` | gauge | | when the last pass finished without error (an `idle` pass counts) | until the first pass |

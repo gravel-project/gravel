@@ -51,7 +51,10 @@ type step struct {
 	Color string
 }
 
-// sel is the selector every gravel series gets: the chosen job, the chosen instances.
+// sel is the selector every gravel series gets: the chosen job, the chosen instances. job and
+// instance are Prometheus's own target labels: a metric's label of the same name is stored as
+// exported_job (exported_instance), so a panel groups and labels by that (the job runners'
+// gravel_hub_jobs_total and gravel_bot_jobs_total).
 const sel = `job="$job", instance=~"$instance"`
 
 // render builds Grafana's dashboard model (schemaVersion 41) with a datasource variable and

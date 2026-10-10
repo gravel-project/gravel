@@ -230,3 +230,23 @@ func TestCheck(t *testing.T) {
 		t.Errorf("unknown command: %d", code)
 	}
 }
+
+// job and instance are the scrape target's labels, which sel already pins; a metric's own label of
+// that name is stored as exported_job. A panel that groups, labels or matches by job otherwise
+// collapses every series into the scrape job (#114).
+func TestPanelsUseExportedJob(t *testing.T) {
+	for _, d := range dashboards() {
+		for _, r := range d.Rows {
+			for _, p := range r.Panels {
+				for _, tg := range p.Targets {
+					expr := strings.ReplaceAll(tg.Expr, sel, "")
+					for _, bad := range []string{"by (job", "by(job", ", job)", ", job,", "job=", "job!", "{{job}}"} {
+						if strings.Contains(expr, bad) || strings.Contains(tg.Legend, bad) {
+							t.Errorf("%s / %s: %q uses the scrape label job; group, label and match by exported_job", d.Title, p.Title, tg.Expr+" "+tg.Legend)
+						}
+					}
+				}
+			}
+		}
+	}
+}

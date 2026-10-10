@@ -1007,8 +1007,8 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum by (job, result) (increase(gravel_bot_jobs_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval]))",
-          "legendFormat": "{{job}} {{result}}",
+          "expr": "sum by (exported_job, result) (increase(gravel_bot_jobs_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "{{exported_job}} {{result}}",
           "range": true,
           "refId": "A"
         }
