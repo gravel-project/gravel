@@ -160,10 +160,10 @@ func hubDashboard() dashboard {
 			{Title: "Background jobs", Panels: []panel{
 				{Title: "Job runs by result", Kind: "timeseries", Width: 16,
 					Description: "A failed run is retried with backoff and never stops the hub; server_poll failures are a server that did not answer.",
-					Targets:     []target{{Expr: `sum by (job, result) (increase(gravel_hub_jobs_total{` + sel + `}[$__rate_interval]))`, Legend: "{{job}} {{result}}"}}},
+					Targets:     []target{{Expr: `sum by (exported_job, result) (increase(gravel_hub_jobs_total{` + sel + `}[$__rate_interval]))`, Legend: "{{exported_job}} {{result}}"}}},
 				{Title: "Since each job last succeeded", Kind: "stat", Unit: "s", Width: 8, TextMode: "value_and_name",
 					Description: "prune runs every 10 minutes, servers_reconcile and ingest_feeds every 30 seconds, ingest_prune hourly, server_poll at each server's interval.",
-					Targets:     []target{{Expr: `time() - max by (job) (gravel_hub_job_last_success_timestamp_seconds{` + sel + `})`, Legend: "{{job}}"}}},
+					Targets:     []target{{Expr: `time() - max by (exported_job) (gravel_hub_job_last_success_timestamp_seconds{` + sel + `})`, Legend: "{{exported_job}}"}}},
 			}},
 			runtimeRow(),
 		},
@@ -219,7 +219,7 @@ func botDashboard() dashboard {
 					Description: "forbidden: the role sits above the bot's; gone: the member left first; dry_run: logged, not made.",
 					Targets:     []target{{Expr: `sum by (action, result) (increase(gravel_bot_rolesync_changes_total{` + sel + `}[$__rate_interval]))`, Legend: "{{action}} {{result}}"}}},
 				{Title: "Background jobs ended", Kind: "timeseries", Width: 8, Optional: "no job ended in the range (jobs run until shutdown)",
-					Targets: []target{{Expr: `sum by (job, result) (increase(gravel_bot_jobs_total{` + sel + `}[$__rate_interval]))`, Legend: "{{job}} {{result}}"}}},
+					Targets: []target{{Expr: `sum by (exported_job, result) (increase(gravel_bot_jobs_total{` + sel + `}[$__rate_interval]))`, Legend: "{{exported_job}} {{result}}"}}},
 			}},
 			{Title: "Server cards", Panels: []panel{
 				{Title: "Since the last server card pass", Kind: "stat", Unit: "s", Width: 6, Optional: "the server cards are off",

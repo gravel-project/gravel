@@ -8,6 +8,10 @@ patch release is everything else.
 
 ## [Unreleased]
 
+### Fixed
+
+- The dashboards' job panels group by `exported_job` (#114). The job runners' `job` label is stored by Prometheus as `exported_job`, because the scrape target's own `job` wins, so "Job runs by result" and "Since each job last succeeded" (hub) and "Background jobs ended" (bot) collapsed every job into the scrape job. A dashboards test refuses a panel that groups, labels or matches by `job` outside the shared selector. docs/hub.md and docs/bot.md say which label to query.
+
 ### Added
 
 - Stats retention and erasure, ADR-0012's steps 4 and 5 (#17).
