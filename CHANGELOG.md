@@ -8,6 +8,8 @@ patch release is everything else.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-10
+
 ### Added
 
 - A way through CI's wire check for an intentional break (#68's 0.x rule). The `proto` job's `buf breaking` passes when the pull request carries the `breaking` label **and** adds a CHANGELOG entry starting **Breaking:**. It still prints buf's findings and raises a warning. The label alone fails, and with neither the job fails as before. `.github/scripts/proto-breaking.sh` reads the label when the job runs, so a label added later needs that job re-run. docs/releasing.md ("Versions") and CONTRIBUTING.md say how.
@@ -51,6 +53,8 @@ patch release is everything else.
   - **What replaces it:** the Organization settings' `discord.seeding` rules, which the new stock seeding module acts on (below).
   - **How to move:** delete each server's `seeding:` block from `servers.yaml`, and write the rule under `discord.seeding` in the organization manifest instead (docs/hub.md "Organization settings"). `servers check` and `servers apply` refuse a manifest that still has the block, naming each server's section and its line, so a deployment's CI catches it before the upgrade. A client that read `Server.seeding` gets nothing there.
   - **Upgrading:** this makes the next release 0.8.0.
+
+- The quadlet units pin the 0.7.1 images by index digest, both verified with cosign 3 against the release workflow at `v0.7.1` (the 0.7.0 hub as a control, a wrong-tag identity refused): `ghcr.io/gravel-project/gravel-hub@sha256:83101982ded69ec7bba356b65adcd0e3339eaae8944956ad4e3e7f6fdbcc4cc7` in `gravel-hub.container` and `ghcr.io/gravel-project/gravel-bot@sha256:7577674239f77189ca3d1d1be3951705294065220397d2abc63b040a4301734c` in `gravel-bot.container`. 0.7.1 published no new `gravel-postgres`, so the backup set stays on 0.6.7's. `docs/hub.md` names 0.7.1 as the tag example.
 
 ## [0.7.1] - 2026-10-10
 
@@ -393,7 +397,8 @@ patch release is everything else.
 
 - README and CLAUDE.md follow ADR-0001: status line, principle 2 (the resource lives in the hub's database), the hub and backup paragraphs, the adapter-repo rule, the local-dev default, and a seven-step build order with the issues behind each step. The launch games are the five Hidden Token Gaming plays, in three shapes, with War Dogs first; the open threads link the design-delta issues #2–#9 (#1).
 
-[Unreleased]: https://github.com/gravel-project/gravel/compare/v0.7.1...HEAD
+[Unreleased]: https://github.com/gravel-project/gravel/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/gravel-project/gravel/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/gravel-project/gravel/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/gravel-project/gravel/compare/v0.6.7...v0.7.0
 [0.6.7]: https://github.com/gravel-project/gravel/compare/v0.6.6...v0.6.7
