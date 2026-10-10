@@ -77,7 +77,7 @@ func (h *Handler) moderate(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, http.StatusNotFound, "No such server", "This hub has no server by that name.")
 		return
 	}
-	serverName := status.Msg.GetServer().GetName()
+	serverName, gameID := status.Msg.GetServer().GetName(), status.Msg.GetServer().GetGameId()
 
 	if r.PostFormValue("confirm") != "1" {
 		p, b2, err := h.page(r, "Confirm")
@@ -85,6 +85,7 @@ func (h *Handler) moderate(w http.ResponseWriter, r *http.Request) {
 			h.serverError(w, r, err)
 			return
 		}
+		withGame(&p.Page, gameID, h.gameName(r, gameID))
 		cp := templates.ConfirmPage{Page: p.Page, ServerID: id, ServerName: serverName, Action: action, Subject: subject, Name: name}
 		if action == "broadcast" {
 			cp.Question = fmt.Sprintf(question, serverName)
@@ -158,14 +159,17 @@ func (h *Handler) auditLog(w http.ResponseWriter, r *http.Request) {
 		h.serverError(w, r, fmt.Errorf("ListAuditLog: %w", err))
 		return
 	}
-	serverName := id
+	serverName, gameID := id, ""
 	if st, err := h.serverAPI.GetServerStatus(ctx, connect.NewRequest(&hubv1.GetServerStatusRequest{ServerId: id})); err == nil {
-		serverName = st.Msg.GetServer().GetName()
+		serverName, gameID = st.Msg.GetServer().GetName(), st.Msg.GetServer().GetGameId()
 	}
 	p, b2, err := h.page(r, "Moderation log")
 	if err != nil {
 		h.serverError(w, r, err)
 		return
+	}
+	if gameID != "" {
+		withGame(&p.Page, gameID, h.gameName(r, gameID))
 	}
 	ap := templates.AuditPage{Page: p.Page, ServerID: id, ServerName: serverName}
 	for _, e := range resp.Msg.GetEntries() {

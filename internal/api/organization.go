@@ -107,6 +107,16 @@ func settingsToProto(set org.Settings, at time.Time) *hubv1.OrganizationSettings
 			p.Stats.Seasons = append(p.Stats.Seasons, &hubv1.StatsSeason{Name: se.Name, Game: se.Game, From: se.From, To: se.To})
 		}
 	}
+	for id, g := range set.Games {
+		if p.Games == nil {
+			p.Games = map[string]*hubv1.GameSettings{}
+		}
+		pg := &hubv1.GameSettings{Theme: &hubv1.GameTheme{Light: tokens(g.Theme.Light), Dark: tokens(g.Theme.Dark), BannerUrl: g.Theme.BannerURL, BannerAlt: g.Theme.BannerAlt}}
+		for _, l := range g.Nav {
+			pg.Nav = append(pg.Nav, &hubv1.NavLink{Label: l.Label, Url: l.URL, Placement: l.Placement, Role: l.Role})
+		}
+		p.Games[id] = pg
+	}
 	if !at.IsZero() {
 		p.UpdatedAt = timestamppb.New(at)
 	}
@@ -140,6 +150,17 @@ func settingsFromProto(p *hubv1.OrganizationSettings) org.Settings {
 		RawRetentionMonths: int(st.GetRawRetentionMonths())}
 	for _, se := range st.GetSeasons() {
 		set.Stats.Seasons = append(set.Stats.Seasons, org.Season{Name: se.GetName(), Game: se.GetGame(), From: se.GetFrom(), To: se.GetTo()})
+	}
+	for id, g := range p.GetGames() {
+		if set.Games == nil {
+			set.Games = map[string]org.GameSettings{}
+		}
+		t := g.GetTheme()
+		og := org.GameSettings{Theme: org.GameTheme{Light: tokens(t.GetLight()), Dark: tokens(t.GetDark()), BannerURL: t.GetBannerUrl(), BannerAlt: t.GetBannerAlt()}}
+		for _, l := range g.GetNav() {
+			og.Nav = append(og.Nav, org.NavLink{Label: l.GetLabel(), URL: l.GetUrl(), Placement: l.GetPlacement(), Role: l.GetRole()})
+		}
+		set.Games[id] = og
 	}
 	return set
 }

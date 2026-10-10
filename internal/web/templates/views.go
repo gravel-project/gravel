@@ -39,6 +39,27 @@ type Theme struct {
 	LogoURL    string
 	FaviconURL string
 	Nav        []NavLink
+	// Games are the per-game overlays by game id (gravel#66).
+	Games map[string]GameTheme
+}
+
+// GameTheme is a game's overlay: its accent in each scheme (empty keeps the organization's), a
+// banner and links, on the game's pages.
+type GameTheme struct {
+	LightAccent string
+	DarkAccent  string
+	BannerURL   string
+	BannerAlt   string
+	Nav         []NavLink
+}
+
+// Game is the game a page belongs to, with its overlay: the page's content renders inside it.
+type Game struct {
+	ID        string
+	Name      string
+	BannerURL string
+	BannerAlt string
+	Nav       []NavLink
 }
 
 // Flash is a one-shot message: Kind is "ok" or "err".
@@ -94,6 +115,9 @@ type Page struct {
 	Theme     Theme
 	HeaderNav []NavLink
 	FooterNav []NavLink
+	// Game is set on a game's pages (a server, its moderation pages, a board scoped to the game
+	// or one of its servers); nil elsewhere.
+	Game *Game
 }
 
 // LoginPage lists the providers a member can sign in with.

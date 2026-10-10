@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"slices"
 	"strings"
 	"time"
 
@@ -49,11 +50,21 @@ type Service struct {
 
 	now  func() time.Time
 	rand io.Reader
+	// games are the game ids UpdateSettings accepts in the settings (Settings.CheckGames); nil
+	// skips the check.
+	games []string
 }
 
 // New builds a service whose claim tokens live for ttl.
 func New(st Store, ttl time.Duration, logger *slog.Logger) *Service {
 	return &Service{st: st, ttl: ttl, logger: logger, now: time.Now, rand: rand.Reader}
+}
+
+// WithGames makes UpdateSettings refuse a game that is not one of ids, the games this hub ships
+// (Settings.CheckGames), and returns s.
+func (s *Service) WithGames(ids []string) *Service {
+	s.games = slices.Sorted(slices.Values(ids))
+	return s
 }
 
 // EnsureBuiltin creates the built-in organization if it does not exist, keeps its name in step

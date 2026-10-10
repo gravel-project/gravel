@@ -61,6 +61,13 @@ templ Server(p ServerPage) {
 
 // ServerContent is one server: status, scores, who is on, recent matches.
 templ ServerContent(p ServerPage) {
+	@GameScope(p.Game) {
+		@serverBody(p)
+	}
+}
+
+// serverBody is ServerContent inside its game's overlay.
+templ serverBody(p ServerPage) {
 	@FlashView(p.Flash)
 	<h1>{ p.Server.Name }</h1>
 	<p class="meta">
@@ -274,6 +281,13 @@ templ Boards(p BoardsPage) {
 
 // BoardsContent is a leaderboard with its selectors; the form works without htmx.
 templ BoardsContent(p BoardsPage) {
+	@GameScope(p.Game) {
+		@boardsBody(p)
+	}
+}
+
+// boardsBody is BoardsContent inside its game's overlay.
+templ boardsBody(p BoardsPage) {
 	@FlashView(p.Flash)
 	<h1>{ p.Heading }</h1>
 	<form method="get" action="/boards" class="filters" hx-get="/boards" hx-target="#page" hx-push-url="true">

@@ -125,7 +125,7 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 		}
 	}
 
-	h.org = org.New(st, cfg.Claim.TokenTTL, logger)
+	h.org = org.New(st, cfg.Claim.TokenTTL, logger).WithGames(servers.GameIDs())
 	o, token, err := h.org.EnsureBuiltin(ctx, cfg.Organization.Name)
 	if err != nil {
 		st.Close()

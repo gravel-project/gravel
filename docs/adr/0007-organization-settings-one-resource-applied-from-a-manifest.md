@@ -18,3 +18,10 @@ The design puts every host-configurable knob (theme, navigation, the Discord rol
 - Hidden Token Gaming's theme is a committed manifest (deploy#45) applied by its infra role after each converge; a change is one PR with the manifest's diff.
 - A settings edit UI is not part of this; the owner's page can grow one over `UpdateOrganizationSettings`.
 - The role mapping (gravel#15, htg#30) and token lifetimes extend the same document and the same two procedures.
+
+## Amendments
+
+- **2026-10-10, per-game overlays (#66).** The document gains `games`, keyed by game id: each game's overlay on its pages (the accent per scheme, a banner, its own links). Three decisions:
+  - **The overlay is the accent only.** It applies to a region of the page (the content of a game's pages, under the organization's header), so a background or text colour there would paint a patch on the organization's background. `/theme.css` carries a rule for both schemes per game, the organization's accent filling a scheme the game leaves out.
+  - **It renders in the page's content, not the layout.** htmx swaps only `#page`, so an overlay in the layout would outlive a board's change of scope.
+  - **Game ids are checked against the games the hub ships.** `internal/org` can't import the Game specs, so the hub and the settings commands hand the service the list (`WithGames`); `apply`, `check` and `UpdateOrganizationSettings` refuse an unknown game, under `games` and in a season's `game`, which was only format-checked before.

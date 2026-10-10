@@ -8,6 +8,22 @@ patch release is everything else.
 
 ## [Unreleased]
 
+### Added
+
+- Per-game overlays in the Organization settings (#66, ADR-0007 amendment).
+  - **Settings:** `games.<id>` gives a game its accent in each scheme, a banner (`banner_url`, `banner_alt`) and up to 6 links of its own, at most 20 games. Only the accent is overlaid: the overlay colours the content of a page under the organization's header, where another background would paint a patch.
+  - **Pages:** a game's pages (a server of the game, its moderation confirmation and log, a board scoped to the game or one of its servers) render their content inside the overlay: the banner, the game's links in a navigation named for the game (owner-only links for the owner), and the accent. Other pages and the site's header and footer are unchanged. The overlay is part of the content, so an htmx swap of a board's scope carries it in and out.
+  - **Stylesheet:** `/theme.css` adds a rule per game for both schemes, the organization's accent standing in for a scheme the game leaves out; the web layer drops an unsafe id, colour or URL, as it does for the base theme.
+  - **Checks:** a key under `games` must be a game the hub ships; `apply`, `check` and `UpdateOrganizationSettings` refuse any other. `settings check` and `apply` name each game's overlay and the mod log in their summary.
+  - **API:** `OrganizationSettings.games` (`GameSettings`, `GameTheme`), additive.
+  - **Tests:** validation of every field, the known-games check through the API and the CLI, manifest and JSON round trips, the stylesheet (both schemes, the fallback, nothing unsafe), every game page with and without an overlay (anonymous and owner, the htmx fragment), the settings through the API to `/theme.css`, and axe over a new fixture. The axe run now fails when a fixture is left out of the list it scans.
+  - **Docs:** docs/hub.md ("Game overlays", the manifest, Pages, the endpoint table).
+
+### Fixed
+
+- A season's `game` in the Organization settings must be a game the hub ships. It was only format-checked, so a typo made a season that counted no matches.
+- docs/hub.md: the sentence after the `settings check` example ran on after the code fence's closing line.
+
 ## [0.7.0] - 2026-10-10
 
 ### Added

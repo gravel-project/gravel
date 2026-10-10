@@ -50,10 +50,23 @@ func testTheme() templates.Theme {
 		{Label: "Rules", URL: "https://example.com/rules", Placement: "footer"},
 		{Label: "Admin", URL: "/admin", Placement: "header", Role: "owner"},
 	}
+	// War Dogs' overlay (gravel#66), a light accent only, and two the normalizer must drop.
+	t.Games = map[string]templates.GameTheme{
+		"wardogs": {LightAccent: "#8a5a00", BannerURL: "https://cdn.example/wardogs.png", BannerAlt: "War Dogs",
+			Nav: []templates.NavLink{{Label: "Playbook", URL: "https://example.com/wardogs/"}, {Label: "Config", URL: "/servers/htg-wardogs-1/config", Role: "owner"}}},
+		"cs2":     {LightAccent: "red;}body{x:y", DarkAccent: "url(x)", BannerURL: "javascript:alert(1)", BannerAlt: "never shown"},
+		`a"]{x:y`: {LightAccent: "#000000"},
+	}
 	return t
 }
 
 func newRig(t *testing.T) *rig {
+	t.Helper()
+	return newRigWithTheme(t, testTheme())
+}
+
+// newRigWithTheme is newRig with theme as the pages' theme.
+func newRigWithTheme(t *testing.T, theme templates.Theme) *rig {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	r := &rig{idSt: identitytest.NewFakeStore(), servers: newFakeServers(), stats: &fakeStats{}, mod: &fakeMod{}}
@@ -78,7 +91,7 @@ func newRig(t *testing.T) *rig {
 	apiMux.Handle(hubv1connect.NewServerServiceHandler(r.servers))
 	apiMux.Handle(hubv1connect.NewStatsServiceHandler(r.stats))
 	apiMux.Handle(hubv1connect.NewModerationServiceHandler(r.mod))
-	h, err := web.New(ids, sess, sess.Middleware(apiMux), web.StaticTheme{T: testTheme()}, logger)
+	h, err := web.New(ids, sess, sess.Middleware(apiMux), web.StaticTheme{T: theme}, logger)
 	if err != nil {
 		t.Fatal(err)
 	}
