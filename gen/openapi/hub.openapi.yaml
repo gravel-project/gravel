@@ -1204,6 +1204,47 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.GetMemberProfileResponse'
+  /gravel.hub.v1.StatsService/GetParticipationBoard:
+    post:
+      tags:
+        - gravel.hub.v1.StatsService
+      summary: GetParticipationBoard
+      description: |-
+        GetParticipationBoard ranks the players who took part in one kind of thing over a window,
+         with the same access as GetBoard.
+      operationId: gravel.hub.v1.StatsService.GetParticipationBoard
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.GetParticipationBoardRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.GetParticipationBoardResponse'
   /gravel.hub.v1.StatsService/ListMatches:
     post:
       tags:
@@ -1243,6 +1284,47 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.ListMatchesResponse'
+  /gravel.hub.v1.StatsService/RecordParticipation:
+    post:
+      tags:
+        - gravel.hub.v1.StatsService
+      summary: RecordParticipation
+      description: |-
+        RecordParticipation stores participation events from a first-party app (ADR-0014): only an
+         app holding participation:write; a member's session, the owner's included, is refused.
+      operationId: gravel.hub.v1.StatsService.RecordParticipation
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.RecordParticipationRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.RecordParticipationResponse'
   /gravel.hub.v1.StatsService/SetBoardName:
     post:
       tags:
@@ -2162,6 +2244,14 @@ components:
             $ref: '#/components/schemas/gravel.hub.v1.PlayerMatch'
           title: recent
           description: Their most recent matches on any server, newest first.
+        participation:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.ParticipationTotals'
+          title: participation
+          description: |-
+            Their participation from first-party apps (ADR-0014) over the same windows as totals, one
+             entry per window and kind they took part in, by window in totals' order, then kind.
       title: GetMemberProfileResponse
       additionalProperties: false
     gravel.hub.v1.GetOrganizationRequest:
@@ -2189,6 +2279,67 @@ components:
             - $ref: '#/components/schemas/gravel.hub.v1.OrganizationSettings'
           title: settings
       title: GetOrganizationSettingsResponse
+      additionalProperties: false
+    gravel.hub.v1.GetParticipationBoardRequest:
+      type: object
+      properties:
+        kind:
+          type: string
+          title: kind
+          description: The kind to rank; empty is the first of the organization's kinds.
+        gameId:
+          type: string
+          title: game_id
+          description: Only this game's events; empty is every event, with a game or without.
+        window:
+          type: string
+          title: window
+          description: '"week" (this week), "month" (this month), "season" (the named one), "all" (the default).'
+        season:
+          type: string
+          title: season
+        pageSize:
+          type: integer
+          title: page_size
+          format: int32
+        pageToken:
+          type: string
+          title: page_token
+          description: The next_page_token of the previous page; empty for the first.
+      title: GetParticipationBoardRequest
+      additionalProperties: false
+    gravel.hub.v1.GetParticipationBoardResponse:
+      type: object
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.ParticipationEntry'
+          title: entries
+          description: Ranked by time, then times taken part.
+        nextPageToken:
+          type: string
+          title: next_page_token
+        from:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: from
+          description: The window's bounds; unset for "all".
+        to:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: to
+        kind:
+          type: string
+          title: kind
+          description: The kind ranked; empty when nothing has been recorded.
+        kinds:
+          type: array
+          items:
+            type: string
+          title: kinds
+          description: Every kind recorded in the organization, sorted, for a picker.
+      title: GetParticipationBoardResponse
       additionalProperties: false
     gravel.hub.v1.GetServerConfigRequest:
       type: object
@@ -2754,6 +2905,138 @@ components:
         OrganizationSettings is the Organization settings resource: every host-configurable knob in
          one document (theme and navigation, the Discord role mapping; token lifetimes and layout
          overrides join it with their features). Version is the document format.
+    gravel.hub.v1.ParticipationEntry:
+      type: object
+      properties:
+        rank:
+          type: integer
+          title: rank
+          format: int32
+        name:
+          type: string
+          title: name
+        pseudonymous:
+          type: boolean
+          title: pseudonymous
+        userId:
+          type: string
+          title: user_id
+          description: The member, when shown by name.
+        events:
+          type: integer
+          title: events
+          format: int32
+          description: How many times they took part, and for how long in all.
+        seconds:
+          type: integer
+          title: seconds
+          format: int32
+      title: ParticipationEntry
+      additionalProperties: false
+      description: ParticipationEntry is one player on a participation board, named as on GetBoard.
+    gravel.hub.v1.ParticipationEvent:
+      type: object
+      properties:
+        key:
+          type: string
+          title: key
+          description: |-
+            The app's idempotency key: 1 to 128 printable ASCII characters, unique per app. An event
+             sent again with a key the app used before is a duplicate and is not stored again, even when
+             its other fields differ.
+        kind:
+          type: string
+          title: kind
+          description: |-
+            What the player did, as the app names it: a lower-case letter, then up to 31 lower-case
+             letters, digits or underscores ("seeding", "attendance").
+        identity:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.PlayerIdentity'
+          title: identity
+        gameId:
+          type: string
+          title: game_id
+          description: |-
+            A game this hub ships, optional. With server_id, it must be that server's game; with only
+             server_id, the server's game is stored.
+        serverId:
+          type: string
+          title: server_id
+          description: A server the hub knows, optional.
+        session:
+          type: string
+          title: session
+          description: The app's own reference for the session or event, at most 128 characters, optional.
+        occurredAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: occurred_at
+          description: |-
+            When it happened: required, at most 5 minutes ahead of the hub's clock, and not older than
+             the stats store keeps raw rows (the Organization settings' stats.raw_retention_months).
+        durationSeconds:
+          type: integer
+          title: duration_seconds
+          format: int32
+          description: How long it lasted, 0 to 86400.
+        schemaVersion:
+          type: integer
+          title: schema_version
+          format: int32
+          description: 'The event''s schema version: 0 (the current one) or 1.'
+      title: ParticipationEvent
+      additionalProperties: false
+      description: |-
+        ParticipationEvent is one time a player took part in something a first-party app tracks
+         (ADR-0014): a seeding session, an event they attended. It feeds participation boards and
+         profiles only, never a combat board.
+    gravel.hub.v1.ParticipationResult:
+      type: object
+      properties:
+        key:
+          type: string
+          title: key
+        outcome:
+          type: string
+          title: outcome
+          description: '"recorded", or "duplicate" when the app sent the key before.'
+      title: ParticipationResult
+      additionalProperties: false
+      description: ParticipationResult is what became of one event.
+    gravel.hub.v1.ParticipationTotals:
+      type: object
+      properties:
+        window:
+          type: string
+          title: window
+        season:
+          type: string
+          title: season
+        from:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: from
+        to:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: to
+        kind:
+          type: string
+          title: kind
+        events:
+          type: integer
+          title: events
+          format: int32
+        seconds:
+          type: integer
+          title: seconds
+          format: int32
+      title: ParticipationTotals
+      additionalProperties: false
+      description: |-
+        ParticipationTotals is a member's participation of one kind over one window: "all", "week",
+         "month", or "season" with season naming one running now. from and to are unset for all time.
     gravel.hub.v1.PlanServerConfigRequest:
       type: object
       properties:
@@ -2787,6 +3070,22 @@ components:
           description: The server's validation; not ok means applying would be refused.
       title: PlanServerConfigResponse
       additionalProperties: false
+    gravel.hub.v1.PlayerIdentity:
+      type: object
+      properties:
+        provider:
+          type: string
+          title: provider
+          description: '"discord" or "steam".'
+        subject:
+          type: string
+          title: subject
+          description: 'The stable id at the provider: a Discord user id, a SteamID64.'
+      title: PlayerIdentity
+      additionalProperties: false
+      description: |-
+        PlayerIdentity is a player at an identity provider, as the stats store keys them (never a
+         member id: an identity is resolved to a member only when a board or profile is read).
     gravel.hub.v1.PlayerMatch:
       type: object
       properties:
@@ -2868,6 +3167,30 @@ components:
       description: |-
         ProfileTotals is a member's totals over one window: "all", "week", "month", or "season" with
          season naming one running now. from and to are unset for all time.
+    gravel.hub.v1.RecordParticipationRequest:
+      type: object
+      properties:
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.ParticipationEvent'
+          title: events
+          description: |-
+            1 to 100 events. The request is checked whole first: one invalid event refuses them all,
+             and nothing is stored.
+      title: RecordParticipationRequest
+      additionalProperties: false
+    gravel.hub.v1.RecordParticipationResponse:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.ParticipationResult'
+          title: results
+          description: One per event, in the request's order.
+      title: RecordParticipationResponse
+      additionalProperties: false
     gravel.hub.v1.RevokeSessionsRequest:
       type: object
       title: RevokeSessionsRequest
@@ -3368,4 +3691,5 @@ tags:
   - name: gravel.hub.v1.StatsService
     description: |-
       StatsService is the stats boards (ADR-0012): counts from the hub's own polls of each server,
-       keyed by provider identity, unlinked players under pseudonyms.
+       keyed by provider identity, unlinked players under pseudonyms; and participation from
+       first-party apps, on boards of its own (ADR-0014).

@@ -44,13 +44,19 @@ const ScopeServersConfigure = "servers:configure"
 // them private (ADR-0012 §8); public stats need no scope.
 const ScopeStatsRead = "stats:read"
 
+// ScopeParticipationWrite admits RecordParticipation: participation events from a first-party
+// app, such as a seeding tracker or event sign-ups (ADR-0014). Only an app holds it; the owner's
+// session is not admitted in its place.
+const ScopeParticipationWrite = "participation:write"
+
 // Scopes is every scope an app may hold, with what it admits.
 var Scopes = map[string]string{
-	ScopeIdentityRead:     "look up members and their identities (LookupUser, ListUsers, ListIdentityEvents)",
-	ScopeServersRead:      "see who is on a server: names and provider identities (ListServerPlayers)",
-	ScopeServersModerate:  "kick, ban, unban, message, broadcast to and move a server's players, list its bans and read the audit log (ModerationService)",
-	ScopeServersConfigure: "read, plan and apply a server's configuration (ServerConfigService)",
-	ScopeStatsRead:        "read the stats boards and match lists while stats are not public (StatsService GetBoard, ListMatches)",
+	ScopeIdentityRead:       "look up members and their identities (LookupUser, ListUsers, ListIdentityEvents)",
+	ScopeServersRead:        "see who is on a server: names and provider identities (ListServerPlayers)",
+	ScopeServersModerate:    "kick, ban, unban, message, broadcast to and move a server's players, list its bans and read the audit log (ModerationService)",
+	ScopeServersConfigure:   "read, plan and apply a server's configuration (ServerConfigService)",
+	ScopeStatsRead:          "read the stats and participation boards and match lists while stats are not public (StatsService GetBoard, GetParticipationBoard, ListMatches)",
+	ScopeParticipationWrite: "record participation events from a first-party app (StatsService RecordParticipation)",
 }
 
 // Limits.

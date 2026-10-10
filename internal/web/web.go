@@ -99,6 +99,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /servers", h.servers)
 	mux.HandleFunc("GET /servers/{id}", h.server)
 	mux.HandleFunc("GET /boards", h.boards)
+	mux.HandleFunc("GET /participation", h.participation)
 	mux.HandleFunc("GET /profile", h.profile)
 	mux.HandleFunc("GET /members/{id}", h.member)
 	mux.HandleFunc("POST /profile/name", h.setName)

@@ -91,6 +91,14 @@ type fakeStats struct {
 	// self is the logged-in member's id the profile answers for ("" before login).
 	self     string
 	showName bool
+	// participation is what every profile answers with.
+	participation []*hubv1.ParticipationTotals
+	// The participation board: its answer, or partErr; partLast is the last request.
+	partErr     connect.Code
+	partKinds   []string
+	partEntries []*hubv1.ParticipationEntry
+	partNext    string
+	partLast    *hubv1.GetParticipationBoardRequest
 }
 
 func (f *fakeStats) GetBoard(_ context.Context, req *connect.Request[hubv1.GetBoardRequest]) (*connect.Response[hubv1.GetBoardResponse], error) {
@@ -134,9 +142,10 @@ func (f *fakeStats) GetMemberProfile(ctx context.Context, req *connect.Request[h
 		if f.self == "" {
 			return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("log in"))
 		}
-		return connect.NewResponse(&hubv1.GetMemberProfileResponse{UserId: f.self, DisplayName: "Jo", Self: true, ShowName: f.showName, Totals: totals, Recent: recent}), nil
+		return connect.NewResponse(&hubv1.GetMemberProfileResponse{UserId: f.self, DisplayName: "Jo", Self: true, ShowName: f.showName, Totals: totals, Recent: recent,
+			Participation: f.participation}), nil
 	case "u2":
-		return connect.NewResponse(&hubv1.GetMemberProfileResponse{UserId: "u2", DisplayName: "Sam", ShowName: true, Totals: totals}), nil
+		return connect.NewResponse(&hubv1.GetMemberProfileResponse{UserId: "u2", DisplayName: "Sam", ShowName: true, Totals: totals, Participation: f.participation}), nil
 	}
 	return nil, connect.NewError(connect.CodeNotFound, errors.New("no such profile"))
 }

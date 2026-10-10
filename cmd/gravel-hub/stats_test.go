@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/gravel-project/gravel/internal/store"
 )
 
@@ -43,8 +45,17 @@ func TestStatsErase(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	app := store.App{ID: uuid.New(), OrganizationID: o.ID, Name: "seeder", ClientID: "gravel_seeder", SecretHash: []byte("x"), CreatedAt: at}
+	if err := st.CreateApp(ctx, app); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.RecordParticipation(ctx, []store.ParticipationEvent{{OrganizationID: o.ID, AppID: app.ID, Key: "s-1", Kind: "seeding",
+		Provider: "steam", Subject: subject, OccurredAt: at, DurationSeconds: 600, ReceivedAt: at, Source: "first_party", SchemaVersion: 1}}); err != nil {
+		t.Fatal(err)
+	}
+
 	code, out, errOut := run("stats", "erase", "--provider", "steam", "--subject", subject, "--config", cfgPath)
-	if code != 0 || !strings.Contains(out, "erased: 1 match rows, 0 monthly rows, 0 ingest batches re-keyed; pseudonym deleted: false") {
+	if code != 0 || !strings.Contains(out, "erased: 1 match rows, 0 monthly rows, 1 participation events, 0 participation monthly rows, 0 ingest batches re-keyed; pseudonym deleted: false") {
 		t.Fatalf("erase: %d %q %q", code, out, errOut)
 	}
 	if strings.Contains(out+errOut, subject) {
@@ -53,5 +64,9 @@ func TestStatsErase(t *testing.T) {
 	rows, err := st.MatchPlayers(ctx, match.ID)
 	if err != nil || len(rows) != 1 || rows[0].Provider != store.ErasedProvider || rows[0].Kills != 4 {
 		t.Errorf("rows = %+v, %v", rows, err)
+	}
+	events, err := st.ParticipationEvents(ctx, o.ID)
+	if err != nil || len(events) != 1 || events[0].Provider != store.ErasedProvider || events[0].Subject == subject || events[0].DurationSeconds != 600 {
+		t.Errorf("participation = %+v, %v", events, err)
 	}
 }

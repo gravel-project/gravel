@@ -100,11 +100,16 @@ type Erasure struct {
 	MatchRows     int // match_stats
 	MonthlyRows   int // stats_monthly
 	IngestBatches int // ingest_batches whose body named the identity
-	Pseudonym     bool
+	// ParticipationRows and ParticipationMonthlyRows are participation_events and
+	// participation_monthly (ADR-0014).
+	ParticipationRows        int
+	ParticipationMonthlyRows int
+	Pseudonym                bool
 }
 
-// EraseIdentity replaces an identity with (ErasedProvider, token) in match_stats, stats_monthly
-// and the bodies of the stored ingest batches, and deletes its pseudonym, in one transaction. The
+// EraseIdentity replaces an identity with (ErasedProvider, token) in match_stats, stats_monthly,
+// participation_events, participation_monthly and the bodies of the stored ingest batches, and
+// deletes its pseudonym, in one transaction. The
 // token must be random (a hash of a SteamID can be reversed by trying them all); the counts stay.
 // ingest_batches is re-keyed by replacing the subject wherever it appears in a body, which is how
 // a feed writes it.
@@ -130,6 +135,16 @@ func (s *Store) EraseIdentity(ctx context.Context, orgID uuid.UUID, key PlayerKe
 		return Erasure{}, fmt.Errorf("store: erase identity: stats_monthly: %w", err)
 	}
 	out.MonthlyRows = int(tag.RowsAffected())
+	if tag, err = tx.Exec(ctx, `UPDATE participation_events SET provider = $4, subject = $5
+		WHERE organization_id = $1 AND provider = $2 AND subject = $3`, orgID, key.Provider, key.Subject, ErasedProvider, token); err != nil {
+		return Erasure{}, fmt.Errorf("store: erase identity: participation_events: %w", err)
+	}
+	out.ParticipationRows = int(tag.RowsAffected())
+	if tag, err = tx.Exec(ctx, `UPDATE participation_monthly SET provider = $4, subject = $5
+		WHERE organization_id = $1 AND provider = $2 AND subject = $3`, orgID, key.Provider, key.Subject, ErasedProvider, token); err != nil {
+		return Erasure{}, fmt.Errorf("store: erase identity: participation_monthly: %w", err)
+	}
+	out.ParticipationMonthlyRows = int(tag.RowsAffected())
 	if tag, err = tx.Exec(ctx, `UPDATE ingest_batches
 		   SET body = convert_to(replace(convert_from(body, 'UTF8'), $2, $3), 'UTF8'),
 		       body_sha256 = sha256(convert_to(replace(convert_from(body, 'UTF8'), $2, $3), 'UTF8'))

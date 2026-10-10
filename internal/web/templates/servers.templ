@@ -293,6 +293,7 @@ templ BoardsContent(p BoardsPage) {
 templ boardsBody(p BoardsPage) {
 	@FlashView(p.Flash)
 	<h1>{ p.Heading }</h1>
+	<p><a href="/participation">Participation boards</a></p>
 	<form method="get" action="/boards" class="filters" hx-get="/boards" hx-target="#page" hx-push-url="true">
 		<input type="hidden" name="metric" value={ p.Metric }/>
 		<div>

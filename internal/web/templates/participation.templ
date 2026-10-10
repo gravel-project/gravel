@@ -1,0 +1,86 @@
+package templates
+
+import "fmt"
+
+// Participation is the whole participation board page (ADR-0014).
+templ Participation(p ParticipationPage) {
+	@Layout(p.Page) {
+		@ParticipationContent(p)
+	}
+}
+
+// ParticipationContent is a participation board with its kind and window; the form works
+// without htmx.
+templ ParticipationContent(p ParticipationPage) {
+	@FlashView(p.Flash)
+	<h1>Participation</h1>
+	<p><a href="/boards">Leaderboards</a></p>
+	if p.Empty {
+		<p class="muted">Nothing has been recorded yet. Participation, such as seeding a server or attending an event, comes from the community's own apps.</p>
+	} else {
+		if len(p.Kinds) > 0 {
+			<form method="get" action="/participation" class="filters" hx-get="/participation" hx-target="#page" hx-push-url="true">
+				<div>
+					<label for="kind">Activity</label>
+					<select id="kind" name="kind">
+						for _, o := range p.Kinds {
+							<option value={ o.Value } selected?={ o.Selected }>{ o.Label }</option>
+						}
+					</select>
+				</div>
+				<div>
+					<label for="window">When</label>
+					<select id="window" name="window">
+						for _, o := range p.Windows {
+							<option value={ o.Value } selected?={ o.Selected }>{ o.Label }</option>
+						}
+					</select>
+				</div>
+				<button type="submit">Show</button>
+			</form>
+		}
+		if p.Range != "" {
+			<p class="muted">{ p.Range }</p>
+		}
+		if p.Note != "" {
+			<p class="muted">{ p.Note }</p>
+		} else if len(p.Rows) == 0 {
+			<p class="muted">Nobody has taken part in this window yet.</p>
+		} else {
+			<table class="board">
+				<caption>{ p.Kind }</caption>
+				<thead>
+					<tr>
+						<th scope="col" class="num">#</th>
+						<th scope="col">Player</th>
+						<th scope="col" class="num" aria-sort="descending">Time ▼</th>
+						<th scope="col" class="num">Times</th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, r := range p.Rows {
+						<tr>
+							<td class="num">{ fmt.Sprint(r.Rank) }</td>
+							<td>
+								if r.UserID != "" {
+									<a href={ templ.SafeURL("/members/" + r.UserID) }>{ r.Name }</a>
+								} else {
+									{ r.Name }
+								}
+								if !r.Pseudonymous {
+									<span class="badge">member</span>
+								}
+							</td>
+							<td class="num">{ r.Time }</td>
+							<td class="num">{ fmt.Sprint(r.Times) }</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+			<p class="muted">Players who haven't linked an account, or chose not to show their name, appear under a pseudonym.</p>
+			if p.NextURL != "" {
+				<p><a href={ templ.SafeURL(p.NextURL) } hx-get={ p.NextURL } hx-target="#page" hx-push-url="true">Next page</a></p>
+			}
+		}
+	}
+}

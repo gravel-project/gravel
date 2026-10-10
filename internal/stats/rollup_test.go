@@ -78,6 +78,22 @@ type rollupStore struct {
 	rolled  store.Rollup
 	erased  store.PlayerKey
 	token   string
+
+	oldestPart  time.Time
+	partPeriods []store.Period
+	partMoved   int
+}
+
+func (r *rollupStore) OldestRawParticipation(context.Context, uuid.UUID) (time.Time, error) {
+	if r.oldestPart.IsZero() {
+		return time.Time{}, store.ErrNotFound
+	}
+	return r.oldestPart, nil
+}
+
+func (r *rollupStore) RollUpParticipation(_ context.Context, _ uuid.UUID, tz string, periods []store.Period) (int, error) {
+	r.tz, r.partPeriods = tz, periods
+	return r.partMoved, nil
 }
 
 func (r *rollupStore) OldestRawMatch(context.Context, uuid.UUID) (time.Time, error) {
@@ -108,10 +124,11 @@ func TestRetentionRun(t *testing.T) {
 	}
 
 	// No raw rows, or none past the window: nothing is rolled.
-	for name, st := range map[string]*rollupStore{"empty": {}, "recent": {oldest: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)}} {
+	recent := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	for name, st := range map[string]*rollupStore{"empty": {}, "recent": {oldest: recent, oldestPart: recent}} {
 		r, _ := newRun(st)
-		if err := r.Run(context.Background()); err != nil || st.periods != nil {
-			t.Errorf("%s: %v, periods %v", name, err, st.periods)
+		if err := r.Run(context.Background()); err != nil || st.periods != nil || st.partPeriods != nil {
+			t.Errorf("%s: %v, periods %v and %v", name, err, st.periods, st.partPeriods)
 		}
 	}
 
@@ -133,6 +150,35 @@ func TestRetentionRun(t *testing.T) {
 	}
 	if _, err := reg.Gather(); err != nil {
 		t.Fatal(err)
+	}
+	if st.partPeriods != nil {
+		t.Errorf("participation rolled with none to roll: %v", st.partPeriods)
+	}
+
+	// Only participation is old: it rolls, from its own oldest month, and the matches do not.
+	st = &rollupStore{oldest: recent, oldestPart: time.Date(2026, 2, 3, 0, 0, 0, 0, time.UTC), partMoved: 5}
+	r, _ = newRun(st)
+	if err := r.Run(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if st.periods != nil || len(st.partPeriods) != 3 || st.partPeriods[0].From.Format(time.DateOnly) != "2026-02-01" {
+		t.Errorf("participation only: matches %v, participation %v", st.periods, st.partPeriods)
+	}
+	if changes.Seen() != 2 {
+		t.Errorf("moving participation did not bump the change counter: %d", changes.Seen())
+	}
+
+	// Both: the periods start at the older of the two, and both roll over the same periods.
+	st = &rollupStore{oldest: time.Date(2026, 3, 9, 0, 0, 0, 0, time.UTC), oldestPart: time.Date(2026, 1, 9, 0, 0, 0, 0, time.UTC)}
+	r, _ = newRun(st)
+	if err := r.Run(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(st.periods) != 4 || len(st.partPeriods) != 4 || st.periods[0].From.Format(time.DateOnly) != "2026-01-01" {
+		t.Errorf("both: matches %v, participation %v", st.periods, st.partPeriods)
+	}
+	if changes.Seen() != 2 {
+		t.Errorf("a rollup that moved nothing bumped the change counter: %d", changes.Seen())
 	}
 }
 

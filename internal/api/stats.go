@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"log/slog"
 	"strconv"
 	"strings"
@@ -24,13 +25,15 @@ import (
 
 // StatsServer is StatsService (ADR-0012): boards and match lists, public when the Organization
 // settings say so and otherwise the owner's or an app's with stats:read; a member's own choice
-// to be shown by name.
+// to be shown by name; and participation from first-party apps (ADR-0014), recorded by apps with
+// participation:write and read like the boards.
 type StatsServer struct {
 	hubv1connect.UnimplementedStatsServiceHandler
-	boards  *stats.Boards
-	org     *org.Service
-	members MemberReader
-	logger  *slog.Logger
+	boards        *stats.Boards
+	participation *stats.Participation
+	org           *org.Service
+	members       MemberReader
+	logger        *slog.Logger
 }
 
 // MemberReader reads a member with their linked identities (identity.Service).
@@ -39,8 +42,8 @@ type MemberReader interface {
 }
 
 // NewStatsServer builds the handler.
-func NewStatsServer(boards *stats.Boards, orgSvc *org.Service, members MemberReader, logger *slog.Logger) *StatsServer {
-	return &StatsServer{boards: boards, org: orgSvc, members: members, logger: logger}
+func NewStatsServer(boards *stats.Boards, participation *stats.Participation, orgSvc *org.Service, members MemberReader, logger *slog.Logger) *StatsServer {
+	return &StatsServer{boards: boards, participation: participation, org: orgSvc, members: members, logger: logger}
 }
 
 // mayRead admits anyone when stats are public, else the owner or an app with stats:read.
@@ -245,6 +248,11 @@ func (s *StatsServer) GetMemberProfile(ctx context.Context, req *connect.Request
 			pt.From, pt.To = timestamppb.New(t.From), timestamppb.New(t.To)
 		}
 		resp.Totals = append(resp.Totals, pt)
+		for _, k := range t.Participation {
+			pp := &hubv1.ParticipationTotals{Window: t.Window, Season: t.Season, Kind: k.Kind, Events: int32(k.Events), Seconds: int32(k.Seconds)} //nolint:gosec // clamped by stats
+			pp.From, pp.To = pt.GetFrom(), pt.GetTo()
+			resp.Participation = append(resp.Participation, pp)
+		}
 	}
 	for _, m := range p.Recent {
 		pm := &hubv1.PlayerMatch{MatchId: strconv.FormatInt(m.ID, 10), ServerId: m.ServerID, ServerName: m.ServerName, StartedAt: timestamppb.New(m.StartedAt),
@@ -273,4 +281,80 @@ func (s *StatsServer) mayReadProfile(ctx context.Context, isSelf, showsName bool
 		}
 	}
 	return requireScope(ctx, s.org, s.logger, apps.ScopeStatsRead)
+}
+
+// RecordParticipation stores participation events for the calling app (ADR-0014). Only an app
+// with participation:write records them: a member's session, the owner's included, is refused,
+// since an event says what an app saw, not what a person claims.
+func (s *StatsServer) RecordParticipation(ctx context.Context, req *connect.Request[hubv1.RecordParticipationRequest]) (*connect.Response[hubv1.RecordParticipationResponse], error) {
+	a, ok := apps.FromContext(ctx)
+	if !ok {
+		if _, err := caller(ctx); err != nil {
+			return nil, err
+		}
+		return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("participation is recorded by a first-party app with the scope %q, not by a member", apps.ScopeParticipationWrite))
+	}
+	if !a.Has(apps.ScopeParticipationWrite) {
+		return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("the app %s lacks the scope %q", a.Name, apps.ScopeParticipationWrite))
+	}
+	events := make([]stats.ParticipationEvent, 0, len(req.Msg.GetEvents()))
+	for _, e := range req.Msg.GetEvents() {
+		ev := stats.ParticipationEvent{Key: e.GetKey(), Kind: e.GetKind(), GameID: e.GetGameId(), ServerID: e.GetServerId(), Session: e.GetSession(),
+			DurationSeconds: int(e.GetDurationSeconds()), SchemaVersion: int(e.GetSchemaVersion())}
+		if id := e.GetIdentity(); id != nil {
+			ev.Identity = &store.PlayerKey{Provider: id.GetProvider(), Subject: id.GetSubject()}
+		}
+		if at := e.GetOccurredAt(); at != nil && at.IsValid() {
+			ev.OccurredAt = at.AsTime()
+		}
+		events = append(events, ev)
+	}
+	results, err := s.participation.Record(ctx, a.ID, events)
+	if errors.Is(err, stats.ErrInvalidParticipation) {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New(strings.TrimPrefix(err.Error(), stats.ErrInvalidParticipation.Error()+": ")))
+	}
+	if err != nil {
+		return nil, mapError(ctx, s.logger, err)
+	}
+	resp := &hubv1.RecordParticipationResponse{}
+	for _, r := range results {
+		resp.Results = append(resp.Results, &hubv1.ParticipationResult{Key: r.Key, Outcome: r.Outcome})
+	}
+	return connect.NewResponse(resp), nil
+}
+
+// GetParticipationBoard ranks the players who took part in one kind over a window, with the same
+// access as GetBoard.
+func (s *StatsServer) GetParticipationBoard(ctx context.Context, req *connect.Request[hubv1.GetParticipationBoardRequest]) (*connect.Response[hubv1.GetParticipationBoardResponse], error) {
+	if err := s.mayRead(ctx); err != nil {
+		return nil, err
+	}
+	m := req.Msg
+	if m.GetPageSize() < 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("page_size must not be negative"))
+	}
+	offset, err := decodeOffsetToken(m.GetPageToken())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	b, err := s.boards.ParticipationBoard(ctx, stats.ParticipationQuery{Kind: m.GetKind(), GameID: m.GetGameId(), Window: m.GetWindow(), Season: m.GetSeason(),
+		PageSize: int(m.GetPageSize()), Offset: offset})
+	if err != nil {
+		return nil, s.mapError(ctx, err)
+	}
+	resp := &hubv1.GetParticipationBoardResponse{Kind: b.Kind, Kinds: b.Kinds}
+	for _, e := range b.Entries {
+		pe := &hubv1.ParticipationEntry{Rank: int32(e.Rank), Name: e.Name, Pseudonymous: e.Pseudonymous, Events: int32(e.Events), Seconds: int32(e.Seconds)} //nolint:gosec // clamped by stats
+		if e.UserID != uuid.Nil {
+			pe.UserId = e.UserID.String()
+		}
+		resp.Entries = append(resp.Entries, pe)
+	}
+	if b.More {
+		resp.NextPageToken = encodeOffsetToken(offset + len(b.Entries))
+	}
+	if !b.From.IsZero() {
+		resp.From, resp.To = timestamppb.New(b.From), timestamppb.New(b.To)
+	}
+	return connect.NewResponse(resp), nil
 }

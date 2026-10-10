@@ -2566,14 +2566,79 @@
       "type": "stat"
     },
     {
-      "collapsed": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Participation events first-party apps sent (ADR-0014), by kind and outcome: recorded; duplicate (a key the app sent before, not stored again); invalid (the request was refused, nothing stored; kind is \"invalid\" when the kind itself was). No data is expected when no app recorded participation in the range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gravelOptional": "no app recorded participation in the range",
       "gridPos": {
-        "h": 1,
+        "h": 8,
         "w": 24,
         "x": 0,
         "y": 99
       },
       "id": 45,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (kind, outcome) (increase(gravel_participation_events_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "{{kind}} {{outcome}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Participation events",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 107
+      },
+      "id": 46,
       "panels": [],
       "title": "Ingestion",
       "type": "row"
@@ -2615,9 +2680,9 @@
         "h": 4,
         "w": 8,
         "x": 0,
-        "y": 100
+        "y": 108
       },
-      "id": 46,
+      "id": 47,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -2683,9 +2748,9 @@
         "h": 8,
         "w": 16,
         "x": 8,
-        "y": 100
+        "y": 108
       },
-      "id": 47,
+      "id": 48,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2718,9 +2783,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 108
+        "y": 116
       },
-      "id": 48,
+      "id": 49,
       "panels": [],
       "title": "Background jobs",
       "type": "row"
@@ -2760,9 +2825,9 @@
         "h": 8,
         "w": 16,
         "x": 0,
-        "y": 109
+        "y": 117
       },
-      "id": 49,
+      "id": 50,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2817,9 +2882,9 @@
         "h": 4,
         "w": 8,
         "x": 16,
-        "y": 109
+        "y": 117
       },
-      "id": 50,
+      "id": 51,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -2855,9 +2920,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 117
+        "y": 125
       },
-      "id": 51,
+      "id": 52,
       "panels": [],
       "title": "Runtime",
       "type": "row"
@@ -2896,9 +2961,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 118
+        "y": 126
       },
-      "id": 52,
+      "id": 53,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2959,9 +3024,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 118
+        "y": 126
       },
-      "id": 53,
+      "id": 54,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3022,9 +3087,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 118
+        "y": 126
       },
-      "id": 54,
+      "id": 55,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3085,9 +3150,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 126
+        "y": 134
       },
-      "id": 55,
+      "id": 56,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3148,9 +3213,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 126
+        "y": 134
       },
-      "id": 56,
+      "id": 57,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3211,9 +3276,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 126
+        "y": 134
       },
-      "id": 57,
+      "id": 58,
       "options": {
         "legend": {
           "displayMode": "list",

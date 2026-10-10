@@ -47,6 +47,12 @@ const (
 	// StatsServiceGetMemberProfileProcedure is the fully-qualified name of the StatsService's
 	// GetMemberProfile RPC.
 	StatsServiceGetMemberProfileProcedure = "/gravel.hub.v1.StatsService/GetMemberProfile"
+	// StatsServiceRecordParticipationProcedure is the fully-qualified name of the StatsService's
+	// RecordParticipation RPC.
+	StatsServiceRecordParticipationProcedure = "/gravel.hub.v1.StatsService/RecordParticipation"
+	// StatsServiceGetParticipationBoardProcedure is the fully-qualified name of the StatsService's
+	// GetParticipationBoard RPC.
+	StatsServiceGetParticipationBoardProcedure = "/gravel.hub.v1.StatsService/GetParticipationBoard"
 )
 
 // StatsServiceClient is a client for the gravel.hub.v1.StatsService service.
@@ -65,6 +71,12 @@ type StatsServiceClient interface {
 	// the Organization settings make stats public. Anyone else gets not_found, so a profile
 	// doesn't reveal who is behind a pseudonym.
 	GetMemberProfile(context.Context, *connect.Request[v1.GetMemberProfileRequest]) (*connect.Response[v1.GetMemberProfileResponse], error)
+	// RecordParticipation stores participation events from a first-party app (ADR-0014): only an
+	// app holding participation:write; a member's session, the owner's included, is refused.
+	RecordParticipation(context.Context, *connect.Request[v1.RecordParticipationRequest]) (*connect.Response[v1.RecordParticipationResponse], error)
+	// GetParticipationBoard ranks the players who took part in one kind of thing over a window,
+	// with the same access as GetBoard.
+	GetParticipationBoard(context.Context, *connect.Request[v1.GetParticipationBoardRequest]) (*connect.Response[v1.GetParticipationBoardResponse], error)
 }
 
 // NewStatsServiceClient constructs a client for the gravel.hub.v1.StatsService service. By default,
@@ -108,16 +120,30 @@ func NewStatsServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(statsServiceMethods.ByName("GetMemberProfile")),
 			connect.WithClientOptions(opts...),
 		),
+		recordParticipation: connect.NewClient[v1.RecordParticipationRequest, v1.RecordParticipationResponse](
+			httpClient,
+			baseURL+StatsServiceRecordParticipationProcedure,
+			connect.WithSchema(statsServiceMethods.ByName("RecordParticipation")),
+			connect.WithClientOptions(opts...),
+		),
+		getParticipationBoard: connect.NewClient[v1.GetParticipationBoardRequest, v1.GetParticipationBoardResponse](
+			httpClient,
+			baseURL+StatsServiceGetParticipationBoardProcedure,
+			connect.WithSchema(statsServiceMethods.ByName("GetParticipationBoard")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // statsServiceClient implements StatsServiceClient.
 type statsServiceClient struct {
-	getBoard         *connect.Client[v1.GetBoardRequest, v1.GetBoardResponse]
-	listMatches      *connect.Client[v1.ListMatchesRequest, v1.ListMatchesResponse]
-	getBoardName     *connect.Client[v1.GetBoardNameRequest, v1.GetBoardNameResponse]
-	setBoardName     *connect.Client[v1.SetBoardNameRequest, v1.SetBoardNameResponse]
-	getMemberProfile *connect.Client[v1.GetMemberProfileRequest, v1.GetMemberProfileResponse]
+	getBoard              *connect.Client[v1.GetBoardRequest, v1.GetBoardResponse]
+	listMatches           *connect.Client[v1.ListMatchesRequest, v1.ListMatchesResponse]
+	getBoardName          *connect.Client[v1.GetBoardNameRequest, v1.GetBoardNameResponse]
+	setBoardName          *connect.Client[v1.SetBoardNameRequest, v1.SetBoardNameResponse]
+	getMemberProfile      *connect.Client[v1.GetMemberProfileRequest, v1.GetMemberProfileResponse]
+	recordParticipation   *connect.Client[v1.RecordParticipationRequest, v1.RecordParticipationResponse]
+	getParticipationBoard *connect.Client[v1.GetParticipationBoardRequest, v1.GetParticipationBoardResponse]
 }
 
 // GetBoard calls gravel.hub.v1.StatsService.GetBoard.
@@ -145,6 +171,16 @@ func (c *statsServiceClient) GetMemberProfile(ctx context.Context, req *connect.
 	return c.getMemberProfile.CallUnary(ctx, req)
 }
 
+// RecordParticipation calls gravel.hub.v1.StatsService.RecordParticipation.
+func (c *statsServiceClient) RecordParticipation(ctx context.Context, req *connect.Request[v1.RecordParticipationRequest]) (*connect.Response[v1.RecordParticipationResponse], error) {
+	return c.recordParticipation.CallUnary(ctx, req)
+}
+
+// GetParticipationBoard calls gravel.hub.v1.StatsService.GetParticipationBoard.
+func (c *statsServiceClient) GetParticipationBoard(ctx context.Context, req *connect.Request[v1.GetParticipationBoardRequest]) (*connect.Response[v1.GetParticipationBoardResponse], error) {
+	return c.getParticipationBoard.CallUnary(ctx, req)
+}
+
 // StatsServiceHandler is an implementation of the gravel.hub.v1.StatsService service.
 type StatsServiceHandler interface {
 	// GetBoard ranks the players of a server, a game or the organization over a window. Public when
@@ -161,6 +197,12 @@ type StatsServiceHandler interface {
 	// the Organization settings make stats public. Anyone else gets not_found, so a profile
 	// doesn't reveal who is behind a pseudonym.
 	GetMemberProfile(context.Context, *connect.Request[v1.GetMemberProfileRequest]) (*connect.Response[v1.GetMemberProfileResponse], error)
+	// RecordParticipation stores participation events from a first-party app (ADR-0014): only an
+	// app holding participation:write; a member's session, the owner's included, is refused.
+	RecordParticipation(context.Context, *connect.Request[v1.RecordParticipationRequest]) (*connect.Response[v1.RecordParticipationResponse], error)
+	// GetParticipationBoard ranks the players who took part in one kind of thing over a window,
+	// with the same access as GetBoard.
+	GetParticipationBoard(context.Context, *connect.Request[v1.GetParticipationBoardRequest]) (*connect.Response[v1.GetParticipationBoardResponse], error)
 }
 
 // NewStatsServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -200,6 +242,18 @@ func NewStatsServiceHandler(svc StatsServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(statsServiceMethods.ByName("GetMemberProfile")),
 		connect.WithHandlerOptions(opts...),
 	)
+	statsServiceRecordParticipationHandler := connect.NewUnaryHandler(
+		StatsServiceRecordParticipationProcedure,
+		svc.RecordParticipation,
+		connect.WithSchema(statsServiceMethods.ByName("RecordParticipation")),
+		connect.WithHandlerOptions(opts...),
+	)
+	statsServiceGetParticipationBoardHandler := connect.NewUnaryHandler(
+		StatsServiceGetParticipationBoardProcedure,
+		svc.GetParticipationBoard,
+		connect.WithSchema(statsServiceMethods.ByName("GetParticipationBoard")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/gravel.hub.v1.StatsService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case StatsServiceGetBoardProcedure:
@@ -212,6 +266,10 @@ func NewStatsServiceHandler(svc StatsServiceHandler, opts ...connect.HandlerOpti
 			statsServiceSetBoardNameHandler.ServeHTTP(w, r)
 		case StatsServiceGetMemberProfileProcedure:
 			statsServiceGetMemberProfileHandler.ServeHTTP(w, r)
+		case StatsServiceRecordParticipationProcedure:
+			statsServiceRecordParticipationHandler.ServeHTTP(w, r)
+		case StatsServiceGetParticipationBoardProcedure:
+			statsServiceGetParticipationBoardHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -239,4 +297,12 @@ func (UnimplementedStatsServiceHandler) SetBoardName(context.Context, *connect.R
 
 func (UnimplementedStatsServiceHandler) GetMemberProfile(context.Context, *connect.Request[v1.GetMemberProfileRequest]) (*connect.Response[v1.GetMemberProfileResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.StatsService.GetMemberProfile is not implemented"))
+}
+
+func (UnimplementedStatsServiceHandler) RecordParticipation(context.Context, *connect.Request[v1.RecordParticipationRequest]) (*connect.Response[v1.RecordParticipationResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.StatsService.RecordParticipation is not implemented"))
+}
+
+func (UnimplementedStatsServiceHandler) GetParticipationBoard(context.Context, *connect.Request[v1.GetParticipationBoardRequest]) (*connect.Response[v1.GetParticipationBoardResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.StatsService.GetParticipationBoard is not implemented"))
 }

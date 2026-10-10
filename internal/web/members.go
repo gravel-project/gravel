@@ -64,13 +64,10 @@ func (h *Handler) memberPage(r *http.Request, id string, flash *templates.Flash)
 	}
 	mp := templates.MemberPage{Page: p.Page, UserID: m.GetUserId(), DisplayName: m.GetDisplayName(), Self: m.GetSelf(), ShowName: m.GetShowName()}
 	for _, t := range m.GetTotals() {
-		label := windowLabels[t.GetWindow()]
-		if t.GetWindow() == "season" {
-			label = t.GetSeason()
-		}
-		mp.Totals = append(mp.Totals, templates.TotalsRow{Label: label, Kills: int(t.GetKills()), Deaths: int(t.GetDeaths()),
+		mp.Totals = append(mp.Totals, templates.TotalsRow{Label: windowLabel(t.GetWindow(), t.GetSeason()), Kills: int(t.GetKills()), Deaths: int(t.GetDeaths()),
 			KD: strconv.FormatFloat(t.GetKd(), 'f', 2, 64), Time: templates.Duration(int(t.GetSecondsOn())), Matches: int(t.GetMatches())})
 	}
+	mp.Participation = profileParticipation(m.GetTotals(), m.GetParticipation())
 	for _, pm := range m.GetRecent() {
 		mp.Recent = append(mp.Recent, templates.PlayedMatch{Started: pm.GetStartedAt().AsTime(), Live: pm.GetEndedAt() == nil, ServerID: pm.GetServerId(),
 			Server: pm.GetServerName(), Map: pm.GetMap(), Kills: int(pm.GetKills()), Deaths: int(pm.GetDeaths()), Time: templates.Duration(int(pm.GetSecondsOn()))})

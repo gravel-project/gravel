@@ -19,14 +19,17 @@ import (
 	"github.com/gravel-project/gravel/internal/store"
 )
 
-// fakeStatsStore is the little of the stats store a profile reads: the name choice, a player's
-// totals and recent matches. The SQL is tested against Postgres in internal/store.
+// fakeStatsStore is the little of the stats store a profile and the participation API use: the
+// name choice, a player's totals and recent matches, members shown by name, and participation
+// kept in memory. The SQL is tested against Postgres in internal/store.
 type fakeStatsStore struct {
 	stats.Store // what a test does not use panics
 	mu          sync.Mutex
 	showName    map[uuid.UUID]bool
 	keys        []store.PlayerKey
 	games       []string
+	members     map[store.PlayerKey]store.BoardMember
+	events      []store.ParticipationEvent
 }
 
 func (f *fakeStatsStore) ShowNameOnBoards(_ context.Context, id uuid.UUID) (bool, error) {

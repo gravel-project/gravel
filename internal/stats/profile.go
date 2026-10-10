@@ -18,6 +18,16 @@ type WindowTotals struct {
 	From, To time.Time
 	Totals   store.BoardRow
 	KD       float64
+	// Participation is their participation from first-party apps over the window, by kind; a
+	// kind they never took part in is absent (ADR-0014).
+	Participation []KindTotals
+}
+
+// KindTotals is a player's participation of one kind over a window.
+type KindTotals struct {
+	Kind    string
+	Events  int
+	Seconds int
 }
 
 // Profile is one player's stats across their identities.
@@ -28,7 +38,8 @@ type Profile struct {
 
 // Profile sums a player's identities (a member's linked accounts) over all time, this week, this
 // month and each season running now, counting Official servers' rows as the organization's board
-// does (a game's season counts that game's matches), and lists their recent matches on any server.
+// does (a game's season counts that game's matches), with their participation per kind over the
+// same windows, and lists their recent matches on any server.
 func (b *Boards) Profile(ctx context.Context, keys []store.PlayerKey) (Profile, error) {
 	set, err := b.settings(ctx)
 	if err != nil {
@@ -52,8 +63,16 @@ func (b *Boards) Profile(ctx context.Context, keys []store.PlayerKey) (Profile, 
 		if err != nil {
 			return Profile{}, err
 		}
-		out.Totals = append(out.Totals, WindowTotals{Window: q.Window, Season: q.Season, From: from, To: to, Totals: row,
-			KD: float64(row.Kills) / float64(max(row.Deaths, 1))})
+		kinds, err := b.st.ParticipationTotals(ctx, store.ParticipationTotalsQuery{OrganizationID: b.orgID, Keys: keys, GameID: game, From: from, To: to,
+			Timezone: set.Location().String()})
+		if err != nil {
+			return Profile{}, err
+		}
+		wt := WindowTotals{Window: q.Window, Season: q.Season, From: from, To: to, Totals: row, KD: float64(row.Kills) / float64(max(row.Deaths, 1))}
+		for _, k := range kinds {
+			wt.Participation = append(wt.Participation, KindTotals{Kind: k.Kind, Events: clamp(k.Events), Seconds: clamp(k.Seconds)})
+		}
+		out.Totals = append(out.Totals, wt)
 	}
 	if out.Recent, err = b.st.PlayerMatches(ctx, b.orgID, keys, ProfileMatches); err != nil {
 		return Profile{}, err

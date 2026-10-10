@@ -4,7 +4,12 @@
 // generated *_templ.go files are committed and CI fails on drift.
 package templates
 
-import "time"
+import (
+	"strings"
+	"time"
+	"unicode"
+	"unicode/utf8"
+)
 
 // HTMXConfig is the htmx configuration the layout sets: requests to this origin only, no eval,
 // no script tags from responses, no injected indicator styles (the CSP forbids inline styles),
@@ -344,6 +349,60 @@ type MemberPage struct {
 	ShowName    bool
 	Totals      []TotalsRow
 	Recent      []PlayedMatch
+	// Participation is one table per kind the member took part in (ADR-0014), rows by window.
+	Participation []KindTable
+}
+
+// KindTable is a member's participation of one kind, a row per window.
+type KindTable struct {
+	Label string
+	Rows  []KindTotalsRow
+}
+
+// KindTotalsRow is a member's participation of one kind over one window.
+type KindTotalsRow struct {
+	Label string
+	Times int
+	Time  string
+}
+
+// ParticipationRow is one ranked player on a participation board.
+type ParticipationRow struct {
+	Rank         int
+	Name         string
+	Pseudonymous bool
+	// UserID is set for a member shown by name; their name links to their profile.
+	UserID string
+	Time   string
+	Times  int
+}
+
+// ParticipationPage is a participation board (ADR-0014) with its kind and window.
+type ParticipationPage struct {
+	Page
+	Kinds   []Option
+	Windows []Option
+	// Kind is the ranked kind's label, the table's caption.
+	Kind string
+	Rows []ParticipationRow
+	// Range is the window's dates, empty for all time.
+	Range string
+	// Note explains a private or invalid board.
+	Note string
+	// Empty is a hub where nothing has been recorded yet.
+	Empty   bool
+	NextURL string
+}
+
+// KindLabel is a participation kind as a page shows it: underscores as spaces, the first letter
+// upper-case ("event_attendance" is "Event attendance").
+func KindLabel(kind string) string {
+	s := strings.ReplaceAll(kind, "_", " ")
+	r, n := utf8.DecodeRuneInString(s)
+	if n == 0 {
+		return s
+	}
+	return string(unicode.ToUpper(r)) + s[n:]
 }
 
 // MemberRow is one member on the owner's Members page.
