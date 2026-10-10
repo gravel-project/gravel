@@ -106,7 +106,8 @@ Before 1.0, a change that breaks a public surface (the `discord/` Go packages, t
 `hub.yaml` and `bot.yaml` keys, metric names, unit and secret names, migrations, the command
 lines) gets a CHANGELOG entry starting **Breaking:** that says how to move, and makes the next
 release a minor one (0.Y.0); everything else ships in a patch release. `docs/releasing.md`
-("Versions") lists what breaks each surface. When unsure, treat it as breaking.
+("Versions") lists what breaks each surface. When unsure, treat it as breaking. A break of the
+API's wire also needs the `breaking` label on the pull request, or CI's `proto` job refuses it.
 
 ## License
 

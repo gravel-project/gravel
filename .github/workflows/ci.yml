@@ -44,6 +44,9 @@ jobs:
 
   proto:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read # the breaking label (.github/scripts/proto-breaking.sh)
     steps:
       - uses: actions/checkout@v7
         with:
@@ -51,7 +54,13 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-      - run: make proto-lint proto-breaking generate-check
+      - run: make proto-lint generate-check
+      - name: The wire stays compatible, unless the PR declares an intentional break
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: .github/scripts/proto-breaking.sh
 
   quadlet:
     runs-on: ubuntu-latest

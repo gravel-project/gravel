@@ -10,6 +10,8 @@ patch release is everything else.
 
 ### Added
 
+- A way through CI's wire check for an intentional break (#68's 0.x rule). The `proto` job's `buf breaking` passes when the pull request carries the `breaking` label **and** adds a CHANGELOG entry starting **Breaking:**. It still prints buf's findings and raises a warning. The label alone fails, and with neither the job fails as before. `.github/scripts/proto-breaking.sh` reads the label when the job runs, so a label added later needs that job re-run. docs/releasing.md ("Versions") and CONTRIBUTING.md say how.
+
 - ADR-0016 (proposed): seeding calls and seeding minutes, a stock bot module (hidden-token-gaming/htg#32). It pings an opt-in role when a server is under its player floor inside the host's weekly windows, with a cooldown, and records each player's minutes during the call as `seeding` participation (ADR-0014). Rules live in the Organization settings' `discord.seeding`. Muster records no seeding minutes of its own, and presence is a separate follow-up.
 
 - A host's own app scopes, `host:<name>[:<more>]` (John, 2026-10-10; ADR-0008 amendment). A host's service beside the hub (hidden-token-gaming's Muster: `host:muster:read`, `host:muster:write`) can have the hub grant, issue and introspect scopes of its own.
