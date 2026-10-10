@@ -8,6 +8,8 @@ patch release is everything else.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-10
+
 ### Added
 
 - The mod log, a stock bot module (`discord/modules/modlog`; hidden-token-gaming/htg#57).
@@ -19,12 +21,6 @@ patch release is everything else.
   - **Tests:** a fake hub and Discord covering the start without history, ordering, waiting on a running entry, a restart resuming from its own posts (ignoring other authors' markers), stale entries, a refusal counted then recovered, idle, and the line's escaping.
   - **Docs:** docs/bot.md "Mod log", docs/hub.md settings, deploy/bot.yaml.
 
-### Changed
-
-- The moderation command no longer escapes `#` in names and reasons. It only formats at the start of a line, which these never are, and the escape put an invisible character into names like "War Dogs #1".
-
-### Added
-
 - The moderation slash command, a stock bot module (`discord/modules/moderation`; hidden-token-gaming/htg#57).
   - **Commands.** `/<moderation.command>` (`/mod` by default) `kick`, `ban`, `unban`, `message` and `broadcast`. A player is named in game or by their id; a ban works for a player who isn't on; the server is optional when there is one.
   - **Confirmation.** Nothing is sent until the moderator who ran the command presses Confirm (private, two minutes, once).
@@ -34,8 +30,6 @@ patch release is everything else.
   - **Metric:** `gravel_bot_moderation_actions_total{action,result}`, on the bot dashboard's new Moderation command row.
   - **Tests:** the whole flow over signed HTTP interactions (defer, question, a stranger's click refused, Confirm, the hub call for the moderator, single use, Cancel, the hub's refusal), the command's registration, the planning rules, escaping, and expiry.
   - **Docs:** docs/bot.md "Moderation", deploy/bot.yaml.
-
-### Added
 
 - Member profiles, part two of #18.
   - **`/members/{id}`** (and **`/profile`** for your own) shows a member's totals over all time, this week, this month and each season running now, counting Official servers and every linked account, plus their 20 most recent matches. Your own profile has the switch that shows your name on leaderboards. A named member on a board links to their profile, and the account page links to yours.
@@ -54,20 +48,12 @@ patch release is everything else.
   - **`/servers/{id}/log`** is the server's moderation log, newest first, with paging: who, what, to whom, why, and the result. `AuditEntry.user_name` (additive) gives the acting member's name.
   - **Tests:** the controls by role and capability, confirm-then-send (nothing sent before Confirm), refusals (no reason, an unknown action, no CSRF token, the API's `not_found` and `permission_denied`), the log, the API's `user_name`, and axe over three new fixtures.
 
-### Added
-
 - The community pages, part one of #18: servers and leaderboards.
   - **`/servers`** (now also `/`) lists every server with its live state, players and map. **`/servers/{id}`** shows the status with team scores, who is on (members and the owner only), the last 10 matches and a link to the server's board. **`/boards`** is a leaderboard by scope (everyone, a game, a server), window (all time, this week, this month, a season) and any column, with paging. A refusal reads as words on the page ("Leaderboards are private…"), never an error. The header gains Servers and Leaderboards.
   - **Game spec `layout`:** `layout.board` names a game's board columns in order, and the first is the default ranking. `ListGames` shows it (`Game.layout`, additive). War Dogs shows all five.
   - **Board caching.** A board answer is kept while the stats store is unwritten, up to 15 minutes, and for a minute after a write. An idle hub serves boards from memory, and a live match costs one read a minute per board. The recorder and the rollup count their writes (`stats.Changes`), and a member's name choice clears the cache.
   - **Tests:** the pages against stubbed API services (refusals, escaping, the request each control sends), axe over four new fixtures, the cache's rules, and the recorder's and rollup's write counts.
   - **Docs:** docs/hub.md "Pages", plus the layout rule in "Game specs and publisher rules".
-
-### Fixed
-
-- The dashboards' job panels group by `exported_job` (#114). The job runners' `job` label is stored by Prometheus as `exported_job`, because the scrape target's own `job` wins, so "Job runs by result" and "Since each job last succeeded" (hub) and "Background jobs ended" (bot) collapsed every job into the scrape job. A dashboards test refuses a panel that groups, labels or matches by `job` outside the shared selector. docs/hub.md and docs/bot.md say which label to query.
-
-### Added
 
 - Stats retention and erasure, ADR-0012's steps 4 and 5 (#17).
   - **Retention.** A player's per-match rows roll up into monthly totals (`stats_monthly`, migration 11) once they pass the Organization settings' new `stats.raw_retention_months` (13 by default, at most 120), so no raw row is older than the window. A period is a calendar month in `stats.timezone`, cut at every season edge inside it, so season and all-time boards count the same before and after. Matches keep their player count and kills for the match lists. The job is `stats_rollup`, every 6 hours, one transaction per run.
@@ -76,8 +62,6 @@ patch release is everything else.
   - **API:** `StatsSettings.raw_retention_months` (additive).
   - **Metrics:** `gravel_stats_rolled_rows_total`, plus the rollup job's last success, on the hub dashboard's Stats row.
   - **Docs:** docs/hub.md (Stats: Retention, Erasure; the settings and commands tables) and an ADR-0012 amendment.
-
-### Added
 
 - Publisher policy guardrails in the Game specs (#8).
   - **Band kinds.** Besides a range (`min`, `max`), a band is now a longest value (`max_length`) or the hosts a URL may point at (`hosts`: https, the host or a subdomain of one). `unless_set` lifts a band while another key of its section has a value. The War Dogs driver checks all of them before a config plan or apply leaves the hub, with new problem codes `too_long` and `host_not_allowed`. `servers.yaml` may tighten a band of the same kind, never loosen one or change its condition.
@@ -90,11 +74,21 @@ patch release is everything else.
 
 ### Changed
 
+- **Breaking:** an app with `servers:moderate` that names `on_behalf_of` now acts only for the hub's owner or a moderator (ADR-0013); any other `on_behalf_of` is refused with `permission_denied`. An app acting for itself (no `on_behalf_of`) is unchanged. A host whose bot moderates for Discord staff links their accounts and grants them the moderator role (`/members`) before upgrading.
+
+- The moderation command no longer escapes `#` in names and reasons. It only formats at the start of a line, which these never are, and the escape put an invisible character into names like "War Dogs #1".
+
 - The release workflow builds `gravel-postgres` only when `deploy/postgres/` changed since the previous release tag (#106). Its base is pinned by digest, so every rebuild of the unchanged directory was the same image under a new hash, and every cut moved the backup set's pin for nothing.
   - **Version line:** the current `gravel-postgres` is the gravel version that last changed it, and `:latest` points at it. A skipped build names that version in the run's summary, and a cut moves the backup pin only when there is a new image.
   - **Postgres patches:** Dependabot watches the `FROM` digest in `deploy/postgres/Containerfile` (majors ignored), so a patch lands as a PR that changes the directory and the next release rebuilds the image.
   - **CI:** a PR that touches `deploy/postgres/` or `release.yml` runs the release job's multi-arch build in `release-config`, without pushing.
   - **Docs:** docs/releasing.md ("The Postgres image has its own version line", "Move the digest pin") and docs/hub.md (Backups).
+
+- The quadlet units pin the 0.6.7 images by index digest, all three verified with cosign 3 against the release workflow at `v0.6.7` (the 0.6.6 hub as a control, a wrong-tag identity refused): `ghcr.io/gravel-project/gravel-hub@sha256:ddbcb421a536d166303af29627c1d9677c033d5aba9b4f1842becca593449c67` in `gravel-hub.container`, `ghcr.io/gravel-project/gravel-bot@sha256:18083501bc7be3f2145bc74b5f7dfc2914ecd547b70a311276fb93ed023006b2` in `gravel-bot.container`, and `ghcr.io/gravel-project/gravel-postgres@sha256:a33645c98f5f2c3bf3a51295444b695b7c3f91abd172f704b4d5e26e09f9153e` in the backup set, now in both places it is named: `gravel-backup.container` and the database's drop-in `gravel-postgres.container.d/10-backup.conf`, which had been left on 0.6.3's image. `docs/hub.md` names 0.6.7 as the tag example.
+
+### Fixed
+
+- The dashboards' job panels group by `exported_job` (#114). The job runners' `job` label is stored by Prometheus as `exported_job`, because the scrape target's own `job` wins, so "Job runs by result" and "Since each job last succeeded" (hub) and "Background jobs ended" (bot) collapsed every job into the scrape job. A dashboards test refuses a panel that groups, labels or matches by `job` outside the shared selector. docs/hub.md and docs/bot.md say which label to query.
 
 ## [0.6.7] - 2026-10-10
 
@@ -308,7 +302,8 @@ patch release is everything else.
 
 - README and CLAUDE.md follow ADR-0001: status line, principle 2 (the resource lives in the hub's database), the hub and backup paragraphs, the adapter-repo rule, the local-dev default, and a seven-step build order with the issues behind each step. The launch games are the five Hidden Token Gaming plays, in three shapes, with War Dogs first; the open threads link the design-delta issues #2–#9 (#1).
 
-[Unreleased]: https://github.com/gravel-project/gravel/compare/v0.6.7...HEAD
+[Unreleased]: https://github.com/gravel-project/gravel/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/gravel-project/gravel/compare/v0.6.7...v0.7.0
 [0.6.7]: https://github.com/gravel-project/gravel/compare/v0.6.6...v0.6.7
 [0.6.6]: https://github.com/gravel-project/gravel/compare/v0.6.5...v0.6.6
 [0.6.5]: https://github.com/gravel-project/gravel/compare/v0.6.4...v0.6.5
