@@ -319,7 +319,19 @@ The public status says what happened, never why: `state` is `unknown` (not polle
 `unreachable`, `credential_refused`, `credential_missing`, `rate_limited` or `error`, and the cause
 (which may name the control address) is in the hub's log, once per change of state.
 `capabilities` is what the server grants now, so a page or a bot shows an absent one as not
-available. Configuration plan and apply and the build watcher come next (ADR-0010's last step).
+available.
+
+**The build watcher.** A second job per server (`server_build`, every minute) reads the server's
+build from a route that needs no credential (War Dogs: `GET /v1/capabilities`). When the build
+changes (a game update) it reads the capabilities again, so the status API, the pages and
+moderation follow the new build at once: a route the update removed turns its capability off, and
+a call for it answers `failed_precondition` instead of failing at the server. The hub logs a
+warning naming the old and the new build and the capabilities gained and lost, and the driver logs
+the route-level diff (War Dogs: routes added, removed or renamed), which is what re-recording the
+fixtures needs (`games/wardogs/README.md`). `gravel_driver_build_info{server,game,build}` names the
+build each server runs, and `gravel_driver_build_changes_total{server,game}` counts the changes;
+alert on an increase of the counter (a host's Prometheus rule). Configuration plan and apply come
+next (ADR-0010's last step).
 
 ### Moderation and the audit log
 

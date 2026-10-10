@@ -223,3 +223,67 @@ func TestStateOf(t *testing.T) {
 		}
 	}
 }
+
+// The build watcher: a game update changes the build string; the watcher re-reads the
+// capabilities, so a route the new build dropped turns its capability off for the API and for
+// moderation, and the metrics say which build runs.
+func TestMonitorWatchesTheBuild(t *testing.T) {
+	r := newMonitorRig(t, wardogstest.Options{})
+	ctx := context.Background()
+
+	if err := r.mon.watchBuild(ctx, "wd-1"); err != nil || len(r.fake.Requests()) != 0 {
+		t.Fatalf("before the first poll the watcher waits: %v, %d requests", err, len(r.fake.Requests()))
+	}
+	if _, err := r.poll(t); err != nil {
+		t.Fatal(err)
+	}
+	if v := testutil.ToFloat64(r.mon.buildInfo.WithLabelValues("wd-1", "wardogs", "++Wardogs+Live-CL-509546")); v != 1 {
+		t.Errorf("build info after the first poll = %v", v)
+	}
+	if err := r.mon.watchBuild(ctx, "wd-1"); err != nil {
+		t.Fatal(err)
+	}
+	if v := testutil.ToFloat64(r.mon.buildChanges.WithLabelValues("wd-1", "wardogs")); v != 0 {
+		t.Errorf("an unchanged build counted as a change: %v", v)
+	}
+
+	// Season 02: a new build without the kick route.
+	r.fake.Upgrade(t, "++Wardogs+Live-CL-520000", "POST /v1/players/{}/kick")
+	if err := r.mon.watchBuild(ctx, "wd-1"); err != nil {
+		t.Fatal(err)
+	}
+	o, _ := r.mon.Observation("wd-1")
+	if o.Build != "++Wardogs+Live-CL-520000" || slices.Contains(o.Capabilities, drivers.CapKick) || !slices.Contains(o.Capabilities, drivers.CapBan) {
+		t.Errorf("after the update: build %q, capabilities %v", o.Build, o.Capabilities)
+	}
+	if _, caps, _ := r.mon.Driver("wd-1"); slices.Contains(caps, drivers.CapKick) {
+		t.Errorf("moderation still sees kick: %v", caps)
+	}
+	if v := testutil.ToFloat64(r.mon.buildChanges.WithLabelValues("wd-1", "wardogs")); v != 1 {
+		t.Errorf("build changes = %v", v)
+	}
+	if n := testutil.CollectAndCount(r.mon.buildInfo); n != 1 {
+		t.Errorf("build info series = %d, want only the new build", n)
+	}
+	if v := testutil.ToFloat64(r.mon.buildInfo.WithLabelValues("wd-1", "wardogs", "++Wardogs+Live-CL-520000")); v != 1 {
+		t.Errorf("build info for the new build = %v", v)
+	}
+	logs := r.logs.String()
+	for _, want := range []string{"server build changed", "capabilities_removed=[kick]", "war dogs routes read again", "removed=\"[POST /v1/players/{id}/kick]\""} {
+		if !strings.Contains(logs, want) {
+			t.Errorf("the log lacks %q:\n%s", want, logs)
+		}
+	}
+	for _, req := range r.fake.Requests() {
+		if req.HadToken && req.Path == "/v1/capabilities" {
+			t.Errorf("the watcher sent the credential to the public route")
+		}
+	}
+
+	// A removed server takes its build series with it.
+	r.m.Servers = nil
+	r.apply(t)
+	if n := testutil.CollectAndCount(r.mon.buildInfo); n != 0 {
+		t.Errorf("build info after removal = %d series", n)
+	}
+}
