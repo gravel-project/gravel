@@ -141,3 +141,37 @@ func TestErrors(t *testing.T) {
 		t.Errorf("a failing hub: %v", err)
 	}
 }
+
+type serversHub struct {
+	hubv1connect.UnimplementedServerServiceHandler
+	auth atomic.Value
+}
+
+func (h *serversHub) ListServerPlayers(_ context.Context, req *connect.Request[hubv1.ListServerPlayersRequest]) (*connect.Response[hubv1.ListServerPlayersResponse], error) {
+	h.auth.Store(req.Header().Get("Authorization"))
+	return connect.NewResponse(&hubv1.ListServerPlayersResponse{Players: []*hubv1.ServerPlayer{{Name: req.Msg.GetServerId()}}}), nil
+}
+
+// Servers calls ServerService as the app, with its token.
+func TestServersCallsAsTheApp(t *testing.T) {
+	sh := &serversHub{}
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /oauth/token", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"access_token":"tok1","token_type":"Bearer","expires_in":3600}`))
+	})
+	mux.Handle(hubv1connect.NewServerServiceHandler(sh))
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	c, err := hubclient.New(hubclient.Config{URL: srv.URL, ClientID: "gravel_x", ClientSecret: "s"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := c.Servers().ListServerPlayers(context.Background(), connect.NewRequest(&hubv1.ListServerPlayersRequest{ServerId: "wd-1"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Msg.GetPlayers()[0].GetName() != "wd-1" || sh.auth.Load() != "Bearer tok1" {
+		t.Errorf("players %v, auth %v", got.Msg.GetPlayers(), sh.auth.Load())
+	}
+}

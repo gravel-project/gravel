@@ -19,6 +19,9 @@ why, ADR-0004 the login design, ADR-0008 the app credentials; `deploy/README.md`
 | `gravel-hub apps create --name NAME --scopes SCOPES` | Register a first-party app (ADR-0008) and print its client id and secret once; the hub keeps the secret's hash. |
 | `gravel-hub apps list` | The registered apps: client id, name, scopes, created, revoked. |
 | `gravel-hub apps revoke --client-id ID` | Revoke an app: its tokens are deleted and no new one is issued. |
+| `gravel-hub servers export` | Print the games and servers as a `servers.yaml` manifest ([Servers](#servers-adr-0010)). |
+| `gravel-hub servers apply <servers.yaml> [--dry-run]` | Validate a manifest, check each credential file is readable where it runs, and store it; prints each change. With `--dry-run`, exit 3 when something would change. A running hub picks it up within 30 s. |
+| `gravel-hub servers check <servers.yaml>` | Validate a manifest with no configuration, no database and no secret: exit 0 with its summary, 1 with every problem named, 2 on a usage error. |
 | `gravel-hub wardogs record --base-url URL [--token-file FILE] [--dir DIR]` | Record a War Dogs server's read-only answers as test fixtures in `<dir>/<build>/` (default `games/wardogs/testdata`), with people, addresses and secrets replaced (ADR-0010; `games/wardogs/README.md`). One token, never retried; without one, only the public routes. |
 | `gravel-hub version` | Print the build version. |
 
@@ -101,6 +104,10 @@ Public listener (`server.listen`), HTTP/1.1 and unencrypted HTTP/2 so gRPC works
 | `/gravel.hub.v1.IdentityService/LookupUser` | `{"provider": "discord", "subject": "…"}` → the user and their identities, for role sync; an app with `identity:read`, or the owner |
 | `/gravel.hub.v1.IdentityService/ListUsers` | `{"page_size": 100, "page_token": "…"}` → members with their identities, oldest first, and the next page's token; role sync's full pass; `identity:read` or the owner |
 | `/gravel.hub.v1.IdentityService/ListIdentityEvents` | `{"after_id": 0, "limit": 100}` → the identity log after a position, oldest first, the id to continue from, and the log's newest id (`head_id`, where a reader that just made a full pass starts); role sync's incremental pass; `identity:read` or the owner |
+| `/gravel.hub.v1.ServerService/ListGames` | the enabled games, their identity provider and bands; public |
+| `/gravel.hub.v1.ServerService/ListServers` | every server with its last observation (state, reachable, players and max, map, teams, capabilities, build, `observed_at`); public, no personal data, never a control address |
+| `/gravel.hub.v1.ServerService/GetServerStatus` | `{"server_id": "…"}` → one server; public; `not_found` for an unknown id |
+| `/gravel.hub.v1.ServerService/ListServerPlayers` | `{"server_id": "…"}` → who was on at the last poll (name, provider identity, team, kills, deaths, ping, and the member's user id when that identity is linked); a logged-in member, the owner, or an app with `servers:read` |
 | `/grpc.health.v1.Health/Check` | gRPC health |
 | `/grpc.reflection.v1.ServerReflection/…` (and v1alpha) | gRPC reflection, so `grpcurl` and `buf curl` discover the API |
 | `GET /healthz` | 200 `{"status":"ok","version":"…"}` while the process runs |
@@ -241,6 +248,7 @@ curl -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{
 | Scope | Admits |
 |---|---|
 | `identity:read` | `LookupUser`, `ListUsers`, `ListIdentityEvents`: members and their identities, for role sync |
+| `servers:read` | `ListServerPlayers`: who is on a server, for a live card (the rest of `ServerService` is public) |
 
 Rules: a token lives `apps.token_ttl` (an hour by default) and is pruned after; `scope` at the
 token endpoint may narrow a token to a subset of the app's scopes, never widen it; an unknown,
@@ -250,6 +258,68 @@ member may not call still does. The owner's session is admitted wherever a scope
 can do by hand what the app does. Requests carrying a token are rate-limited per app
 (`rate_limit.per_app`), the token endpoint per client address. To rotate a secret, create a new
 app and revoke the old one once the service has moved; `apps revoke` deletes the tokens at once.
+
+## Servers (ADR-0010)
+
+The hub knows the game servers it controls as resources: a **game** is a Game spec gravel ships
+(War Dogs today, `games/wardogs/game.yaml`: who its players are keyed by, which drivers control
+it, the publisher's bands), and a **server** is one a driver controls. A deployment declares both
+in `servers.yaml` and applies it like the Organization settings; the hub stores them (migration 6)
+and never stores a credential, only the file to read it from.
+
+```yaml
+version: 1
+games:
+  - id: wardogs
+    bands:                       # optional: tighten a spec band, never loosen one
+      - section: MatchState.Playing.KOTH
+        key: ScorePeriod
+        min: 21
+servers:
+  - id: htg-wardogs-1            # lower-case letters, digits, hyphens
+    name: "HTG WARDOGS | NA WEST | #1"
+    game: wardogs
+    driver: wardogs
+    location: qonzer-slc
+    endpoint: http://203.0.113.10:7789          # the RCON origin; never shown by the API
+    credential_file: /run/secrets/htg-wardogs-rcon-password
+    poll_interval: 15s           # 5s–10m; default 15s (two requests a poll)
+    trust: official              # or community
+    seeding:                     # optional; hidden-token-gaming/htg#32 reads it through the API
+      threshold: 20
+      hours: "17:00-23:00"
+      quiet: "23:30-09:00"
+      timezone: America/Chicago
+      cooldown: 1h               # default 1h
+```
+
+```sh
+# CI: validate the committed manifest with the pinned image (no config, database or secret)
+podman run --rm -v ./hub/servers.yaml:/m.yaml:ro,Z ghcr.io/gravel-project/gravel-hub:<version> servers check /m.yaml
+# On the host: the credential as a podman secret (Secret= in the hub's unit), then apply
+podman exec gravel-hub /ko-app/gravel-hub servers apply /etc/gravel/servers.yaml --config /etc/gravel/hub.yaml
+```
+
+Taking a server out of the manifest marks it removed (its row stays, so what refers to it keeps a
+target); putting it back revives it. `apply` refuses a credential file it cannot read, so run it
+where the hub's secrets are.
+
+**What the hub does with them.** A background job (`servers_reconcile`, every 30 s) starts one
+poll job per server and stops the poll of a removed one; a changed definition gets a fresh driver,
+and a changed credential file reaches the driver without a restart (a rotation). Each poll reads
+status and players through the driver (the capabilities once, at the first poll) and keeps the
+last observation in memory with `observed_at`; the API answers from it, so no caller ever reaches
+a game server. Two failed polls in a row mark the server unreachable; the next success clears it;
+a failing poll backs off up to 8× its interval (at most 2 minutes). The War Dogs driver sends one
+token and, after a 401, nothing protected until the credential file changes, so a wrong password
+costs one strike against the server's three-strike lockout.
+
+The public status says what happened, never why: `state` is `unknown` (not polled yet), `ok`,
+`unreachable`, `credential_refused`, `credential_missing`, `rate_limited` or `error`, and the cause
+(which may name the control address) is in the hub's log, once per change of state.
+`capabilities` is what the server grants now, so a page or a bot shows an absent one as not
+available. Moderation, the audit log, configuration plan and apply and the build watcher come
+next (ADR-0010's later steps).
 
 ## Login (ADR-0004)
 
@@ -439,6 +509,11 @@ command and the digest-pin procedure.
 | `gravel_database_size_bytes` | gauge | | `pg_database_size` of the hub's database | when `gravel_store_stats_readable` is 0 |
 | `gravel_store_stats_readable` | gauge | | 1 when the three above were read at this scrape (2 s limit), 0 when the database did not answer | never |
 | `gravel_backup_*`, `gravel_wal_*` | | | the backup status file and `pg_stat_archiver` | see [Backups](#backups-adr-0006) |
+| `gravel_hub_jobs_total` | counter | `job` (`prune`, `servers_reconcile`, `server_poll`), `result` (`ok`, `error`) | background job runs; a failure is retried with backoff and never stops the hub | until a job's first run |
+| `gravel_hub_job_last_success_timestamp_seconds` | gauge | `job` | when each job last ran without an error | until a job's first success |
+| `gravel_server_reachable` | gauge | `server`, `game` | 1 while a server answers its polls, 0 after two failed polls in a row | until the server's first poll; gone when it is removed |
+| `gravel_server_players`, `gravel_server_max_players` | gauge | `server`, `game` | players on, and public slots, at the last successful poll | until the first successful poll |
+| `gravel_server_last_observed_timestamp_seconds` | gauge | `server`, `game` | the last successful poll | until the first successful poll |
 
 - **Secrets in logs:** the owner-claim token is the only secret the hub ever logs, once, at WARN.
   Provider secrets are logged by source only.
@@ -457,6 +532,10 @@ run in parallel. `make test-integration` insists on the variable. Locally:
 podman run -d --name gravel-test-pg -p 127.0.0.1:55432:5432 -e POSTGRES_USER=gravel -e POSTGRES_PASSWORD=test -e POSTGRES_DB=gravel public.ecr.aws/docker/library/postgres:17
 GRAVEL_TEST_DATABASE_URL='postgres://gravel:test@127.0.0.1:55432/gravel?sslmode=disable' make test-integration
 ```
+
+The servers' monitor runs against the War Dogs driver and a fake server serving a recorded
+build (`internal/servers`), and `internal/hub`'s integration test applies a server, runs the hub
+and reads its status over the API and the metrics.
 
 The War Dogs client (`games/wardogs`) runs one contract against every recorded build in
 `games/wardogs/testdata/` through a fake server (`games/wardogs/wardogstest`); the same contract

@@ -19,6 +19,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"github.com/gravel-project/gravel/drivers"
+	wardogsdriver "github.com/gravel-project/gravel/drivers/wardogs"
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
 	"github.com/gravel-project/gravel/internal/api"
 	"github.com/gravel-project/gravel/internal/apps"
@@ -27,9 +29,11 @@ import (
 	"github.com/gravel-project/gravel/internal/httpx"
 	"github.com/gravel-project/gravel/internal/identity"
 	"github.com/gravel-project/gravel/internal/identity/providers"
+	"github.com/gravel-project/gravel/internal/jobs"
 	"github.com/gravel-project/gravel/internal/metricnames"
 	"github.com/gravel-project/gravel/internal/org"
 	"github.com/gravel-project/gravel/internal/ratelimit"
+	"github.com/gravel-project/gravel/internal/servers"
 	"github.com/gravel-project/gravel/internal/session"
 	"github.com/gravel-project/gravel/internal/store"
 	"github.com/gravel-project/gravel/internal/web"
@@ -56,6 +60,9 @@ type Hub struct {
 	ids        *identity.Service
 	sess       *session.Manager
 	apps       *apps.Service
+	servers    *servers.Service
+	monitor    *servers.Monitor
+	jobs       *jobs.Runner
 	web        *web.Handler
 	perIP      *ratelimit.Limiter
 	perUser    *ratelimit.Limiter
@@ -76,6 +83,11 @@ type Hub struct {
 // pruneEvery is how often expired sessions and attempts are deleted and idle rate-limit
 // buckets dropped.
 const pruneEvery = 10 * time.Minute
+
+// Drivers are the drivers this hub has, by the name servers.yaml uses.
+func Drivers() drivers.Registry {
+	return drivers.Registry{wardogsdriver.Name: wardogsdriver.New}
+}
 
 // New connects to the database, applies the migration policy, ensures the built-in organization
 // and builds the handlers. It logs the owner-claim token when the hub is unowned.
@@ -152,6 +164,15 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 	}
 	h.registry.MustRegister(buildInfo, h.authTotal, h.limitedTotal, backup.NewCollector(cfg.Backup.StatusFile, st, logger), newStatsCollector(st, providerNames, logger))
 	h.metrics = httpx.NewMetrics(h.registry)
+
+	// Background work runs as supervised jobs (ADR-0010): the prune, and the servers' monitor,
+	// which reconciles a poll job per server with what `servers apply` stored.
+	h.jobs = jobs.New(logger, h.registry)
+	h.jobs.Start(jobs.Job{Name: "prune", Every: pruneEvery, Run: func(ctx context.Context) error { h.Prune(ctx); return nil }})
+	registry := Drivers()
+	h.servers = servers.New(st, o.ID, registry.Names(), logger)
+	h.monitor = servers.NewMonitor(h.servers, registry, h.jobs, h.registry, "gravel-hub/"+h.version, logger)
+	h.monitor.Start()
 
 	// The API, once: the public listener serves it, and the pages call it in process through
 	// the session middleware (ADR-0005).
@@ -247,6 +268,7 @@ func (h *Hub) buildAPI() *http.ServeMux {
 	interceptors := connect.WithInterceptors(h.metrics.Interceptor(), ratelimit.Interceptor(h.scopes(), h.rejected))
 	mux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(h.org, h.logger), interceptors))
 	mux.Handle(hubv1connect.NewIdentityServiceHandler(api.NewIdentityServer(h.ids, h.sess, h.org, h.logger), interceptors))
+	mux.Handle(hubv1connect.NewServerServiceHandler(api.NewServerServer(h.servers, h.monitor, h.ids, h.logger), interceptors))
 	return mux
 }
 
@@ -255,10 +277,10 @@ func (h *Hub) rejected(scope string) { h.limitedTotal.WithLabelValues(scope).Inc
 func (h *Hub) buildPublic() http.Handler {
 	scopes := h.scopes()
 	mux := http.NewServeMux()
-	for _, prefix := range []string{"/" + hubv1connect.OrganizationServiceName + "/", "/" + hubv1connect.IdentityServiceName + "/"} {
-		mux.Handle(prefix, h.api)
+	services := []string{hubv1connect.OrganizationServiceName, hubv1connect.IdentityServiceName, hubv1connect.ServerServiceName}
+	for _, svc := range services {
+		mux.Handle("/"+svc+"/", h.api)
 	}
-	services := []string{hubv1connect.OrganizationServiceName, hubv1connect.IdentityServiceName}
 	mux.Handle(grpchealth.NewHandler(grpchealth.NewStaticChecker(services...)))
 	reflector := grpcreflect.NewStaticReflector(services...)
 	mux.Handle(grpcreflect.NewHandlerV1(reflector))
@@ -318,8 +340,8 @@ func (h *Hub) readyz(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ready"})
 }
 
-// Prune deletes expired sessions and attempts and drops idle rate-limit buckets. Run calls it
-// on a timer; tests call it directly.
+// Prune deletes expired sessions and attempts and drops idle rate-limit buckets. The "prune"
+// job runs it; tests call it directly.
 func (h *Hub) Prune(ctx context.Context) {
 	ctx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()

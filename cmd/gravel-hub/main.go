@@ -10,6 +10,9 @@
 //	gravel-hub apps create --name NAME --scopes SCOPES          register a first-party app; prints its secret once
 //	gravel-hub apps list                                        the registered apps
 //	gravel-hub apps revoke --client-id ID                       revoke an app and its tokens
+//	gravel-hub servers export [--config hub.yaml]               print the games and servers as a servers.yaml manifest
+//	gravel-hub servers apply <servers.yaml> [--dry-run]         apply a servers manifest (exit 3 on --dry-run with changes)
+//	gravel-hub servers check <servers.yaml>                     validate a servers manifest; no config, no database
 //	gravel-hub wardogs record --base-url URL [--token-file F]   record a War Dogs server's reads as fixtures
 //	gravel-hub version
 //
@@ -65,6 +68,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		return settings(ctx, args, stdout, stderr)
 	case "apps":
 		return appsCmd(ctx, args, stdout, stderr)
+	case "servers":
+		return serversCmd(ctx, args, stdout, stderr)
 	case "wardogs":
 		return wardogsCmd(ctx, args, stdout, stderr)
 	case "version":
@@ -91,6 +96,8 @@ func usage(w io.Writer) {
   settings      export the Organization settings as a manifest, apply one (--dry-run exits 3 on a change),
                 or check one without a config or database
   apps          register, list or revoke first-party apps (create prints the client secret once)
+  servers       export the games and servers as a servers.yaml manifest, apply one (--dry-run exits 3 on a
+                change), or check one without a config or database
   wardogs       record a War Dogs server's read-only answers as per-build test fixtures
   version       print the version
 

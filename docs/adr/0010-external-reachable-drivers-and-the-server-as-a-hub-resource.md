@@ -29,3 +29,7 @@ War Dogs is in Early Access and changes its API every few weeks (plan G10, #24):
 - Hidden Token Gaming registers its server with one deploy PR (deploy#137: the manifest, a twelfth secret, the role applying `servers.yaml` on converge) and retires its UptimeRobot build monitor once the watcher's alert reaches its alerts channel. The live card (htg#31) reads `GetServerStatus` and never RCON.
 - Season 02 (wardogs-server#13) is the first re-record. The feed's per-event format is confirmed from the S1 captures (deploy#49) before #4's parser is final; nothing here depends on it.
 - The cloud-VM driver (ADR-0003) and the fully managed driver implement the same `Status`, `Players` and moderation surface over their own channels; the capabilities set is how each says what it lacks.
+
+## Amendments
+
+- **2026-10-10, as built.** The recorder and the client shipped as one release (0.6.1, #82): the recorder is the client's first user. Migration 6 holds `games` and `managed_servers` only; `audit_log` comes with the moderation procedures that write it, as migration 7, and `servers:moderate` and `servers:configure` with the procedures they admit, so no table or scope exists before what uses it. A server taken out of `servers.yaml` is marked removed, not deleted, so the audit log and stats keep their target. The public status carries a `state` word (`ok`, `unreachable`, `credential_refused`, …) and never a failure's text, which can name the control address. The Game spec's layout data waits for #18, its first reader.

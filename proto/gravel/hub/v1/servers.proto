@@ -1,0 +1,150 @@
+syntax = "proto3";
+
+package gravel.hub.v1;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/gravel-project/gravel/gen/gravel/hub/v1;hubv1";
+
+// Band is the range a game's configuration key may take (a publisher guardrail); an unset bound
+// is open.
+message Band {
+  string section = 1;
+  string key = 2;
+  optional int64 min = 3;
+  optional int64 max = 4;
+}
+
+// Game is a game this hub's servers run: a Game spec gravel ships, with the deployment's
+// tightenings of its bands applied.
+message Game {
+  // "wardogs".
+  string id = 1;
+  string name = 2;
+  // The provider its players are keyed by: "steam".
+  string identity_provider = 3;
+  repeated Band bands = 4;
+}
+
+// Seeding is when a server wants players: below threshold during hours (HH:MM-HH:MM in
+// timezone), at most once per cooldown, never during quiet.
+message Seeding {
+  int32 threshold = 1;
+  string hours = 2;
+  string quiet = 3;
+  // An IANA zone: "America/Chicago".
+  string timezone = 4;
+  google.protobuf.Duration cooldown = 5;
+}
+
+// TeamScore is one team's (faction's) score.
+message TeamScore {
+  string name = 1;
+  // A CSS colour, "#4CB1EF"; empty when the game has none.
+  string color = 2;
+  int64 score = 3;
+}
+
+// ServerStatus is the hub's last observation of a server. It carries no personal data.
+message ServerStatus {
+  // "unknown" (not polled yet), "ok", "unreachable", "credential_refused", "credential_missing",
+  // "rate_limited" or "error". The cause of a failure is in the hub's log, never here.
+  string state = 1;
+  // False after two failed polls in a row; true again on the next success.
+  bool reachable = 2;
+  // The last successful poll; unset when there was none. The fields below are from it.
+  google.protobuf.Timestamp observed_at = 3;
+  // The server's build string.
+  string build = 4;
+  // What the server lets the hub do right now: "status", "players", "kick", "ban", … An absent
+  // capability is shown as not available.
+  repeated string capabilities = 5;
+  int32 players = 6;
+  int32 max_players = 7;
+  // The map as the game names it in play (War Dogs: the level, "Ozeti").
+  string map = 8;
+  repeated string experiences = 9;
+  string lighting = 10;
+  repeated TeamScore teams = 11;
+  // The score period in force; 0 when the game has none.
+  int32 score_tick = 12;
+  // The map rotation's position; -1 when unknown.
+  int32 rotation_index = 13;
+  int32 next_rotation_index = 14;
+}
+
+// Server is a server a driver controls (ManagedServer), as the public sees it: never its control
+// address or where its credential is.
+message Server {
+  // "htg-wardogs-1".
+  string id = 1;
+  string name = 2;
+  string game_id = 3;
+  // Where it runs: "qonzer-slc".
+  string location = 4;
+  // "official" or "community".
+  string trust = 5;
+  // Unset when the server does not seed.
+  Seeding seeding = 6;
+  ServerStatus status = 7;
+}
+
+// ServerPlayer is one connected player at the last successful poll.
+message ServerPlayer {
+  string name = 1;
+  // The player's identity at the game's provider: ("steam", a SteamID64).
+  string provider = 2;
+  string subject = 3;
+  string team = 4;
+  int32 kills = 5;
+  int32 deaths = 6;
+  int32 ping_ms = 7;
+  // The member that identity is linked to, resolved now; empty for a player who is not one.
+  string user_id = 8;
+}
+
+message ListGamesRequest {}
+
+message ListGamesResponse {
+  repeated Game games = 1;
+}
+
+message ListServersRequest {}
+
+message ListServersResponse {
+  repeated Server servers = 1;
+}
+
+message GetServerStatusRequest {
+  string server_id = 1;
+}
+
+message GetServerStatusResponse {
+  Server server = 1;
+}
+
+message ListServerPlayersRequest {
+  string server_id = 1;
+}
+
+message ListServerPlayersResponse {
+  repeated ServerPlayer players = 1;
+  // The poll the list is from; unset when there was none.
+  google.protobuf.Timestamp observed_at = 2;
+}
+
+// ServerService reads the games and servers the hub controls (ADR-0010). They are applied from a
+// deployment's servers.yaml by `gravel-hub servers apply`; the hub polls each server through its
+// driver and answers from the last observation, so a caller never reaches a game server.
+service ServerService {
+  // ListGames is the enabled games; public.
+  rpc ListGames(ListGamesRequest) returns (ListGamesResponse);
+  // ListServers is every server with its last observation; public, no personal data.
+  rpc ListServers(ListServersRequest) returns (ListServersResponse);
+  // GetServerStatus is one server; public. not_found for an unknown id.
+  rpc GetServerStatus(GetServerStatusRequest) returns (GetServerStatusResponse);
+  // ListServerPlayers is who was on at the last poll: names and provider identities, so a
+  // logged-in member, the owner, or an app with the servers:read scope.
+  rpc ListServerPlayers(ListServerPlayersRequest) returns (ListServerPlayersResponse);
+}

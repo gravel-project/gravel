@@ -2,7 +2,7 @@
   "annotations": {
     "list": []
   },
-  "description": "The gravel hub: members, HTTP and API traffic, logins, backups and the Go runtime (gravel docs/hub.md, Observability).",
+  "description": "The gravel hub: members, HTTP and API traffic, logins, backups, the servers it polls, its background jobs and the Go runtime (gravel docs/hub.md, Observability).",
   "editable": false,
   "graphTooltip": 1,
   "panels": [
@@ -1753,6 +1753,443 @@
       },
       "id": 31,
       "panels": [],
+      "title": "Servers",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Down after two failed polls in a row (ADR-0010); the hub's log says why. No data is expected when no server is registered (servers.yaml).",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "red",
+                  "index": 0,
+                  "text": "Down"
+                },
+                "1": {
+                  "color": "green",
+                  "index": 1,
+                  "text": "Up"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gravelOptional": "no server is registered (servers.yaml)",
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 0,
+        "y": 54
+      },
+      "id": 32,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "gravel_server_reachable{job=\"$job\", instance=~\"$instance\"}",
+          "legendFormat": "{{server}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Reachable",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "No data is expected when no server is registered, or none has answered yet.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 120
+              },
+              {
+                "color": "red",
+                "value": 600
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gravelOptional": "no server is registered, or none has answered yet",
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 8,
+        "y": 54
+      },
+      "id": 33,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "time() - gravel_server_last_observed_timestamp_seconds{job=\"$job\", instance=~\"$instance\"}",
+          "legendFormat": "{{server}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Since the last good poll",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "No data is expected when no server is registered, or none has answered yet.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gravelOptional": "no server is registered, or none has answered yet",
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 16,
+        "y": 54
+      },
+      "id": 34,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "gravel_server_players{job=\"$job\", instance=~\"$instance\"}",
+          "legendFormat": "{{server}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Players now",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "The max line is the public slots (War Dogs: MaxPlayers less MaxReservedSlots). No data is expected when no server is registered, or none has answered yet.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gravelOptional": "no server is registered, or none has answered yet",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 58
+      },
+      "id": 35,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "gravel_server_players{job=\"$job\", instance=~\"$instance\"}",
+          "legendFormat": "{{server}}",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "gravel_server_max_players{job=\"$job\", instance=~\"$instance\"}",
+          "legendFormat": "{{server}} max",
+          "range": true,
+          "refId": "B"
+        }
+      ],
+      "title": "Players over time",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 66
+      },
+      "id": 36,
+      "panels": [],
+      "title": "Background jobs",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "A failed run is retried with backoff and never stops the hub; server_poll failures are a server that did not answer.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 16,
+        "x": 0,
+        "y": 67
+      },
+      "id": 37,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (job, result) (increase(gravel_hub_jobs_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "{{job}} {{result}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Job runs by result",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "prune runs every 10 minutes, servers_reconcile every 30 seconds, server_poll at each server's interval.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 16,
+        "y": 67
+      },
+      "id": 38,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "time() - max by (job) (gravel_hub_job_last_success_timestamp_seconds{job=\"$job\", instance=~\"$instance\"})",
+          "legendFormat": "{{job}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Since each job last succeeded",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 75
+      },
+      "id": 39,
+      "panels": [],
       "title": "Runtime",
       "type": "row"
     },
@@ -1790,9 +2227,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 54
+        "y": 76
       },
-      "id": 32,
+      "id": 40,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -1853,9 +2290,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 54
+        "y": 76
       },
-      "id": 33,
+      "id": 41,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -1916,9 +2353,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 54
+        "y": 76
       },
-      "id": 34,
+      "id": 42,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -1979,9 +2416,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 62
+        "y": 84
       },
-      "id": 35,
+      "id": 43,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2042,9 +2479,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 62
+        "y": 84
       },
-      "id": 36,
+      "id": 44,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2105,9 +2542,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 62
+        "y": 84
       },
-      "id": 37,
+      "id": 45,
       "options": {
         "legend": {
           "displayMode": "list",
