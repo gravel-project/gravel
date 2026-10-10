@@ -2809,6 +2809,13 @@ components:
           items:
             $ref: '#/components/schemas/gravel.hub.v1.StatsSeason'
           title: seasons
+        rawRetentionMonths:
+          type: integer
+          title: raw_retention_months
+          format: int32
+          description: |-
+            Months a player's per-match rows are kept before they roll up into monthly totals; 0 is the
+             default, 13.
       title: StatsSettings
       additionalProperties: false
       description: StatsSettings is how the stats boards behave (ADR-0012).

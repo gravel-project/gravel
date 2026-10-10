@@ -23,6 +23,7 @@ why, ADR-0004 the login design, ADR-0008 the app credentials; `deploy/README.md`
 | `gravel-hub servers apply <servers.yaml> [--dry-run]` | Validate a manifest, check each credential file is readable where it runs, and store it; prints each change. With `--dry-run`, exit 3 when something would change. A running hub picks it up within 30 s. |
 | `gravel-hub servers check <servers.yaml>` | Validate a manifest with no configuration, no database and no secret: exit 0 with its summary, 1 with every problem named, 2 on a usage error. |
 | `gravel-hub ingest export --server ID [--after ID] [--limit N]` | Print a server's stored ingest batches, oldest first, one JSON object per line: a JSON body as JSON, anything else as base64 ([Ingestion](#ingestion-adr-0011)). They hold players' SteamIDs: redact before they leave the host. |
+| `gravel-hub stats erase --provider P --subject S` | Erase a player from the stats store ([Stats](#stats-adr-0012), Erasure): their identity becomes a random token in every stats table and the stored ingest batches, their pseudonym is deleted, the numbers stay. For an operator acting on a request they have verified. Prints the counts, never the identity. |
 | `gravel-hub wardogs record --base-url URL [--token-file FILE] [--dir DIR]` | Record a War Dogs server's read-only answers as test fixtures in `<dir>/<build>/` (default `games/wardogs/testdata`), with people, addresses and secrets replaced (ADR-0010; `games/wardogs/README.md`). One token, never retried; without one, only the public routes. |
 | `gravel-hub version` | Print the build version. |
 
@@ -211,6 +212,7 @@ stats:                       # the boards ([Stats](#stats-adr-0012))
   public: false              # true once the host's privacy policy covers stats; until then the owner and stats:read
   min_matches: 3             # a player's matches before a K/D board shows them (default 3)
   timezone: America/Chicago  # weeks, months and season dates (default UTC)
+  raw_retention_months: 13   # per-match rows older than this roll up into monthly totals (default 13, at most 120)
   seasons:                   # named windows; at most 50; ending one deletes nothing
     - name: Season 02
       game: wardogs          # optional: one game's matches
@@ -512,8 +514,28 @@ curl -s -H 'Content-Type: application/json' -d '{"server_id":"htg-wardogs-1","wi
   https://app.example.com/gravel.hub.v1.StatsService/GetBoard | jq '.entries[] | {rank, name, kills, deaths, kd}'
 ```
 
+**Retention.** A player's per-match rows are kept for `stats.raw_retention_months` (13 by default, a
+placeholder pending counsel), and no longer: the `stats_rollup` job (every 6 hours) moves every match
+that started before the first day of the month `raw_retention_months - 1` months ago into
+`stats_monthly`, one row per identity, server, trust and **period**, and deletes the raw rows in the
+same transaction (13 months keeps between 12 and 13). A period is a calendar month in
+`stats.timezone`, cut wherever a season starts or ends inside it, so a board over a season or all
+time counts the same before and after the rollup. (Week and month boards only ever cover recent,
+raw rows.) The match itself stays (map, times, no personal data) and keeps its player count and
+kills for the match lists. A season added or moved after its months rolled up counts each period
+by its first day, and a period cut in one timezone keeps its dates if `stats.timezone` changes.
+
+**Erasure.** `gravel-hub stats erase --provider steam --subject <SteamID64>` replaces the identity
+with `erased` and a random token in `match_stats`, `stats_monthly` and the bodies of the stored
+ingest batches (their hashes recomputed), and deletes the pseudonym, in one transaction. The numbers
+stay, shown as "Deleted player"; nothing maps the token back (a hash would not do: every SteamID can
+be tried). A player still on a server is recorded under their identity again from the next poll.
+The flow members start themselves comes with identity's erasure; this is the stats store's part.
+
 Metrics: `gravel_stats_matches_total{server,game}`, `gravel_stats_rows_written_total{server}`,
-`gravel_stats_record_errors_total{server}`, on the hub dashboard's Stats row.
+`gravel_stats_record_errors_total{server}`, `gravel_stats_rolled_rows_total`, and the rollup job's
+`gravel_hub_job_last_success_timestamp_seconds{job="stats_rollup"}` (stored by Prometheus as
+`exported_job`, since the scrape's own `job` label wins), on the hub dashboard's Stats row.
 
 ## Login (ADR-0004)
 
@@ -712,6 +734,7 @@ command and the digest-pin procedure.
 | `gravel_stats_matches_total` | counter | `server`, `game` | matches the stats store started (ADR-0012) | until the first match |
 | `gravel_stats_rows_written_total` | counter | `server` | player rows written from polls | until someone is on |
 | `gravel_stats_record_errors_total` | counter | `server` | polls the stats store could not write | until one fails |
+| `gravel_stats_rolled_rows_total` | counter | | per-match rows rolled up into monthly totals past the retention window | |
 
 - **Secrets in logs:** the owner-claim token is the only secret the hub ever logs, once, at WARN.
   Provider secrets are logged by source only.

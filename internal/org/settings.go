@@ -35,7 +35,8 @@ type Settings struct {
 }
 
 // Stats is how the stats boards behave (ADR-0012). Zero values are the defaults: boards for the
-// owner only, K/D from 3 matches, weeks and seasons in UTC, no named season.
+// owner only, K/D from 3 matches, weeks and seasons in UTC, no named season, raw rows kept 13
+// months.
 type Stats struct {
 	// Public shows the boards and match lists to everyone; until the host's privacy policy covers
 	// stats, leave it off (the owner and apps with stats:read still see them).
@@ -46,6 +47,10 @@ type Stats struct {
 	Timezone string `json:"timezone,omitempty" yaml:"timezone,omitempty"`
 	// Seasons are named windows; ending one deletes nothing.
 	Seasons []Season `json:"seasons,omitempty" yaml:"seasons,omitempty"`
+	// RawRetentionMonths is how long a player's per-match rows are kept before they roll up into
+	// monthly totals (ADR-0012 §6): no raw row is older. 0 is the default, 13, a placeholder
+	// pending counsel.
+	RawRetentionMonths int `json:"raw_retention_months,omitempty" yaml:"raw_retention_months,omitempty"`
 }
 
 // Season is a named window of matches: From (included) to To (excluded), dates in Stats.Timezone.
@@ -60,9 +65,20 @@ type Season struct {
 // DefaultMinMatches is MinMatches when it is 0.
 const DefaultMinMatches = 3
 
+// DefaultRawRetentionMonths is RawRetentionMonths when it is 0.
+const DefaultRawRetentionMonths = 13
+
+// RawRetentionMonthsOrDefault is RawRetentionMonths, or DefaultRawRetentionMonths when it is 0.
+func (s Stats) RawRetentionMonthsOrDefault() int {
+	if s.RawRetentionMonths == 0 {
+		return DefaultRawRetentionMonths
+	}
+	return s.RawRetentionMonths
+}
+
 // IsZero reports whether every stats setting is its default.
 func (s Stats) IsZero() bool {
-	return !s.Public && s.MinMatches == 0 && s.Timezone == "" && len(s.Seasons) == 0
+	return !s.Public && s.MinMatches == 0 && s.Timezone == "" && len(s.Seasons) == 0 && s.RawRetentionMonths == 0
 }
 
 // Location is the timezone, UTC when unset; Validate checked it loads.
@@ -215,6 +231,8 @@ const (
 	MaxMinMatches   = 100
 	MaxSeasons      = 50
 	MaxSeasonName   = 40
+	// MaxRawRetentionMonths bounds stats.raw_retention_months: ten years.
+	MaxRawRetentionMonths = 120
 )
 
 // ErrInvalidSettings wraps every validation failure; the message says which field and why.
@@ -351,6 +369,9 @@ func validateDiscord(d Discord, bad func(string, ...any)) {
 func validateStats(st Stats, bad func(string, ...any)) {
 	if st.MinMatches < 0 || st.MinMatches > MaxMinMatches {
 		bad("stats.min_matches: %d is not between 0 (the default, %d) and %d", st.MinMatches, DefaultMinMatches, MaxMinMatches)
+	}
+	if st.RawRetentionMonths < 0 || st.RawRetentionMonths > MaxRawRetentionMonths {
+		bad("stats.raw_retention_months: %d is not between 0 (the default, %d) and %d", st.RawRetentionMonths, DefaultRawRetentionMonths, MaxRawRetentionMonths)
 	}
 	loc := time.UTC
 	if st.Timezone != "" {

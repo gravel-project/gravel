@@ -101,7 +101,8 @@ func settingsToProto(set org.Settings, at time.Time) *hubv1.OrganizationSettings
 		}
 	}
 	if st := set.Stats; !st.IsZero() {
-		p.Stats = &hubv1.StatsSettings{Public: st.Public, MinMatches: int32(st.MinMatches), Timezone: st.Timezone} //nolint:gosec // bounded by validation
+		p.Stats = &hubv1.StatsSettings{Public: st.Public, MinMatches: int32(st.MinMatches), Timezone: st.Timezone, //nolint:gosec // bounded by validation
+			RawRetentionMonths: int32(st.RawRetentionMonths)} //nolint:gosec // bounded by validation
 		for _, se := range st.Seasons {
 			p.Stats.Seasons = append(p.Stats.Seasons, &hubv1.StatsSeason{Name: se.Name, Game: se.Game, From: se.From, To: se.To})
 		}
@@ -135,7 +136,8 @@ func settingsFromProto(p *hubv1.OrganizationSettings) org.Settings {
 		set.Discord.ServerCards = append(set.Discord.ServerCards, org.ServerCard{Server: c.GetServer(), Channel: c.GetChannel(), Note: c.GetNote()})
 	}
 	st := p.GetStats()
-	set.Stats = org.Stats{Public: st.GetPublic(), MinMatches: int(st.GetMinMatches()), Timezone: st.GetTimezone()}
+	set.Stats = org.Stats{Public: st.GetPublic(), MinMatches: int(st.GetMinMatches()), Timezone: st.GetTimezone(),
+		RawRetentionMonths: int(st.GetRawRetentionMonths())}
 	for _, se := range st.GetSeasons() {
 		set.Stats.Seasons = append(set.Stats.Seasons, org.Season{Name: se.GetName(), Game: se.GetGame(), From: se.GetFrom(), To: se.GetTo()})
 	}

@@ -10,6 +10,16 @@ patch release is everything else.
 
 ### Added
 
+- Stats retention and erasure, ADR-0012's steps 4 and 5 (#17).
+  - **Retention.** A player's per-match rows roll up into monthly totals (`stats_monthly`, migration 11) once they pass the Organization settings' new `stats.raw_retention_months` (13 by default, at most 120), so no raw row is older than the window. A period is a calendar month in `stats.timezone`, cut at every season edge inside it, so season and all-time boards count the same before and after. Matches keep their player count and kills for the match lists. The job is `stats_rollup`, every 6 hours, one transaction per run.
+  - **Erasure.** `gravel-hub stats erase --provider P --subject S` replaces a player's identity with a random token in the stats tables and the stored ingest batches' bodies (hashes recomputed), and deletes their pseudonym. The numbers stay, shown as "Deleted player".
+  - **Boards** read the raw rows and the rolled-up periods together.
+  - **API:** `StatsSettings.raw_retention_months` (additive).
+  - **Metrics:** `gravel_stats_rolled_rows_total`, plus the rollup job's last success, on the hub dashboard's Stats row.
+  - **Docs:** docs/hub.md (Stats: Retention, Erasure; the settings and commands tables) and an ADR-0012 amendment.
+
+### Added
+
 - Publisher policy guardrails in the Game specs (#8).
   - **Band kinds.** Besides a range (`min`, `max`), a band is now a longest value (`max_length`) or the hosts a URL may point at (`hosts`: https, the host or a subdomain of one). `unless_set` lifts a band while another key of its section has a value. The War Dogs driver checks all of them before a config plan or apply leaves the hub, with new problem codes `too_long` and `host_not_allowed`. `servers.yaml` may tighten a band of the same kind, never loosen one or change its condition.
   - **War Dogs** gains three bands: `ServerName` at most 64 characters, `ServerImageURL` on Bulkhead's image allow-list (catbox.moe, imgbb.com, ibb.co, postimg.cc; an off-list banner otherwise fails every later edit), and `MaxReservedSlots` 0 unless `DefaultReservedPlayerIds` lists someone. A test checks every band against the newest recorded build's schema.
