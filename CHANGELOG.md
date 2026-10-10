@@ -10,6 +10,15 @@ patch release is everything else.
 
 ### Added
 
+- Member profiles, part two of #18.
+  - **`/members/{id}`** (and **`/profile`** for your own) shows a member's totals over all time, this week, this month and each season running now, counting Official servers and every linked account, plus their 20 most recent matches. Your own profile has the switch that shows your name on leaderboards. A named member on a board links to their profile, and the account page links to yours.
+  - **`StatsService.GetMemberProfile`** (additive): the member, the owner, an app with `stats:read`, or anyone when the member shows their name and stats are public. Every other refusal is `not_found`, so a profile never confirms who plays under a pseudonym.
+  - **Store:** `PlayerTotals` (raw rows and rolled periods, by trust, window and game) and `PlayerMatches`.
+  - **Tests:** the access matrix through the API (with a mutation check), the store queries against Postgres, the pages (the switch with and without htmx, the CSRF refusal, board links), and axe over two new fixtures.
+  - **Docs:** docs/hub.md (Pages, Endpoints) and an ADR-0012 amendment.
+
+### Added
+
 - The community pages, part one of #18: servers and leaderboards.
   - **`/servers`** (now also `/`) lists every server with its live state, players and map. **`/servers/{id}`** shows the status with team scores, who is on (members and the owner only), the last 10 matches and a link to the server's board. **`/boards`** is a leaderboard by scope (everyone, a game, a server), window (all time, this week, this month, a season) and any column, with paging. A refusal reads as words on the page ("Leaderboards are private…"), never an error. The header gains Servers and Leaderboards.
   - **Game spec `layout`:** `layout.board` names a game's board columns in order, and the first is the default ranking. `ListGames` shows it (`Game.layout`, additive). War Dogs shows all five.

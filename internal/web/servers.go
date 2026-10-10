@@ -302,7 +302,7 @@ func (h *Handler) boards(w http.ResponseWriter, r *http.Request) {
 			bp.Range = m.GetFrom().AsTime().In(loc).Format("Jan 2, 2006") + " to " + m.GetTo().AsTime().Add(-time.Second).In(loc).Format("Jan 2, 2006")
 		}
 		for _, e := range m.GetEntries() {
-			row := templates.BoardRow{Rank: int(e.GetRank()), Name: e.GetName(), Pseudonymous: e.GetPseudonymous()}
+			row := templates.BoardRow{Rank: int(e.GetRank()), Name: e.GetName(), Pseudonymous: e.GetPseudonymous(), UserID: e.GetUserId()}
 			for _, c := range columns {
 				row.Cells = append(row.Cells, cell(e, c))
 			}

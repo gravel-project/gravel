@@ -44,6 +44,9 @@ const (
 	// StatsServiceSetBoardNameProcedure is the fully-qualified name of the StatsService's SetBoardName
 	// RPC.
 	StatsServiceSetBoardNameProcedure = "/gravel.hub.v1.StatsService/SetBoardName"
+	// StatsServiceGetMemberProfileProcedure is the fully-qualified name of the StatsService's
+	// GetMemberProfile RPC.
+	StatsServiceGetMemberProfileProcedure = "/gravel.hub.v1.StatsService/GetMemberProfile"
 )
 
 // StatsServiceClient is a client for the gravel.hub.v1.StatsService service.
@@ -57,6 +60,11 @@ type StatsServiceClient interface {
 	GetBoardName(context.Context, *connect.Request[v1.GetBoardNameRequest]) (*connect.Response[v1.GetBoardNameResponse], error)
 	// SetBoardName changes it; a logged-in member, for themselves only.
 	SetBoardName(context.Context, *connect.Request[v1.SetBoardNameRequest]) (*connect.Response[v1.SetBoardNameResponse], error)
+	// GetMemberProfile is a member's stats across their linked identities: the member's own, the
+	// owner's, an app's with stats:read, or anyone's when the member shows their name on boards and
+	// the Organization settings make stats public. Anyone else gets not_found, so a profile
+	// doesn't reveal who is behind a pseudonym.
+	GetMemberProfile(context.Context, *connect.Request[v1.GetMemberProfileRequest]) (*connect.Response[v1.GetMemberProfileResponse], error)
 }
 
 // NewStatsServiceClient constructs a client for the gravel.hub.v1.StatsService service. By default,
@@ -94,15 +102,22 @@ func NewStatsServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(statsServiceMethods.ByName("SetBoardName")),
 			connect.WithClientOptions(opts...),
 		),
+		getMemberProfile: connect.NewClient[v1.GetMemberProfileRequest, v1.GetMemberProfileResponse](
+			httpClient,
+			baseURL+StatsServiceGetMemberProfileProcedure,
+			connect.WithSchema(statsServiceMethods.ByName("GetMemberProfile")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // statsServiceClient implements StatsServiceClient.
 type statsServiceClient struct {
-	getBoard     *connect.Client[v1.GetBoardRequest, v1.GetBoardResponse]
-	listMatches  *connect.Client[v1.ListMatchesRequest, v1.ListMatchesResponse]
-	getBoardName *connect.Client[v1.GetBoardNameRequest, v1.GetBoardNameResponse]
-	setBoardName *connect.Client[v1.SetBoardNameRequest, v1.SetBoardNameResponse]
+	getBoard         *connect.Client[v1.GetBoardRequest, v1.GetBoardResponse]
+	listMatches      *connect.Client[v1.ListMatchesRequest, v1.ListMatchesResponse]
+	getBoardName     *connect.Client[v1.GetBoardNameRequest, v1.GetBoardNameResponse]
+	setBoardName     *connect.Client[v1.SetBoardNameRequest, v1.SetBoardNameResponse]
+	getMemberProfile *connect.Client[v1.GetMemberProfileRequest, v1.GetMemberProfileResponse]
 }
 
 // GetBoard calls gravel.hub.v1.StatsService.GetBoard.
@@ -125,6 +140,11 @@ func (c *statsServiceClient) SetBoardName(ctx context.Context, req *connect.Requ
 	return c.setBoardName.CallUnary(ctx, req)
 }
 
+// GetMemberProfile calls gravel.hub.v1.StatsService.GetMemberProfile.
+func (c *statsServiceClient) GetMemberProfile(ctx context.Context, req *connect.Request[v1.GetMemberProfileRequest]) (*connect.Response[v1.GetMemberProfileResponse], error) {
+	return c.getMemberProfile.CallUnary(ctx, req)
+}
+
 // StatsServiceHandler is an implementation of the gravel.hub.v1.StatsService service.
 type StatsServiceHandler interface {
 	// GetBoard ranks the players of a server, a game or the organization over a window. Public when
@@ -136,6 +156,11 @@ type StatsServiceHandler interface {
 	GetBoardName(context.Context, *connect.Request[v1.GetBoardNameRequest]) (*connect.Response[v1.GetBoardNameResponse], error)
 	// SetBoardName changes it; a logged-in member, for themselves only.
 	SetBoardName(context.Context, *connect.Request[v1.SetBoardNameRequest]) (*connect.Response[v1.SetBoardNameResponse], error)
+	// GetMemberProfile is a member's stats across their linked identities: the member's own, the
+	// owner's, an app's with stats:read, or anyone's when the member shows their name on boards and
+	// the Organization settings make stats public. Anyone else gets not_found, so a profile
+	// doesn't reveal who is behind a pseudonym.
+	GetMemberProfile(context.Context, *connect.Request[v1.GetMemberProfileRequest]) (*connect.Response[v1.GetMemberProfileResponse], error)
 }
 
 // NewStatsServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -169,6 +194,12 @@ func NewStatsServiceHandler(svc StatsServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(statsServiceMethods.ByName("SetBoardName")),
 		connect.WithHandlerOptions(opts...),
 	)
+	statsServiceGetMemberProfileHandler := connect.NewUnaryHandler(
+		StatsServiceGetMemberProfileProcedure,
+		svc.GetMemberProfile,
+		connect.WithSchema(statsServiceMethods.ByName("GetMemberProfile")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/gravel.hub.v1.StatsService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case StatsServiceGetBoardProcedure:
@@ -179,6 +210,8 @@ func NewStatsServiceHandler(svc StatsServiceHandler, opts ...connect.HandlerOpti
 			statsServiceGetBoardNameHandler.ServeHTTP(w, r)
 		case StatsServiceSetBoardNameProcedure:
 			statsServiceSetBoardNameHandler.ServeHTTP(w, r)
+		case StatsServiceGetMemberProfileProcedure:
+			statsServiceGetMemberProfileHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -202,4 +235,8 @@ func (UnimplementedStatsServiceHandler) GetBoardName(context.Context, *connect.R
 
 func (UnimplementedStatsServiceHandler) SetBoardName(context.Context, *connect.Request[v1.SetBoardNameRequest]) (*connect.Response[v1.SetBoardNameResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.StatsService.SetBoardName is not implemented"))
+}
+
+func (UnimplementedStatsServiceHandler) GetMemberProfile(context.Context, *connect.Request[v1.GetMemberProfileRequest]) (*connect.Response[v1.GetMemberProfileResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.StatsService.GetMemberProfile is not implemented"))
 }

@@ -1120,6 +1120,49 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.GetBoardNameResponse'
+  /gravel.hub.v1.StatsService/GetMemberProfile:
+    post:
+      tags:
+        - gravel.hub.v1.StatsService
+      summary: GetMemberProfile
+      description: |-
+        GetMemberProfile is a member's stats across their linked identities: the member's own, the
+         owner's, an app's with stats:read, or anyone's when the member shows their name on boards and
+         the Organization settings make stats public. Anyone else gets not_found, so a profile
+         doesn't reveal who is behind a pseudonym.
+      operationId: gravel.hub.v1.StatsService.GetMemberProfile
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.GetMemberProfileRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.GetMemberProfileResponse'
   /gravel.hub.v1.StatsService/ListMatches:
     post:
       tags:
@@ -1971,6 +2014,46 @@ components:
           title: user
       title: GetMeResponse
       additionalProperties: false
+    gravel.hub.v1.GetMemberProfileRequest:
+      type: object
+      properties:
+        userId:
+          type: string
+          title: user_id
+          description: The member; empty is the logged-in caller.
+      title: GetMemberProfileRequest
+      additionalProperties: false
+    gravel.hub.v1.GetMemberProfileResponse:
+      type: object
+      properties:
+        userId:
+          type: string
+          title: user_id
+        displayName:
+          type: string
+          title: display_name
+        showName:
+          type: boolean
+          title: show_name
+          description: The member chose to be shown by name on boards.
+        self:
+          type: boolean
+          title: self
+          description: The caller is the member.
+        totals:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.ProfileTotals'
+          title: totals
+          description: All time, this week, this month and each season running now, counting Official servers.
+        recent:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.PlayerMatch'
+          title: recent
+          description: Their most recent matches on any server, newest first.
+      title: GetMemberProfileResponse
+      additionalProperties: false
     gravel.hub.v1.GetOrganizationRequest:
       type: object
       title: GetOrganizationRequest
@@ -2586,6 +2669,87 @@ components:
           description: The server's validation; not ok means applying would be refused.
       title: PlanServerConfigResponse
       additionalProperties: false
+    gravel.hub.v1.PlayerMatch:
+      type: object
+      properties:
+        matchId:
+          type: string
+          title: match_id
+        serverId:
+          type: string
+          title: server_id
+        serverName:
+          type: string
+          title: server_name
+        startedAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: started_at
+        endedAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: ended_at
+          description: Unset while the match is open.
+        map:
+          type: string
+          title: map
+        kills:
+          type: integer
+          title: kills
+          format: int32
+        deaths:
+          type: integer
+          title: deaths
+          format: int32
+        secondsOn:
+          type: integer
+          title: seconds_on
+          format: int32
+      title: PlayerMatch
+      additionalProperties: false
+      description: PlayerMatch is one match a member played, with their row in it.
+    gravel.hub.v1.ProfileTotals:
+      type: object
+      properties:
+        window:
+          type: string
+          title: window
+        season:
+          type: string
+          title: season
+        from:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: from
+        to:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: to
+        kills:
+          type: integer
+          title: kills
+          format: int32
+        deaths:
+          type: integer
+          title: deaths
+          format: int32
+        kd:
+          type: number
+          title: kd
+          format: double
+        secondsOn:
+          type: integer
+          title: seconds_on
+          format: int32
+        matches:
+          type: integer
+          title: matches
+          format: int32
+      title: ProfileTotals
+      additionalProperties: false
+      description: |-
+        ProfileTotals is a member's totals over one window: "all", "week", "month", or "season" with
+         season naming one running now. from and to are unset for all time.
     gravel.hub.v1.RevokeSessionsRequest:
       type: object
       title: RevokeSessionsRequest

@@ -51,6 +51,8 @@ func TestAccessibility(t *testing.T) {
 	}
 	online := templates.ServerRow{ID: "htg-wardogs-1", Name: "HTG WARDOGS | NA WEST | #1", Game: "War Dogs", Location: "qonzer-slc", Official: true,
 		State: "ok", StateLabel: "Online", Players: 24, MaxPlayers: 80, Map: "Ozeti"}
+	profileTotals := []templates.TotalsRow{{Label: "All time", Kills: 40, Deaths: 10, KD: "4.00", Time: "2h 00m", Matches: 6},
+		{Label: "This week", Kills: 4, Deaths: 2, KD: "2.00", Time: "15m", Matches: 1}, {Label: "Season 02", Kills: 4, Deaths: 2, KD: "2.00", Time: "15m", Matches: 1}}
 	fixtures := map[string]func() templ.Component{
 		"/fixture/account-unowned": func() templ.Component {
 			p := base
@@ -96,6 +98,18 @@ func TestAccessibility(t *testing.T) {
 				Rows: []templates.BoardRow{{Rank: 1, Name: "Brave Falcon", Pseudonymous: true, Cells: []string{"42", "10", "4.20", "2h 05m", "5"}},
 					{Rank: 2, Name: "Jo", Cells: []string{"30", "12", "2.50", "45m", "4"}}}})
 		},
+		"/fixture/member-self": func() templ.Component {
+			p := base
+			p.Title, p.User, p.CSRF = "Jo", jo, "csrf"
+			p.Flash = &templates.Flash{Kind: "ok", Text: "Leaderboards now show your name."}
+			return templates.Member(templates.MemberPage{Page: p, UserID: "u1", DisplayName: "Jo", Self: true, ShowName: true, Totals: profileTotals,
+				Recent: []templates.PlayedMatch{{Started: now, Live: true, ServerID: "htg-wardogs-1", Server: online.Name, Map: "Ozeti", Kills: 4, Deaths: 2, Time: "15m"}}})
+		},
+		"/fixture/member": func() templ.Component {
+			p := base
+			p.Title = "Sam"
+			return templates.Member(templates.MemberPage{Page: p, UserID: "u2", DisplayName: "Sam", ShowName: true, Totals: profileTotals})
+		},
 		"/fixture/error": func() templ.Component {
 			p := base
 			p.Title = "Login attempt expired"
@@ -136,7 +150,7 @@ func TestAccessibility(t *testing.T) {
 	defer srv.Close()
 
 	for _, path := range []string{"/login", "/fixture/account-unowned", "/fixture/account-owner", "/fixture/error",
-		"/fixture/servers", "/fixture/server", "/fixture/server-anonymous", "/fixture/boards"} {
+		"/fixture/servers", "/fixture/server", "/fixture/server-anonymous", "/fixture/boards", "/fixture/member-self", "/fixture/member"} {
 		t.Run(strings.TrimPrefix(path, "/"), func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 			defer cancel()

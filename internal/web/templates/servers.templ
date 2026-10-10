@@ -219,7 +219,11 @@ templ BoardsContent(p BoardsPage) {
 					<tr>
 						<td class="num">{ fmt.Sprint(r.Rank) }</td>
 						<td>
-							{ r.Name }
+							if r.UserID != "" {
+								<a href={ templ.SafeURL("/members/" + r.UserID) }>{ r.Name }</a>
+							} else {
+								{ r.Name }
+							}
 							if !r.Pseudonymous {
 								<span class="badge">member</span>
 							}

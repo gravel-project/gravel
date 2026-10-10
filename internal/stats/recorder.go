@@ -43,6 +43,8 @@ type Store interface {
 	BoardMembers(ctx context.Context, keys []store.PlayerKey) (map[store.PlayerKey]store.BoardMember, error)
 	SetShowNameOnBoards(ctx context.Context, userID uuid.UUID, show bool) error
 	ShowNameOnBoards(ctx context.Context, userID uuid.UUID) (bool, error)
+	PlayerTotals(ctx context.Context, q store.PlayerTotalsQuery) (store.BoardRow, error)
+	PlayerMatches(ctx context.Context, orgID uuid.UUID, keys []store.PlayerKey, limit int) ([]store.PlayerMatch, error)
 }
 
 // Recorder records matches from the monitor's observations; it is the monitor's ObservationSink.

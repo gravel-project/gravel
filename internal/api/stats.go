@@ -15,8 +15,11 @@ import (
 	hubv1 "github.com/gravel-project/gravel/gen/gravel/hub/v1"
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
 	"github.com/gravel-project/gravel/internal/apps"
+	"github.com/gravel-project/gravel/internal/identity"
 	"github.com/gravel-project/gravel/internal/org"
+	"github.com/gravel-project/gravel/internal/session"
 	"github.com/gravel-project/gravel/internal/stats"
+	"github.com/gravel-project/gravel/internal/store"
 )
 
 // StatsServer is StatsService (ADR-0012): boards and match lists, public when the Organization
@@ -24,14 +27,20 @@ import (
 // to be shown by name.
 type StatsServer struct {
 	hubv1connect.UnimplementedStatsServiceHandler
-	boards *stats.Boards
-	org    *org.Service
-	logger *slog.Logger
+	boards  *stats.Boards
+	org     *org.Service
+	members MemberReader
+	logger  *slog.Logger
+}
+
+// MemberReader reads a member with their linked identities (identity.Service).
+type MemberReader interface {
+	Me(ctx context.Context, userID uuid.UUID) (identity.User, error)
 }
 
 // NewStatsServer builds the handler.
-func NewStatsServer(boards *stats.Boards, orgSvc *org.Service, logger *slog.Logger) *StatsServer {
-	return &StatsServer{boards: boards, org: orgSvc, logger: logger}
+func NewStatsServer(boards *stats.Boards, orgSvc *org.Service, members MemberReader, logger *slog.Logger) *StatsServer {
+	return &StatsServer{boards: boards, org: orgSvc, members: members, logger: logger}
 }
 
 // mayRead admits anyone when stats are public, else the owner or an app with stats:read.
@@ -186,4 +195,82 @@ func decodePrefixed(token, prefix string) (int64, error) {
 		return 0, bad
 	}
 	return n, nil
+}
+
+// GetMemberProfile is a member's stats across their linked identities, for whoever may see them.
+func (s *StatsServer) GetMemberProfile(ctx context.Context, req *connect.Request[hubv1.GetMemberProfileRequest]) (*connect.Response[hubv1.GetMemberProfileResponse], error) {
+	var self uuid.UUID
+	if sess, ok := session.FromContext(ctx); ok {
+		self = sess.UserID
+	}
+	uid := self
+	if req.Msg.GetUserId() != "" {
+		id, err := uuid.Parse(req.Msg.GetUserId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("user_id is not a member id"))
+		}
+		uid = id
+	}
+	if uid == uuid.Nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("log in, or name a member"))
+	}
+	notFound := connect.NewError(connect.CodeNotFound, errors.New("no such profile"))
+	u, err := s.members.Me(ctx, uid)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, notFound
+	}
+	if err != nil {
+		return nil, mapError(ctx, s.logger, err)
+	}
+	shows, err := s.boards.ShowName(ctx, uid)
+	if err != nil {
+		return nil, mapError(ctx, s.logger, err)
+	}
+	if err := s.mayReadProfile(ctx, uid == self, shows); err != nil {
+		return nil, notFound // never say whether the member exists, or plays under a pseudonym
+	}
+	keys := make([]store.PlayerKey, 0, len(u.Identities))
+	for _, i := range u.Identities {
+		keys = append(keys, store.PlayerKey{Provider: i.Provider, Subject: i.Subject})
+	}
+	p, err := s.boards.Profile(ctx, keys)
+	if err != nil {
+		return nil, s.mapError(ctx, err)
+	}
+	resp := &hubv1.GetMemberProfileResponse{UserId: uid.String(), DisplayName: u.DisplayName, ShowName: shows, Self: uid == self}
+	for _, t := range p.Totals {
+		pt := &hubv1.ProfileTotals{Window: t.Window, Season: t.Season, Kills: int32(t.Totals.Kills), Deaths: int32(t.Totals.Deaths), //nolint:gosec // bounded by the store
+			Kd: t.KD, SecondsOn: int32(t.Totals.SecondsOn), Matches: int32(t.Totals.Matches)} //nolint:gosec // bounded by the store
+		if !t.From.IsZero() {
+			pt.From, pt.To = timestamppb.New(t.From), timestamppb.New(t.To)
+		}
+		resp.Totals = append(resp.Totals, pt)
+	}
+	for _, m := range p.Recent {
+		pm := &hubv1.PlayerMatch{MatchId: strconv.FormatInt(m.ID, 10), ServerId: m.ServerID, ServerName: m.ServerName, StartedAt: timestamppb.New(m.StartedAt),
+			Map: m.Map, Kills: int32(m.Kills), Deaths: int32(m.Deaths), SecondsOn: int32(m.SecondsOn)} //nolint:gosec // bounded by the store
+		if m.EndedAt != nil {
+			pm.EndedAt = timestamppb.New(*m.EndedAt)
+		}
+		resp.Recent = append(resp.Recent, pm)
+	}
+	return connect.NewResponse(resp), nil
+}
+
+// mayReadProfile admits the member, the owner, an app with stats:read, or anyone when the member
+// shows their name and stats are public.
+func (s *StatsServer) mayReadProfile(ctx context.Context, isSelf, showsName bool) error {
+	if isSelf {
+		return nil
+	}
+	if showsName {
+		public, err := s.boards.Public(ctx)
+		if err != nil {
+			return err
+		}
+		if public {
+			return nil
+		}
+	}
+	return requireScope(ctx, s.org, s.logger, apps.ScopeStatsRead)
 }

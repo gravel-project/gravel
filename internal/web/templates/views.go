@@ -204,7 +204,9 @@ type BoardRow struct {
 	Rank         int
 	Name         string
 	Pseudonymous bool
-	Cells        []string
+	// UserID is set for a member shown by name; their name links to their profile.
+	UserID string
+	Cells  []string
 }
 
 // BoardsPage is a leaderboard with its scope, window and ranking.
@@ -221,4 +223,37 @@ type BoardsPage struct {
 	// Note explains an empty or private board.
 	Note    string
 	NextURL string
+}
+
+// TotalsRow is a member's totals over one window, as the profile shows them.
+type TotalsRow struct {
+	Label   string
+	Kills   int
+	Deaths  int
+	KD      string
+	Time    string
+	Matches int
+}
+
+// PlayedMatch is one match a member played.
+type PlayedMatch struct {
+	Started  time.Time
+	Live     bool
+	ServerID string
+	Server   string
+	Map      string
+	Kills    int
+	Deaths   int
+	Time     string
+}
+
+// MemberPage is a member's stats profile; Self is the member reading their own.
+type MemberPage struct {
+	Page
+	UserID      string
+	DisplayName string
+	Self        bool
+	ShowName    bool
+	Totals      []TotalsRow
+	Recent      []PlayedMatch
 }

@@ -215,3 +215,53 @@ func playMatch(t *testing.T, st *store.Store, orgID uuid.UUID, server string, at
 
 // day2025 is a date in 2025, the year the rolled-up fixtures are in.
 func day2025(m time.Month, d int) time.Time { return time.Date(2025, m, d, 0, 0, 0, 0, time.UTC) }
+
+// A player's totals sum their identities over raw and rolled rows, filtered like a board; their
+// recent matches list the raw ones, newest first, with the server's name.
+func TestPlayerTotalsAndMatches(t *testing.T) {
+	st := storetest.Open(t)
+	storetest.Reset(t, st)
+	ctx := context.Background()
+	o := newOrg(t, st)
+	seedServers(t, st, o.ID)
+	old := time.Date(2025, 1, 20, 20, 0, 0, 0, time.UTC)
+	playMatch(t, st, o.ID, "wd-1", old, "official", map[string][3]int{"1": {5, 2, 600}})
+	if _, err := st.RollUp(ctx, o.ID, "UTC", []store.Period{{From: day2025(1, 1), To: day2025(2, 1)}}); err != nil {
+		t.Fatal(err)
+	}
+	recent := time.Date(2026, 10, 5, 20, 0, 0, 0, time.UTC)
+	playMatch(t, st, o.ID, "wd-1", recent, "official", map[string][3]int{"1": {3, 1, 300}, "2": {9, 9, 900}})
+	playMatch(t, st, o.ID, "wd-2", recent.Add(time.Hour), "community", map[string][3]int{"alt": {7, 0, 120}})
+
+	keys := []store.PlayerKey{{Provider: "steam", Subject: "1"}, {Provider: "steam", Subject: "alt"}}
+	q := store.PlayerTotalsQuery{OrganizationID: o.ID, Keys: keys, Trusts: []string{"official"}}
+	if got, err := st.PlayerTotals(ctx, q); err != nil || got != (store.BoardRow{Kills: 8, Deaths: 3, SecondsOn: 900, Matches: 2}) {
+		t.Errorf("all time, official: %+v %v", got, err)
+	}
+	q.Trusts = []string{"official", "community"}
+	if got, _ := st.PlayerTotals(ctx, q); got.Kills != 15 || got.Matches != 3 {
+		t.Errorf("both trusts, both identities: %+v", got)
+	}
+	q.From, q.To = time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC), time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
+	if got, _ := st.PlayerTotals(ctx, q); got.Kills != 10 || got.Matches != 2 {
+		t.Errorf("October 2026: %+v", got)
+	}
+	q.From, q.To, q.GameID = time.Time{}, time.Time{}, "cs2"
+	if got, _ := st.PlayerTotals(ctx, q); got != (store.BoardRow{}) {
+		t.Errorf("another game: %+v", got)
+	}
+	if got, err := st.PlayerTotals(ctx, store.PlayerTotalsQuery{OrganizationID: o.ID, Trusts: []string{"official"}}); err != nil || got != (store.BoardRow{}) {
+		t.Errorf("no identities: %+v %v", got, err)
+	}
+
+	ms, err := st.PlayerMatches(ctx, o.ID, keys, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ms) != 2 || ms[0].ServerID != "wd-2" || ms[0].ServerName != "wd-2" || ms[0].Kills != 7 || ms[1].ServerID != "wd-1" || ms[1].Kills != 3 || ms[1].Trust != "official" {
+		t.Errorf("recent matches (the rolled one gone) = %+v", ms)
+	}
+	if ms, _ := st.PlayerMatches(ctx, o.ID, keys, 1); len(ms) != 1 {
+		t.Errorf("limit: %d", len(ms))
+	}
+}
