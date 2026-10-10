@@ -128,12 +128,14 @@ const (
 	linked   = "1300000000000000001"
 	steam    = "1300000000000000002"
 	founders = "1300000000000000003"
+	card     = "1300000000000000100" // a channel
 )
 
 func TestSettingsValidateDiscord(t *testing.T) {
 	good := Settings{Version: 1, Discord: Discord{GuildID: guild,
 		Roles:       DiscordRoles{Linked: linked, Providers: map[string]string{"steam": steam}},
-		Recognition: []Recognition{{Role: founders, Rule: RuleFirstMembers, Count: 50}}}}
+		Recognition: []Recognition{{Role: founders, Rule: RuleFirstMembers, Count: 50}},
+		ServerCards: []ServerCard{{Server: "htg-wardogs-1", Channel: card, Note: "Matches start at 20 players."}, {Server: "htg-wardogs-2", Channel: card}}}}
 	if err := good.Validate(); err != nil {
 		t.Fatalf("good mapping: %v", err)
 	}
@@ -158,6 +160,13 @@ func TestSettingsValidateDiscord(t *testing.T) {
 		{"@everyone", Discord{GuildID: guild, Roles: DiscordRoles{Linked: guild}}, []string{"@everyone"}},
 		{"bad recognition", Discord{GuildID: guild, Recognition: []Recognition{{Role: founders, Rule: "member_since", Count: 0}, {Role: steam, Rule: RuleFirstMembers, Count: MaxFirstMembers + 1}}},
 			[]string{"discord.recognition[0].rule: \"member_since\"", "discord.recognition[0].count: 0", "discord.recognition[1].count"}},
+		{"cards without a guild", Discord{ServerCards: []ServerCard{{Server: "s", Channel: card}}}, []string{"discord.guild_id: required"}},
+		{"bad cards", Discord{GuildID: guild, ServerCards: []ServerCard{
+			{Server: "HTG Wardogs", Channel: "abc", Note: strings.Repeat("x", MaxCardNote+1)},
+			{Server: "s", Channel: card, Note: "two\nlines"},
+			{Server: "s", Channel: card},
+		}}, []string{"discord.server_cards[0].server: \"HTG Wardogs\" is not a server id", "discord.server_cards[0].channel: \"abc\"", "discord.server_cards[0].note",
+			"discord.server_cards[1].note", "discord.server_cards[2].server: \"s\" already has a card (discord.server_cards[1])"}},
 		{"recognition duplicates a linked role", Discord{GuildID: guild, Roles: DiscordRoles{Linked: linked}, Recognition: []Recognition{{Role: linked, Rule: RuleFirstMembers, Count: 5}}}, []string{"discord.recognition[0].role: role " + linked}},
 	}
 	for _, c := range cases {
@@ -179,6 +188,16 @@ func TestSettingsValidateDiscord(t *testing.T) {
 	if err := many.Validate(); err == nil || !strings.Contains(err.Error(), "discord.recognition: 11 entries") {
 		t.Errorf("too many recognition entries: %v", err)
 	}
+	cards := Settings{Version: 1, Discord: Discord{GuildID: guild}}
+	for i := range MaxServerCards + 1 {
+		cards.Discord.ServerCards = append(cards.Discord.ServerCards, ServerCard{Server: fmt.Sprintf("s%d", i), Channel: card})
+	}
+	if err := cards.Validate(); err == nil || !strings.Contains(err.Error(), "discord.server_cards: 11 cards") {
+		t.Errorf("too many cards: %v", err)
+	}
+	if n := (Settings{Discord: Discord{GuildID: guild, ServerCards: []ServerCard{{Server: "s", Channel: card, Note: "  padded  "}}}}).Normalized(); n.Discord.ServerCards[0].Note != "padded" {
+		t.Errorf("a note is trimmed: %q", n.Discord.ServerCards[0].Note)
+	}
 }
 
 func TestSettingsDiscordManifest(t *testing.T) {
@@ -193,6 +212,10 @@ discord:
     - role: "` + founders + `"
       rule: first_members
       count: 50
+  server_cards:
+    - server: htg-wardogs-1
+      channel: "` + card + `"
+      note: Matches start at 20 players.
 `))
 	if err != nil {
 		t.Fatal(err)
@@ -200,7 +223,7 @@ discord:
 	if err := s.Validate(); err != nil {
 		t.Fatal(err)
 	}
-	if s.Discord.GuildID != guild || s.Discord.Roles.Providers["steam"] != steam || s.Discord.Recognition[0].Count != 50 {
+	if s.Discord.GuildID != guild || s.Discord.Roles.Providers["steam"] != steam || s.Discord.Recognition[0].Count != 50 || s.Discord.ServerCards[0].Note != "Matches start at 20 players." {
 		t.Errorf("manifest: %+v", s.Discord)
 	}
 	out, err := s.Manifest()

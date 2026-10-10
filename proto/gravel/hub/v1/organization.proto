@@ -86,12 +86,24 @@ message DiscordRecognition {
   int32 count = 3;
 }
 
-// DiscordSettings is the guild role sync manages and the roles it maps (ADR-0008). Ids are
-// Discord snowflakes as strings; empty means role sync has nothing to do.
+// DiscordServerCard places one server's live status card in a channel: one message the bot edits
+// in place.
+message DiscordServerCard {
+  // The server's id in the hub: "htg-wardogs-1".
+  string server = 1;
+  string channel = 2;
+  // A line the host writes under the numbers: "Matches start at 20 players."
+  string note = 3;
+}
+
+// DiscordSettings is the guild the bot works in (ADR-0008): the roles role sync maps and the
+// channels the server cards live in. Ids are Discord snowflakes as strings; empty means the bot
+// has nothing to do.
 message DiscordSettings {
   string guild_id = 1;
   DiscordRoles roles = 2;
   repeated DiscordRecognition recognition = 3;
+  repeated DiscordServerCard server_cards = 4;
 }
 
 // OrganizationSettings is the Organization settings resource: every host-configurable knob in

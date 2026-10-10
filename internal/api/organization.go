@@ -96,6 +96,9 @@ func settingsToProto(set org.Settings, at time.Time) *hubv1.OrganizationSettings
 		for _, r := range d.Recognition {
 			p.Discord.Recognition = append(p.Discord.Recognition, &hubv1.DiscordRecognition{Role: r.Role, Rule: r.Rule, Count: int32(r.Count)}) //nolint:gosec // bounded by validation
 		}
+		for _, c := range d.ServerCards {
+			p.Discord.ServerCards = append(p.Discord.ServerCards, &hubv1.DiscordServerCard{Server: c.Server, Channel: c.Channel, Note: c.Note})
+		}
 	}
 	if !at.IsZero() {
 		p.UpdatedAt = timestamppb.New(at)
@@ -121,6 +124,9 @@ func settingsFromProto(p *hubv1.OrganizationSettings) org.Settings {
 	set.Discord = org.Discord{GuildID: d.GetGuildId(), Roles: org.DiscordRoles{Linked: d.GetRoles().GetLinked(), Providers: d.GetRoles().GetProviders()}}
 	for _, r := range d.GetRecognition() {
 		set.Discord.Recognition = append(set.Discord.Recognition, org.Recognition{Role: r.GetRole(), Rule: r.GetRule(), Count: int(r.GetCount())})
+	}
+	for _, c := range d.GetServerCards() {
+		set.Discord.ServerCards = append(set.Discord.ServerCards, org.ServerCard{Server: c.GetServer(), Channel: c.GetChannel(), Note: c.GetNote()})
 	}
 	return set
 }

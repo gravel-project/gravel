@@ -206,9 +206,13 @@ func (p Program) configCheck(args []string, stdout, stderr io.Writer) int {
 			roleSync += ", dry run"
 		}
 	}
-	fmt.Fprintf(stdout, "config ok: application %s, commands %s, gateway %t, hub %s (public %s, client %s), token from %s, hub secret from %s, role sync %s, linked roles %t, listen %s, internal %s, modules %s\n",
+	serverCards := "off"
+	if cfg.ServerCards.Enabled {
+		serverCards = "every " + cfg.ServerCards.Interval.String()
+	}
+	fmt.Fprintf(stdout, "config ok: application %s, commands %s, gateway %t, hub %s (public %s, client %s), token from %s, hub secret from %s, role sync %s, linked roles %t, server cards %s, listen %s, internal %s, modules %s\n",
 		cfg.Discord.ApplicationID, guilds, cfg.Discord.Gateway, cfg.Hub.URL, cfg.Hub.PublicURL, cfg.Hub.ClientID,
-		cfg.Discord.TokenSource(), cfg.Hub.SecretSource(), roleSync, cfg.LinkedRoles.Enabled, cfg.Server.Listen, cfg.Server.InternalListen,
+		cfg.Discord.TokenSource(), cfg.Hub.SecretSource(), roleSync, cfg.LinkedRoles.Enabled, serverCards, cfg.Server.Listen, cfg.Server.InternalListen,
 		strings.Join(names, ", "))
 	return 0
 }

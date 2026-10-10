@@ -147,7 +147,7 @@ func hubDashboard() dashboard {
 func botDashboard() dashboard {
 	return dashboard{
 		UID: "gravel-bot", Title: "gravel bot", BuildInfo: "gravel_bot_build_info",
-		Description: "The gravel Discord bot: the gateway, interactions against Discord's three seconds, role sync, Linked Roles and the Go runtime (gravel docs/bot.md, Observability).",
+		Description: "The gravel Discord bot: the gateway, interactions against Discord's three seconds, role sync, Linked Roles, the server cards and the Go runtime (gravel docs/bot.md, Observability).",
 		Rows: []row{
 			{Title: "Overview", Panels: []panel{
 				{Title: "Up", Kind: "stat", Width: 3, Mappings: upMap, Thresholds: []step{{Color: "red"}, {Value: 1, Color: "green"}}, Targets: []target{{Expr: `up{` + sel + `}`, Legend: "{{instance}}"}}},
@@ -194,6 +194,15 @@ func botDashboard() dashboard {
 					Targets:     []target{{Expr: `sum by (action, result) (increase(gravel_bot_rolesync_changes_total{` + sel + `}[$__rate_interval]))`, Legend: "{{action}} {{result}}"}}},
 				{Title: "Background jobs ended", Kind: "timeseries", Width: 8, Optional: "no job ended in the range (jobs run until shutdown)",
 					Targets: []target{{Expr: `sum by (job, result) (increase(gravel_bot_jobs_total{` + sel + `}[$__rate_interval]))`, Legend: "{{job}} {{result}}"}}},
+			}},
+			{Title: "Server cards", Panels: []panel{
+				{Title: "Since the last server card pass", Kind: "stat", Unit: "s", Width: 6, Optional: "the server cards are off",
+					Description: "A pass that brought every card up to date (or found none placed). Orange after a minute, red after five: a card that keeps failing keeps this growing.",
+					Thresholds:  []step{{Color: "green"}, {Value: 60, Color: "orange"}, {Value: 300, Color: "red"}},
+					Targets:     []target{{Expr: `time() - max(gravel_bot_servercards_last_success_timestamp_seconds{` + sel + `})`}}},
+				{Title: "Server card updates", Kind: "timeseries", Width: 18, Optional: "the server cards are off or changed nothing in the range",
+					Description: "posted: a card that was not in its channel; edited: a card that changed; forbidden: the bot may not use the channel; error: Discord failed, retried at the next pass.",
+					Targets:     []target{{Expr: `sum by (result) (increase(gravel_bot_servercards_updates_total{` + sel + `}[$__rate_interval]))`, Legend: "{{result}}"}}},
 			}},
 			runtimeRow(),
 		},

@@ -26,6 +26,10 @@ role_sync:                       # maps what the hub's Organization settings nam
 linked_roles:
   enabled: true                  # the metadata schema; set the hub's /auth/discord/roles as the verification URL
 
+server_cards:                    # the status cards the Organization settings place (`discord.server_cards`); idles without
+  enabled: true
+  interval: 15s
+
 server:
   listen: 0.0.0.0:8081           # /interactions, /healthz, /readyz
   internal_listen: 0.0.0.0:9091  # /metrics
