@@ -58,7 +58,12 @@ type User struct {
 	ID          string
 	DisplayName string
 	Owner       bool
+	// Moderator holds the moderator role (ADR-0013); the owner moderates without it.
+	Moderator bool
 }
+
+// CanModerate reports whether the member may moderate servers.
+func (u *User) CanModerate() bool { return u != nil && (u.Owner || u.Moderator) }
 
 // Identity is one linked account as the account page shows it.
 type Identity struct {
@@ -256,4 +261,21 @@ type MemberPage struct {
 	ShowName    bool
 	Totals      []TotalsRow
 	Recent      []PlayedMatch
+}
+
+// MemberRow is one member on the owner's Members page.
+type MemberRow struct {
+	ID          string
+	DisplayName string
+	Accounts    string
+	Joined      time.Time
+	Owner       bool
+	Moderator   bool
+}
+
+// MembersPage is the owner's list of members, where roles are granted.
+type MembersPage struct {
+	Page
+	Members []MemberRow
+	NextURL string
 }

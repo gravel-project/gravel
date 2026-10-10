@@ -1,0 +1,63 @@
+package templates
+
+// Members is the whole Members page.
+templ Members(p MembersPage) {
+	@Layout(p.Page) {
+		@MembersContent(p)
+	}
+}
+
+// MembersContent lists the members for the owner, who grants and revokes the moderator role here.
+templ MembersContent(p MembersPage) {
+	@FlashView(p.Flash)
+	<h1>Members</h1>
+	<p class="muted">Moderators can kick, ban and message players and read the moderation log, as you can. Every grant and revocation is recorded.</p>
+	<table>
+		<thead>
+			<tr>
+				<th scope="col">Member</th>
+				<th scope="col">Accounts</th>
+				<th scope="col">Joined</th>
+				<th scope="col">Role</th>
+				<th scope="col"><span class="visually-hidden">Actions</span></th>
+			</tr>
+		</thead>
+		<tbody>
+			for _, m := range p.Members {
+				<tr>
+					<td><a href={ templ.SafeURL("/members/" + m.ID) }>{ m.DisplayName }</a></td>
+					<td>{ m.Accounts }</td>
+					<td>{ m.Joined.UTC().Format("2006-01-02") }</td>
+					<td>
+						if m.Owner {
+							<span class="badge">owner</span>
+						} else if m.Moderator {
+							<span class="badge">moderator</span>
+						} else {
+							<span class="muted">member</span>
+						}
+					</td>
+					<td>
+						if !m.Owner {
+							<form method="post" action="/members/role" class="inline" hx-post="/members/role" hx-target="#page" hx-swap="innerHTML">
+								<input type="hidden" name="_csrf" value={ p.CSRF }/>
+								<input type="hidden" name="user_id" value={ m.ID }/>
+								<input type="hidden" name="role" value="moderator"/>
+								if m.Moderator {
+									<input type="hidden" name="granted" value="0"/>
+									<button type="submit" class="link">Remove moderator from { m.DisplayName }</button>
+								} else {
+									<input type="hidden" name="granted" value="1"/>
+									<button type="submit" class="link">Make { m.DisplayName } a moderator</button>
+								}
+							</form>
+						}
+					</td>
+				</tr>
+			}
+		</tbody>
+	</table>
+	if p.NextURL != "" {
+		<p><a href={ templ.SafeURL(p.NextURL) }>Next page</a></p>
+	}
+}

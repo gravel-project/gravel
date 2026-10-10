@@ -247,6 +247,47 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.RevokeSessionsResponse'
+  /gravel.hub.v1.IdentityService/SetUserRole:
+    post:
+      tags:
+        - gravel.hub.v1.IdentityService
+      summary: SetUserRole
+      description: |-
+        SetUserRole grants or revokes a member's role (ADR-0013); every change is recorded with who
+         made it. The owner only; the owner holds every power already and needs no role.
+      operationId: gravel.hub.v1.IdentityService.SetUserRole
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.SetUserRoleRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.SetUserRoleResponse'
   /gravel.hub.v1.IdentityService/UnlinkIdentity:
     post:
       tags:
@@ -2949,6 +2990,31 @@ components:
           title: show_name
       title: SetBoardNameResponse
       additionalProperties: false
+    gravel.hub.v1.SetUserRoleRequest:
+      type: object
+      properties:
+        userId:
+          type: string
+          title: user_id
+        role:
+          type: string
+          title: role
+          description: '"moderator".'
+        granted:
+          type: boolean
+          title: granted
+          description: true grants the role, false revokes it.
+      title: SetUserRoleRequest
+      additionalProperties: false
+    gravel.hub.v1.SetUserRoleResponse:
+      type: object
+      properties:
+        user:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.User'
+          title: user
+      title: SetUserRoleResponse
+      additionalProperties: false
     gravel.hub.v1.StatsSeason:
       type: object
       properties:
@@ -3166,6 +3232,12 @@ components:
             $ref: '#/components/schemas/gravel.hub.v1.Identity'
           title: identities
           description: The linked identities, oldest link first.
+        roles:
+          type: array
+          items:
+            type: string
+          title: roles
+          description: 'Roles the owner granted (ADR-0013): "moderator".'
       title: User
       additionalProperties: false
       description: |-
@@ -3175,8 +3247,9 @@ security: []
 tags:
   - name: gravel.hub.v1.ModerationService
     description: |-
-      ModerationService acts on the players of a server the hub controls (ADR-0010 §5): the owner,
-       or an app with the servers:moderate scope (a bot, which may name the moderator it acts for).
+      ModerationService acts on the players of a server the hub controls (ADR-0010 §5): the owner, a
+       member with the moderator role (ADR-0013), or an app with the servers:moderate scope (a bot),
+       whose on_behalf_of, when set, must be the owner or a moderator.
        Every call goes through the server's driver and leaves an audit entry, written before the call,
        so the web and the bot share one log.
 

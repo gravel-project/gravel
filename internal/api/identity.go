@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"log/slog"
 	"strings"
 	"time"
@@ -247,6 +248,7 @@ func toProtoUser(u identity.User, o store.Organization) *hubv1.User {
 		DisplayName: u.DisplayName,
 		Owner:       o.OwnerUserID != nil && *o.OwnerUserID == u.ID,
 		CreatedAt:   timestamppb.New(u.CreatedAt),
+		Roles:       u.Roles,
 	}
 	if u.LastLoginAt != nil {
 		p.LastLoginAt = timestamppb.New(*u.LastLoginAt)
@@ -271,4 +273,34 @@ func toProtoIdentity(i store.Identity) *hubv1.Identity {
 		p.LastLoginAt = timestamppb.New(*i.LastLoginAt)
 	}
 	return p
+}
+
+// SetUserRole grants or revokes a member's role; the owner only.
+func (s *IdentityServer) SetUserRole(ctx context.Context, req *connect.Request[hubv1.SetUserRoleRequest]) (*connect.Response[hubv1.SetUserRoleResponse], error) {
+	if err := requireOwner(ctx, s.org, s.logger); err != nil {
+		return nil, err
+	}
+	by, err := caller(ctx)
+	if err != nil {
+		return nil, err
+	}
+	uid, err := uuid.Parse(req.Msg.GetUserId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("user_id is not a member id"))
+	}
+	if _, err := s.ids.SetRole(ctx, uid, req.Msg.GetRole(), req.Msg.GetGranted(), by); err != nil {
+		if errors.Is(err, identity.ErrUnknownRole) {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("role %q is not one of %s", req.Msg.GetRole(), strings.Join(store.Roles, ", ")))
+		}
+		return nil, mapError(ctx, s.logger, err)
+	}
+	u, err := s.ids.Me(ctx, uid)
+	if err != nil {
+		return nil, mapError(ctx, s.logger, err)
+	}
+	o, err := s.org.Get(ctx)
+	if err != nil {
+		return nil, mapError(ctx, s.logger, err)
+	}
+	return connect.NewResponse(&hubv1.SetUserRoleResponse{User: toProtoUser(u, o)}), nil
 }

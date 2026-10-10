@@ -11,6 +11,7 @@ import (
 	"io"
 	"log/slog"
 	"net/url"
+	"slices"
 	"sort"
 	"time"
 
@@ -36,6 +37,7 @@ type Store interface {
 	ListIdentitiesForUsers(ctx context.Context, userIDs []uuid.UUID) ([]store.Identity, error)
 	ListIdentityEventsAfter(ctx context.Context, afterID int64, limit int) ([]store.IdentityEvent, error)
 	IdentityEventsHead(ctx context.Context) (int64, error)
+	SetUserRole(ctx context.Context, userID uuid.UUID, role string, granted bool, by *uuid.UUID, at time.Time) (store.User, error)
 }
 
 // Registration is a provider and what it may be used for.
@@ -374,6 +376,18 @@ func (s *Service) identity(acct Account, now time.Time) store.Identity {
 type User struct {
 	store.User
 	Identities []store.Identity
+}
+
+// ErrUnknownRole is a role the hub does not have (store.Roles lists them).
+var ErrUnknownRole = errors.New("identity: no such role")
+
+// SetRole grants or revokes a member's role (ADR-0013); by is who did it, recorded with the
+// change. The API allows it to the owner only.
+func (s *Service) SetRole(ctx context.Context, userID uuid.UUID, role string, granted bool, by uuid.UUID) (store.User, error) {
+	if !slices.Contains(store.Roles, role) {
+		return store.User{}, ErrUnknownRole
+	}
+	return s.st.SetUserRole(ctx, userID, role, granted, &by, s.now())
 }
 
 // Me returns a user and their identities; store.ErrNotFound for an unknown id.

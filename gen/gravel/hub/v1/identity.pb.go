@@ -35,7 +35,9 @@ type User struct {
 	CreatedAt   *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	LastLoginAt *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=last_login_at,json=lastLoginAt,proto3" json:"last_login_at,omitempty"`
 	// The linked identities, oldest link first.
-	Identities    []*Identity `protobuf:"bytes,6,rep,name=identities,proto3" json:"identities,omitempty"`
+	Identities []*Identity `protobuf:"bytes,6,rep,name=identities,proto3" json:"identities,omitempty"`
+	// Roles the owner granted (ADR-0013): "moderator".
+	Roles         []string `protobuf:"bytes,7,rep,name=roles,proto3" json:"roles,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -108,6 +110,13 @@ func (x *User) GetLastLoginAt() *timestamppb.Timestamp {
 func (x *User) GetIdentities() []*Identity {
 	if x != nil {
 		return x.Identities
+	}
+	return nil
+}
+
+func (x *User) GetRoles() []string {
+	if x != nil {
+		return x.Roles
 	}
 	return nil
 }
@@ -958,11 +967,117 @@ func (x *ListIdentityEventsResponse) GetHeadId() int64 {
 	return 0
 }
 
+type SetUserRoleRequest struct {
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	UserId string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	// "moderator".
+	Role string `protobuf:"bytes,2,opt,name=role,proto3" json:"role,omitempty"`
+	// true grants the role, false revokes it.
+	Granted       bool `protobuf:"varint,3,opt,name=granted,proto3" json:"granted,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetUserRoleRequest) Reset() {
+	*x = SetUserRoleRequest{}
+	mi := &file_gravel_hub_v1_identity_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetUserRoleRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetUserRoleRequest) ProtoMessage() {}
+
+func (x *SetUserRoleRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_identity_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetUserRoleRequest.ProtoReflect.Descriptor instead.
+func (*SetUserRoleRequest) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_identity_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *SetUserRoleRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *SetUserRoleRequest) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
+func (x *SetUserRoleRequest) GetGranted() bool {
+	if x != nil {
+		return x.Granted
+	}
+	return false
+}
+
+type SetUserRoleResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	User          *User                  `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetUserRoleResponse) Reset() {
+	*x = SetUserRoleResponse{}
+	mi := &file_gravel_hub_v1_identity_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetUserRoleResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetUserRoleResponse) ProtoMessage() {}
+
+func (x *SetUserRoleResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_identity_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetUserRoleResponse.ProtoReflect.Descriptor instead.
+func (*SetUserRoleResponse) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_identity_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *SetUserRoleResponse) GetUser() *User {
+	if x != nil {
+		return x.User
+	}
+	return nil
+}
+
 var File_gravel_hub_v1_identity_proto protoreflect.FileDescriptor
 
 const file_gravel_hub_v1_identity_proto_rawDesc = "" +
 	"\n" +
-	"\x1cgravel/hub/v1/identity.proto\x12\rgravel.hub.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x83\x02\n" +
+	"\x1cgravel/hub/v1/identity.proto\x12\rgravel.hub.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x99\x02\n" +
 	"\x04User\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12!\n" +
 	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\x12\x14\n" +
@@ -972,7 +1087,8 @@ const file_gravel_hub_v1_identity_proto_rawDesc = "" +
 	"\rlast_login_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\vlastLoginAt\x127\n" +
 	"\n" +
 	"identities\x18\x06 \x03(\v2\x17.gravel.hub.v1.IdentityR\n" +
-	"identities\"\xe9\x02\n" +
+	"identities\x12\x14\n" +
+	"\x05roles\x18\a \x03(\tR\x05roles\"\xe9\x02\n" +
 	"\bIdentity\x12\x1a\n" +
 	"\bprovider\x18\x01 \x01(\tR\bprovider\x12\x18\n" +
 	"\asubject\x18\x02 \x01(\tR\asubject\x12!\n" +
@@ -1022,7 +1138,13 @@ const file_gravel_hub_v1_identity_proto_rawDesc = "" +
 	"\x1aListIdentityEventsResponse\x124\n" +
 	"\x06events\x18\x01 \x03(\v2\x1c.gravel.hub.v1.IdentityEventR\x06events\x12\"\n" +
 	"\rnext_after_id\x18\x02 \x01(\x03R\vnextAfterId\x12\x17\n" +
-	"\ahead_id\x18\x03 \x01(\x03R\x06headId2\xe8\x04\n" +
+	"\ahead_id\x18\x03 \x01(\x03R\x06headId\"[\n" +
+	"\x12SetUserRoleRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x12\n" +
+	"\x04role\x18\x02 \x01(\tR\x04role\x12\x18\n" +
+	"\agranted\x18\x03 \x01(\bR\agranted\">\n" +
+	"\x13SetUserRoleResponse\x12'\n" +
+	"\x04user\x18\x01 \x01(\v2\x13.gravel.hub.v1.UserR\x04user2\xbe\x05\n" +
 	"\x0fIdentityService\x12B\n" +
 	"\x05GetMe\x12\x1b.gravel.hub.v1.GetMeRequest\x1a\x1c.gravel.hub.v1.GetMeResponse\x12]\n" +
 	"\x0eUnlinkIdentity\x12$.gravel.hub.v1.UnlinkIdentityRequest\x1a%.gravel.hub.v1.UnlinkIdentityResponse\x12E\n" +
@@ -1031,7 +1153,8 @@ const file_gravel_hub_v1_identity_proto_rawDesc = "" +
 	"\n" +
 	"LookupUser\x12 .gravel.hub.v1.LookupUserRequest\x1a!.gravel.hub.v1.LookupUserResponse\x12N\n" +
 	"\tListUsers\x12\x1f.gravel.hub.v1.ListUsersRequest\x1a .gravel.hub.v1.ListUsersResponse\x12i\n" +
-	"\x12ListIdentityEvents\x12(.gravel.hub.v1.ListIdentityEventsRequest\x1a).gravel.hub.v1.ListIdentityEventsResponseB:Z8github.com/gravel-project/gravel/gen/gravel/hub/v1;hubv1b\x06proto3"
+	"\x12ListIdentityEvents\x12(.gravel.hub.v1.ListIdentityEventsRequest\x1a).gravel.hub.v1.ListIdentityEventsResponse\x12T\n" +
+	"\vSetUserRole\x12!.gravel.hub.v1.SetUserRoleRequest\x1a\".gravel.hub.v1.SetUserRoleResponseB:Z8github.com/gravel-project/gravel/gen/gravel/hub/v1;hubv1b\x06proto3"
 
 var (
 	file_gravel_hub_v1_identity_proto_rawDescOnce sync.Once
@@ -1045,7 +1168,7 @@ func file_gravel_hub_v1_identity_proto_rawDescGZIP() []byte {
 	return file_gravel_hub_v1_identity_proto_rawDescData
 }
 
-var file_gravel_hub_v1_identity_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
+var file_gravel_hub_v1_identity_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
 var file_gravel_hub_v1_identity_proto_goTypes = []any{
 	(*User)(nil),                       // 0: gravel.hub.v1.User
 	(*Identity)(nil),                   // 1: gravel.hub.v1.Identity
@@ -1064,40 +1187,45 @@ var file_gravel_hub_v1_identity_proto_goTypes = []any{
 	(*IdentityEvent)(nil),              // 14: gravel.hub.v1.IdentityEvent
 	(*ListIdentityEventsRequest)(nil),  // 15: gravel.hub.v1.ListIdentityEventsRequest
 	(*ListIdentityEventsResponse)(nil), // 16: gravel.hub.v1.ListIdentityEventsResponse
-	(*timestamppb.Timestamp)(nil),      // 17: google.protobuf.Timestamp
+	(*SetUserRoleRequest)(nil),         // 17: gravel.hub.v1.SetUserRoleRequest
+	(*SetUserRoleResponse)(nil),        // 18: gravel.hub.v1.SetUserRoleResponse
+	(*timestamppb.Timestamp)(nil),      // 19: google.protobuf.Timestamp
 }
 var file_gravel_hub_v1_identity_proto_depIdxs = []int32{
-	17, // 0: gravel.hub.v1.User.created_at:type_name -> google.protobuf.Timestamp
-	17, // 1: gravel.hub.v1.User.last_login_at:type_name -> google.protobuf.Timestamp
+	19, // 0: gravel.hub.v1.User.created_at:type_name -> google.protobuf.Timestamp
+	19, // 1: gravel.hub.v1.User.last_login_at:type_name -> google.protobuf.Timestamp
 	1,  // 2: gravel.hub.v1.User.identities:type_name -> gravel.hub.v1.Identity
-	17, // 3: gravel.hub.v1.Identity.verified_at:type_name -> google.protobuf.Timestamp
-	17, // 4: gravel.hub.v1.Identity.linked_at:type_name -> google.protobuf.Timestamp
-	17, // 5: gravel.hub.v1.Identity.last_login_at:type_name -> google.protobuf.Timestamp
+	19, // 3: gravel.hub.v1.Identity.verified_at:type_name -> google.protobuf.Timestamp
+	19, // 4: gravel.hub.v1.Identity.linked_at:type_name -> google.protobuf.Timestamp
+	19, // 5: gravel.hub.v1.Identity.last_login_at:type_name -> google.protobuf.Timestamp
 	0,  // 6: gravel.hub.v1.GetMeResponse.user:type_name -> gravel.hub.v1.User
 	0,  // 7: gravel.hub.v1.UnlinkIdentityResponse.user:type_name -> gravel.hub.v1.User
 	0,  // 8: gravel.hub.v1.LookupUserResponse.user:type_name -> gravel.hub.v1.User
 	0,  // 9: gravel.hub.v1.ListUsersResponse.users:type_name -> gravel.hub.v1.User
-	17, // 10: gravel.hub.v1.IdentityEvent.at:type_name -> google.protobuf.Timestamp
+	19, // 10: gravel.hub.v1.IdentityEvent.at:type_name -> google.protobuf.Timestamp
 	14, // 11: gravel.hub.v1.ListIdentityEventsResponse.events:type_name -> gravel.hub.v1.IdentityEvent
-	2,  // 12: gravel.hub.v1.IdentityService.GetMe:input_type -> gravel.hub.v1.GetMeRequest
-	4,  // 13: gravel.hub.v1.IdentityService.UnlinkIdentity:input_type -> gravel.hub.v1.UnlinkIdentityRequest
-	6,  // 14: gravel.hub.v1.IdentityService.Logout:input_type -> gravel.hub.v1.LogoutRequest
-	8,  // 15: gravel.hub.v1.IdentityService.RevokeSessions:input_type -> gravel.hub.v1.RevokeSessionsRequest
-	10, // 16: gravel.hub.v1.IdentityService.LookupUser:input_type -> gravel.hub.v1.LookupUserRequest
-	12, // 17: gravel.hub.v1.IdentityService.ListUsers:input_type -> gravel.hub.v1.ListUsersRequest
-	15, // 18: gravel.hub.v1.IdentityService.ListIdentityEvents:input_type -> gravel.hub.v1.ListIdentityEventsRequest
-	3,  // 19: gravel.hub.v1.IdentityService.GetMe:output_type -> gravel.hub.v1.GetMeResponse
-	5,  // 20: gravel.hub.v1.IdentityService.UnlinkIdentity:output_type -> gravel.hub.v1.UnlinkIdentityResponse
-	7,  // 21: gravel.hub.v1.IdentityService.Logout:output_type -> gravel.hub.v1.LogoutResponse
-	9,  // 22: gravel.hub.v1.IdentityService.RevokeSessions:output_type -> gravel.hub.v1.RevokeSessionsResponse
-	11, // 23: gravel.hub.v1.IdentityService.LookupUser:output_type -> gravel.hub.v1.LookupUserResponse
-	13, // 24: gravel.hub.v1.IdentityService.ListUsers:output_type -> gravel.hub.v1.ListUsersResponse
-	16, // 25: gravel.hub.v1.IdentityService.ListIdentityEvents:output_type -> gravel.hub.v1.ListIdentityEventsResponse
-	19, // [19:26] is the sub-list for method output_type
-	12, // [12:19] is the sub-list for method input_type
-	12, // [12:12] is the sub-list for extension type_name
-	12, // [12:12] is the sub-list for extension extendee
-	0,  // [0:12] is the sub-list for field type_name
+	0,  // 12: gravel.hub.v1.SetUserRoleResponse.user:type_name -> gravel.hub.v1.User
+	2,  // 13: gravel.hub.v1.IdentityService.GetMe:input_type -> gravel.hub.v1.GetMeRequest
+	4,  // 14: gravel.hub.v1.IdentityService.UnlinkIdentity:input_type -> gravel.hub.v1.UnlinkIdentityRequest
+	6,  // 15: gravel.hub.v1.IdentityService.Logout:input_type -> gravel.hub.v1.LogoutRequest
+	8,  // 16: gravel.hub.v1.IdentityService.RevokeSessions:input_type -> gravel.hub.v1.RevokeSessionsRequest
+	10, // 17: gravel.hub.v1.IdentityService.LookupUser:input_type -> gravel.hub.v1.LookupUserRequest
+	12, // 18: gravel.hub.v1.IdentityService.ListUsers:input_type -> gravel.hub.v1.ListUsersRequest
+	15, // 19: gravel.hub.v1.IdentityService.ListIdentityEvents:input_type -> gravel.hub.v1.ListIdentityEventsRequest
+	17, // 20: gravel.hub.v1.IdentityService.SetUserRole:input_type -> gravel.hub.v1.SetUserRoleRequest
+	3,  // 21: gravel.hub.v1.IdentityService.GetMe:output_type -> gravel.hub.v1.GetMeResponse
+	5,  // 22: gravel.hub.v1.IdentityService.UnlinkIdentity:output_type -> gravel.hub.v1.UnlinkIdentityResponse
+	7,  // 23: gravel.hub.v1.IdentityService.Logout:output_type -> gravel.hub.v1.LogoutResponse
+	9,  // 24: gravel.hub.v1.IdentityService.RevokeSessions:output_type -> gravel.hub.v1.RevokeSessionsResponse
+	11, // 25: gravel.hub.v1.IdentityService.LookupUser:output_type -> gravel.hub.v1.LookupUserResponse
+	13, // 26: gravel.hub.v1.IdentityService.ListUsers:output_type -> gravel.hub.v1.ListUsersResponse
+	16, // 27: gravel.hub.v1.IdentityService.ListIdentityEvents:output_type -> gravel.hub.v1.ListIdentityEventsResponse
+	18, // 28: gravel.hub.v1.IdentityService.SetUserRole:output_type -> gravel.hub.v1.SetUserRoleResponse
+	21, // [21:29] is the sub-list for method output_type
+	13, // [13:21] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_gravel_hub_v1_identity_proto_init() }
@@ -1111,7 +1239,7 @@ func file_gravel_hub_v1_identity_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gravel_hub_v1_identity_proto_rawDesc), len(file_gravel_hub_v1_identity_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   17,
+			NumMessages:   19,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

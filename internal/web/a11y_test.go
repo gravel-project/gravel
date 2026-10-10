@@ -110,6 +110,15 @@ func TestAccessibility(t *testing.T) {
 			p.Title = "Sam"
 			return templates.Member(templates.MemberPage{Page: p, UserID: "u2", DisplayName: "Sam", ShowName: true, Totals: profileTotals})
 		},
+		"/fixture/members": func() templ.Component {
+			p := base
+			p.Title, p.User, p.CSRF = "Members", owner, "csrf"
+			p.Flash = &templates.Flash{Kind: "ok", Text: "Sam is now a moderator."}
+			return templates.Members(templates.MembersPage{Page: p, NextURL: "/members?page=x", Members: []templates.MemberRow{
+				{ID: "u1", DisplayName: "Jo", Accounts: "Discord, Steam", Joined: now, Owner: true},
+				{ID: "u2", DisplayName: "Sam", Accounts: "Discord", Joined: now, Moderator: true},
+				{ID: "u3", DisplayName: "Ana", Accounts: "Discord, Steam", Joined: now}}})
+		},
 		"/fixture/error": func() templ.Component {
 			p := base
 			p.Title = "Login attempt expired"
@@ -150,7 +159,7 @@ func TestAccessibility(t *testing.T) {
 	defer srv.Close()
 
 	for _, path := range []string{"/login", "/fixture/account-unowned", "/fixture/account-owner", "/fixture/error",
-		"/fixture/servers", "/fixture/server", "/fixture/server-anonymous", "/fixture/boards", "/fixture/member-self", "/fixture/member"} {
+		"/fixture/servers", "/fixture/server", "/fixture/server-anonymous", "/fixture/boards", "/fixture/member-self", "/fixture/member", "/fixture/members"} {
 		t.Run(strings.TrimPrefix(path, "/"), func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 			defer cancel()

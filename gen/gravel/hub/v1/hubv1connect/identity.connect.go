@@ -52,6 +52,9 @@ const (
 	// IdentityServiceListIdentityEventsProcedure is the fully-qualified name of the IdentityService's
 	// ListIdentityEvents RPC.
 	IdentityServiceListIdentityEventsProcedure = "/gravel.hub.v1.IdentityService/ListIdentityEvents"
+	// IdentityServiceSetUserRoleProcedure is the fully-qualified name of the IdentityService's
+	// SetUserRole RPC.
+	IdentityServiceSetUserRoleProcedure = "/gravel.hub.v1.IdentityService/SetUserRole"
 )
 
 // IdentityServiceClient is a client for the gravel.hub.v1.IdentityService service.
@@ -74,6 +77,9 @@ type IdentityServiceClient interface {
 	// ListIdentityEvents returns the identity log after a position, oldest first: a reconciler's
 	// incremental pass. An app with identity:read, or the owner.
 	ListIdentityEvents(context.Context, *connect.Request[v1.ListIdentityEventsRequest]) (*connect.Response[v1.ListIdentityEventsResponse], error)
+	// SetUserRole grants or revokes a member's role (ADR-0013); every change is recorded with who
+	// made it. The owner only; the owner holds every power already and needs no role.
+	SetUserRole(context.Context, *connect.Request[v1.SetUserRoleRequest]) (*connect.Response[v1.SetUserRoleResponse], error)
 }
 
 // NewIdentityServiceClient constructs a client for the gravel.hub.v1.IdentityService service. By
@@ -129,6 +135,12 @@ func NewIdentityServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 			connect.WithSchema(identityServiceMethods.ByName("ListIdentityEvents")),
 			connect.WithClientOptions(opts...),
 		),
+		setUserRole: connect.NewClient[v1.SetUserRoleRequest, v1.SetUserRoleResponse](
+			httpClient,
+			baseURL+IdentityServiceSetUserRoleProcedure,
+			connect.WithSchema(identityServiceMethods.ByName("SetUserRole")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -141,6 +153,7 @@ type identityServiceClient struct {
 	lookupUser         *connect.Client[v1.LookupUserRequest, v1.LookupUserResponse]
 	listUsers          *connect.Client[v1.ListUsersRequest, v1.ListUsersResponse]
 	listIdentityEvents *connect.Client[v1.ListIdentityEventsRequest, v1.ListIdentityEventsResponse]
+	setUserRole        *connect.Client[v1.SetUserRoleRequest, v1.SetUserRoleResponse]
 }
 
 // GetMe calls gravel.hub.v1.IdentityService.GetMe.
@@ -178,6 +191,11 @@ func (c *identityServiceClient) ListIdentityEvents(ctx context.Context, req *con
 	return c.listIdentityEvents.CallUnary(ctx, req)
 }
 
+// SetUserRole calls gravel.hub.v1.IdentityService.SetUserRole.
+func (c *identityServiceClient) SetUserRole(ctx context.Context, req *connect.Request[v1.SetUserRoleRequest]) (*connect.Response[v1.SetUserRoleResponse], error) {
+	return c.setUserRole.CallUnary(ctx, req)
+}
+
 // IdentityServiceHandler is an implementation of the gravel.hub.v1.IdentityService service.
 type IdentityServiceHandler interface {
 	// GetMe returns the caller and their linked identities.
@@ -198,6 +216,9 @@ type IdentityServiceHandler interface {
 	// ListIdentityEvents returns the identity log after a position, oldest first: a reconciler's
 	// incremental pass. An app with identity:read, or the owner.
 	ListIdentityEvents(context.Context, *connect.Request[v1.ListIdentityEventsRequest]) (*connect.Response[v1.ListIdentityEventsResponse], error)
+	// SetUserRole grants or revokes a member's role (ADR-0013); every change is recorded with who
+	// made it. The owner only; the owner holds every power already and needs no role.
+	SetUserRole(context.Context, *connect.Request[v1.SetUserRoleRequest]) (*connect.Response[v1.SetUserRoleResponse], error)
 }
 
 // NewIdentityServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -249,6 +270,12 @@ func NewIdentityServiceHandler(svc IdentityServiceHandler, opts ...connect.Handl
 		connect.WithSchema(identityServiceMethods.ByName("ListIdentityEvents")),
 		connect.WithHandlerOptions(opts...),
 	)
+	identityServiceSetUserRoleHandler := connect.NewUnaryHandler(
+		IdentityServiceSetUserRoleProcedure,
+		svc.SetUserRole,
+		connect.WithSchema(identityServiceMethods.ByName("SetUserRole")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/gravel.hub.v1.IdentityService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case IdentityServiceGetMeProcedure:
@@ -265,6 +292,8 @@ func NewIdentityServiceHandler(svc IdentityServiceHandler, opts ...connect.Handl
 			identityServiceListUsersHandler.ServeHTTP(w, r)
 		case IdentityServiceListIdentityEventsProcedure:
 			identityServiceListIdentityEventsHandler.ServeHTTP(w, r)
+		case IdentityServiceSetUserRoleProcedure:
+			identityServiceSetUserRoleHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -300,4 +329,8 @@ func (UnimplementedIdentityServiceHandler) ListUsers(context.Context, *connect.R
 
 func (UnimplementedIdentityServiceHandler) ListIdentityEvents(context.Context, *connect.Request[v1.ListIdentityEventsRequest]) (*connect.Response[v1.ListIdentityEventsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.IdentityService.ListIdentityEvents is not implemented"))
+}
+
+func (UnimplementedIdentityServiceHandler) SetUserRole(context.Context, *connect.Request[v1.SetUserRoleRequest]) (*connect.Response[v1.SetUserRoleResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.IdentityService.SetUserRole is not implemented"))
 }
