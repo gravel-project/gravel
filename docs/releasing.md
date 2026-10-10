@@ -13,6 +13,12 @@ nothing, so gravel uses the common 0.x rule (#68):
   below. Each such CHANGELOG entry starts with **Breaking:** and says how to move.
 - **0.Y.Z** for everything else: features, fixes, docs, a new metric, a new optional key.
 
+**An intentional wire break.** CI's `proto` job runs `buf breaking` against `main` and fails on
+any break. To make one on purpose, the pull request carries the `breaking` label **and** adds a
+CHANGELOG entry starting **Breaking:**; then the job still prints buf's findings but passes. The
+label without the entry fails. Labels are read when the job runs: add the label, then re-run the
+`proto` job (`.github/scripts/proto-breaking.sh`).
+
 Adding is never breaking: a new package, route, metric, command or optional key with a default.
 Removing or renaming is, and so is changing what an existing one means. When unsure, it is
 breaking. The public surfaces:
