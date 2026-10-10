@@ -8,6 +8,8 @@ patch release is everything else.
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-10-10
+
 ### Added
 
 - Participation events from first-party apps, on profiles and boards of their own (#19, ADR-0014).
@@ -43,6 +45,10 @@ patch release is everything else.
   - **API:** `OrganizationSettings.games` (`GameSettings`, `GameTheme`), additive.
   - **Tests:** validation of every field, the known-games check through the API and the CLI, manifest and JSON round trips, the stylesheet (both schemes, the fallback, nothing unsafe), every game page with and without an overlay (anonymous and owner, the htmx fragment), the settings through the API to `/theme.css`, and axe over a new fixture. The axe run now fails when a fixture is left out of the list it scans.
   - **Docs:** docs/hub.md ("Game overlays", the manifest, Pages, the endpoint table).
+
+### Changed
+
+- The quadlet units pin the 0.7.0 images by index digest, both verified with cosign 3 against the release workflow at `v0.7.0` (the 0.6.7 hub as a control, a wrong-tag identity refused): `ghcr.io/gravel-project/gravel-hub@sha256:c6833ff73730b366120c417f7cebb61724ead2897e47a1ea81bcd2c57b35938e` in `gravel-hub.container` and `ghcr.io/gravel-project/gravel-bot@sha256:2a7216982df0140b6b890ed5948e56414b499fc4e5a85dd1f76486ff4950a710` in `gravel-bot.container`. 0.7.0 published no new `gravel-postgres` (#106), so the backup set stays on 0.6.7's. `docs/hub.md` names 0.7.0 as the tag example.
 
 ### Fixed
 
@@ -343,7 +349,8 @@ patch release is everything else.
 
 - README and CLAUDE.md follow ADR-0001: status line, principle 2 (the resource lives in the hub's database), the hub and backup paragraphs, the adapter-repo rule, the local-dev default, and a seven-step build order with the issues behind each step. The launch games are the five Hidden Token Gaming plays, in three shapes, with War Dogs first; the open threads link the design-delta issues #2–#9 (#1).
 
-[Unreleased]: https://github.com/gravel-project/gravel/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/gravel-project/gravel/compare/v0.7.1...HEAD
+[0.7.1]: https://github.com/gravel-project/gravel/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/gravel-project/gravel/compare/v0.6.7...v0.7.0
 [0.6.7]: https://github.com/gravel-project/gravel/compare/v0.6.6...v0.6.7
 [0.6.6]: https://github.com/gravel-project/gravel/compare/v0.6.5...v0.6.6
