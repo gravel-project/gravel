@@ -2511,7 +2511,7 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
-      "description": "The rollup job runs every 6 hours; much over that means it is failing (gravel_hub_jobs_total{job=\"stats_rollup\",result=\"error\"}).",
+      "description": "The rollup job runs every 6 hours; much over that means it is failing (gravel_hub_jobs_total, result error). Prometheus stores the runner's job label as exported_job, since the scrape's own job label wins.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -2557,7 +2557,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "time() - max(gravel_hub_job_last_success_timestamp_seconds{job=\"stats_rollup\",job=\"$job\", instance=~\"$instance\"})",
+          "expr": "time() - max(gravel_hub_job_last_success_timestamp_seconds{exported_job=\"stats_rollup\", job=\"$job\", instance=~\"$instance\"})",
           "range": true,
           "refId": "A"
         }

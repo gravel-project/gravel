@@ -534,7 +534,8 @@ The flow members start themselves comes with identity's erasure; this is the sta
 
 Metrics: `gravel_stats_matches_total{server,game}`, `gravel_stats_rows_written_total{server}`,
 `gravel_stats_record_errors_total{server}`, `gravel_stats_rolled_rows_total`, and the rollup job's
-`gravel_hub_job_last_success_timestamp_seconds{job="stats_rollup"}`, on the hub dashboard's Stats row.
+`gravel_hub_job_last_success_timestamp_seconds{job="stats_rollup"}` (stored by Prometheus as
+`exported_job`, since the scrape's own `job` label wins), on the hub dashboard's Stats row.
 
 ## Login (ADR-0004)
 
