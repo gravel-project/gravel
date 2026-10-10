@@ -152,8 +152,34 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # the diff against the base below
       - uses: goreleaser/goreleaser-action@v7
         with:
           distribution: goreleaser
           version: "~> v2.18" # keep in step with release.yml
           args: check
+      # release.yml builds gravel-postgres only when deploy/postgres/ changed, so a change there (or
+      # to release.yml) runs the same multi-arch build here, without pushing.
+      - id: postgres
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -eu
+          if git cat-file -e "${BASE}^{commit}" 2>/dev/null && git diff --quiet "$BASE" HEAD -- deploy/postgres .github/workflows/release.yml; then
+            echo "deploy/postgres and release.yml unchanged: no gravel-postgres build"
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.postgres.outputs.build == 'true'
+        uses: docker/setup-qemu-action@v4
+      - if: steps.postgres.outputs.build == 'true'
+        uses: docker/setup-buildx-action@v4
+      - if: steps.postgres.outputs.build == 'true'
+        uses: docker/build-push-action@v7
+        with:
+          context: deploy/postgres
+          file: deploy/postgres/Containerfile
+          platforms: linux/amd64,linux/arm64
+          push: false

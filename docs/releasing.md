@@ -51,8 +51,22 @@ again; a tag can't be re-run against a different workflow file.
 | `gravel-hub_X.Y.Z_linux_{amd64,arm64}.tar.gz` + `.sbom.json` each, `checksums.txt` | the GitHub release |
 | `ghcr.io/gravel-project/gravel-hub:X.Y.Z` and `:latest` (multi-arch index; note: no `v` in the tag) | ghcr, public |
 | cosign signature (keyless, GitHub OIDC) and an SBOM, attached to the image | ghcr, beside the image |
-| `ghcr.io/gravel-project/gravel-postgres:X.Y.Z` and `:latest` (Postgres 17 plus WAL-G, multi-arch; `deploy/postgres/Containerfile`), cosign-signed | ghcr, public |
+| `ghcr.io/gravel-project/gravel-postgres:X.Y.Z` and `:latest` (Postgres 17 plus WAL-G, multi-arch; `deploy/postgres/Containerfile`), cosign-signed, **only when `deploy/postgres/` changed since the previous release tag** (below) | ghcr, public |
 | `gravel-bot_X.Y.Z_linux_{amd64,arm64}.tar.gz` + `.sbom.json` each, and `ghcr.io/gravel-project/gravel-bot:X.Y.Z` and `:latest` (multi-arch, cosign-signed): the Discord bot with the stock modules (docs/bot.md) | the GitHub release; ghcr, public |
+
+### The Postgres image has its own version line
+
+The Postgres image's base is pinned by digest, so rebuilding an unchanged `deploy/postgres/` makes
+the same image under a new hash. The release job therefore builds it only when that directory
+changed since the previous `v*` tag, and otherwise skips the build and names the current version in
+the run's summary. The current `gravel-postgres` is the gravel version that last changed it, and
+`:latest` points at it; there is no `gravel-postgres:X.Y.Z` for a release that didn't.
+
+Postgres patches still arrive: Dependabot watches the `FROM` digest in
+`deploy/postgres/Containerfile` and opens a PR that changes the directory, so the next planned
+release publishes a new image. It ignores major versions; moving to Postgres 18 is a data upgrade
+and a deliberate PR. A change under `deploy/postgres/` (or to `release.yml`) runs the same
+multi-arch build in CI's `release-config` job, without pushing.
 
 ## Verify an image
 
@@ -76,11 +90,12 @@ and stores the signature in the newer bundle format; cosign 2 does not look ther
 
 `deploy/quadlet/gravel-hub.container` pins the hub image by the index digest, and
 `deploy/quadlet/backup/` pins the Postgres image the same way, so a deployment never changes
-under a floating tag. `deploy/quadlet/observability/` and the `observability` profile in
+under a floating tag. A cut moves the backup set's pin only when the release published a new
+Postgres image. `deploy/quadlet/observability/` and the `observability` profile in
 `deploy/compose.yaml` pin Prometheus and Grafana by index digest too; they are upstream images, so
 moving them is a deliberate PR after reading their release notes, not part of every release. After verifying a new release, put its digests in `Image=` by PR;
 consumers (Hidden Token Gaming's `deploy` repository) pin the same way. The Postgres image's
-identity for `cosign verify` is the same workflow at the same tag.
+identity for `cosign verify` is the same workflow at the tag that published it.
 
 ## One-time setup, done for v0.1.0
 

@@ -6,7 +6,11 @@
 # Not Dependabot's to bump: the tool pins at the top of the Makefile (buf, golangci-lint,
 # govulncheck, ko, templ, the protoc plugins, htmx, axe), installed by `go install …@version`, the
 # golangci-lint version in ci.yml that follows GOLANGCI_LINT_VERSION, goreleaser's version range,
-# and the image digests in deploy/. Bump those by hand.
+# and the image digests in deploy/quadlet/ and deploy/compose.yaml. Bump those by hand.
+#
+# The one image Dependabot does watch is deploy/postgres/Containerfile's FROM digest: a Postgres 17
+# patch arrives as a PR that changes deploy/postgres/, so the next release rebuilds gravel-postgres
+# (release.yml builds it only on such a change). Majors are ignored: Postgres 18 is a data upgrade.
 version: 2
 updates:
   - package-ecosystem: gomod
@@ -29,3 +33,13 @@ updates:
     labels: [no-changelog, dependencies]
     commit-message:
       prefix: "ci(deps)"
+  - package-ecosystem: docker
+    directory: /deploy/postgres
+    schedule:
+      interval: weekly
+    ignore:
+      - dependency-name: "*postgres"
+        update-types: [version-update:semver-major]
+    labels: [no-changelog, dependencies]
+    commit-message:
+      prefix: "build(deps)"

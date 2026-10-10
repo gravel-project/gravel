@@ -8,6 +8,14 @@ patch release is everything else.
 
 ## [Unreleased]
 
+### Changed
+
+- The release workflow builds `gravel-postgres` only when `deploy/postgres/` changed since the previous release tag (#106). Its base is pinned by digest, so every rebuild of the unchanged directory was the same image under a new hash, and every cut moved the backup set's pin for nothing.
+  - **Version line:** the current `gravel-postgres` is the gravel version that last changed it, and `:latest` points at it. A skipped build names that version in the run's summary, and a cut moves the backup pin only when there is a new image.
+  - **Postgres patches:** Dependabot watches the `FROM` digest in `deploy/postgres/Containerfile` (majors ignored), so a patch lands as a PR that changes the directory and the next release rebuilds the image.
+  - **CI:** a PR that touches `deploy/postgres/` or `release.yml` runs the release job's multi-arch build in `release-config`, without pushing.
+  - **Docs:** docs/releasing.md ("The Postgres image has its own version line", "Move the digest pin") and docs/hub.md (Backups).
+
 ## [0.6.7] - 2026-10-10
 
 ### Added
