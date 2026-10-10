@@ -10,6 +10,8 @@ patch release is everything else.
 
 ### Added
 
+- ADR-0016 (proposed): seeding calls and seeding minutes, a stock bot module (hidden-token-gaming/htg#32). It pings an opt-in role when a server is under its player floor inside the host's weekly windows, with a cooldown, and records each player's minutes during the call as `seeding` participation (ADR-0014). Rules live in the Organization settings' `discord.seeding`. Muster records no seeding minutes of its own, and presence is a separate follow-up.
+
 - A host's own app scopes, `host:<name>[:<more>]` (John, 2026-10-10; ADR-0008 amendment). A host's service beside the hub (hidden-token-gaming's Muster: `host:muster:read`, `host:muster:write`) can have the hub grant, issue and introspect scopes of its own.
   - **What gravel does:** `apps create --scopes` takes them, checks only their shape (one to four lower-case segments after `host:`, at most 64 characters), stores them, issues them in client-credentials tokens, and returns them from `POST /oauth/introspect`.
   - **What it doesn't:** gravel admits nothing by them. An app holding only host scopes calls only what is public. A member never grants one, since the authorization endpoint refuses it as an app's own scope.
