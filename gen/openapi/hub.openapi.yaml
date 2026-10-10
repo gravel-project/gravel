@@ -288,6 +288,320 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.UnlinkIdentityResponse'
+  /gravel.hub.v1.ModerationService/BanPlayer:
+    post:
+      tags:
+        - gravel.hub.v1.ModerationService
+      summary: BanPlayer
+      description: |-
+        BanPlayer bans a connected player; not_found when they are not on (a ban of a player who is
+         not on goes in the server's configuration).
+      operationId: gravel.hub.v1.ModerationService.BanPlayer
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.BanPlayerRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.BanPlayerResponse'
+  /gravel.hub.v1.ModerationService/Broadcast:
+    post:
+      tags:
+        - gravel.hub.v1.ModerationService
+      summary: Broadcast
+      description: Broadcast sends a message to everyone on the server.
+      operationId: gravel.hub.v1.ModerationService.Broadcast
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.BroadcastRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.BroadcastResponse'
+  /gravel.hub.v1.ModerationService/KickPlayer:
+    post:
+      tags:
+        - gravel.hub.v1.ModerationService
+      summary: KickPlayer
+      description: KickPlayer removes a connected player.
+      operationId: gravel.hub.v1.ModerationService.KickPlayer
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.KickPlayerRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.KickPlayerResponse'
+  /gravel.hub.v1.ModerationService/ListAuditLog:
+    post:
+      tags:
+        - gravel.hub.v1.ModerationService
+      summary: ListAuditLog
+      description: ListAuditLog is the audit log, newest first.
+      operationId: gravel.hub.v1.ModerationService.ListAuditLog
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.ListAuditLogRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.ListAuditLogResponse'
+  /gravel.hub.v1.ModerationService/ListServerBans:
+    post:
+      tags:
+        - gravel.hub.v1.ModerationService
+      summary: ListServerBans
+      description: ListServerBans are the bans the server holds, read through its driver.
+      operationId: gravel.hub.v1.ModerationService.ListServerBans
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.ListServerBansRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.ListServerBansResponse'
+  /gravel.hub.v1.ModerationService/MessagePlayer:
+    post:
+      tags:
+        - gravel.hub.v1.ModerationService
+      summary: MessagePlayer
+      description: MessagePlayer whispers to a connected player.
+      operationId: gravel.hub.v1.ModerationService.MessagePlayer
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.MessagePlayerRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.MessagePlayerResponse'
+  /gravel.hub.v1.ModerationService/MovePlayer:
+    post:
+      tags:
+        - gravel.hub.v1.ModerationService
+      summary: MovePlayer
+      description: MovePlayer moves a connected player to a team.
+      operationId: gravel.hub.v1.ModerationService.MovePlayer
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.MovePlayerRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.MovePlayerResponse'
+  /gravel.hub.v1.ModerationService/UnbanPlayer:
+    post:
+      tags:
+        - gravel.hub.v1.ModerationService
+      summary: UnbanPlayer
+      description: UnbanPlayer lifts a ban.
+      operationId: gravel.hub.v1.ModerationService.UnbanPlayer
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.UnbanPlayerRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.UnbanPlayerResponse'
   /gravel.hub.v1.OrganizationService/ClaimOwnership:
     post:
       tags:
@@ -687,6 +1001,151 @@ components:
         - "2024-12-25T12:00:00Z"
       format: date-time
       description: A point in time in RFC 3339 format, with up to nanosecond precision. Output uses UTC (`Z`); input may use an offset from UTC.
+    gravel.hub.v1.Actor:
+      type: object
+      properties:
+        provider:
+          type: string
+          title: provider
+          description: '"discord".'
+        subject:
+          type: string
+          title: subject
+      title: Actor
+      additionalProperties: false
+      description: |-
+        Actor is the person an app says it acts for: a Discord moderator behind a bot command. The
+         hub records it as the app asserted it; a logged-in user acts as themselves and sends none.
+    gravel.hub.v1.AuditEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+          format: int64
+        at:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: at
+        userId:
+          type: string
+          title: user_id
+          description: 'Who asked: a user (user_id) or an app (app_id and app_name), exactly one.'
+        appId:
+          type: string
+          title: app_id
+        appName:
+          type: string
+          title: app_name
+        onBehalfOf:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.Actor'
+          title: on_behalf_of
+          description: The person the app acted for; unset for a user.
+        serverId:
+          type: string
+          title: server_id
+        action:
+          type: string
+          title: action
+          description: '"kick", "ban", "unban", "message", "broadcast" or "move_player".'
+        targetProvider:
+          type: string
+          title: target_provider
+          description: The player acted on, at the game's provider; empty for a broadcast.
+        targetSubject:
+          type: string
+          title: target_subject
+        reason:
+          type: string
+          title: reason
+        message:
+          type: string
+          title: message
+          description: The message sent (message, broadcast).
+        team:
+          type: string
+          title: team
+          description: The team moved to and whether the player was respawned (move_player).
+        respawn:
+          type: boolean
+          title: respawn
+        requestId:
+          type: string
+          title: request_id
+        outcome:
+          type: string
+          title: outcome
+          description: |-
+            "ok", "player_not_found", "ban_not_found", "rejected", "not_available",
+             "moved_not_respawned", "unreachable", "credential_refused", "credential_missing",
+             "rate_limited" or "error"; empty while the call has no recorded result (the hub stopped
+             mid-call). The cause of a failure is in the hub's log, never here.
+        finishedAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: finished_at
+      title: AuditEntry
+      additionalProperties: false
+      description: |-
+        AuditEntry is one moderation call the hub made to a server. It is recorded before the call and
+         finished once with the outcome; nothing changes it after that, and nothing deletes it.
+    gravel.hub.v1.Ban:
+      type: object
+      properties:
+        provider:
+          type: string
+          title: provider
+        subject:
+          type: string
+          title: subject
+        bannedAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: banned_at
+          description: 'Unset when the server does not know (War Dogs: a ban from its configuration document).'
+        bannedBy:
+          type: string
+          title: banned_by
+          description: 'Who the server says made it (War Dogs: "config" for a configuration-document ban).'
+        reason:
+          type: string
+          title: reason
+        userId:
+          type: string
+          title: user_id
+          description: The member the identity is linked to, resolved now; empty for a player who is not one.
+      title: Ban
+      additionalProperties: false
+      description: Ban is one ban a server holds.
+    gravel.hub.v1.BanPlayerRequest:
+      type: object
+      properties:
+        serverId:
+          type: string
+          title: server_id
+        subject:
+          type: string
+          title: subject
+        reason:
+          type: string
+          title: reason
+          description: Required.
+        onBehalfOf:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.Actor'
+          title: on_behalf_of
+      title: BanPlayerRequest
+      additionalProperties: false
+    gravel.hub.v1.BanPlayerResponse:
+      type: object
+      properties:
+        auditId:
+          type: string
+          title: audit_id
+          format: int64
+      title: BanPlayerResponse
+      additionalProperties: false
     gravel.hub.v1.Band:
       type: object
       properties:
@@ -713,6 +1172,30 @@ components:
       description: |-
         Band is the range a game's configuration key may take (a publisher guardrail); an unset bound
          is open.
+    gravel.hub.v1.BroadcastRequest:
+      type: object
+      properties:
+        serverId:
+          type: string
+          title: server_id
+        message:
+          type: string
+          title: message
+        onBehalfOf:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.Actor'
+          title: on_behalf_of
+      title: BroadcastRequest
+      additionalProperties: false
+    gravel.hub.v1.BroadcastResponse:
+      type: object
+      properties:
+        auditId:
+          type: string
+          title: audit_id
+          format: int64
+      title: BroadcastResponse
+      additionalProperties: false
     gravel.hub.v1.ClaimOwnershipRequest:
       type: object
       properties:
@@ -937,6 +1420,68 @@ components:
       description: |-
         IdentityEvent is one line of the append-only identity log: a registration, a login, a link or
          an unlink of one (provider, subject) pair.
+    gravel.hub.v1.KickPlayerRequest:
+      type: object
+      properties:
+        serverId:
+          type: string
+          title: server_id
+        subject:
+          type: string
+          title: subject
+          description: 'The player''s id at the game''s identity provider (Game.identity_provider): a SteamID64.'
+        reason:
+          type: string
+          title: reason
+          description: Required; the player sees it.
+        onBehalfOf:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.Actor'
+          title: on_behalf_of
+      title: KickPlayerRequest
+      additionalProperties: false
+    gravel.hub.v1.KickPlayerResponse:
+      type: object
+      properties:
+        auditId:
+          type: string
+          title: audit_id
+          format: int64
+      title: KickPlayerResponse
+      additionalProperties: false
+    gravel.hub.v1.ListAuditLogRequest:
+      type: object
+      properties:
+        serverId:
+          type: string
+          title: server_id
+          description: One server's entries; empty for every server's.
+        pageSize:
+          type: integer
+          title: page_size
+          format: int32
+          description: At most 200; 0 means 200.
+        pageToken:
+          type: string
+          title: page_token
+          description: The next_page_token of the previous page; empty for the newest.
+      title: ListAuditLogRequest
+      additionalProperties: false
+    gravel.hub.v1.ListAuditLogResponse:
+      type: object
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.AuditEntry'
+          title: entries
+          description: Newest first.
+        nextPageToken:
+          type: string
+          title: next_page_token
+          description: Empty on the last page.
+      title: ListAuditLogResponse
+      additionalProperties: false
     gravel.hub.v1.ListGamesRequest:
       type: object
       title: ListGamesRequest
@@ -987,6 +1532,24 @@ components:
             The newest id in the log when it was read; 0 for an empty log. A reader that starts with a
              full pass begins its incremental reads here instead of paging through the history.
       title: ListIdentityEventsResponse
+      additionalProperties: false
+    gravel.hub.v1.ListServerBansRequest:
+      type: object
+      properties:
+        serverId:
+          type: string
+          title: server_id
+      title: ListServerBansRequest
+      additionalProperties: false
+    gravel.hub.v1.ListServerBansResponse:
+      type: object
+      properties:
+        bans:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.Ban'
+          title: bans
+      title: ListServerBansResponse
       additionalProperties: false
     gravel.hub.v1.ListServerPlayersRequest:
       type: object
@@ -1081,6 +1644,65 @@ components:
             - $ref: '#/components/schemas/gravel.hub.v1.User'
           title: user
       title: LookupUserResponse
+      additionalProperties: false
+    gravel.hub.v1.MessagePlayerRequest:
+      type: object
+      properties:
+        serverId:
+          type: string
+          title: server_id
+        subject:
+          type: string
+          title: subject
+        message:
+          type: string
+          title: message
+        onBehalfOf:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.Actor'
+          title: on_behalf_of
+      title: MessagePlayerRequest
+      additionalProperties: false
+    gravel.hub.v1.MessagePlayerResponse:
+      type: object
+      properties:
+        auditId:
+          type: string
+          title: audit_id
+          format: int64
+      title: MessagePlayerResponse
+      additionalProperties: false
+    gravel.hub.v1.MovePlayerRequest:
+      type: object
+      properties:
+        serverId:
+          type: string
+          title: server_id
+        subject:
+          type: string
+          title: subject
+        team:
+          type: string
+          title: team
+          description: The team's name as the game reports it (ServerStatus.teams).
+        respawn:
+          type: boolean
+          title: respawn
+          description: Kill the player after the move so they respawn on the new team.
+        onBehalfOf:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.Actor'
+          title: on_behalf_of
+      title: MovePlayerRequest
+      additionalProperties: false
+    gravel.hub.v1.MovePlayerResponse:
+      type: object
+      properties:
+        auditId:
+          type: string
+          title: audit_id
+          format: int64
+      title: MovePlayerResponse
       additionalProperties: false
     gravel.hub.v1.NavLink:
       type: object
@@ -1417,6 +2039,34 @@ components:
       title: ThemeTokens
       additionalProperties: false
       description: ThemeTokens are one colour scheme's colours as CSS colours; an empty token means the default.
+    gravel.hub.v1.UnbanPlayerRequest:
+      type: object
+      properties:
+        serverId:
+          type: string
+          title: server_id
+        subject:
+          type: string
+          title: subject
+        reason:
+          type: string
+          title: reason
+          description: Optional; recorded in the audit log.
+        onBehalfOf:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.Actor'
+          title: on_behalf_of
+      title: UnbanPlayerRequest
+      additionalProperties: false
+    gravel.hub.v1.UnbanPlayerResponse:
+      type: object
+      properties:
+        auditId:
+          type: string
+          title: audit_id
+          format: int64
+      title: UnbanPlayerResponse
+      additionalProperties: false
     gravel.hub.v1.UnlinkIdentityRequest:
       type: object
       properties:
@@ -1497,6 +2147,17 @@ tags:
     description: |-
       IdentityService is the logged-in member's account and the lookups role sync needs. Every
        procedure needs a session cookie; login itself is the browser flow under /auth/.
+  - name: gravel.hub.v1.ModerationService
+    description: |-
+      ModerationService acts on the players of a server the hub controls (ADR-0010 §5): the owner,
+       or an app with the servers:moderate scope (a bot, which may name the moderator it acts for).
+       Every call goes through the server's driver and leaves an audit entry, written before the call,
+       so the web and the bot share one log.
+
+       The errors: invalid_argument for a missing or over-long field; not_found for an unknown server,
+       a player who is not on it or an unban with no ban; unavailable for a server the hub has not
+       reached yet, cannot reach, or that refuses the hub's credential or asks it to wait;
+       failed_precondition for an action the server does not offer now (its capabilities).
   - name: gravel.hub.v1.OrganizationService
     description: OrganizationService reads the built-in organization and claims its ownership once.
   - name: gravel.hub.v1.ServerService

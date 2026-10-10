@@ -5,7 +5,8 @@
 // ExternalReachable is the driver for a server gravel can reach but does not run (RCON, SSH).
 // Its capabilities are a set the server grants right now, never a constant: a game whose API
 // changes between builds loses a capability instead of failing, and the pages and the bot show
-// "not available". Moderation and configuration join the interface with their procedures.
+// "not available". Moderation joined with its procedures (Moderator); configuration joins with
+// its own.
 package drivers
 
 import (
@@ -13,6 +14,7 @@ import (
 	"errors"
 	"log/slog"
 	"slices"
+	"time"
 )
 
 // Capabilities a driver may report, in domain terms.
@@ -43,6 +45,13 @@ var (
 	ErrCredentialMissing = errors.New("drivers: no credential")
 	// ErrRateLimited is the server asking the driver to wait.
 	ErrRateLimited = errors.New("drivers: rate limited by the server")
+	// ErrPlayerNotFound is a moderation call naming a player who is not on the server.
+	ErrPlayerNotFound = errors.New("drivers: the player is not on the server")
+	// ErrBanNotFound is an unban of a player the server holds no ban for.
+	ErrBanNotFound = errors.New("drivers: the server holds no ban for the player")
+	// ErrRejected is a request the server, or the driver before sending, refused as invalid: a
+	// message over the game's length cap, an identity the game does not key players by.
+	ErrRejected = errors.New("drivers: the server rejected the request")
 )
 
 // Identity is a player's provider identity (principle 5: stats and moderation are keyed by it,
@@ -85,8 +94,56 @@ type Player struct {
 	PingMs   int
 }
 
+// RejectedError is ErrRejected with the game's own word for the refusal ("message_too_long"),
+// which a caller may see; Err is the driver's error, which may name the server's address.
+type RejectedError struct {
+	Code string
+	Err  error
+}
+
+func (e *RejectedError) Error() string {
+	return "drivers: the server rejected the request: " + e.Err.Error()
+}
+
+// Unwrap makes the error both ErrRejected and the driver's.
+func (e *RejectedError) Unwrap() []error { return []error{ErrRejected, e.Err} }
+
+// Ban is one ban a server holds.
+type Ban struct {
+	Identity Identity
+	// At is when the ban was made; zero when the server does not know (War Dogs: a ban from its
+	// configuration document).
+	At time.Time
+	// By is who the server says made it (War Dogs: "config" for a configuration-document ban).
+	By     string
+	Reason string
+}
+
+// Moderator is what a moderator does to the players on a server (ADR-0010 §5). Each call needs
+// its capability (CapKick, …) and fails with ErrNotSupported without it; a call naming a player
+// who is not on fails with ErrPlayerNotFound. The hub audits every call; a driver only performs.
+type Moderator interface {
+	// Kick removes a connected player, who sees the reason.
+	Kick(ctx context.Context, player Identity, reason string) error
+	// Kill kills a connected player, who respawns.
+	Kill(ctx context.Context, player Identity) error
+	// Message whispers to one connected player.
+	Message(ctx context.Context, player Identity, message string) error
+	// Broadcast sends a message to everyone on the server.
+	Broadcast(ctx context.Context, message string) error
+	// MovePlayer moves a connected player to a team, by the team's name.
+	MovePlayer(ctx context.Context, player Identity, team string) error
+	// Ban bans a connected player.
+	Ban(ctx context.Context, player Identity, reason string) error
+	// Unban lifts a ban; ErrBanNotFound when there is none.
+	Unban(ctx context.Context, player Identity) error
+	// Bans are the bans the server holds.
+	Bans(ctx context.Context) ([]Ban, error)
+}
+
 // ExternalReachable controls a server gravel reaches over the network and does not run.
 type ExternalReachable interface {
+	Moderator
 	// Build is the server's build string, read from a route that needs no credential. A change
 	// re-reads the capabilities.
 	Build(ctx context.Context) (string, error)

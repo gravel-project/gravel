@@ -96,6 +96,13 @@ func (c *Client) Servers() hubv1connect.ServerServiceClient {
 	return hubv1connect.NewServerServiceClient(c.http, c.cfg.URL)
 }
 
+// Moderation is the ModerationService client, authenticated as the app (the servers:moderate
+// scope): kick, ban, unban, message, broadcast and move, naming the moderator the app acts for
+// (on_behalf_of), the server's bans and the audit log.
+func (c *Client) Moderation() hubv1connect.ModerationServiceClient {
+	return hubv1connect.NewModerationServiceClient(c.http, c.cfg.URL)
+}
+
 // Token returns a bearer token, fetching or refreshing one when needed.
 func (c *Client) Token(ctx context.Context) (string, error) {
 	c.mu.Lock()

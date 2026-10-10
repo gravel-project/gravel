@@ -2044,14 +2044,79 @@
       "type": "timeseries"
     },
     {
-      "collapsed": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Kicks, bans, messages and moves the hub sent, by outcome; each is a row in the audit log (ListAuditLog). No data is expected when no moderation call was made in the range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gravelOptional": "no moderation call was made in the range",
       "gridPos": {
-        "h": 1,
+        "h": 8,
         "w": 24,
         "x": 0,
         "y": 66
       },
       "id": 36,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (server, action, outcome) (increase(gravel_moderation_actions_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "{{server}} {{action}} {{outcome}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Moderation calls",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 74
+      },
+      "id": 37,
       "panels": [],
       "title": "Background jobs",
       "type": "row"
@@ -2091,9 +2156,9 @@
         "h": 8,
         "w": 16,
         "x": 0,
-        "y": 67
+        "y": 75
       },
-      "id": 37,
+      "id": 38,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2148,9 +2213,9 @@
         "h": 4,
         "w": 8,
         "x": 16,
-        "y": 67
+        "y": 75
       },
-      "id": 38,
+      "id": 39,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -2186,9 +2251,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 75
+        "y": 83
       },
-      "id": 39,
+      "id": 40,
       "panels": [],
       "title": "Runtime",
       "type": "row"
@@ -2227,9 +2292,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 76
+        "y": 84
       },
-      "id": 40,
+      "id": 41,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2290,9 +2355,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 76
+        "y": 84
       },
-      "id": 41,
+      "id": 42,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2353,9 +2418,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 76
+        "y": 84
       },
-      "id": 42,
+      "id": 43,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2416,9 +2481,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 84
+        "y": 92
       },
-      "id": 43,
+      "id": 44,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2479,9 +2544,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 84
+        "y": 92
       },
-      "id": 44,
+      "id": 45,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2542,9 +2607,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 84
+        "y": 92
       },
-      "id": 45,
+      "id": 46,
       "options": {
         "legend": {
           "displayMode": "list",

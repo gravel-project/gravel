@@ -32,10 +32,15 @@ const ScopeIdentityRead = "identity:read"
 // public (ADR-0010).
 const ScopeServersRead = "servers:read"
 
+// ScopeServersModerate admits ModerationService: acting on a server's players, its bans and the
+// audit log (ADR-0010 §5).
+const ScopeServersModerate = "servers:moderate"
+
 // Scopes is every scope an app may hold, with what it admits.
 var Scopes = map[string]string{
-	ScopeIdentityRead: "look up members and their identities (LookupUser, ListUsers, ListIdentityEvents)",
-	ScopeServersRead:  "see who is on a server: names and provider identities (ListServerPlayers)",
+	ScopeIdentityRead:    "look up members and their identities (LookupUser, ListUsers, ListIdentityEvents)",
+	ScopeServersRead:     "see who is on a server: names and provider identities (ListServerPlayers)",
+	ScopeServersModerate: "kick, ban, unban, message, broadcast to and move a server's players, list its bans and read the audit log (ModerationService)",
 }
 
 // Limits.
