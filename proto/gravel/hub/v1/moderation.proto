@@ -1,0 +1,185 @@
+syntax = "proto3";
+
+package gravel.hub.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/gravel-project/gravel/gen/gravel/hub/v1;hubv1";
+
+// Actor is the person an app says it acts for: a Discord moderator behind a bot command. The
+// hub records it as the app asserted it; a logged-in user acts as themselves and sends none.
+message Actor {
+  // "discord".
+  string provider = 1;
+  string subject = 2;
+}
+
+// AuditEntry is one moderation call the hub made to a server. It is recorded before the call and
+// finished once with the outcome; nothing changes it after that, and nothing deletes it.
+message AuditEntry {
+  int64 id = 1;
+  google.protobuf.Timestamp at = 2;
+  // Who asked: a user (user_id) or an app (app_id and app_name), exactly one.
+  string user_id = 3;
+  string app_id = 4;
+  string app_name = 5;
+  // The person the app acted for; unset for a user.
+  Actor on_behalf_of = 6;
+  string server_id = 7;
+  // "kick", "ban", "unban", "message", "broadcast" or "move_player".
+  string action = 8;
+  // The player acted on, at the game's provider; empty for a broadcast.
+  string target_provider = 9;
+  string target_subject = 10;
+  string reason = 11;
+  // The message sent (message, broadcast).
+  string message = 12;
+  // The team moved to and whether the player was respawned (move_player).
+  string team = 13;
+  bool respawn = 14;
+  string request_id = 15;
+  // "ok", "player_not_found", "ban_not_found", "rejected", "not_available",
+  // "moved_not_respawned", "unreachable", "credential_refused", "credential_missing",
+  // "rate_limited" or "error"; empty while the call has no recorded result (the hub stopped
+  // mid-call). The cause of a failure is in the hub's log, never here.
+  string outcome = 16;
+  google.protobuf.Timestamp finished_at = 17;
+}
+
+// Ban is one ban a server holds.
+message Ban {
+  string provider = 1;
+  string subject = 2;
+  // Unset when the server does not know (War Dogs: a ban from its configuration document).
+  google.protobuf.Timestamp banned_at = 3;
+  // Who the server says made it (War Dogs: "config" for a configuration-document ban).
+  string banned_by = 4;
+  string reason = 5;
+  // The member the identity is linked to, resolved now; empty for a player who is not one.
+  string user_id = 6;
+}
+
+message KickPlayerRequest {
+  string server_id = 1;
+  // The player's id at the game's identity provider (Game.identity_provider): a SteamID64.
+  string subject = 2;
+  // Required; the player sees it.
+  string reason = 3;
+  Actor on_behalf_of = 4;
+}
+
+message KickPlayerResponse {
+  int64 audit_id = 1;
+}
+
+message BanPlayerRequest {
+  string server_id = 1;
+  string subject = 2;
+  // Required.
+  string reason = 3;
+  Actor on_behalf_of = 4;
+}
+
+message BanPlayerResponse {
+  int64 audit_id = 1;
+}
+
+message UnbanPlayerRequest {
+  string server_id = 1;
+  string subject = 2;
+  // Optional; recorded in the audit log.
+  string reason = 3;
+  Actor on_behalf_of = 4;
+}
+
+message UnbanPlayerResponse {
+  int64 audit_id = 1;
+}
+
+message MessagePlayerRequest {
+  string server_id = 1;
+  string subject = 2;
+  string message = 3;
+  Actor on_behalf_of = 4;
+}
+
+message MessagePlayerResponse {
+  int64 audit_id = 1;
+}
+
+message BroadcastRequest {
+  string server_id = 1;
+  string message = 2;
+  Actor on_behalf_of = 3;
+}
+
+message BroadcastResponse {
+  int64 audit_id = 1;
+}
+
+message MovePlayerRequest {
+  string server_id = 1;
+  string subject = 2;
+  // The team's name as the game reports it (ServerStatus.teams).
+  string team = 3;
+  // Kill the player after the move so they respawn on the new team.
+  bool respawn = 4;
+  Actor on_behalf_of = 5;
+}
+
+message MovePlayerResponse {
+  int64 audit_id = 1;
+}
+
+message ListServerBansRequest {
+  string server_id = 1;
+}
+
+message ListServerBansResponse {
+  repeated Ban bans = 1;
+}
+
+message ListAuditLogRequest {
+  // One server's entries; empty for every server's.
+  string server_id = 1;
+  // At most 200; 0 means 200.
+  int32 page_size = 2;
+  // The next_page_token of the previous page; empty for the newest.
+  string page_token = 3;
+}
+
+message ListAuditLogResponse {
+  // Newest first.
+  repeated AuditEntry entries = 1;
+  // Empty on the last page.
+  string next_page_token = 2;
+}
+
+// ModerationService acts on the players of a server the hub controls (ADR-0010 §5): the owner,
+// or an app with the servers:moderate scope (a bot, which may name the moderator it acts for).
+// Every call goes through the server's driver and leaves an audit entry, written before the call,
+// so the web and the bot share one log.
+//
+// The errors: invalid_argument for a missing or over-long field; not_found for an unknown server,
+// a player who is not on it or an unban with no ban; unavailable for a server the hub has not
+// reached yet, cannot reach, or that refuses the hub's credential or asks it to wait;
+// failed_precondition for an action the server does not offer now (its capabilities).
+service ModerationService {
+  // KickPlayer removes a connected player.
+  rpc KickPlayer(KickPlayerRequest) returns (KickPlayerResponse);
+  // BanPlayer bans a connected player; not_found when they are not on (a ban of a player who is
+  // not on goes in the server's configuration).
+  rpc BanPlayer(BanPlayerRequest) returns (BanPlayerResponse);
+  // UnbanPlayer lifts a ban.
+  rpc UnbanPlayer(UnbanPlayerRequest) returns (UnbanPlayerResponse);
+  // MessagePlayer whispers to a connected player.
+  rpc MessagePlayer(MessagePlayerRequest) returns (MessagePlayerResponse);
+  // Broadcast sends a message to everyone on the server.
+  rpc Broadcast(BroadcastRequest) returns (BroadcastResponse);
+  // MovePlayer moves a connected player to a team.
+  rpc MovePlayer(MovePlayerRequest) returns (MovePlayerResponse);
+  // ListServerBans are the bans the server holds, read through its driver.
+  rpc ListServerBans(ListServerBansRequest) returns (ListServerBansResponse);
+  // ListAuditLog is the audit log, newest first.
+  rpc ListAuditLog(ListAuditLogRequest) returns (ListAuditLogResponse);
+}

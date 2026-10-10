@@ -8,8 +8,10 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/gravel-project/gravel/drivers"
 	"github.com/gravel-project/gravel/games/wardogs"
@@ -137,8 +139,104 @@ func (d *Driver) Players(ctx context.Context) ([]drivers.Player, error) {
 // SetCredential replaces the RCON password and lifts a refusal.
 func (d *Driver) SetCredential(credential string) { d.c.SetToken(credential) }
 
+// Kick removes a connected player.
+func (d *Driver) Kick(ctx context.Context, player drivers.Identity, reason string) error {
+	id, err := steamID(player)
+	if err != nil {
+		return err
+	}
+	return mapError(d.c.Kick(ctx, id, reason))
+}
+
+// Kill kills a connected player.
+func (d *Driver) Kill(ctx context.Context, player drivers.Identity) error {
+	id, err := steamID(player)
+	if err != nil {
+		return err
+	}
+	return mapError(d.c.Kill(ctx, id))
+}
+
+// Message whispers to a connected player.
+func (d *Driver) Message(ctx context.Context, player drivers.Identity, message string) error {
+	id, err := steamID(player)
+	if err != nil {
+		return err
+	}
+	return mapError(d.c.Message(ctx, id, message))
+}
+
+// Broadcast sends a message to everyone on the server.
+func (d *Driver) Broadcast(ctx context.Context, message string) error {
+	_, err := d.c.Broadcast(ctx, message)
+	return mapError(err)
+}
+
+// MovePlayer moves a connected player to a faction.
+func (d *Driver) MovePlayer(ctx context.Context, player drivers.Identity, team string) error {
+	id, err := steamID(player)
+	if err != nil {
+		return err
+	}
+	return mapError(d.c.MovePlayer(ctx, id, team))
+}
+
+// Ban bans a connected player through POST /v1/bans; the server refuses one who is not on.
+func (d *Driver) Ban(ctx context.Context, player drivers.Identity, reason string) error {
+	id, err := steamID(player)
+	if err != nil {
+		return err
+	}
+	return mapError(d.c.Ban(ctx, id, reason))
+}
+
+// Unban lifts a ban.
+func (d *Driver) Unban(ctx context.Context, player drivers.Identity) error {
+	id, err := steamID(player)
+	if err != nil {
+		return err
+	}
+	return mapError(d.c.Unban(ctx, id))
+}
+
+// Bans are the server's bans, those from its configuration document included.
+func (d *Driver) Bans(ctx context.Context) ([]drivers.Ban, error) {
+	b, err := d.c.Bans(ctx)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	out := make([]drivers.Ban, 0, len(b.Bans))
+	for _, x := range b.Bans {
+		ban := drivers.Ban{
+			Identity: drivers.Identity{Provider: "steam", Subject: strings.TrimSpace(string(x.SteamID))},
+			By:       x.BannedBy, Reason: x.Reason,
+		}
+		if at, ok := x.BannedAt(); ok {
+			ban.At = at.UTC().Truncate(time.Second)
+		}
+		out = append(out, ban)
+	}
+	return out, nil
+}
+
+// steamID is a player's SteamID64; War Dogs keys players by nothing else.
+func steamID(p drivers.Identity) (wardogs.SteamID, error) {
+	if p.Provider != "steam" {
+		return "", &drivers.RejectedError{Code: "invalid_player", Err: fmt.Errorf("war dogs keys players by steam, not %q", p.Provider)}
+	}
+	s := p.Subject
+	if len(s) != 17 || strings.Trim(s, "0123456789") != "" {
+		return "", &drivers.RejectedError{Code: "invalid_player", Err: fmt.Errorf("%q is not a SteamID64", s)}
+	}
+	return wardogs.SteamID(s), nil
+}
+
 func mapError(err error) error {
+	if err == nil {
+		return nil
+	}
 	var rl *wardogs.RateLimitedError
+	var api *wardogs.APIError
 	switch {
 	case errors.Is(err, wardogs.ErrTokenRefused):
 		return fmt.Errorf("%w: %w", drivers.ErrCredentialRefused, err)
@@ -148,6 +246,14 @@ func mapError(err error) error {
 		return fmt.Errorf("%w: %w", drivers.ErrNotSupported, err)
 	case errors.As(err, &rl):
 		return fmt.Errorf("%w: %w", drivers.ErrRateLimited, err)
+	case wardogs.IsCode(err, "player_not_found"):
+		return fmt.Errorf("%w: %w", drivers.ErrPlayerNotFound, err)
+	case wardogs.IsCode(err, "ban_not_found"):
+		return fmt.Errorf("%w: %w", drivers.ErrBanNotFound, err)
+	case errors.Is(err, wardogs.ErrBodyTooLarge):
+		return &drivers.RejectedError{Code: "body_too_large", Err: err}
+	case errors.As(err, &api) && (api.StatusCode == http.StatusBadRequest || api.StatusCode == http.StatusUnprocessableEntity):
+		return &drivers.RejectedError{Code: api.Code, Err: err}
 	}
 	return err
 }

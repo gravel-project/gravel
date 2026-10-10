@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
 	"github.com/gravel-project/gravel/internal/api"
@@ -38,6 +39,8 @@ type rig struct {
 	apps  *apps.Service
 	srvs  *servers.Service
 	obs   *fakeObserver
+	drv   *fakeDriver
+	audit *serverstest.AuditStore
 	token string
 }
 
@@ -66,10 +69,14 @@ func newRig(t *testing.T) *rig {
 	r.apps = apps.New(r.appSt, o.ID, time.Hour, logger)
 	r.srvs = servers.New(serverstest.NewFakeStore(), o.ID, []string{"wardogs"}, logger)
 	r.obs = &fakeObserver{obs: map[string]servers.Observation{}}
+	r.drv = &fakeDriver{errs: map[string]error{}}
+	r.audit = serverstest.NewAuditStore()
+	mod := servers.NewModeration(r.srvs, r.drv, r.audit, o.ID, prometheus.NewRegistry(), logger)
 	mux := http.NewServeMux()
 	mux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(r.org, logger)))
 	mux.Handle(hubv1connect.NewIdentityServiceHandler(api.NewIdentityServer(r.ids, r.sess, r.org, logger)))
 	mux.Handle(hubv1connect.NewServerServiceHandler(api.NewServerServer(r.srvs, r.obs, r.ids, logger)))
+	mux.Handle(hubv1connect.NewModerationServiceHandler(api.NewModerationServer(mod, r.org, r.ids, logger)))
 	r.srv = newH2CServer(r.sess.Middleware(r.apps.Middleware(mux)))
 	t.Cleanup(r.srv.Close)
 	return r

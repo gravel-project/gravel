@@ -249,6 +249,7 @@ curl -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{
 |---|---|
 | `identity:read` | `LookupUser`, `ListUsers`, `ListIdentityEvents`: members and their identities, for role sync |
 | `servers:read` | `ListServerPlayers`: who is on a server, for a live card (the rest of `ServerService` is public) |
+| `servers:moderate` | `ModerationService`: kick, ban, unban, message, broadcast and move players, list a server's bans, read the audit log |
 
 Rules: a token lives `apps.token_ttl` (an hour by default) and is pruned after; `scope` at the
 token endpoint may narrow a token to a subset of the app's scopes, never widen it; an unknown,
@@ -318,8 +319,45 @@ The public status says what happened, never why: `state` is `unknown` (not polle
 `unreachable`, `credential_refused`, `credential_missing`, `rate_limited` or `error`, and the cause
 (which may name the control address) is in the hub's log, once per change of state.
 `capabilities` is what the server grants now, so a page or a bot shows an absent one as not
-available. Moderation, the audit log, configuration plan and apply and the build watcher come
-next (ADR-0010's later steps).
+available. Configuration plan and apply and the build watcher come next (ADR-0010's last step).
+
+### Moderation and the audit log
+
+`ModerationService` acts on a server's players through its driver: `KickPlayer`, `BanPlayer`,
+`UnbanPlayer`, `MessagePlayer`, `Broadcast` and `MovePlayer` (with `respawn`, a kill after the move
+so the player comes back on the new team), plus `ListServerBans` and `ListAuditLog`. The owner may
+call it, and so may an app with `servers:moderate` (a bot). An app may name the person it acts for
+(`on_behalf_of`, e.g. the Discord moderator behind a command), and the hub records that as the app
+says it; a logged-in user acts as themselves. A player is named by their id at the game's identity
+provider (`subject`: a SteamID64 for War Dogs). A kick or a ban needs a reason.
+
+```sh
+curl -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"server_id":"htg-wardogs-1","subject":"76561198000000000","reason":"team killing","on_behalf_of":{"provider":"discord","subject":"1234"}}' \
+  https://app.example.com/gravel.hub.v1.ModerationService/KickPlayer
+# {"auditId":"17"}
+```
+
+Every call the hub sends to a server is a row in `audit_log` (migration 7): when, who (user, or
+app plus `on_behalf_of`), the server, the action, the player, the reason, the message or team, the
+request id, and the outcome. The row is written **before** the call, so nothing is done that is
+not recorded; if it cannot be written, nothing is sent. The outcome is filled in once, afterwards:
+`ok`, `player_not_found`, `ban_not_found`, `rejected` (the server refused it as invalid; the API
+error names the game's code, `message_too_long`), `not_available`, `moved_not_respawned`, or a
+transport word (`unreachable`, `credential_refused`, `credential_missing`, `rate_limited`,
+`error`), never error text. A row with no outcome is a call whose result the hub never learned (it
+stopped mid-call). The database refuses any other change: a trigger rejects an `UPDATE` of anything
+but a first outcome, every `DELETE` and a `TRUNCATE`. A request the hub refuses itself (a missing
+field, an action the server's capabilities lack, a server not reached yet) sends nothing and
+writes no row.
+
+Errors: `invalid_argument` (a missing or over-long field, or a server rejection), `not_found` (an
+unknown server, a player who is not on, an unban with no ban), `failed_precondition` (the server
+does not offer the action now), `unavailable` (not reached yet, unreachable, credential refused, or
+the server asked the hub to wait). War Dogs bans only a player who is on the server; a ban of a
+player who is offline goes in the server's configuration document, which comes with configuration
+apply. `gravel_moderation_actions_total{server,action,outcome}` counts the calls (the hub
+dashboard's Servers row).
 
 ## Login (ADR-0004)
 

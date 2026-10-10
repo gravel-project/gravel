@@ -62,6 +62,7 @@ type Hub struct {
 	apps       *apps.Service
 	servers    *servers.Service
 	monitor    *servers.Monitor
+	moderation *servers.Moderation
 	jobs       *jobs.Runner
 	web        *web.Handler
 	perIP      *ratelimit.Limiter
@@ -173,6 +174,7 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 	h.servers = servers.New(st, o.ID, registry.Names(), logger)
 	h.monitor = servers.NewMonitor(h.servers, registry, h.jobs, h.registry, "gravel-hub/"+h.version, logger)
 	h.monitor.Start()
+	h.moderation = servers.NewModeration(h.servers, h.monitor, st, o.ID, h.registry, logger)
 
 	// The API, once: the public listener serves it, and the pages call it in process through
 	// the session middleware (ADR-0005).
@@ -269,6 +271,7 @@ func (h *Hub) buildAPI() *http.ServeMux {
 	mux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(h.org, h.logger), interceptors))
 	mux.Handle(hubv1connect.NewIdentityServiceHandler(api.NewIdentityServer(h.ids, h.sess, h.org, h.logger), interceptors))
 	mux.Handle(hubv1connect.NewServerServiceHandler(api.NewServerServer(h.servers, h.monitor, h.ids, h.logger), interceptors))
+	mux.Handle(hubv1connect.NewModerationServiceHandler(api.NewModerationServer(h.moderation, h.org, h.ids, h.logger), interceptors))
 	return mux
 }
 
@@ -277,7 +280,8 @@ func (h *Hub) rejected(scope string) { h.limitedTotal.WithLabelValues(scope).Inc
 func (h *Hub) buildPublic() http.Handler {
 	scopes := h.scopes()
 	mux := http.NewServeMux()
-	services := []string{hubv1connect.OrganizationServiceName, hubv1connect.IdentityServiceName, hubv1connect.ServerServiceName}
+	services := []string{hubv1connect.OrganizationServiceName, hubv1connect.IdentityServiceName, hubv1connect.ServerServiceName,
+		hubv1connect.ModerationServiceName}
 	for _, svc := range services {
 		mux.Handle("/"+svc+"/", h.api)
 	}

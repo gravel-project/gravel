@@ -175,3 +175,38 @@ func TestServersCallsAsTheApp(t *testing.T) {
 		t.Errorf("players %v, auth %v", got.Msg.GetPlayers(), sh.auth.Load())
 	}
 }
+
+type moderationHub struct {
+	hubv1connect.UnimplementedModerationServiceHandler
+	auth atomic.Value
+}
+
+func (h *moderationHub) KickPlayer(_ context.Context, req *connect.Request[hubv1.KickPlayerRequest]) (*connect.Response[hubv1.KickPlayerResponse], error) {
+	h.auth.Store(req.Header().Get("Authorization") + " " + req.Msg.GetOnBehalfOf().GetSubject())
+	return connect.NewResponse(&hubv1.KickPlayerResponse{AuditId: 7}), nil
+}
+
+// Moderation calls ModerationService as the app, with its token.
+func TestModerationCallsAsTheApp(t *testing.T) {
+	mh := &moderationHub{}
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /oauth/token", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"access_token":"tok1","token_type":"Bearer","expires_in":3600}`))
+	})
+	mux.Handle(hubv1connect.NewModerationServiceHandler(mh))
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	c, err := hubclient.New(hubclient.Config{URL: srv.URL, ClientID: "gravel_x", ClientSecret: "s"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := c.Moderation().KickPlayer(context.Background(), connect.NewRequest(&hubv1.KickPlayerRequest{
+		ServerId: "wd-1", Subject: "76561190000000001", Reason: "r", OnBehalfOf: &hubv1.Actor{Provider: "discord", Subject: "42"}}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Msg.GetAuditId() != 7 || mh.auth.Load() != "Bearer tok1 42" {
+		t.Errorf("audit id %d, auth %v", got.Msg.GetAuditId(), mh.auth.Load())
+	}
+}

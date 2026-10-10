@@ -121,6 +121,9 @@ func hubDashboard() dashboard {
 						{Expr: `gravel_server_players{` + sel + `}`, Legend: "{{server}}"},
 						{Expr: `gravel_server_max_players{` + sel + `}`, Legend: "{{server}} max"},
 					}},
+				{Title: "Moderation calls", Kind: "timeseries", Width: 24, Optional: "no moderation call was made in the range",
+					Description: "Kicks, bans, messages and moves the hub sent, by outcome; each is a row in the audit log (ListAuditLog).",
+					Targets:     []target{{Expr: `sum by (server, action, outcome) (increase(gravel_moderation_actions_total{` + sel + `}[$__rate_interval]))`, Legend: "{{server}} {{action}} {{outcome}}"}}},
 			}},
 			{Title: "Background jobs", Panels: []panel{
 				{Title: "Job runs by result", Kind: "timeseries", Width: 16,

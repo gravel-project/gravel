@@ -125,6 +125,19 @@ func (m *Monitor) Observation(id string) (Observation, bool) {
 	return o, true
 }
 
+// Driver is the driver the monitor runs for a live server and the capabilities its first good
+// poll read (nil before one); moderation calls go through it, so a server has one client and one
+// token. ok is false for a server the monitor does not watch.
+func (m *Monitor) Driver(id string) (drivers.ExternalReachable, []string, bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	w, ok := m.workers[id]
+	if !ok {
+		return nil, nil, false
+	}
+	return w.drv, slices.Clone(m.obs[id].Capabilities), true
+}
+
 func pollJobName(id string) string { return "server_poll:" + id }
 
 // Reconcile makes the poll jobs match the live servers: a new or changed server gets a fresh
