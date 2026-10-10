@@ -35,13 +35,14 @@ func newFakeServers() *fakeServers {
 		servers: []*hubv1.Server{
 			{Id: "htg-wardogs-1", Name: "HTG WARDOGS | NA WEST | #1", GameId: "wardogs", Location: "qonzer-slc", Trust: "official",
 				Status: &hubv1.ServerStatus{State: "ok", Reachable: true, ObservedAt: observed, Players: 24, MaxPlayers: 80, Map: "Ozeti",
-					Teams: []*hubv1.TeamScore{{Name: "Lonestar", Score: 412}, {Name: "Boreal", Score: 388}}}},
+					Capabilities: []string{"status", "players", "kick", "message", "broadcast", "bans", "ban", "unban"},
+					Teams:        []*hubv1.TeamScore{{Name: "Lonestar", Score: 412}, {Name: "Boreal", Score: 388}}}},
 			{Id: "friends-1", Name: "Friends' server", GameId: "wardogs", Location: "home", Trust: "community",
 				Status: &hubv1.ServerStatus{State: "unreachable"}},
 		},
 		players: []*hubv1.ServerPlayer{
-			{Name: "Jo <script>", Team: "Lonestar", Kills: 7, Deaths: 2, PingMs: 41, UserId: "u1"},
-			{Name: "Stranger", Team: "Boreal", Kills: 1, Deaths: 5, PingMs: 90},
+			{Name: "Jo <script>", Subject: "76561190000000001", Team: "Lonestar", Kills: 7, Deaths: 2, PingMs: 41, UserId: "u1"},
+			{Name: "Stranger", Subject: "76561190000000002", Team: "Boreal", Kills: 1, Deaths: 5, PingMs: 90},
 		},
 	}
 }

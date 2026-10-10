@@ -21,6 +21,11 @@ patch release is everything else.
   - **Moderators moderate.** `ModerationService` admits the owner, a moderator, or an app with `servers:moderate`. **Changed:** an app that names `on_behalf_of` now acts only for the owner or a moderator (`permission_denied` otherwise); an app acting for itself is unchanged.
   - **Tests:** the role through the API (grant and revoke by the owner only, unknown roles, a moderator's kick and log, the bot for a moderator, a member and a stranger, no-op changes record nothing), the store (the CHECK, the change log, the append-only trigger), the Members page (htmx and plain, CSRF, a member refused), and axe over its fixture.
   - **Docs:** ADR-0013, docs/hub.md (Roles; Moderation; Endpoints).
+- Moderation from the web, part four of #18.
+  - **On a server's page,** the owner and moderators get a kick, ban or message form for each player; a broadcast; a ban by SteamID64 for a player who isn't on; the ban list with unban; and a link to the log. A control shows only when the server's driver offers it.
+  - **A confirmation page** says exactly what will be sent before anything is (`POST /servers/{id}/moderate`), and the result comes back as a flash. A refusal reads as words: the player left, the server doesn't offer it, moderators only.
+  - **`/servers/{id}/log`** is the server's moderation log, newest first, with paging: who, what, to whom, why, and the result. `AuditEntry.user_name` (additive) gives the acting member's name.
+  - **Tests:** the controls by role and capability, confirm-then-send (nothing sent before Confirm), refusals (no reason, an unknown action, no CSRF token, the API's `not_found` and `permission_denied`), the log, the API's `user_name`, and axe over three new fixtures.
 
 ### Added
 

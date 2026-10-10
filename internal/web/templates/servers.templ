@@ -100,6 +100,9 @@ templ ServerContent(p ServerPage) {
 						<th scope="col" class="num">Kills</th>
 						<th scope="col" class="num">Deaths</th>
 						<th scope="col" class="num">Ping</th>
+						if p.Mod.Any() {
+							<th scope="col"><span class="visually-hidden">Moderate</span></th>
+						}
 					</tr>
 				</thead>
 				<tbody>
@@ -115,6 +118,33 @@ templ ServerContent(p ServerPage) {
 							<td class="num">{ fmt.Sprint(pl.Kills) }</td>
 							<td class="num">{ fmt.Sprint(pl.Deaths) }</td>
 							<td class="num">{ fmt.Sprintf("%d ms", pl.PingMs) }</td>
+							if p.Mod.Any() {
+								<td>
+									<details class="mod">
+										<summary>Moderate { pl.Name }</summary>
+										<form method="post" action={ templ.SafeURL("/servers/" + p.Server.ID + "/moderate") }>
+											<input type="hidden" name="_csrf" value={ p.CSRF }/>
+											<input type="hidden" name="subject" value={ pl.Subject }/>
+											<input type="hidden" name="name" value={ pl.Name }/>
+											<label for={ "action-" + pl.Subject }>Action</label>
+											<select id={ "action-" + pl.Subject } name="action">
+												if p.Mod.Kick {
+													<option value="kick">Kick</option>
+												}
+												if p.Mod.Ban {
+													<option value="ban">Ban</option>
+												}
+												if p.Mod.Message {
+													<option value="message">Message</option>
+												}
+											</select>
+											<label for={ "text-" + pl.Subject }>Reason, or the message</label>
+											<input id={ "text-" + pl.Subject } name="text" type="text" maxlength="256" required/>
+											<button type="submit">Review</button>
+										</form>
+									</details>
+								</td>
+							}
 						</tr>
 					}
 				</tbody>
@@ -158,6 +188,80 @@ templ ServerContent(p ServerPage) {
 			</table>
 		}
 		<p><a href={ templ.SafeURL(p.BoardURL) }>This server's leaderboard</a></p>
+	</section>
+	if p.Mod != nil {
+		@ModSection(p)
+	}
+}
+
+// ModSection is the moderators' part of a server page: broadcast, ban by id, the ban list and the
+// log. Every form goes through a confirmation page before anything is sent.
+templ ModSection(p ServerPage) {
+	<section aria-labelledby="mod-heading">
+		<h2 id="mod-heading">Moderation</h2>
+		<p><a href={ templ.SafeURL("/servers/" + p.Server.ID + "/log") }>Moderation log</a></p>
+		if p.Mod.Broadcast {
+			<form method="post" action={ templ.SafeURL("/servers/" + p.Server.ID + "/moderate") }>
+				<input type="hidden" name="_csrf" value={ p.CSRF }/>
+				<input type="hidden" name="action" value="broadcast"/>
+				<label for="broadcast">Message everyone on the server</label>
+				<input id="broadcast" name="text" type="text" maxlength="256" required/>
+				<button type="submit">Review</button>
+			</form>
+		}
+		if p.Mod.Ban {
+			<form method="post" action={ templ.SafeURL("/servers/" + p.Server.ID + "/moderate") }>
+				<input type="hidden" name="_csrf" value={ p.CSRF }/>
+				<input type="hidden" name="action" value="ban"/>
+				<label for="ban-subject">Ban a player who isn't on, by their SteamID64</label>
+				<input id="ban-subject" name="subject" type="text" inputmode="numeric" pattern="[0-9]{17}" required/>
+				<label for="ban-reason">Reason</label>
+				<input id="ban-reason" name="text" type="text" maxlength="256" required/>
+				<button type="submit">Review</button>
+			</form>
+		}
+		if p.Mod.BansNote != "" {
+			<p class="muted">{ p.Mod.BansNote }</p>
+		} else if len(p.Mod.Bans) > 0 {
+			<h3>Bans</h3>
+			<table>
+				<thead>
+					<tr>
+						<th scope="col">Player</th>
+						<th scope="col">Reason</th>
+						<th scope="col">Banned</th>
+						<th scope="col"><span class="visually-hidden">Actions</span></th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, b := range p.Mod.Bans {
+						<tr>
+							<td>{ b.Name }</td>
+							<td>{ b.Reason }</td>
+							<td>
+								if !b.At.IsZero() {
+									{ at(b.At) }
+								}
+								if b.By != "" {
+									<span class="muted">by { b.By }</span>
+								}
+							</td>
+							<td>
+								if p.Mod.Unban {
+									<form method="post" action={ templ.SafeURL("/servers/" + p.Server.ID + "/moderate") } class="inline">
+										<input type="hidden" name="_csrf" value={ p.CSRF }/>
+										<input type="hidden" name="action" value="unban"/>
+										<input type="hidden" name="subject" value={ b.Subject }/>
+										<input type="hidden" name="name" value={ b.Name }/>
+										<button type="submit" class="link">Unban { b.Name }</button>
+									</form>
+								}
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		}
 	</section>
 }
 

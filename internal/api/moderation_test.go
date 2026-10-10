@@ -341,7 +341,7 @@ func TestModeratorRole(t *testing.T) {
 		t.Fatalf("a moderator kicking: %v", err)
 	}
 	log, err := mods(samC).ListAuditLog(ctx, connect.NewRequest(&hubv1.ListAuditLogRequest{ServerId: "wd-1"}))
-	if err != nil || len(log.Msg.GetEntries()) != 1 || log.Msg.GetEntries()[0].GetUserId() != sam.ID.String() {
+	if err != nil || len(log.Msg.GetEntries()) != 1 || log.Msg.GetEntries()[0].GetUserId() != sam.ID.String() || log.Msg.GetEntries()[0].GetUserName() != "Sam" {
 		t.Errorf("a moderator's log: %v %v", log, err)
 	}
 	if _, err := mods(samC).ListServerBans(ctx, connect.NewRequest(&hubv1.ListServerBansRequest{ServerId: "wd-1"})); err != nil {

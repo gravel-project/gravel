@@ -44,6 +44,8 @@ message AuditEntry {
   // mid-call). The cause of a failure is in the hub's log, never here.
   string outcome = 16;
   google.protobuf.Timestamp finished_at = 17;
+  // The acting member's display name, when a member acted (user_id).
+  string user_name = 18;
 }
 
 // Ban is one ban a server holds.

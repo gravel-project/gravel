@@ -34,6 +34,7 @@ type rig struct {
 	results []string
 	servers *fakeServers
 	stats   *fakeStats
+	mod     *fakeMod
 }
 
 // testTheme has a logo, a favicon, header and footer links, an owner-only link and one bad
@@ -55,7 +56,7 @@ func testTheme() templates.Theme {
 func newRig(t *testing.T) *rig {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	r := &rig{idSt: identitytest.NewFakeStore(), servers: newFakeServers(), stats: &fakeStats{}}
+	r := &rig{idSt: identitytest.NewFakeStore(), servers: newFakeServers(), stats: &fakeStats{}, mod: &fakeMod{}}
 	orgSvc := org.New(&orgtest.FakeStore{}, 15*time.Minute, logger)
 	o, token, err := orgSvc.EnsureBuiltin(context.Background(), "Hidden Token Gaming")
 	if err != nil {
@@ -76,6 +77,7 @@ func newRig(t *testing.T) *rig {
 	apiMux.Handle(hubv1connect.NewIdentityServiceHandler(api.NewIdentityServer(ids, sess, orgSvc, logger)))
 	apiMux.Handle(hubv1connect.NewServerServiceHandler(r.servers))
 	apiMux.Handle(hubv1connect.NewStatsServiceHandler(r.stats))
+	apiMux.Handle(hubv1connect.NewModerationServiceHandler(r.mod))
 	h, err := web.New(ids, sess, sess.Middleware(apiMux), web.StaticTheme{T: testTheme()}, logger)
 	if err != nil {
 		t.Fatal(err)

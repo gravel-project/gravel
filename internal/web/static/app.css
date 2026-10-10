@@ -49,3 +49,11 @@ select { font: inherit; padding: .35rem; color: inherit; background: var(--bg); 
 select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .board td:nth-child(2) { white-space: nowrap; }
 @media (max-width: 40rem) { .board th:nth-child(n+6), .board td:nth-child(n+6) { display: none; } }
+/* Moderation (gravel#18, ADR-0013). */
+details.mod summary { cursor: pointer; color: var(--accent); }
+details.mod form { margin: .5rem 0; }
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: .25rem 1rem; margin: 1rem 0; }
+.facts dt { color: var(--muted); }
+.facts dd { margin: 0; }
+section form + form { margin-top: 1rem; }
+button + a { margin-left: .75rem; }
