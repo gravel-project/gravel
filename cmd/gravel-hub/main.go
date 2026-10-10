@@ -203,8 +203,12 @@ func configCheck(args []string, stdout, stderr io.Writer) int {
 	if !ok {
 		return 1
 	}
-	fmt.Fprintf(stdout, "config OK: organization %q, listen %s, internal %s, database %s (from %s), migrate %s, login %s\n",
-		cfg.Organization.Name, cfg.Server.Listen, cfg.Server.InternalListen, cfg.Database.RedactedURL(), cfg.Database.Source(), cfg.Database.Migrate, authSummary(cfg))
+	pseudonyms := "none (unlinked players show unnamed)"
+	if src := cfg.Stats.KeySource(); src != "" {
+		pseudonyms = "key from " + src
+	}
+	fmt.Fprintf(stdout, "config OK: organization %q, listen %s, internal %s, database %s (from %s), migrate %s, login %s, pseudonyms %s\n",
+		cfg.Organization.Name, cfg.Server.Listen, cfg.Server.InternalListen, cfg.Database.RedactedURL(), cfg.Database.Source(), cfg.Database.Migrate, authSummary(cfg), pseudonyms)
 	return 0
 }
 

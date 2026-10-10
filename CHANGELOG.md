@@ -10,6 +10,13 @@ patch release is everything else.
 
 ### Added
 
+- The stats store, ADR-0012's first step (#17, #3).
+  - **Recording.** Every good poll of a server becomes matches and each player's totals in them (migration 10: `matches`, `match_stats`, `pseudonyms`, `users.show_name_on_boards`), keyed by the identity the game reports and carrying the server's trust when written. A new match starts on a rotation, when every player's counters drop together, or with the first player on an empty server, which ends a match when it empties. A rejoin keeps a player's totals, and the open match is picked up after a hub restart without counting twice. `internal/servers` hands each good poll to an `ObservationSink`, which `internal/stats`'s `Recorder` is.
+  - **`StatsService`.** `GetBoard` ranks a server, a game or the organization by kills, deaths, K/D (from a minimum of matches), time on or matches, over all time, this week, this month or a named season. A server's board counts its own matches; a game's or the organization's counts Official servers' only. `ListMatches` lists a server's matches. `GetBoardName`/`SetBoardName` hold a member's choice to be shown by name (off by default).
+  - **Access.** Boards and match lists are public when the Organization settings' new `stats` section says so (`public`, `min_matches`, `timezone`, `seasons`), and otherwise the owner's or an app's with the new `stats:read` scope.
+  - **Pseudonyms.** Unlinked players appear under one: two words from a keyed hash of the identity (`stats.pseudonym_key_file` in `hub.yaml`, a new optional secret, at least 32 characters), stored once and unique. Without the key such players show as "Unnamed player". `config check` says where the key came from.
+  - **Metrics:** `gravel_stats_matches_total{server,game}`, `gravel_stats_rows_written_total{server}` and `gravel_stats_record_errors_total{server}`, on the hub dashboard's new Stats row.
+  - **Docs:** docs/hub.md (Stats) and an ADR-0012 amendment.
 - ADR-0012: the stats store keeps match totals from the poll and events from the feed, and boards are queries (#17, #3).
   - **The counts:** a board counts `match_stats`, one row per player per match, written from the poll the hub already makes. It is complete while the hub is up and needs no feed.
   - **The detail:** the feed's `stats_events` add who killed whom and with what. When the feed counts more than the poll (the hub was down), the row takes the higher number and a gap says so.

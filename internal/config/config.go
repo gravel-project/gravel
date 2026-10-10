@@ -29,6 +29,7 @@ const (
 	EnvDatabaseURL         = "GRAVEL_DATABASE_URL"
 	EnvDiscordClientSecret = "GRAVEL_DISCORD_CLIENT_SECRET"
 	EnvSteamAPIKey         = "GRAVEL_STEAM_API_KEY"
+	EnvStatsPseudonymKey   = "GRAVEL_STATS_PSEUDONYM_KEY"
 )
 
 // Migration policies.
@@ -49,7 +50,26 @@ type Config struct {
 	RateLimit    RateLimit    `yaml:"rate_limit"`
 	Backup       Backup       `yaml:"backup"`
 	Apps         Apps         `yaml:"apps"`
+	Stats        Stats        `yaml:"stats"`
 }
+
+// Stats is the stats store's one secret (ADR-0012 §5): the key pseudonyms are chosen with, so a
+// pseudonym cannot be computed from a SteamID without it. Unset, unlinked players show as
+// "Unnamed player" and none is made; once set, keep it: a pseudonym is chosen once and stored.
+type Stats struct {
+	// PseudonymKey is development only: production sets GRAVEL_STATS_PSEUDONYM_KEY or
+	// PseudonymKeyFile.
+	PseudonymKey     string `yaml:"pseudonym_key"`
+	PseudonymKeyFile string `yaml:"pseudonym_key_file"`
+
+	keySource string
+}
+
+// MinPseudonymKey is the shortest pseudonym key accepted.
+const MinPseudonymKey = 32
+
+// KeySource says where the pseudonym key came from, never the key; empty when there is none.
+func (s Stats) KeySource() string { return s.keySource }
 
 // Apps tunes first-party app credentials (ADR-0008).
 type Apps struct {
@@ -253,6 +273,9 @@ func (c *Config) resolveSecrets(env Env) error {
 			return err
 		}
 	}
+	if c.Stats.PseudonymKey, c.Stats.keySource, err = resolveSecret(env, EnvStatsPseudonymKey, c.Stats.PseudonymKeyFile, c.Stats.PseudonymKey, "stats.pseudonym_key"); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -282,6 +305,9 @@ func (c Config) Validate() error {
 
 	if c.Version != CurrentVersion {
 		bad("version: got %d, this hub reads version %d", c.Version, CurrentVersion)
+	}
+	if k := c.Stats.PseudonymKey; k != "" && len(k) < MinPseudonymKey {
+		bad("stats.pseudonym_key: %d characters, at least %d (openssl rand -hex 32)", len(k), MinPseudonymKey)
 	}
 	if strings.TrimSpace(c.Organization.Name) == "" {
 		bad("organization.name: required")

@@ -40,12 +40,17 @@ const ScopeServersModerate = "servers:moderate"
 // configuration (ADR-0010 §6).
 const ScopeServersConfigure = "servers:configure"
 
+// ScopeStatsRead admits the stats boards and match lists while the Organization settings keep
+// them private (ADR-0012 §8); public stats need no scope.
+const ScopeStatsRead = "stats:read"
+
 // Scopes is every scope an app may hold, with what it admits.
 var Scopes = map[string]string{
 	ScopeIdentityRead:     "look up members and their identities (LookupUser, ListUsers, ListIdentityEvents)",
 	ScopeServersRead:      "see who is on a server: names and provider identities (ListServerPlayers)",
 	ScopeServersModerate:  "kick, ban, unban, message, broadcast to and move a server's players, list its bans and read the audit log (ModerationService)",
 	ScopeServersConfigure: "read, plan and apply a server's configuration (ServerConfigService)",
+	ScopeStatsRead:        "read the stats boards and match lists while stats are not public (StatsService GetBoard, ListMatches)",
 }
 
 // Limits.

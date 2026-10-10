@@ -74,6 +74,7 @@ type Monitor struct {
 	buildInfo    *prometheus.GaugeVec
 	buildChanges *prometheus.CounterVec
 
+	sink    ObservationSink
 	mu      sync.Mutex
 	workers map[string]*worker
 	obs     map[string]Observation
@@ -394,11 +395,30 @@ func (m *Monitor) poll(ctx context.Context, id string) error {
 	m.players.WithLabelValues(def.ID, def.Game).Set(float64(st.Players))
 	m.maxPlayers.WithLabelValues(def.ID, def.Game).Set(float64(st.MaxPlayers))
 	m.observed.WithLabelValues(def.ID, def.Game).Set(float64(now.UnixNano()) / 1e9)
+	sink := m.sink
 	m.mu.Unlock()
 	if recovered {
 		m.logger.Info("server answering again", "server", id)
 	}
+	if sink != nil {
+		// The stats store (ADR-0012) records the match from it; its trouble is its own, never the
+		// poll's.
+		sink.Observe(ctx, def, o)
+	}
 	return nil
+}
+
+// ObservationSink receives every good poll's observation, with the server it is of: the stats
+// store's way in (ADR-0012). Observe runs on the poll's goroutine and must not block for long.
+type ObservationSink interface {
+	Observe(ctx context.Context, server Server, o Observation)
+}
+
+// SetSink sets where good polls are sent; nil sends them nowhere.
+func (m *Monitor) SetSink(s ObservationSink) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.sink = s
 }
 
 // failed records a failed poll and returns the error for the runner.

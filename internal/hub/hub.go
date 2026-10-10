@@ -38,6 +38,7 @@ import (
 	"github.com/gravel-project/gravel/internal/ratelimit"
 	"github.com/gravel-project/gravel/internal/servers"
 	"github.com/gravel-project/gravel/internal/session"
+	"github.com/gravel-project/gravel/internal/stats"
 	"github.com/gravel-project/gravel/internal/store"
 	"github.com/gravel-project/gravel/internal/web"
 )
@@ -66,6 +67,7 @@ type Hub struct {
 	servers    *servers.Service
 	monitor    *servers.Monitor
 	moderation *servers.Moderation
+	stats      *stats.Boards
 	feeds      *ingest.Keyring
 	ingest     *ingest.Handler
 	jobs       *jobs.Runner
@@ -180,6 +182,13 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 	h.monitor = servers.NewMonitor(h.servers, registry, h.jobs, h.registry, "gravel-hub/"+h.version, logger)
 	h.monitor.Start()
 	h.moderation = servers.NewModeration(h.servers, h.monitor, st, st, o.ID, h.registry, logger)
+	// The stats store (ADR-0012): every good poll becomes matches and player totals; boards read
+	// them with the Organization settings' stats section.
+	h.monitor.SetSink(stats.NewRecorder(st, o.ID, h.registry, logger))
+	h.stats = stats.NewBoards(st, o.ID, stats.NewNamer(st, o.ID, []byte(cfg.Stats.PseudonymKey), logger), func(ctx context.Context) (org.Stats, error) {
+		set, _, err := h.org.Settings(ctx)
+		return set.Stats, err
+	})
 	// Inbound ingestion (ADR-0011): the feed tokens are read from their files as the monitor reads
 	// the credentials, and the stored batches are pruned after their retention.
 	h.feeds = ingest.NewKeyring()
@@ -286,6 +295,7 @@ func (h *Hub) buildAPI() *http.ServeMux {
 	mux.Handle(hubv1connect.NewServerServiceHandler(api.NewServerServer(h.servers, h.monitor, h.ids, h.logger), interceptors))
 	mux.Handle(hubv1connect.NewModerationServiceHandler(api.NewModerationServer(h.moderation, h.org, h.ids, h.logger), interceptors))
 	mux.Handle(hubv1connect.NewServerConfigServiceHandler(api.NewConfigServer(h.moderation, h.org, h.logger), interceptors))
+	mux.Handle(hubv1connect.NewStatsServiceHandler(api.NewStatsServer(h.stats, h.org, h.logger), interceptors))
 	return mux
 }
 
@@ -295,7 +305,7 @@ func (h *Hub) buildPublic() http.Handler {
 	scopes := h.scopes()
 	mux := http.NewServeMux()
 	services := []string{hubv1connect.OrganizationServiceName, hubv1connect.IdentityServiceName, hubv1connect.ServerServiceName,
-		hubv1connect.ModerationServiceName, hubv1connect.ServerConfigServiceName}
+		hubv1connect.ModerationServiceName, hubv1connect.ServerConfigServiceName, hubv1connect.StatsServiceName}
 	for _, svc := range services {
 		mux.Handle("/"+svc+"/", h.api)
 	}

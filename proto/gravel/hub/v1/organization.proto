@@ -106,6 +106,26 @@ message DiscordSettings {
   repeated DiscordServerCard server_cards = 4;
 }
 
+// StatsSeason is a named window of matches: from (included) to to (excluded), dates
+// ("2026-10-15") in StatsSettings.timezone. An empty game is every game.
+message StatsSeason {
+  string name = 1;
+  string game = 2;
+  string from = 3;
+  string to = 4;
+}
+
+// StatsSettings is how the stats boards behave (ADR-0012).
+message StatsSettings {
+  // Boards and match lists for everyone; off, the owner and apps with stats:read only.
+  bool public = 1;
+  // Matches a player needs before a K/D board shows them; 0 is the default, 3.
+  int32 min_matches = 2;
+  // The IANA zone weeks, months and season dates are in; empty is UTC.
+  string timezone = 3;
+  repeated StatsSeason seasons = 4;
+}
+
 // OrganizationSettings is the Organization settings resource: every host-configurable knob in
 // one document (theme and navigation, the Discord role mapping; token lifetimes and layout
 // overrides join it with their features). Version is the document format.
@@ -116,6 +136,7 @@ message OrganizationSettings {
   // When the settings were last written; unset while the defaults apply.
   google.protobuf.Timestamp updated_at = 4;
   DiscordSettings discord = 5;
+  StatsSettings stats = 6;
 }
 
 message GetOrganizationSettingsRequest {}

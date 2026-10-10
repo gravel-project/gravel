@@ -131,6 +131,17 @@ func hubDashboard() dashboard {
 					Description: "Kicks, bans, messages and moves the hub sent, by outcome; each is a row in the audit log (ListAuditLog).",
 					Targets:     []target{{Expr: `sum by (server, action, outcome) (increase(gravel_moderation_actions_total{` + sel + `}[$__rate_interval]))`, Legend: "{{server}} {{action}} {{outcome}}"}}},
 			}},
+			{Title: "Stats", Panels: []panel{
+				{Title: "Matches recorded", Kind: "timeseries", Width: 8, Optional: "no match was played in the range",
+					Description: "Matches the stats store started from the polls (ADR-0012): a rotation, every counter dropping, or the first player on an empty server.",
+					Targets:     []target{{Expr: `sum by (server) (increase(gravel_stats_matches_total{` + sel + `}[$__rate_interval]))`, Legend: "{{server}}"}}},
+				{Title: "Player rows written", Kind: "timeseries", Width: 8, Optional: "nobody was on a server in the range",
+					Description: "One row per player on a server per good poll.",
+					Targets:     []target{{Expr: `sum by (server) (increase(gravel_stats_rows_written_total{` + sel + `}[$__rate_interval]))`, Legend: "{{server}}"}}},
+				{Title: "Polls not recorded", Kind: "timeseries", Width: 8, Optional: "every poll was recorded in the range",
+					Description: "The stats store could not write a poll (the database); the next poll records from the store, so only that poll's time on is lost.",
+					Targets:     []target{{Expr: `sum by (server) (increase(gravel_stats_record_errors_total{` + sel + `}[$__rate_interval]))`, Legend: "{{server}}"}}},
+			}},
 			{Title: "Ingestion", Panels: []panel{
 				{Title: "Since the last batch", Kind: "stat", Unit: "s", Width: 8, TextMode: "value_and_name", Optional: "no server has a feed (servers.yaml feed), or none has posted yet",
 					Description: "A feed posts only while players fight, so a quiet server is quiet here too; compare with Players now (ADR-0011).",

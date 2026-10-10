@@ -1040,6 +1040,164 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.ListServersResponse'
+  /gravel.hub.v1.StatsService/GetBoard:
+    post:
+      tags:
+        - gravel.hub.v1.StatsService
+      summary: GetBoard
+      description: |-
+        GetBoard ranks the players of a server, a game or the organization over a window. Public when
+         the Organization settings make stats public; otherwise the owner or an app with stats:read.
+      operationId: gravel.hub.v1.StatsService.GetBoard
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.GetBoardRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.GetBoardResponse'
+  /gravel.hub.v1.StatsService/GetBoardName:
+    post:
+      tags:
+        - gravel.hub.v1.StatsService
+      summary: GetBoardName
+      description: GetBoardName is the logged-in member's choice to be shown by name on boards.
+      operationId: gravel.hub.v1.StatsService.GetBoardName
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.GetBoardNameRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.GetBoardNameResponse'
+  /gravel.hub.v1.StatsService/ListMatches:
+    post:
+      tags:
+        - gravel.hub.v1.StatsService
+      summary: ListMatches
+      description: ListMatches is a server's matches, newest first; the same access as GetBoard.
+      operationId: gravel.hub.v1.StatsService.ListMatches
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.ListMatchesRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.ListMatchesResponse'
+  /gravel.hub.v1.StatsService/SetBoardName:
+    post:
+      tags:
+        - gravel.hub.v1.StatsService
+      summary: SetBoardName
+      description: SetBoardName changes it; a logged-in member, for themselves only.
+      operationId: gravel.hub.v1.StatsService.SetBoardName
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.SetBoardNameRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.SetBoardNameResponse'
 components:
   schemas:
     connect-protocol-version:
@@ -1339,6 +1497,49 @@ components:
       description: |-
         Band is the range a game's configuration key may take (a publisher guardrail); an unset bound
          is open.
+    gravel.hub.v1.BoardEntry:
+      type: object
+      properties:
+        rank:
+          type: integer
+          title: rank
+          format: int32
+        name:
+          type: string
+          title: name
+        pseudonymous:
+          type: boolean
+          title: pseudonymous
+        userId:
+          type: string
+          title: user_id
+          description: The member, when shown by name.
+        kills:
+          type: integer
+          title: kills
+          format: int32
+        deaths:
+          type: integer
+          title: deaths
+          format: int32
+        kd:
+          type: number
+          title: kd
+          format: double
+          description: kills / max(deaths, 1).
+        secondsOn:
+          type: integer
+          title: seconds_on
+          format: int32
+        matches:
+          type: integer
+          title: matches
+          format: int32
+      title: BoardEntry
+      additionalProperties: false
+      description: |-
+        BoardEntry is one player on a board. A player who has not linked the identity, or has not
+         chosen to be shown by name, appears under their pseudonym (pseudonymous true, no user_id).
     gravel.hub.v1.BroadcastRequest:
       type: object
       properties:
@@ -1650,6 +1851,74 @@ components:
       description: |-
         Game is a game this hub's servers run: a Game spec gravel ships, with the deployment's
          tightenings of its bands applied.
+    gravel.hub.v1.GetBoardNameRequest:
+      type: object
+      title: GetBoardNameRequest
+      additionalProperties: false
+    gravel.hub.v1.GetBoardNameResponse:
+      type: object
+      properties:
+        showName:
+          type: boolean
+          title: show_name
+      title: GetBoardNameResponse
+      additionalProperties: false
+    gravel.hub.v1.GetBoardRequest:
+      type: object
+      properties:
+        serverId:
+          type: string
+          title: server_id
+          description: |-
+            At most one of server_id and game_id; neither is the organization's board. A server's board
+             counts its matches whatever its trust; a game's or the organization's counts Official
+             servers' only (ADR-0011's trust mapping).
+        gameId:
+          type: string
+          title: game_id
+        window:
+          type: string
+          title: window
+          description: '"week" (this week), "month" (this month), "season" (the named one), "all" (the default).'
+        season:
+          type: string
+          title: season
+        metric:
+          type: string
+          title: metric
+          description: '"kills" (the default), "deaths", "kd", "time", "matches".'
+        pageSize:
+          type: integer
+          title: page_size
+          format: int32
+        pageToken:
+          type: string
+          title: page_token
+          description: The next_page_token of the previous page; empty for the first.
+      title: GetBoardRequest
+      additionalProperties: false
+    gravel.hub.v1.GetBoardResponse:
+      type: object
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.BoardEntry'
+          title: entries
+        nextPageToken:
+          type: string
+          title: next_page_token
+        from:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: from
+          description: The window's bounds; unset for "all".
+        to:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: to
+      title: GetBoardResponse
+      additionalProperties: false
     gravel.hub.v1.GetMeRequest:
       type: object
       title: GetMeRequest
@@ -1922,6 +2191,35 @@ components:
              full pass begins its incremental reads here instead of paging through the history.
       title: ListIdentityEventsResponse
       additionalProperties: false
+    gravel.hub.v1.ListMatchesRequest:
+      type: object
+      properties:
+        serverId:
+          type: string
+          title: server_id
+        pageSize:
+          type: integer
+          title: page_size
+          format: int32
+        pageToken:
+          type: string
+          title: page_token
+          description: The next_page_token of the previous page; empty for the first.
+      title: ListMatchesRequest
+      additionalProperties: false
+    gravel.hub.v1.ListMatchesResponse:
+      type: object
+      properties:
+        matches:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.MatchSummary'
+          title: matches
+        nextPageToken:
+          type: string
+          title: next_page_token
+      title: ListMatchesResponse
+      additionalProperties: false
     gravel.hub.v1.ListServerBansRequest:
       type: object
       properties:
@@ -2034,6 +2332,41 @@ components:
           title: user
       title: LookupUserResponse
       additionalProperties: false
+    gravel.hub.v1.MatchSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+        serverId:
+          type: string
+          title: server_id
+        gameId:
+          type: string
+          title: game_id
+        startedAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: started_at
+        endedAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: ended_at
+          description: Unset while the match is on.
+        map:
+          type: string
+          title: map
+        players:
+          type: integer
+          title: players
+          format: int32
+        kills:
+          type: integer
+          title: kills
+          format: int32
+      title: MatchSummary
+      additionalProperties: false
+      description: MatchSummary is one match on a server.
     gravel.hub.v1.MessagePlayerRequest:
       type: object
       properties:
@@ -2171,6 +2504,10 @@ components:
           allOf:
             - $ref: '#/components/schemas/gravel.hub.v1.DiscordSettings'
           title: discord
+        stats:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.StatsSettings'
+          title: stats
       title: OrganizationSettings
       additionalProperties: false
       description: |-
@@ -2392,6 +2729,67 @@ components:
       title: ServerStatus
       additionalProperties: false
       description: ServerStatus is the hub's last observation of a server. It carries no personal data.
+    gravel.hub.v1.SetBoardNameRequest:
+      type: object
+      properties:
+        showName:
+          type: boolean
+          title: show_name
+          description: Show the member's display name on boards instead of their pseudonym.
+      title: SetBoardNameRequest
+      additionalProperties: false
+    gravel.hub.v1.SetBoardNameResponse:
+      type: object
+      properties:
+        showName:
+          type: boolean
+          title: show_name
+      title: SetBoardNameResponse
+      additionalProperties: false
+    gravel.hub.v1.StatsSeason:
+      type: object
+      properties:
+        name:
+          type: string
+          title: name
+        game:
+          type: string
+          title: game
+        from:
+          type: string
+          title: from
+        to:
+          type: string
+          title: to
+      title: StatsSeason
+      additionalProperties: false
+      description: |-
+        StatsSeason is a named window of matches: from (included) to to (excluded), dates
+         ("2026-10-15") in StatsSettings.timezone. An empty game is every game.
+    gravel.hub.v1.StatsSettings:
+      type: object
+      properties:
+        public:
+          type: boolean
+          title: public
+          description: Boards and match lists for everyone; off, the owner and apps with stats:read only.
+        minMatches:
+          type: integer
+          title: min_matches
+          format: int32
+          description: Matches a player needs before a K/D board shows them; 0 is the default, 3.
+        timezone:
+          type: string
+          title: timezone
+          description: The IANA zone weeks, months and season dates are in; empty is UTC.
+        seasons:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.StatsSeason'
+          title: seasons
+      title: StatsSettings
+      additionalProperties: false
+      description: StatsSettings is how the stats boards behave (ADR-0012).
     gravel.hub.v1.TeamScore:
       type: object
       properties:
@@ -2598,3 +2996,7 @@ tags:
       ServerService reads the games and servers the hub controls (ADR-0010). They are applied from a
        deployment's servers.yaml by `gravel-hub servers apply`; the hub polls each server through its
        driver and answers from the last observation, so a caller never reaches a game server.
+  - name: gravel.hub.v1.StatsService
+    description: |-
+      StatsService is the stats boards (ADR-0012): counts from the hub's own polls of each server,
+       keyed by provider identity, unlinked players under pseudonyms.
