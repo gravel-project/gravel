@@ -140,23 +140,41 @@ jobs:
       - run: make observability-check
 
   a11y:
-    runs-on: ubuntu-latest # ships Chrome, which @axe-core/cli drives
+    runs-on: ubuntu-latest # public repo: GitHub's runners only (no self-hosted runner runs a fork's code)
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
+          cache: true
       - uses: actions/setup-node@v7
         with:
           node-version: 24
-      # axe bundles a ChromeDriver that drifts from the runner's Chrome; install a synced pair.
-      - run: npx --yes browser-driver-manager@2.0.1 install chrome
-      - run: |
-          # shellcheck source=/dev/null # written by the step above
-          . ~/.browser-driver-manager/.env
-          case "$CHROME_TEST_PATH" in /*) ;; *) CHROME_TEST_PATH="$HOME/$CHROME_TEST_PATH" ;; esac
-          case "$CHROMEDRIVER_TEST_PATH" in /*) ;; *) CHROMEDRIVER_TEST_PATH="$HOME/$CHROMEDRIVER_TEST_PATH" ;; esac
-          AXE_CHROME_PATH="$CHROME_TEST_PATH" AXE_CHROMEDRIVER_PATH="$CHROMEDRIVER_TEST_PATH" make a11y
+      # npx keeps @axe-core/cli in ~/.npm; GitHub's cache brings it back, keyed on the Makefile's pin.
+      - uses: actions/cache@v6
+        with:
+          path: ~/.npm
+          key: npm-axe-${{ runner.os }}-${{ hashFiles('Makefile') }}
+      # axe drives Chrome through a ChromeDriver of the same version (its bundled one drifts). GitHub's
+      # image ships Chrome and the ChromeDriver built for it: use them when their majors match, else
+      # download a matched pair.
+      - name: Chrome and its driver
+        run: |
+          chrome="$(command -v google-chrome || true)"
+          driver="${CHROMEWEBDRIVER:+$CHROMEWEBDRIVER/chromedriver}"
+          major() { "$1" --version | grep -oE '[0-9]+' | head -1; }
+          if [[ -x "$chrome" && -x "$driver" && "$(major "$chrome")" == "$(major "$driver")" ]]; then
+            echo "the image's: $("$chrome" --version)"
+          else
+            npx --yes browser-driver-manager@2.0.1 install chrome
+            # shellcheck source=/dev/null # written by the line above
+            . ~/.browser-driver-manager/.env
+            chrome="$CHROME_TEST_PATH" driver="$CHROMEDRIVER_TEST_PATH"
+            case "$chrome" in /*) ;; *) chrome="$HOME/$chrome" ;; esac
+            case "$driver" in /*) ;; *) driver="$HOME/$driver" ;; esac
+          fi
+          { echo "AXE_CHROME_PATH=$chrome"; echo "AXE_CHROMEDRIVER_PATH=$driver"; } >>"$GITHUB_ENV"
+      - run: make a11y
 
   release-config:
     runs-on: ubuntu-latest
