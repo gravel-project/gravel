@@ -45,7 +45,7 @@ const flashTTL = time.Minute
 
 // csp is the pages' Content-Security-Policy: scripts and styles from this origin only (htmx
 // and the stylesheets), images over https, requests from htmx to this origin only.
-const csp = "default-src 'none'; script-src 'self'; style-src 'self'; img-src https: data:; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+const csp = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' https: data:; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
 
 // Handler serves the pages and the flows.
 type Handler struct {

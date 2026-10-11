@@ -68,13 +68,17 @@ func (t apiTheme) Theme(ctx context.Context) (templates.Theme, error) {
 	return theme, nil
 }
 
-// DefaultTheme is gravel's own look: a green accent, system fonts, no logo, no extra links.
-// Every colour pair meets WCAG AA contrast on its scheme's background.
+// DefaultTheme is gravel's own look, from the brand kit vendored under static/brand (built in
+// mkzsystems/brand, never edited here): the amber accent on graphite, Overpass where the viewer
+// has it, the mark as the logo and the favicon. Every colour pair meets WCAG AA contrast on its
+// scheme's background; the kit's gate checks the same pairs.
 func DefaultTheme() templates.Theme {
 	return templates.Theme{
-		Light: templates.Tokens{Accent: "#1a7a4a", Background: "#fafafa", Foreground: "#1b1b1b", Muted: "#5c5c5c", Line: "#d8d8d8", OK: "#dff5e6", Err: "#fbe0e0"},
-		Dark:  templates.Tokens{Accent: "#5fd39a", Background: "#151515", Foreground: "#ececec", Muted: "#a8a8a8", Line: "#333333", OK: "#1e3a2a", Err: "#3a1e1e"},
-		Font:  "system-ui, sans-serif",
+		Light:      templates.Tokens{Accent: "#9f6209", Background: "#f5f4f0", Foreground: "#171615", Muted: "#56544f", Line: "#dcdad4", OK: "#dcf3e7", Err: "#fbe1e0"},
+		Dark:       templates.Tokens{Accent: "#f29a1a", Background: "#111214", Foreground: "#ecebe8", Muted: "#a19f9b", Line: "#2a2a2f", OK: "#17322a", Err: "#3b1f20"},
+		Font:       "Overpass, system-ui, sans-serif",
+		LogoURL:    "/static/brand/logo/gravel-mark-auto.svg",
+		FaviconURL: "/static/brand/favicon/favicon.svg",
 	}
 }
 

@@ -192,6 +192,8 @@ theme:
     muted: "#93a3bb"
     line: "#1f2a44"
     accent: "#3ee07a"
+    ok: "#1e3a2a"            # the tints behind ok and error rows; omitted, gravel's own
+    err: "#3a1e1e"
   light:
     background: "#f2f5f9"
     foreground: "#0b1222"

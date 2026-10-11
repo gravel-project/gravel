@@ -1,0 +1,19 @@
+# gravel's own look in the hub's Organization-settings schema (docs/hub.md). The hub's
+# DefaultTheme carries the same values; a host applies this to get gravel's look verbatim.
+version: 1
+theme:
+  dark:
+    background: "#111214"
+    foreground: "#ecebe8"
+    muted: "#a19f9b"
+    line: "#2a2a2f"
+    accent: "#f29a1a"
+  light:
+    background: "#f5f4f0"
+    foreground: "#171615"
+    muted: "#56544f"
+    line: "#dcdad4"
+    accent: "#9f6209"
+  font: Overpass, system-ui, sans-serif
+  logo_url: /static/brand/logo/gravel-mark-auto.svg
+  favicon_url: /static/brand/favicon/favicon.svg
