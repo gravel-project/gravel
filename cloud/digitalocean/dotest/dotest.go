@@ -9,7 +9,8 @@
 // Actions finish lazily: one is "in-progress" when made and completes (its effect applied) on
 // the first request after its delay, zero by default. A test injects faults with Fault (the next
 // requests to a path answer with a status) and FailNextAction (the next action of a type ends
-// "errored").
+// "errored"), and WithReleaseLock models a reserved IP that will not go right after its
+// Droplet was destroyed.
 package dotest
 
 import (
@@ -53,6 +54,18 @@ func WithProject(id, name string) Option {
 	}
 }
 
+// WithReleaseLock models what DigitalOcean did to a reserved IP whose Droplet was destroyed on
+// 2026-10-11 (gravel#153). The Droplet's delete unassigns the address through an unassign_ip
+// action instead of at once (FailNextAction("unassign_ip") makes that action error, as the live
+// one did, and a second one completes it after twice the action delay), and locks the address:
+// the next DELETE of it answers 204 and does nothing, the n after that answer 422
+// unprocessable_entity "The reserved IP action is unprocessable.", and only then does a DELETE
+// release it. Without this option a Droplet's delete unassigns its addresses at once and a
+// DELETE always releases.
+func WithReleaseLock(n int) Option {
+	return func(s *Server) { s.releaseLock = max(n, 0); s.releaseLockOn = true }
+}
+
 // WithoutActionLinks makes a Droplet create answer without links.actions, as the API is allowed
 // to, so a client has to watch the Droplet instead.
 func WithoutActionLinks() Option { return func(s *Server) { s.noLinks = true } }
@@ -75,6 +88,9 @@ type Server struct {
 	delay      time.Duration
 	maxPerPage int
 	noLinks    bool
+	// releaseLock is WithReleaseLock's count of refused DELETEs; releaseLockOn says it was set.
+	releaseLock   int
+	releaseLockOn bool
 
 	mu          sync.Mutex
 	seq         int
@@ -105,6 +121,10 @@ type droplet struct {
 type reservedIP struct {
 	ip, region, project string
 	dropletID           int
+	// The lock WithReleaseLock puts on an address whose Droplet was destroyed: swallow is a
+	// DELETE still to be answered 204 with no effect, refuse the 422s after it.
+	swallow bool
+	refuse  int
 }
 
 type action struct {

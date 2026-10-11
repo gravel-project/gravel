@@ -171,7 +171,8 @@ func (s *Server) createDroplet(w http.ResponseWriter, r *http.Request) {
 }
 
 // deleteDroplet starts destroying a Droplet: its volumes are detached and its reserved IPs
-// unassigned at once, and it disappears after the action delay.
+// unassigned at once (through an action, and locked, under WithReleaseLock), and it disappears
+// after the action delay.
 func (s *Server) deleteDroplet(w http.ResponseWriter, r *http.Request) {
 	d := s.lookupDroplet(w, r)
 	if d == nil {
@@ -185,9 +186,14 @@ func (s *Server) deleteDroplet(w http.ResponseWriter, r *http.Request) {
 		v.DropletIDs = slices.DeleteFunc(v.DropletIDs, func(id int) bool { return id == d.ID })
 	}
 	for _, ip := range s.reserved {
-		if ip.dropletID == d.ID {
-			ip.dropletID = 0
+		if ip.dropletID != d.ID {
+			continue
 		}
+		if !s.releaseLockOn {
+			ip.dropletID = 0
+			continue
+		}
+		s.unassignLocked(ip)
 	}
 	d.VolumeIDs = []string{}
 	d.deleteAt = time.Now().Add(s.delay)

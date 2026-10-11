@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/digitalocean/godo"
 )
@@ -221,12 +222,34 @@ func (s *Server) createReservedIP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) deleteReservedIP(w http.ResponseWriter, r *http.Request) {
-	if _, ok := s.reserved[r.PathValue("ip")]; !ok {
+	ip, ok := s.reserved[r.PathValue("ip")]
+	switch {
+	case !ok:
 		notFound(w)
 		return
+	case ip.swallow: // accepted, and nothing happens: the leak of gravel#153
+		ip.swallow = false
+		w.WriteHeader(http.StatusNoContent)
+		return
+	case ip.refuse > 0:
+		ip.refuse--
+		unprocessable(w, "The reserved IP action is unprocessable.")
+		return
 	}
-	delete(s.reserved, r.PathValue("ip"))
+	delete(s.reserved, ip.ip)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// unassignLocked unassigns an address whose Droplet is being destroyed the way WithReleaseLock
+// describes: through an unassign_ip action, a second one when the first errors, and a lock on
+// the address's DELETE.
+func (s *Server) unassignLocked(ip *reservedIP) {
+	unassign := func() { ip.dropletID = 0 }
+	if a := s.newAction("unassign_ip", "reserved_ip", 0, 0, ip.region, unassign); a.fail {
+		retry := s.newAction("unassign_ip", "reserved_ip", 0, 0, ip.region, unassign)
+		retry.due = time.Now().Add(2 * s.delay)
+	}
+	ip.swallow, ip.refuse = true, s.releaseLock
 }
 
 func (s *Server) reservedIPAction(w http.ResponseWriter, r *http.Request) {

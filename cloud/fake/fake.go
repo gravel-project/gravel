@@ -770,7 +770,7 @@ func (p *Provider) AssignAddress(ctx context.Context, ip, instanceID string) (cl
 	}), nil
 }
 
-// ReleaseAddress gives back an unassigned address.
+// ReleaseAddress gives back an unassigned address; it is gone when the call returns.
 func (p *Provider) ReleaseAddress(ctx context.Context, ip string) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
