@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">
+<title>gravel</title>
+<defs>
+<clipPath id="gm-hub"><path d="M55.5,28.5 L66.5,33.5 Q72,36 73,41.9 L75,54.1 Q76,60 71.8,64.2 L62.2,73.8 Q58,78 52,77.5 L42,76.5 Q36,76 32.9,70.9 L27.1,61.1 Q24,56 25.7,50.3 L28.3,41.7 Q30,36 35.4,33.3 L44.6,28.7 Q50,26 55.5,28.5 Z"/></clipPath>
+<clipPath id="gm-g0"><path d="M77.5,14.4 L84.5,17.6 Q90,20 89.3,26 L88.7,30 Q88,36 82.1,35 L81.9,35 Q76,34 74.9,28.1 L73.1,17.9 Q72,12 77.5,14.4 Z"/></clipPath>
+<clipPath id="gm-g1"><path d="M83.6,66.1 L88.4,67.9 Q94,70 92.7,75.9 L91.3,82.1 Q90,88 84.2,86.5 L79.8,85.5 Q74,84 75.2,78.1 L76.8,69.9 Q78,64 83.6,66.1 Z"/></clipPath>
+<clipPath id="gm-g2"><path d="M13.5,37.6 L16.5,36.4 Q22,34 22,40 L22,52 Q22,58 16.6,60.7 L15.4,61.3 Q10,64 9.5,58 L8.5,46 Q8,40 13.5,37.6 Z"/></clipPath>
+</defs>
+<style>.s-light{display:none}@media (prefers-color-scheme: light){.s-dark{display:none}.s-light{display:inline}}</style><g class="s-dark"><g clip-path="url(#gm-hub)"><polygon points="50,26 72,36 48,46" fill="#ffb640"/><polygon points="72,36 76,60 48,46" fill="#d97f12"/><polygon points="76,60 58,78 48,46" fill="#9a5a0c"/><polygon points="58,78 36,76 48,46" fill="#b86d0f"/><polygon points="36,76 24,56 48,46" fill="#e08f1a"/><polygon points="24,56 30,36 48,46" fill="#ffc45e"/><polygon points="30,36 50,26 48,46" fill="#ffd27a"/></g>
+<g clip-path="url(#gm-g0)"><polygon points="72,12 90,20 76,34" fill="#ffc45e"/><polygon points="90,20 88,36 76,34" fill="#b86d0f"/></g>
+<g clip-path="url(#gm-g1)"><polygon points="78,64 94,70 74,84" fill="#e08f1a"/><polygon points="94,70 90,88 74,84" fill="#9a5a0c"/></g>
+<g clip-path="url(#gm-g2)"><polygon points="8,40 22,34 10,64" fill="#ffd27a"/><polygon points="22,34 22,58 10,64" fill="#d97f12"/></g></g><g class="s-light"><g fill="#171615"><path d="M55.5,28.5 L66.5,33.5 Q72,36 73,41.9 L75,54.1 Q76,60 71.8,64.2 L62.2,73.8 Q58,78 52,77.5 L42,76.5 Q36,76 32.9,70.9 L27.1,61.1 Q24,56 25.7,50.3 L28.3,41.7 Q30,36 35.4,33.3 L44.6,28.7 Q50,26 55.5,28.5 Z"/><path d="M77.5,14.4 L84.5,17.6 Q90,20 89.3,26 L88.7,30 Q88,36 82.1,35 L81.9,35 Q76,34 74.9,28.1 L73.1,17.9 Q72,12 77.5,14.4 Z"/><path d="M83.6,66.1 L88.4,67.9 Q94,70 92.7,75.9 L91.3,82.1 Q90,88 84.2,86.5 L79.8,85.5 Q74,84 75.2,78.1 L76.8,69.9 Q78,64 83.6,66.1 Z"/><path d="M13.5,37.6 L16.5,36.4 Q22,34 22,40 L22,52 Q22,58 16.6,60.7 L15.4,61.3 Q10,64 9.5,58 L8.5,46 Q8,40 13.5,37.6 Z"/></g></g>
+</svg>

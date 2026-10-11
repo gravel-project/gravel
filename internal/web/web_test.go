@@ -479,7 +479,7 @@ func TestThemeAndStatic(t *testing.T) {
 	if resp.StatusCode != http.StatusOK || !strings.HasPrefix(resp.Header.Get("Content-Type"), "text/css") || resp.Header.Get("ETag") == "" {
 		t.Fatalf("theme.css: %d %q etag=%q", resp.StatusCode, resp.Header.Get("Content-Type"), resp.Header.Get("ETag"))
 	}
-	if !strings.Contains(body, "--accent:#0b5fff") || !strings.Contains(body, "--bg:#151515") || !strings.Contains(body, "--font:system-ui, sans-serif") || !strings.Contains(body, "prefers-color-scheme: dark") {
+	if !strings.Contains(body, "--accent:#0b5fff") || !strings.Contains(body, "--bg:#111214") || !strings.Contains(body, "--font:Overpass, system-ui, sans-serif") || !strings.Contains(body, "prefers-color-scheme: dark") {
 		t.Errorf("theme.css should carry the host's valid tokens and the default for the bad one:\n%s", body)
 	}
 	if resp, _ := get(t, c, r.srv.URL+"/theme.css", "If-None-Match", resp.Header.Get("ETag")); resp.StatusCode != http.StatusNotModified {
@@ -492,6 +492,17 @@ func TestThemeAndStatic(t *testing.T) {
 	resp, body = get(t, c, r.srv.URL+"/static/vendor/htmx.min.js")
 	if resp.StatusCode != http.StatusOK || !strings.Contains(resp.Header.Get("Content-Type"), "javascript") || !strings.HasPrefix(body, "var htmx=") {
 		t.Errorf("htmx: %d %q", resp.StatusCode, resp.Header.Get("Content-Type"))
+	}
+	// The brand kit vendored under static/brand: the default theme's logo and favicon are served
+	// from the binary, and both follow the viewer's colour scheme.
+	for _, path := range []string{web.DefaultTheme().LogoURL, web.DefaultTheme().FaviconURL, "/static/brand/favicon/favicon.ico", "/static/brand/tokens.css"} {
+		resp, body = get(t, c, r.srv.URL+path)
+		if resp.StatusCode != http.StatusOK || resp.Header.Get("Cache-Control") == "" {
+			t.Errorf("%s: %d", path, resp.StatusCode)
+		}
+		if strings.HasSuffix(path, ".svg") && (!strings.HasPrefix(resp.Header.Get("Content-Type"), "image/svg+xml") || !strings.Contains(body, "prefers-color-scheme")) {
+			t.Errorf("%s: %q, should be a scheme-aware svg", path, resp.Header.Get("Content-Type"))
+		}
 	}
 	if resp, _ := get(t, c, r.srv.URL+"/static/../web.go"); resp.StatusCode == http.StatusOK {
 		t.Error("nothing outside static/ is served")
@@ -524,7 +535,7 @@ func TestThemeFromSettings(t *testing.T) {
 	c := browser(t)
 
 	_, css := get(t, c, srv.URL+"/theme.css")
-	if !strings.Contains(css, "--accent:#1a7a4a") {
+	if !strings.Contains(css, "--accent:#9f6209") {
 		t.Errorf("defaults before any settings:\n%s", css)
 	}
 	if _, err := orgSvc.UpdateSettings(context.Background(), org.Settings{
@@ -534,7 +545,7 @@ func TestThemeFromSettings(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, css = get(t, c, srv.URL+"/theme.css")
-	for _, want := range []string{"--accent:#0a7a3a", "--bg:#fafafa", "--font:Archivo, system-ui, sans-serif", "--accent:#3ee07a", "--bg:#070b17"} {
+	for _, want := range []string{"--accent:#0a7a3a", "--bg:#f5f4f0", "--font:Archivo, system-ui, sans-serif", "--accent:#3ee07a", "--bg:#070b17"} {
 		if !strings.Contains(css, want) {
 			t.Errorf("theme.css should carry %q (set tokens) with defaults for the rest:\n%s", want, css)
 		}

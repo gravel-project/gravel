@@ -32,7 +32,7 @@ func TestGameOverlayStylesheet(t *testing.T) {
 	for _, want := range []string{
 		"[data-game=\"wardogs\"]{--accent:#8a5a00}\n",
 		// No dark accent: the organization's dark accent (the default) keeps dark mode readable.
-		"@media (prefers-color-scheme: dark){[data-game=\"wardogs\"]{--accent:#5fd39a}}\n",
+		"@media (prefers-color-scheme: dark){[data-game=\"wardogs\"]{--accent:#f29a1a}}\n",
 	} {
 		if !strings.Contains(css, want) {
 			t.Errorf("theme.css lacks %q:\n%s", want, css)

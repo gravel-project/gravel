@@ -1,0 +1,26 @@
+{
+ "name": "gravel",
+ "short_name": "gravel",
+ "description": "Host many game servers across many games with one control plane and cross-game stats.",
+ "icons": [
+  {
+   "src": "/static/brand/favicon/icon-192.png",
+   "sizes": "192x192",
+   "type": "image/png"
+  },
+  {
+   "src": "/static/brand/favicon/icon-512.png",
+   "sizes": "512x512",
+   "type": "image/png"
+  },
+  {
+   "src": "/static/brand/favicon/icon-maskable-512.png",
+   "sizes": "512x512",
+   "type": "image/png",
+   "purpose": "maskable"
+  }
+ ],
+ "theme_color": "#111214",
+ "background_color": "#111214",
+ "display": "standalone"
+}
