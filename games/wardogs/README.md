@@ -49,3 +49,13 @@ WARDOGS_BASE_URL=http://<host>:<rcon-port> WARDOGS_TOKEN_FILE=<file> go test -ta
 ```
 
 It fails when the server runs a build with no recording here.
+
+## The recordings in a binary, and the simulator
+
+The recorded builds are embedded in the package (`Recordings`, `Recording`, `NewestRecording`), so
+the files under `testdata/` stay the one source and a binary can still serve them.
+`wardogsim` is a simulated server for a demo hub (gravel#112). It answers as the newest recording
+does, over made-up players with stand-in SteamIDs who join, fight, rejoin and leave on a calibration
+profile's curves. Moderation, configuration writes and the three-strike lock work as above, and it
+posts kill batches to `[WDServerFeed]` in a shape that is a guess until one is captured
+(`wardogsim/feed.go`). A new recording here is what the simulator answers as next.
