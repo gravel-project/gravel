@@ -79,6 +79,13 @@ func newRig(t *testing.T) *rig {
 // newRigWithTheme is newRig with theme as the pages' theme.
 func newRigWithTheme(t *testing.T, theme templates.Theme) *rig {
 	t.Helper()
+	return newRigWith(t, theme, true)
+}
+
+// newRigWith is newRigWithTheme; without login it registers no provider, as a hub with no auth
+// section (a demo hub) runs.
+func newRigWith(t *testing.T, theme templates.Theme, login bool) *rig {
+	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	r := &rig{idSt: identitytest.NewFakeStore(), servers: newFakeServers(), stats: &fakeStats{}, mod: &fakeMod{}}
 	orgSvc := org.New(&orgtest.FakeStore{}, 15*time.Minute, logger)
@@ -94,7 +101,11 @@ func newRigWithTheme(t *testing.T, theme templates.Theme) *rig {
 	r.steam = &identitytest.FakeProvider{ProviderName: "steam", Accounts: map[string]identity.Account{
 		"jo-steam": {Subject: "76561198000000001", DisplayName: "JoOnSteam", Method: identity.MethodOpenID},
 	}}
-	ids := identity.New(r.idSt, o.ID, []identity.Registration{{Provider: r.discord, Login: true}, {Provider: r.steam}}, 10*time.Minute, logger)
+	regs := []identity.Registration{{Provider: r.discord, Login: true}, {Provider: r.steam}}
+	if !login {
+		regs = nil
+	}
+	ids := identity.New(r.idSt, o.ID, regs, 10*time.Minute, logger)
 	sess := session.New(r.idSt, time.Hour, false, logger)
 	r.sess = sess
 	r.appSt = appstest.NewFakeStore()

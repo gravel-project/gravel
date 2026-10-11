@@ -49,7 +49,7 @@ templ Layout(p Page) {
 							<input type="hidden" name="_csrf" value={ p.CSRF }/>
 							<button type="submit" class="link">Log out</button>
 						</form>
-					} else {
+					} else if p.CanLogIn {
 						<a href="/login">Log in</a>
 					}
 				</nav>
