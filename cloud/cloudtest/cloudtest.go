@@ -574,6 +574,15 @@ func (s *suite) delete(t *testing.T) {
 		if err := s.p.ReleaseAddress(s.ctx(t), s.addr); err != nil {
 			t.Fatalf("ReleaseAddress: %v", err)
 		}
+		// ReleaseAddress returns once the address is gone: a provider that returns while the
+		// cloud still holds it leaks an address that bills (gravel#153). s.addr stays set until
+		// this holds, so the cleanup releases an address this step could not.
+		s.eventually(t, "the released address is gone", func(ctx context.Context) (bool, error) {
+			return s.addressGone(ctx, s.addr)
+		})
+		if err := s.p.ReleaseAddress(s.ctx(t), s.addr); !errors.Is(err, cloud.ErrNotFound) {
+			t.Errorf("ReleaseAddress of a released address = %v, want an error wrapping cloud.ErrNotFound", err)
+		}
 		s.addr = ""
 	}
 	if err := s.p.DeleteVolume(s.ctx(t), s.vol.ID); err != nil {
@@ -644,6 +653,15 @@ func (s *suite) findAddress(ctx context.Context, ip string) (cloud.Address, erro
 	return cloud.Address{}, fmt.Errorf("address %s is not listed", ip)
 }
 
+// addressGone is whether Addresses no longer lists the address by its IP.
+func (s *suite) addressGone(ctx context.Context, ip string) (bool, error) {
+	addrs, err := s.p.Addresses(ctx, cloud.Filter{Name: ip})
+	if err != nil {
+		return false, err
+	}
+	return len(addrs) == 0, nil
+}
+
 func findSize(sizes []cloud.Size, slug string) (cloud.Size, bool) {
 	i := slices.IndexFunc(sizes, func(s cloud.Size) bool { return s.Slug == slug })
 	if i < 0 {
@@ -709,7 +727,19 @@ func (s *suite) cleanup(t *testing.T) {
 		}
 	}
 	if s.addr != "" {
-		if err := s.retry(ctx, func() error { return s.p.ReleaseAddress(ctx, s.addr) }); err != nil {
+		// Released means gone: retry until the address no longer lists, not just until a
+		// release answered (gravel#153).
+		err := s.retry(ctx, func() error {
+			if err := s.p.ReleaseAddress(ctx, s.addr); err != nil && !errors.Is(err, cloud.ErrNotFound) {
+				return err
+			}
+			gone, err := s.addressGone(ctx, s.addr)
+			if err == nil && !gone {
+				err = fmt.Errorf("address %s is still listed after its release", s.addr)
+			}
+			return err
+		})
+		if err != nil {
 			t.Errorf("cleanup: release address %s: %v", s.addr, err)
 		}
 	}

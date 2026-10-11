@@ -91,7 +91,11 @@ type Provider interface {
 	AllocateAddress(ctx context.Context, region string, tags []string) (Address, error)
 	// AssignAddress points an address at an instance.
 	AssignAddress(ctx context.Context, ip, instanceID string) (Operation, error)
-	// ReleaseAddress gives an unassigned address back.
+	// ReleaseAddress gives an unassigned address back and returns once the cloud no longer has
+	// it: a cloud that takes the release and keeps the address for a while (DigitalOcean, right
+	// after the address's instance was destroyed) is asked again until it lets go, and the
+	// context's end is an error wrapping ErrOperationFailed, never a quiet success. An address
+	// the cloud does not have is ErrNotFound; an assigned one is ErrInvalid.
 	ReleaseAddress(ctx context.Context, ip string) error
 
 	// Firewalls lists the firewalls matching the filter.

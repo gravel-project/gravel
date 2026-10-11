@@ -53,6 +53,18 @@ updates install themselves daily (dnf5-automatic, no reboot).
    It waits for SSH and for cloud-init, then prints the address. The host's key is trusted on
    first use and kept in gravel's own `known_hosts` (`~/.config/gravel/known_hosts`).
 
+   `--project` takes a project's name or its id. **Prefer the id:** renaming a project in the
+   control panel breaks a name, never an id. Read the ids from the API:
+
+   ```sh
+   curl -s -H "Authorization: Bearer $(cat "$GRAVEL_DIGITALOCEAN_TOKEN_FILE")" \
+     https://api.digitalocean.com/v2/projects | jq -r '.projects[] | "\(.id)  \(.name)"'
+   ```
+
+   or from the error itself: a name that matches no project fails before anything is made,
+   listing every project with its id and suggesting the one whose name differs only in case and
+   punctuation (`did you mean "My Community" (7fd3841c-…)?`). It never uses that one for you.
+
 ### Profiles
 
 - **`--profile host`** (the default) is the machine. Install the hub with your own tooling over

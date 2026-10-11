@@ -40,9 +40,15 @@ func TestConformance(t *testing.T) {
 		{"slow", []dotest.Option{dotest.WithActionDelay(3 * time.Millisecond), dotest.WithMaxPerPage(2)}},
 		// A create that answers without an action link, so Wait watches the Droplet.
 		{"no-action-links", []dotest.Option{dotest.WithoutActionLinks()}},
+		// The reserved IP the live run leaked (gravel#153): after its Droplet is destroyed the
+		// unassign errors once, a DELETE is taken and ignored, and three more are refused.
+		{"release-lock", []dotest.Option{dotest.WithReleaseLock(3), dotest.WithActionDelay(3 * time.Millisecond)}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			srv := dotest.New(t, append([]dotest.Option{dotest.WithProject(projectID, "hidden-token-gaming")}, tc.opts...)...)
+			if tc.name == "release-lock" {
+				srv.FailNextAction("unassign_ip")
+			}
 			// Registered before Run, so it runs after the suite's own cleanup: the suite must
 			// leave nothing behind but its SSH key, which the interface cannot delete.
 			t.Cleanup(func() {
@@ -68,6 +74,9 @@ func TestConformance(t *testing.T) {
 				Prefix:      "gravel-ct",
 				Tag:         "gravel-ct",
 				Poll:        time.Millisecond,
+				// The emulator answers at once: a step still waiting after this is a bug, and
+				// fails in seconds instead of the live run's ten minutes.
+				Timeout: 20 * time.Second,
 			})
 		})
 	}

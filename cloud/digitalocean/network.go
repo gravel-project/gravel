@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/digitalocean/godo"
 
@@ -69,10 +71,102 @@ func (p *Provider) AssignAddress(ctx context.Context, ip, instanceID string) (cl
 	return actionOp("assign", ip, a), nil
 }
 
-// ReleaseAddress gives a reserved IP back.
+// ReleaseAddress gives a reserved IP back and returns once DigitalOcean no longer has it.
+//
+// One DELETE is not enough (gravel#153). Right after the Droplet holding an address is
+// destroyed, DigitalOcean unassigns the address, and while that settles the API may take a
+// DELETE and keep the address: on 2026-10-11 an unassign_ip action errored during the Droplet's
+// deletion and a second one completed 40 s later, the suite's DELETE was answered without an
+// error and the address stayed, later DELETEs answered 422 "The reserved IP action is
+// unprocessable." for a few minutes, and then one answered 204 and the address went. An
+// unassigned address bills, and reserved IPs carry no tags, so nothing finds a leaked one again.
+// So the release is confirmed by a GET that answers 404, and while the address is still there
+// the DELETE is sent again, a 422 included, pausing as Wait does (the poll interval, growing to
+// five times it), until the context ends; then it fails with cloud.ErrOperationFailed, naming
+// the address and the last answer.
+//
+// An address the API never showed (the first DELETE, or the first GET, answered 404) is
+// cloud.ErrNotFound, as for every other delete. A 422 for an address still assigned to a Droplet
+// that exists is cloud.ErrInvalid at once: waiting does not release an assigned address.
 func (p *Provider) ReleaseAddress(ctx context.Context, ip string) error {
-	_, err := p.c.ReservedIPs.Delete(ctx, ip)
-	return apiErr("release reserved ip "+ip, err)
+	what := "release reserved ip " + ip
+	pause := p.poll
+	last := "none"
+	// existed is whether the API has shown the address: after that a 404 means the release took
+	// effect; before it, the address was never there.
+	existed := false
+	gone := func(err error) error {
+		if existed {
+			return nil
+		}
+		return err
+	}
+	for {
+		_, derr := p.c.ReservedIPs.Delete(ctx, ip)
+		derr = apiErr(what, derr)
+		switch {
+		case derr == nil:
+			existed = true
+			last = "the DELETE was accepted, and the address is still there"
+		case errors.Is(derr, cloud.ErrNotFound):
+			return gone(derr)
+		case statusOf(derr) == http.StatusUnprocessableEntity:
+			existed = true
+			last = derr.Error()
+		case errors.Is(derr, cloud.ErrRateLimited):
+			last = derr.Error()
+		case ctx.Err() != nil:
+			return releaseTimedOut(ctx, ip, last)
+		default:
+			return derr
+		}
+
+		cur, _, gerr := p.c.ReservedIPs.Get(ctx, ip)
+		gerr = apiErr("get reserved ip "+ip, gerr)
+		switch {
+		case errors.Is(gerr, cloud.ErrNotFound):
+			return gone(gerr)
+		case gerr == nil:
+			existed = true
+			if derr != nil && cur.Droplet != nil && cur.Droplet.ID != 0 && statusOf(derr) == http.StatusUnprocessableEntity {
+				id := strconv.Itoa(cur.Droplet.ID)
+				if _, err := p.droplet(ctx, id); err == nil {
+					return fmt.Errorf("digitalocean: %s: %w: it is assigned to droplet %s (%w)", what, cloud.ErrInvalid, id, derr)
+				}
+			}
+		case errors.Is(gerr, cloud.ErrRateLimited):
+		case ctx.Err() != nil:
+			return releaseTimedOut(ctx, ip, last)
+		default:
+			return gerr
+		}
+
+		timer := time.NewTimer(pause)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return releaseTimedOut(ctx, ip, last)
+		case <-timer.C:
+		}
+		if pause = pause * 3 / 2; pause > 5*p.poll {
+			pause = 5 * p.poll
+		}
+	}
+}
+
+// releaseTimedOut is ReleaseAddress giving up at the context's end with the address still there.
+func releaseTimedOut(ctx context.Context, ip, last string) error {
+	return fmt.Errorf("digitalocean: release reserved ip %s: %w: the address still exists when the wait ended (%w); the last answer: %s",
+		ip, cloud.ErrOperationFailed, ctx.Err(), last)
+}
+
+// statusOf is the HTTP status of the API's answer inside err, or 0.
+func statusOf(err error) int {
+	var er *godo.ErrorResponse
+	if errors.As(err, &er) && er.Response != nil {
+		return er.Response.StatusCode
+	}
+	return 0
 }
 
 func toAddress(ip *godo.ReservedIP) cloud.Address {

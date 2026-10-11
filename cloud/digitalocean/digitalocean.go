@@ -8,8 +8,10 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"github.com/digitalocean/godo"
 
@@ -266,7 +268,49 @@ func (p *Provider) projectID(ctx context.Context) (string, error) {
 			return pr.ID, nil
 		}
 	}
-	return "", fmt.Errorf("digitalocean: project %q: %w", p.project, cloud.ErrNotFound)
+	return "", unknownProject(p.project, projects)
+}
+
+// unknownProject is the error for a project name no project has. It lists the projects the team
+// has, so the operator sees the real names and ids, and suggests any whose name differs only in
+// case and punctuation ("hidden-token-gaming" for "Hidden Token Gaming"), which is what a rename
+// in the control panel usually does. A near match is only suggested, never used: an operator who
+// names a project must name it exactly (gravel#152).
+func unknownProject(name string, projects []godo.Project) error {
+	quote := func(pr godo.Project) string { return fmt.Sprintf("%q (%s)", pr.Name, pr.ID) }
+	var near, all []string
+	for _, pr := range projects {
+		all = append(all, quote(pr))
+		if k := projectKey(pr.Name); k != "" && k == projectKey(name) {
+			near = append(near, quote(pr))
+		}
+	}
+	var list string
+	switch len(all) {
+	case 0:
+		list = "the team has no projects"
+	case 1:
+		list = "the team's only project is " + all[0]
+	default:
+		list = "the team's projects are " + strings.Join(all, ", ")
+	}
+	if len(near) > 0 {
+		list = "did you mean " + strings.Join(near, " or ") + "? " + strings.ToUpper(list[:1]) + list[1:]
+	}
+	return fmt.Errorf("digitalocean: project %q: %w; %s; name one exactly, or by its id, which a rename does not change",
+		name, cloud.ErrNotFound, list)
+}
+
+// projectKey is a project name compared case- and punctuation-insensitively: lower-case letters
+// and digits only.
+func projectKey(name string) string {
+	var b strings.Builder
+	for _, r := range strings.ToLower(name) {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }
 
 // assign puts created resources in a project resolved with projectID before they were made, so

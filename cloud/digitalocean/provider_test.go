@@ -223,6 +223,95 @@ func TestUnknownProject(t *testing.T) {
 	}
 }
 
+// TestProjectNames resolves Config.Project against a team whose projects the emulator holds. A
+// name that matches no project fails before anything is made, lists the team's projects by name
+// and id, and suggests one whose name differs only in case and punctuation without using it: on
+// 2026-10-11 "hidden-token-gaming" was renamed "Hidden Token Gaming" and the error said only
+// "not found" (gravel#152).
+func TestProjectNames(t *testing.T) {
+	const renamedID = "7fd3841c-2b1a-4c3d-8e9f-0a1b2c3d4e5f"
+	for _, tc := range []struct {
+		name     string
+		projects [][2]string // id, name, beside the default project
+		project  string
+		ok       bool
+		contains []string
+		absent   []string
+	}{
+		{name: "exact name", projects: [][2]string{{renamedID, "Hidden Token Gaming"}}, project: "Hidden Token Gaming", ok: true},
+		{name: "id", projects: [][2]string{{renamedID, "Hidden Token Gaming"}}, project: renamedID, ok: true},
+		{
+			name: "renamed", projects: [][2]string{{renamedID, "Hidden Token Gaming"}, {projectID, "Other"}}, project: "hidden-token-gaming",
+			contains: []string{
+				`project "hidden-token-gaming"`,
+				`did you mean "Hidden Token Gaming" (` + renamedID + `)?`,
+				`"Default" (` + dotest.DefaultProjectID + `)`,
+				`"Hidden Token Gaming" (` + renamedID + `)`,
+				`"Other" (` + projectID + `)`,
+				"by its id",
+			},
+		},
+		{
+			name: "no near match", projects: [][2]string{{renamedID, "Hidden Token Gaming"}}, project: "my-community",
+			contains: []string{`"Default" (` + dotest.DefaultProjectID + `)`, `"Hidden Token Gaming" (` + renamedID + `)`},
+			absent:   []string{"did you mean"},
+		},
+		{
+			name: "only the default project", project: "hidden-token-gaming",
+			contains: []string{`the team's only project is "Default" (` + dotest.DefaultProjectID + `)`},
+			absent:   []string{"did you mean"},
+		},
+		{
+			// Punctuation alone is no name: it must not suggest every project with no letters.
+			name: "punctuation only", projects: [][2]string{{renamedID, "---"}}, project: "--",
+			absent: []string{"did you mean"},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var opts []dotest.Option
+			for _, pr := range tc.projects {
+				opts = append(opts, dotest.WithProject(pr[0], pr[1]))
+			}
+			srv := dotest.New(t, append(opts, dotest.WithToken(secretToken))...)
+			p, err := digitalocean.New(digitalocean.Config{
+				BaseURL: srv.URL(), Token: secretToken, Project: tc.project, PollInterval: time.Millisecond, RetryWait: time.Millisecond,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = p.CreateVolume(t.Context(), cloud.VolumeSpec{Name: "data", Region: "sfo3", SizeGiB: 1})
+			if tc.ok {
+				if err != nil {
+					t.Fatalf("CreateVolume in project %q: %v", tc.project, err)
+				}
+				if got := srv.ProjectResources(renamedID); len(got) != 1 {
+					t.Errorf("project %s holds %v, want the volume", renamedID, got)
+				}
+				return
+			}
+			if !errors.Is(err, cloud.ErrNotFound) {
+				t.Fatalf("CreateVolume in project %q: %v, want an error wrapping cloud.ErrNotFound", tc.project, err)
+			}
+			for _, want := range tc.contains {
+				if !strings.Contains(err.Error(), want) {
+					t.Errorf("error %q does not contain %q", err, want)
+				}
+			}
+			for _, unwanted := range tc.absent {
+				if strings.Contains(err.Error(), unwanted) {
+					t.Errorf("error %q contains %q", err, unwanted)
+				}
+			}
+			if strings.Contains(err.Error(), secretToken) {
+				t.Errorf("error carries the token: %v", err)
+			}
+			if got := srv.Counts(); got != (dotest.Counts{}) {
+				t.Errorf("an unknown project still made %+v", got)
+			}
+		})
+	}
+}
+
 func TestPagination(t *testing.T) {
 	p, srv := newProvider(t, "", dotest.WithMaxPerPage(2))
 	ctx := t.Context()
@@ -526,6 +615,114 @@ func TestAddresses(t *testing.T) {
 	}
 	if err := p.ReleaseAddress(ctx, a.IP); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// destroyedWithAddress makes a Droplet with a reserved IP assigned, destroys the Droplet and
+// waits until it is gone and the address reads unassigned: the state the conformance suite's
+// delete step releases the address in.
+func destroyedWithAddress(t *testing.T, p *digitalocean.Provider) string {
+	t.Helper()
+	ctx := t.Context()
+	inst := running(t, p, "vm")
+	a, err := p.AllocateAddress(ctx, "sfo3", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	op, err := p.AssignAddress(ctx, a.IP, inst.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := p.Wait(ctx, op); err != nil {
+		t.Fatal(err)
+	}
+	if op, err = p.DeleteInstance(ctx, inst.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := p.Wait(ctx, op); err != nil {
+		t.Fatal(err)
+	}
+	got, err := p.Addresses(ctx, cloud.Filter{Name: a.IP})
+	if err != nil || len(got) != 1 || got[0].InstanceID != "" {
+		t.Fatalf("the address after its Droplet went = %+v, %v; want it there, unassigned", got, err)
+	}
+	return a.IP
+}
+
+// TestReleaseAddressOutlastsTheLock is the live run's leak (gravel#153) against the emulator: the
+// first DELETE after the Droplet's destruction is answered 204 and does nothing, the next three
+// are refused with 422, and the unassign errored once first. A ReleaseAddress that trusts one
+// DELETE (the old one) returns nil with the address still there and fails here; this one sends
+// the DELETE again until a GET answers 404.
+func TestReleaseAddressOutlastsTheLock(t *testing.T) {
+	p, srv := newProvider(t, "", dotest.WithReleaseLock(3))
+	srv.FailNextAction("unassign_ip")
+	ip := destroyedWithAddress(t, p)
+	if err := p.ReleaseAddress(t.Context(), ip); err != nil {
+		t.Fatalf("ReleaseAddress: %v", err)
+	}
+	if got := srv.Counts().ReservedIPs; got != 0 {
+		t.Fatalf("ReleaseAddress returned with %d reserved IPs still in the account", got)
+	}
+	if got, err := p.Addresses(t.Context(), cloud.Filter{Name: ip}); err != nil || len(got) != 0 {
+		t.Errorf("Addresses(%s) after the release = %+v, %v; want none", ip, got, err)
+	}
+	if n := count(srv.Requests(), http.MethodDelete, "/v2/reserved_ips/"+ip); n != 5 {
+		t.Errorf("ReleaseAddress sent %d DELETEs, want 5 (one swallowed, three refused, one that took)", n)
+	}
+	if err := p.ReleaseAddress(t.Context(), ip); !errors.Is(err, cloud.ErrNotFound) {
+		t.Errorf("ReleaseAddress of a released address: %v, want ErrNotFound", err)
+	}
+}
+
+// TestReleaseAddressGivesUpAtTheDeadline is an address the API never lets go: the release fails
+// at the context's end with ErrOperationFailed, naming the address and the API's last answer,
+// and never the token.
+func TestReleaseAddressGivesUpAtTheDeadline(t *testing.T) {
+	p, srv := newProvider(t, "", dotest.WithReleaseLock(1<<30))
+	ip := destroyedWithAddress(t, p)
+	ctx, cancel := context.WithTimeout(t.Context(), 50*time.Millisecond)
+	defer cancel()
+	err := p.ReleaseAddress(ctx, ip)
+	if !errors.Is(err, cloud.ErrOperationFailed) || !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("ReleaseAddress = %v, want ErrOperationFailed and the deadline", err)
+	}
+	for _, want := range []string{ip, "422", "The reserved IP action is unprocessable."} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q does not contain %q", err, want)
+		}
+	}
+	if strings.Contains(fmt.Sprintf("%+v", err), secretToken) {
+		t.Errorf("error carries the token: %v", err)
+	}
+	if got := srv.Counts().ReservedIPs; got != 1 {
+		t.Errorf("reserved IPs = %d, want the one the API kept", got)
+	}
+}
+
+func TestReleaseAddressRefusals(t *testing.T) {
+	p, srv := newProvider(t, "")
+	ctx := t.Context()
+	if err := p.ReleaseAddress(ctx, "203.0.113.9"); !errors.Is(err, cloud.ErrNotFound) {
+		t.Errorf("ReleaseAddress of an unknown address: %v, want ErrNotFound", err)
+	}
+	// An assigned address the API refuses with 422 is the caller's mistake, not a lock to wait
+	// out: ErrInvalid at once.
+	inst := running(t, p, "vm")
+	a, err := p.AllocateAddress(ctx, "sfo3", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	op, err := p.AssignAddress(ctx, a.IP, inst.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := p.Wait(ctx, op); err != nil {
+		t.Fatal(err)
+	}
+	srv.Fault(http.MethodDelete, "/v2/reserved_ips/"+a.IP, http.StatusUnprocessableEntity, 1)
+	if err := p.ReleaseAddress(ctx, a.IP); !errors.Is(err, cloud.ErrInvalid) || !strings.Contains(err.Error(), inst.ID) {
+		t.Errorf("ReleaseAddress of an assigned address: %v, want ErrInvalid naming droplet %s", err, inst.ID)
 	}
 }
 
