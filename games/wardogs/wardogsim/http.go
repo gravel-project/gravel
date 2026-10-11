@@ -3,6 +3,7 @@ package wardogsim
 import (
 	"bytes"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
 	"io"
@@ -182,11 +183,7 @@ func (s *Server) admit(p *peer, r *http.Request, public bool, now time.Time) (re
 // tokenEqual compares in time that does not depend on where the strings differ.
 func tokenEqual(got, want string) bool {
 	a, b := sha256.Sum256([]byte(got)), sha256.Sum256([]byte(want))
-	var diff byte
-	for i := range a {
-		diff |= a[i] ^ b[i]
-	}
-	return diff == 0
+	return subtle.ConstantTimeCompare(a[:], b[:]) == 1
 }
 
 // retrySeconds is a Retry-After in whole seconds, 1–60 as the server's are.
