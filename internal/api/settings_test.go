@@ -37,7 +37,9 @@ func TestOrganizationSettings(t *testing.T) {
 				{Game: "cs2", Label: "Counter-Strike 2", ApplicationIds: []string{"1158877933042143272"}},
 			}},
 			Recaps: []*hubv1.DiscordRecap{{Server: "htg-wardogs-1", Channel: "1300000000000000103", Title: "Wardogs Wednesday", Floor: 20, Note: "See you next week.",
-				Hours: []*hubv1.DiscordSeedingHours{{Days: []string{"wed"}, From: "18:00", To: "22:00"}}}}},
+				Hours: []*hubv1.DiscordSeedingHours{{Days: []string{"wed"}, From: "18:00", To: "22:00"}}}},
+			Streams: &hubv1.DiscordStreams{Channel: "1300000000000000104", Role: "1300000000000000005", Note: "Grab the Stream role to be pinged.",
+				Streamers: []*hubv1.DiscordStreamer{{Platform: "twitch", Login: "hiddentoken", Label: "Hidden Token"}, {Platform: "kick", Login: "hiddentoken"}}}},
 		Stats: &hubv1.StatsSettings{MinMatches: 5, Timezone: "America/Chicago", RawRetentionMonths: 6, Seasons: []*hubv1.StatsSeason{{Name: "Season 02", Game: "wardogs", From: "2026-10-15", To: "2027-01-15"}}},
 		Games: map[string]*hubv1.GameSettings{"wardogs": {
 			Theme: &hubv1.GameTheme{Light: &hubv1.ThemeTokens{Accent: "#8a5a00"}, Dark: &hubv1.ThemeTokens{Accent: "#f0b429"}, BannerUrl: "https://hiddentoken.com/brand/wardogs.png", BannerAlt: "War Dogs"},
@@ -88,6 +90,9 @@ func TestOrganizationSettings(t *testing.T) {
 	if !proto.Equal(d.GetPresence(), want.GetDiscord().GetPresence()) {
 		t.Errorf("presence read back: %v", d.GetPresence())
 	}
+	if !proto.Equal(d.GetStreams(), want.GetDiscord().GetStreams()) {
+		t.Errorf("streams read back: %v", d.GetStreams())
+	}
 	if st := got.Msg.GetSettings().GetStats(); st.GetMinMatches() != 5 || st.GetRawRetentionMonths() != 6 || st.GetTimezone() != "America/Chicago" || len(st.GetSeasons()) != 1 || st.GetSeasons()[0].GetGame() != "wardogs" || st.GetPublic() {
 		t.Errorf("stats read back: %v", st)
 	}
@@ -104,14 +109,15 @@ func TestOrganizationSettings(t *testing.T) {
 		Discord: &hubv1.DiscordSettings{Roles: &hubv1.DiscordRoles{Providers: map[string]string{"xbox": "1300000000000000002"}},
 			Seeding: []*hubv1.DiscordSeeding{{Server: "htg-wardogs-1", Channel: "1300000000000000101", Role: "1300000000000000004", Below: 1,
 				Hours: []*hubv1.DiscordSeedingHours{{Days: []string{"wed"}, From: "18:00", To: "18:00"}}}},
-			Presence: &hubv1.DiscordPresence{Channel: "#whos-playing", Games: []*hubv1.DiscordPresenceGame{{Game: "wardogs", Label: "War Dogs"}}}},
+			Presence: &hubv1.DiscordPresence{Channel: "#whos-playing", Games: []*hubv1.DiscordPresenceGame{{Game: "wardogs", Label: "War Dogs"}}},
+			Streams:  &hubv1.DiscordStreams{Channel: "1300000000000000104", Streamers: []*hubv1.DiscordStreamer{{Platform: "youtube", Login: "hiddentoken"}}}},
 		Games: map[string]*hubv1.GameSettings{"wardogs": {Theme: &hubv1.GameTheme{Light: &hubv1.ThemeTokens{Background: "#fff"}}, Nav: []*hubv1.NavLink{{Label: "x", Url: "/x", Placement: "footer"}},
 			Maps: map[string]string{"Ozeti": "/o.jpg"}}}}
 	_, err = joClient.UpdateOrganizationSettings(ctx, connect.NewRequest(&hubv1.UpdateOrganizationSettingsRequest{Settings: bad}))
 	if connect.CodeOf(err) != connect.CodeInvalidArgument {
 		t.Fatalf("invalid: %v", err)
 	}
-	for _, want := range []string{"theme.light.accent", "theme.logo_url", "nav[0].label", "nav[0].url", "nav[0].placement", "discord.guild_id", "discord.roles.providers.xbox", "discord.seeding[0].below", "discord.presence.channel", "discord.presence.games[0]: names no activity", "discord.seeding[0].hours[0]: from and to",
+	for _, want := range []string{"theme.light.accent", "theme.logo_url", "nav[0].label", "nav[0].url", "nav[0].placement", "discord.guild_id", "discord.roles.providers.xbox", "discord.seeding[0].below", "discord.presence.channel", "discord.streams.streamers[0].platform", "discord.presence.games[0]: names no activity", "discord.seeding[0].hours[0]: from and to",
 		"games.wardogs.theme.light: a game overlays only the accent", "games.wardogs.nav[0].placement", "games.wardogs.maps.Ozeti"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("the error names %s: %v", want, err)

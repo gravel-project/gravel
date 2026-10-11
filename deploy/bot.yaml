@@ -50,6 +50,16 @@ presence:                        # the "who's playing now" card for the Organiza
   enabled: false
   interval: 1m                   # at least 15s
 
+streams:                         # go-live posts for the Organization settings' discord.streams; needs a Twitch or Kick developer application
+  enabled: false
+  interval: 1m                   # at least 30s
+  # twitch:
+  #   client_id: "…"
+  #   client_secret_file: /run/secrets/gravel-bot-twitch-client-secret
+  # kick:
+  #   client_id: "…"
+  #   client_secret_file: /run/secrets/gravel-bot-kick-client-secret
+
 server:
   listen: 0.0.0.0:8081           # /interactions, /healthz, /readyz
   internal_listen: 0.0.0.0:9091  # /metrics

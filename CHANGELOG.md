@@ -8,6 +8,28 @@ patch release is everything else.
 
 ## [Unreleased]
 
+### Added
+
+- ADR-0019 (proposed; accepted when merged): go-live posts for Twitch and Kick streams (hidden-token-gaming/htg#54).
+
+- Go-live posts (hidden-token-gaming/htg#54, ADR-0019): when one of the community's streamers goes live on Twitch or Kick, the bot posts once in a channel and edits the post when the stream ends.
+  - **The bot module:** `discord/modules/streams`. Every minute it asks each platform which of its streamers are live, one call per platform with an app access token. It reads stream metadata only, never a viewer's. A new stream gets one post: who, the platform, the title, the game, the link, the host's note and the opt-in role's ping. The end edits it to "was live · ended", drops the ping, suppresses the preview and pings nobody. A stream back within ten minutes resumes its post instead of pinging again. A marker (`` -# stream <platform> `<login>` · <stream id> ``) in its own posts means a restart never announces a stream twice and marks one that ended while it was away. Kick has no stream id, so its id is the stream's start. A platform that fails, refuses the application or rate-limits the bot (its `Retry-After`, Twitch's `Ratelimit-Reset`) leaves its posts as they are.
+  - **Settings:** the Organization settings' `discord.streams` (`channel`, an optional `role` that is never `@everyone`, `note`, up to 10 `streamers` of `platform` twitch or kick, `login` and `label`), validated with every problem named. `DiscordSettings.streams` is additive, and `settings check` counts the streamers.
+  - **bot.yaml:** `streams {enabled, interval, twitch, kick}` is off by default, every minute (at least 30 s). The applications' secrets come from `GRAVEL_BOT_TWITCH_CLIENT_SECRET` / `GRAVEL_BOT_KICK_CLIENT_SECRET`, then `client_secret_file`, then `client_secret`. A platform without an application is skipped and logged once. `config check` says which secrets it read and from where.
+  - **Metrics:** `gravel_bot_streams_live{platform}`, `gravel_bot_streams_polls_total{platform,result}`, `gravel_bot_streams_posts_total{platform,result}` and `gravel_bot_streams_last_success_timestamp_seconds`, on the bot dashboard's new Go-live posts row.
+  - **Tests:** the settings and their manifest; bot.yaml's secrets and refusals; and the module against fake Twitch and Kick token and API endpoints and a fake channel:
+    - one post with the role's ping, and nothing more while the stream runs, even when Twitch lists it twice;
+    - the end's edit with no mention;
+    - restarts that find their posts and ignore another author's marker;
+    - a dropped stream resumed, and a later one posted;
+    - a stream over before its post;
+    - Kick's 429 waited out, and Kick with no start time;
+    - a revoked token replaced, and a wrong secret;
+    - a platform with no application, a channel the bot can't read, and the hub down.
+
+    Mutation checks: no resume, no restart search, ignoring Retry-After and trusting another author's marker each fail a named test.
+  - **Docs:** docs/bot.md (Streams), docs/hub.md (Organization settings), deploy/bot.yaml, CLAUDE.md.
+
 ### Fixed
 
 - `discord/seedhours`'s package comment said a time the spring daylight-saving change skips "moves forward". Go's `time.Date`, which it uses, returns it an hour earlier: in America/Chicago on 2026-03-08, 02:30 is 01:30 CST. The comment now says so, and `TestSpringGap` holds the behaviour. Nothing changes at run time; Muster's anchors (hidden-token-gaming/htg) already match it.

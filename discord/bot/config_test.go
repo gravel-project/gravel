@@ -174,3 +174,37 @@ func TestDeployExampleDecodes(t *testing.T) {
 		t.Errorf("the example runs role sync dry and registers the schema: %+v %+v", c.RoleSync, c.LinkedRoles)
 	}
 }
+
+func TestStreams(t *testing.T) {
+	c, err := Parse(strings.NewReader(minimal), env(nil, nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Streams.Enabled || c.Streams.Interval != time.Minute || c.Streams.Twitch.Set() || c.Streams.Kick.Set() {
+		t.Errorf("streams are off by default, every minute, no platform: %+v", c.Streams)
+	}
+	on := minimal + "streams:\n  enabled: true\n  twitch:\n    client_id: tw\n    client_secret_file: /run/secrets/tw\n  kick:\n    client_id: ki\n    client_secret: inline\n"
+	c, err = Parse(strings.NewReader(on), env(map[string]string{EnvKickSecret: "from-env"}, map[string]string{"/run/secrets/tw": "tw-secret\n"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !c.Streams.Twitch.Set() || c.Streams.Twitch.ClientSecret != "tw-secret" || c.Streams.Twitch.SecretSource() != "file /run/secrets/tw" ||
+		c.Streams.Kick.ClientSecret != "from-env" || c.Streams.Kick.SecretSource() != "env "+EnvKickSecret {
+		t.Errorf("secrets: %+v", c.Streams)
+	}
+	for name, tc := range map[string]struct{ yaml, want string }{
+		"no platform":     {"streams:\n  enabled: true\n", "streams.enabled: no platform's application is set"},
+		"id alone":        {"streams:\n  twitch:\n    client_id: tw\n", "streams.twitch: client_id and the client secret go together"},
+		"secret alone":    {"streams:\n  kick:\n    client_secret: s\n", "streams.kick: client_id and the client secret go together"},
+		"short interval":  {"streams:\n  interval: 10s\n", "streams.interval: 10s is shorter than 30s"},
+		"unreadable file": {"streams:\n  twitch:\n    client_id: tw\n    client_secret_file: /nope\n", "streams.twitch.client_secret_file"},
+	} {
+		if _, err := Parse(strings.NewReader(minimal+tc.yaml), env(nil, nil)); err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("%s: want %q, got %v", name, tc.want, err)
+		}
+	}
+	// Off with an application set is fine: the credentials wait for the switch.
+	if _, err := Parse(strings.NewReader(minimal+"streams:\n  kick:\n    client_id: ki\n    client_secret: s\n"), env(nil, nil)); err != nil {
+		t.Errorf("off with an application: %v", err)
+	}
+}

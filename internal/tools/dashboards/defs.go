@@ -187,7 +187,7 @@ func hubDashboard() dashboard {
 func botDashboard() dashboard {
 	return dashboard{
 		UID: "gravel-bot", Title: "gravel bot", BuildInfo: "gravel_bot_build_info",
-		Description: "The gravel Discord bot: the gateway, interactions against Discord's three seconds, role sync, Linked Roles, the server cards, the mod log, seeding, the presence card, the session recaps, the moderation command and the Go runtime (gravel docs/bot.md, Observability).",
+		Description: "The gravel Discord bot: the gateway, interactions against Discord's three seconds, role sync, Linked Roles, the server cards, the mod log, seeding, the presence card, the session recaps, the go-live posts, the moderation command and the Go runtime (gravel docs/bot.md, Observability).",
 		Rows: []row{
 			{Title: "Overview", Panels: []panel{
 				{Title: "Up", Kind: "stat", Width: 3, Mappings: upMap, Thresholds: []step{{Color: "red"}, {Value: 1, Color: "green"}}, Targets: []target{{Expr: `up{` + sel + `}`, Legend: "{{instance}}"}}},
@@ -295,6 +295,21 @@ func botDashboard() dashboard {
 					Description: "Orange after 5 minutes and red after 15 (five and fifteen default intervals); a recap that keeps failing holds it.",
 					Thresholds:  []step{{Color: "green"}, {Value: 300, Color: "orange"}, {Value: 900, Color: "red"}},
 					Targets:     []target{{Expr: `time() - max(gravel_bot_recaps_last_success_timestamp_seconds{` + sel + `})`}}},
+			}},
+			{Title: "Go-live posts", Panels: []panel{
+				{Title: "Live now", Kind: "timeseries", Width: 12, Optional: "go-live posts are off or no platform has answered",
+					Description: "The listed streamers each platform says are live, at its last answer.",
+					Targets:     []target{{Expr: `max by (platform) (gravel_bot_streams_live{` + sel + `})`, Legend: "{{platform}}"}}},
+				{Title: "Since the last good streams pass", Kind: "stat", Unit: "s", Width: 6, Optional: "go-live posts are off",
+					Description: "Orange after 5 minutes and red after 15 (five and fifteen default intervals): a platform failing, rate-limiting or refusing the application, or a post failing. A post waits for the next good pass.",
+					Thresholds:  []step{{Color: "green"}, {Value: 300, Color: "orange"}, {Value: 900, Color: "red"}},
+					Targets:     []target{{Expr: `time() - max(gravel_bot_streams_last_success_timestamp_seconds{` + sel + `})`}}},
+				{Title: "Platform answers", Kind: "timeseries", Width: 6, Optional: "go-live posts are off",
+					Description: "ok; throttled: a 429, the platform is not asked again until its Retry-After; unauthorized: the platform refuses the application (check streams.<platform> in bot.yaml); error: anything else, retried next pass.",
+					Targets:     []target{{Expr: `sum by (platform, result) (increase(gravel_bot_streams_polls_total{` + sel + `}[$__rate_interval]))`, Legend: "{{platform}} {{result}}"}}},
+				{Title: "Go-live posts", Kind: "timeseries", Width: 24, Optional: "go-live posts are off or nobody streamed in the range",
+					Description: "posted: a stream started (the role is pinged); resumed: a stream came back within ten minutes and its post went live again; ended: the post was edited after the stream; forbidden: the bot may not post in the channel; error: Discord failed, retried next pass.",
+					Targets:     []target{{Expr: `sum by (platform, result) (increase(gravel_bot_streams_posts_total{` + sel + `}[$__rate_interval]))`, Legend: "{{platform}} {{result}}"}}},
 			}},
 			{Title: "Moderation command", Panels: []panel{
 				{Title: "Moderation commands", Kind: "timeseries", Width: 24, Optional: "the moderation command is off or nobody used it in the range",

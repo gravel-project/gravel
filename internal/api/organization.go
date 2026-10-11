@@ -114,6 +114,12 @@ func settingsToProto(set org.Settings, at time.Time) *hubv1.OrganizationSettings
 			}
 			p.Discord.Recaps = append(p.Discord.Recaps, pr)
 		}
+		if st := d.Streams; !st.IsZero() {
+			p.Discord.Streams = &hubv1.DiscordStreams{Channel: st.Channel, Role: st.Role, Note: st.Note}
+			for _, s := range st.Streamers {
+				p.Discord.Streams.Streamers = append(p.Discord.Streams.Streamers, &hubv1.DiscordStreamer{Platform: s.Platform, Login: s.Login, Label: s.Label})
+			}
+		}
 		if pr := d.Presence; !pr.IsZero() {
 			p.Discord.Presence = &hubv1.DiscordPresence{Channel: pr.Channel, Note: pr.Note}
 			for _, g := range pr.Games {
@@ -181,6 +187,12 @@ func settingsFromProto(p *hubv1.OrganizationSettings) org.Settings {
 			rule.Hours = append(rule.Hours, org.SeedingHours{Days: h.GetDays(), From: h.GetFrom(), To: h.GetTo()})
 		}
 		set.Discord.Recaps = append(set.Discord.Recaps, rule)
+	}
+	if st := d.GetStreams(); st != nil {
+		set.Discord.Streams = org.Streams{Channel: st.GetChannel(), Role: st.GetRole(), Note: st.GetNote()}
+		for _, s := range st.GetStreamers() {
+			set.Discord.Streams.Streamers = append(set.Discord.Streams.Streamers, org.Streamer{Platform: s.GetPlatform(), Login: s.GetLogin(), Label: s.GetLabel()})
+		}
 	}
 	if pr := d.GetPresence(); pr != nil {
 		set.Discord.Presence = org.Presence{Channel: pr.GetChannel(), Note: pr.GetNote()}
