@@ -102,12 +102,6 @@ func (a *answers[Q, A]) put(q Q, answer A, now time.Time, changes uint64) {
 	a.m[q] = cached[A]{answer: answer, at: now, changes: changes}
 }
 
-func (a *answers[Q, A]) clear() {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	a.m = nil
-}
-
 // NewBoards builds the board reader; changes is the stats store's write counter the recorder
 // bumps (nil caches for BoardLiveTTL only).
 func NewBoards(st Store, orgID uuid.UUID, names *Namer, settings SettingsSource, changes *Changes) *Boards {
@@ -327,13 +321,21 @@ func (b *Boards) ShowName(ctx context.Context, userID uuid.UUID) (bool, error) {
 	return b.st.ShowNameOnBoards(ctx, userID)
 }
 
-// SetShowName records it, and drops the cached boards so the member sees the change at once.
+// SetShowName records a member's choice. An unchanged choice writes nothing. A change marks the
+// stats as changed, as a recorded poll does, so every cached board, participation board and recap
+// shows it within BoardLiveTTL. Clearing the caches instead would let any member, toggling at
+// their rate limit, keep every public board uncached.
 func (b *Boards) SetShowName(ctx context.Context, userID uuid.UUID, show bool) error {
+	cur, err := b.st.ShowNameOnBoards(ctx, userID)
+	if err != nil {
+		return err
+	}
+	if cur == show {
+		return nil
+	}
 	if err := b.st.SetShowNameOnBoards(ctx, userID, show); err != nil {
 		return err
 	}
-	b.boards.clear()
-	b.participation.clear()
-	b.recaps.clear()
+	b.changes.Bump()
 	return nil
 }

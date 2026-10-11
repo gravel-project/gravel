@@ -414,8 +414,12 @@ func TestParticipationBoardCache(t *testing.T) {
 	if err := b.SetShowName(ctx, uuid.New(), true); err != nil {
 		t.Fatal(err)
 	}
+	if read() {
+		t.Error("a name choice re-read the participation board inside BoardLiveTTL")
+	}
+	now = now.Add(BoardLiveTTL)
 	if !read() {
-		t.Error("a name choice left the cached participation board")
+		t.Error("a name choice was not seen on the participation board after BoardLiveTTL")
 	}
 }
 
