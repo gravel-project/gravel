@@ -14,11 +14,13 @@ require (
 	github.com/disgoorg/omit v1.0.0
 	github.com/disgoorg/snowflake/v2 v2.0.3
 	github.com/google/uuid v1.6.0
+	github.com/gorcon/rcon v1.4.0
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/markbates/goth v1.82.0
 	github.com/pressly/goose/v3 v3.28.0
 	github.com/prometheus/client_golang v1.25.0
 	github.com/prometheus/common v0.72.0
+	github.com/yungwood/cs2log v0.1.1
 	golang.org/x/oauth2 v0.37.0
 	golang.org/x/time v0.16.0
 	google.golang.org/protobuf v1.36.12

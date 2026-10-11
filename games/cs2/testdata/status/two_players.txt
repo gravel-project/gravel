@@ -1,0 +1,20 @@
+Server:  Running [0.0.0.0:27015]
+Client:  Disconnected
+@ Current  :  game
+source   : console
+hostname : HTG CS2 | 10-MAN #1
+spawn    : 1
+version  : 1.40.6.4/14064 10551 secure  public
+steamid  : [A:1:2404786178:50561] (90264226234294274)
+udp/ip   : 0.0.0.0:27015 (local: 10.0.0.2:27015) (public IP from Steam: 203.0.113.50)
+os/type  : Linux dedicated
+players  : 2 humans, 1 bots (10 max) (not hibernating) (unreserved)
+loaded spawngroup(  1)  : SV:  [1: de_mirage | main lump | mapload]
+
+---------players--------
+  id     time ping loss      state   rate adr name
+65535 [NoChan]    0    0 challenging      0unknown ''
+    2    00:23   38    0     active 786432 198.51.100.10:27005 'Player One'
+    3 01:02:11   51    1     active 786432 198.51.100.11:27005 'it's two'
+    4      BOT    0    0     active      0 'Bot Ted'
+#end

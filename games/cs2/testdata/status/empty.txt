@@ -1,0 +1,14 @@
+Server:  Running [0.0.0.0:27015]
+Client:  Disconnected
+@ Current  :  game
+source   : console
+hostname : HTG CS2 | 10-MAN #1
+spawn    : 1
+version  : 1.40.6.4/14064 10551 secure  public
+os/type  : Linux dedicated
+players  : 0 humans, 0 bots (10 max) (not hibernating) (unreserved)
+loaded spawngroup(  1)  : SV:  [1: de_inferno | main lump | mapload]
+
+---------players--------
+  id     time ping loss      state   rate adr name
+#end
