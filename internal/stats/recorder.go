@@ -7,6 +7,7 @@ package stats
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"sync"
@@ -15,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/gravel-project/gravel/drivers"
 	"github.com/gravel-project/gravel/internal/servers"
 	"github.com/gravel-project/gravel/internal/store"
 )
@@ -36,6 +38,9 @@ type Store interface {
 	EndMatch(ctx context.Context, matchID int64, at time.Time) error
 	MatchPlayers(ctx context.Context, matchID int64) ([]store.MatchPlayer, error)
 	SaveMatchPlayers(ctx context.Context, players []store.MatchPlayer) error
+	RecordOccupancy(ctx context.Context, orgID uuid.UUID, serverID string, minute time.Time, fewest, most int) error
+	SetMatchTeams(ctx context.Context, matchID int64, teams []store.TeamScore) error
+	SessionRecap(ctx context.Context, q store.RecapQuery) (store.Recap, error)
 	Board(ctx context.Context, q store.BoardQuery) ([]store.BoardRow, error)
 	ListMatches(ctx context.Context, orgID uuid.UUID, serverID string, beforeID int64, limit int) ([]store.MatchSummary, error)
 	Pseudonyms(ctx context.Context, orgID uuid.UUID, keys []store.PlayerKey) (map[store.PlayerKey]string, error)
@@ -72,6 +77,12 @@ type serverState struct {
 	players  map[store.PlayerKey]*playerState
 	lastSeen time.Time // the previous good poll
 	failing  bool      // the last record failed (logged once)
+
+	// The current minute's occupancy as this hub has seen it (ADR-0018): the fewest and the most
+	// players of its polls, an empty poll included, so a minute that dipped to 0 says so.
+	minute       time.Time
+	fewest, most int
+	teams        string // the open match's team scores as last written (JSON), "" before
 }
 
 // playerState is one player in the open match: the row as written, and how to read the game's
@@ -139,6 +150,9 @@ func (r *Recorder) record(ctx context.Context, s *serverState, srv servers.Serve
 			present[store.PlayerKey{Provider: p.Identity.Provider, Subject: p.Identity.Subject}] = struct{}{}
 		}
 	}
+	if err := r.occupancy(ctx, s, srv.ID, now, max(o.Status.Players, len(present))); err != nil {
+		return err
+	}
 
 	// The server emptied: its match is over.
 	if len(present) == 0 {
@@ -158,8 +172,11 @@ func (r *Recorder) record(ctx context.Context, s *serverState, srv servers.Serve
 		if err != nil {
 			return err
 		}
-		s.match, s.players = m, map[store.PlayerKey]*playerState{}
+		s.match, s.players, s.teams = m, map[store.PlayerKey]*playerState{}, ""
 		r.matches.WithLabelValues(srv.ID, srv.Game).Inc()
+	}
+	if err := r.recordTeams(ctx, s, o.Status.Teams); err != nil {
+		return err
 	}
 
 	elapsed := now.Sub(s.lastSeen)
@@ -193,6 +210,42 @@ func (r *Recorder) record(ctx context.Context, s *serverState, srv servers.Serve
 	}
 	r.rows.WithLabelValues(srv.ID).Add(float64(len(rows)))
 	r.changes.Bump()
+	return nil
+}
+
+// occupancy folds a poll's player count into its minute and writes the minute while anyone was on
+// in it. The store keeps the least and the greatest of every write, so a restart mid-minute only
+// widens the minute's range.
+func (r *Recorder) occupancy(ctx context.Context, s *serverState, serverID string, now time.Time, players int) error {
+	minute := now.UTC().Truncate(time.Minute)
+	if minute.Equal(s.minute) {
+		s.fewest, s.most = min(s.fewest, players), max(s.most, players)
+	} else {
+		s.minute, s.fewest, s.most = minute, players, players
+	}
+	if s.most == 0 {
+		return nil
+	}
+	return r.st.RecordOccupancy(ctx, r.orgID, serverID, minute, s.fewest, s.most)
+}
+
+// recordTeams writes the open match's team scores when they changed since the last write.
+func (r *Recorder) recordTeams(ctx context.Context, s *serverState, teams []drivers.TeamScore) error {
+	scores := make([]store.TeamScore, 0, len(teams))
+	for _, t := range teams {
+		scores = append(scores, store.TeamScore{Name: t.Name, Color: t.Color, Score: t.Score})
+	}
+	key, err := json.Marshal(scores)
+	if err != nil {
+		return err
+	}
+	if string(key) == s.teams {
+		return nil
+	}
+	if err := r.st.SetMatchTeams(ctx, s.match.ID, scores); err != nil {
+		return err
+	}
+	s.teams = string(key)
 	return nil
 }
 

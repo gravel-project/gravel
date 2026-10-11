@@ -53,6 +53,9 @@ const (
 	// StatsServiceGetParticipationBoardProcedure is the fully-qualified name of the StatsService's
 	// GetParticipationBoard RPC.
 	StatsServiceGetParticipationBoardProcedure = "/gravel.hub.v1.StatsService/GetParticipationBoard"
+	// StatsServiceGetSessionRecapProcedure is the fully-qualified name of the StatsService's
+	// GetSessionRecap RPC.
+	StatsServiceGetSessionRecapProcedure = "/gravel.hub.v1.StatsService/GetSessionRecap"
 )
 
 // StatsServiceClient is a client for the gravel.hub.v1.StatsService service.
@@ -77,6 +80,10 @@ type StatsServiceClient interface {
 	// GetParticipationBoard ranks the players who took part in one kind of thing over a window,
 	// with the same access as GetBoard.
 	GetParticipationBoard(context.Context, *connect.Request[v1.GetParticipationBoardRequest]) (*connect.Response[v1.GetParticipationBoardResponse], error)
+	// GetSessionRecap is what one server's window held (ADR-0018): its occupancy, the matches that
+	// overlap it and the top five by kills. The window is at most 24 hours and must have ended.
+	// The same access as GetBoard.
+	GetSessionRecap(context.Context, *connect.Request[v1.GetSessionRecapRequest]) (*connect.Response[v1.GetSessionRecapResponse], error)
 }
 
 // NewStatsServiceClient constructs a client for the gravel.hub.v1.StatsService service. By default,
@@ -132,6 +139,12 @@ func NewStatsServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(statsServiceMethods.ByName("GetParticipationBoard")),
 			connect.WithClientOptions(opts...),
 		),
+		getSessionRecap: connect.NewClient[v1.GetSessionRecapRequest, v1.GetSessionRecapResponse](
+			httpClient,
+			baseURL+StatsServiceGetSessionRecapProcedure,
+			connect.WithSchema(statsServiceMethods.ByName("GetSessionRecap")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -144,6 +157,7 @@ type statsServiceClient struct {
 	getMemberProfile      *connect.Client[v1.GetMemberProfileRequest, v1.GetMemberProfileResponse]
 	recordParticipation   *connect.Client[v1.RecordParticipationRequest, v1.RecordParticipationResponse]
 	getParticipationBoard *connect.Client[v1.GetParticipationBoardRequest, v1.GetParticipationBoardResponse]
+	getSessionRecap       *connect.Client[v1.GetSessionRecapRequest, v1.GetSessionRecapResponse]
 }
 
 // GetBoard calls gravel.hub.v1.StatsService.GetBoard.
@@ -181,6 +195,11 @@ func (c *statsServiceClient) GetParticipationBoard(ctx context.Context, req *con
 	return c.getParticipationBoard.CallUnary(ctx, req)
 }
 
+// GetSessionRecap calls gravel.hub.v1.StatsService.GetSessionRecap.
+func (c *statsServiceClient) GetSessionRecap(ctx context.Context, req *connect.Request[v1.GetSessionRecapRequest]) (*connect.Response[v1.GetSessionRecapResponse], error) {
+	return c.getSessionRecap.CallUnary(ctx, req)
+}
+
 // StatsServiceHandler is an implementation of the gravel.hub.v1.StatsService service.
 type StatsServiceHandler interface {
 	// GetBoard ranks the players of a server, a game or the organization over a window. Public when
@@ -203,6 +222,10 @@ type StatsServiceHandler interface {
 	// GetParticipationBoard ranks the players who took part in one kind of thing over a window,
 	// with the same access as GetBoard.
 	GetParticipationBoard(context.Context, *connect.Request[v1.GetParticipationBoardRequest]) (*connect.Response[v1.GetParticipationBoardResponse], error)
+	// GetSessionRecap is what one server's window held (ADR-0018): its occupancy, the matches that
+	// overlap it and the top five by kills. The window is at most 24 hours and must have ended.
+	// The same access as GetBoard.
+	GetSessionRecap(context.Context, *connect.Request[v1.GetSessionRecapRequest]) (*connect.Response[v1.GetSessionRecapResponse], error)
 }
 
 // NewStatsServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -254,6 +277,12 @@ func NewStatsServiceHandler(svc StatsServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(statsServiceMethods.ByName("GetParticipationBoard")),
 		connect.WithHandlerOptions(opts...),
 	)
+	statsServiceGetSessionRecapHandler := connect.NewUnaryHandler(
+		StatsServiceGetSessionRecapProcedure,
+		svc.GetSessionRecap,
+		connect.WithSchema(statsServiceMethods.ByName("GetSessionRecap")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/gravel.hub.v1.StatsService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case StatsServiceGetBoardProcedure:
@@ -270,6 +299,8 @@ func NewStatsServiceHandler(svc StatsServiceHandler, opts ...connect.HandlerOpti
 			statsServiceRecordParticipationHandler.ServeHTTP(w, r)
 		case StatsServiceGetParticipationBoardProcedure:
 			statsServiceGetParticipationBoardHandler.ServeHTTP(w, r)
+		case StatsServiceGetSessionRecapProcedure:
+			statsServiceGetSessionRecapHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -305,4 +336,8 @@ func (UnimplementedStatsServiceHandler) RecordParticipation(context.Context, *co
 
 func (UnimplementedStatsServiceHandler) GetParticipationBoard(context.Context, *connect.Request[v1.GetParticipationBoardRequest]) (*connect.Response[v1.GetParticipationBoardResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.StatsService.GetParticipationBoard is not implemented"))
+}
+
+func (UnimplementedStatsServiceHandler) GetSessionRecap(context.Context, *connect.Request[v1.GetSessionRecapRequest]) (*connect.Response[v1.GetSessionRecapResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.StatsService.GetSessionRecap is not implemented"))
 }

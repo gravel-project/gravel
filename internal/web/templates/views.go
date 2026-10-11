@@ -357,6 +357,40 @@ type BoardsPage struct {
 	NextURL string
 }
 
+// RecapMatch is one match in a session recap, its times of day in the organization's zone.
+type RecapMatch struct {
+	Started string
+	// Ended is empty while the match is on.
+	Ended   string
+	Map     string
+	Players int
+	Teams   []Team
+}
+
+// RecapPage is a session recap (ADR-0018): what one server's window held.
+type RecapPage struct {
+	Page
+	ServerID   string
+	ServerName string
+	BoardURL   string
+	// Window is the window's dates and times in the organization's zone.
+	Window string
+	// Note explains a private recap; nothing else is shown with it.
+	Note string
+	// Floor is the player count MinutesAtFloor counts against; 0 shows no such line.
+	Floor          int
+	PeakPlayers    int
+	Minutes        int
+	MinutesAtFloor int
+	Players        int
+	Matches        []RecapMatch
+	// Top is the top five by kills, shown as the leaderboards show players.
+	Top []BoardRow
+}
+
+// Nobody reports whether nobody was on during the window.
+func (p RecapPage) Nobody() bool { return p.PeakPlayers == 0 && p.Players == 0 }
+
 // TotalsRow is a member's totals over one window, as the profile shows them.
 type TotalsRow struct {
 	Label   string

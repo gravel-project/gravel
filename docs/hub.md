@@ -118,6 +118,7 @@ Public listener (`server.listen`), HTTP/1.1 and unencrypted HTTP/2 so gRPC works
 | `/gravel.hub.v1.StatsService/ListMatches` | `{"server_id": "…"}` → a server's matches, newest first; the same access |
 | `/gravel.hub.v1.StatsService/GetBoardName`, `SetBoardName` | a logged-in member's choice to be shown by name on boards (off by default) |
 | `/gravel.hub.v1.StatsService/RecordParticipation` | `{"events": [{"key", "kind", "identity": {"provider", "subject"}, "occurred_at", "duration_seconds", …}]}` (1 to 100) → a `recorded` or `duplicate` result per event, in order ([Participation](#participation-adr-0014)); an app with `participation:write` only, never a member or the owner; `invalid_argument` names every invalid field by index and stores nothing |
+| `/gravel.hub.v1.StatsService/GetSessionRecap` | `{"server_id": "…", "from": "…", "to": "…", "floor": 20}` → what the server's window held: peak players, minutes with anyone on and at or above `floor`, distinct players, the matches that overlap it with their team scores, and the top five by kills under pseudonyms or opted-in names ([Session recaps](#session-recaps-adr-0018)); the window at most 24 h and ended; the same access as `GetBoard` |
 | `/gravel.hub.v1.StatsService/GetParticipationBoard` | `{"kind": "seeding", "game_id", "window": "week"}` → a page of players ranked by time taken part, under pseudonyms or opted-in names, and every kind recorded (`kinds`); the same access as `GetBoard` |
 | `/gravel.hub.v1.ServerService/ListServerPlayers` | `{"server_id": "…"}` → who was on at the last poll (name, provider identity, team, kills, deaths, ping, and the member's user id when that identity is linked); a logged-in member, the owner, or an app with `servers:read` |
 | `/grpc.health.v1.Health/Check` | gRPC health |
@@ -229,6 +230,14 @@ discord:                     # what the bot manages (docs/bot.md); ids as quoted
       cooldown: 2h           # the least time between calls, 15m to 24h (default 2h)
       call_at_start: true    # a window's first call ignores a cooldown left from before it (default false)
       note: Join from the server browser.   # optional, one line of at most 200 characters
+  recaps:                    # session recaps (docs/bot.md "Recaps"); at most 10, one per server
+    - server: htg-wardogs-1
+      channel: "…"           # where the recap is posted, such as #wd-chat
+      title: Wardogs Wednesday   # the session's name in the post, at most 60 characters
+      hours:                 # the sessions, as seeding's windows (stats.timezone); none means no recap ever
+        - {days: [wed], from: "18:00", to: "22:00"}
+      floor: 20              # "minutes at 20 or more" (0 to 1000; 0 leaves the line out)
+      note: See you next Wednesday.   # optional, one line of at most 200 characters
   presence:                  # the "who's playing now" card (docs/bot.md "Presence"); counts only, nothing stored
     channel: "…"             # where the card lives; the bot needs View Channel, Send Messages, Read Message History
     note: Counts members who share their activity on Discord.   # optional, one line of at most 200 characters
@@ -307,6 +316,12 @@ next day, `from` equal to `to` is refused, and a rule's windows may not overlap.
 wall-clock in the zone, so HTG's `18:00`–`23:00` America/Chicago stays the evening across a
 daylight-saving change. A rule without windows never calls, and neither does a module that is off
 (`seeding.enabled` in bot.yaml). The bot's app needs `servers:read` and `participation:write`.
+
+A `recaps` rule (ADR-0018) names a server, the channel its recaps go to, a title and the sessions
+as weekly `hours`, in the same form and with the same rules as seeding's. A few minutes after each
+window ends, the bot posts the recap, unless nobody was on. Keep the hours in step with the event
+members see: HTG's Wardogs Wednesdays is both a Discord Scheduled Event and this rule. The bot's
+app needs `stats:read` unless `stats.public` is on.
 
 The `presence` card (ADR-0017) needs a channel and at least one game. Each game needs an activity
 name or an application id to recognize it by, and no name (compared without regard to case) or id
@@ -710,6 +725,37 @@ Metrics: `gravel_stats_matches_total{server,game}`, `gravel_stats_rows_written_t
 `gravel_hub_job_last_success_timestamp_seconds{job="stats_rollup"}` (stored by Prometheus as
 `exported_job`, since the scrape's own `job` label wins), on the hub dashboard's Stats row.
 
+### Session recaps (ADR-0018)
+
+A recap is what one server's window held: an evening's anchor, read after it ends. Nothing is
+stored for a recap. `GetSessionRecap` reads it from what the recorder keeps, each time it isn't
+cached:
+
+- **Occupancy, by the minute** (`server_occupancy`). For each minute anyone was on, it holds the
+  fewest and the most players the polls saw: the server's own count, or the identities on, whichever
+  is larger. An empty poll counts, so a minute the server emptied in has a fewest of 0.
+  - **Peak** is the largest most.
+  - **Minutes at or above the floor** counts the minutes whose fewest reached it, so a minute that
+    touched 20 once doesn't count. The floor is asked for when the recap is read.
+  - Nothing in it names anyone, so it is kept like the matches, with no retention.
+- **Team scores** on each match (`matches.teams`): the last scores the polls saw, written when they
+  change, so a match that ended holds its final ones.
+- **The matches** are those that overlap the window. A player counts when they were seen inside it.
+  Their kills are their match totals, so a match that straddles an edge brings its kills from outside
+  the window too.
+- **The top five** by kills, each with at least one kill, are shown as the boards show players.
+  After the raw retention window, a recap keeps its numbers but loses its top five.
+
+The window is at most 24 hours and must have ended. The recap has the boards' access and cache, and
+the hub's page `/servers/{id}/recap?from=…&to=…&floor=…` renders it. The bot's recaps module
+(docs/bot.md "Recaps") posts one after each window of the settings' `discord.recaps`.
+
+```sh
+curl -s -H 'Content-Type: application/json' \
+  -d '{"server_id":"htg-wardogs-1","from":"2026-10-14T23:00:00Z","to":"2026-10-15T03:00:00Z","floor":20}' \
+  https://app.example.com/gravel.hub.v1.StatsService/GetSessionRecap | jq '{peakPlayers, minutesAtFloor, players}'
+```
+
 ### Participation (ADR-0014)
 
 Not everything a community counts is a kill. A first-party app (a seeding tracker, an events app)
@@ -775,6 +821,7 @@ is the API's to decide, and a page says so in words when it is refused.
 | `/servers/{id}`, for the owner and moderators | per player in "Who's on": kick, ban or message, with a reason or the message; a Moderation section with a broadcast, a ban by SteamID64 for a player who isn't on, the ban list with unban, and the log link. A control shows only when the server's driver offers it (its capabilities). Every action goes through a confirmation page (`POST /servers/{id}/moderate`) that says exactly what will be sent, and is recorded in the audit log with the moderator's name | the owner and moderators ([Roles](#roles-adr-0013)) |
 | `/servers/{id}/log` | the server's moderation log, newest first: when, who (a member's name, or an app and who it acted for), the action, the player, the reason or message, the result | the owner and moderators |
 | `/boards?scope=&window=&metric=&page=` | a leaderboard: scope `` (everyone, Official servers), `game:<id>` or `server:<id>`; window `all`, `week`, `month` or `season:<name>`; ranked by any column of the game's `layout.board`, 50 a page | everyone when `stats.public` is on, else the owner ("Leaderboards are private…" otherwise) |
+| `/servers/{id}/recap?from=&to=&floor=` | a session recap ([Session recaps](#session-recaps-adr-0018)): the window in `stats.timezone`, peak players, minutes with anyone on and at or above the floor, distinct players, the matches with their times, map and team scores, and the top five by kills as the leaderboard shows players; "Nobody was on during this window." when nobody came. A link that isn't a recap window (not RFC 3339, longer than a day, not ended) is a 400 | as `/boards` ("Recaps are private…" otherwise) |
 | `/participation?kind=&window=&page=` | a participation board: the kinds recorded (a picker; "Nothing has been recorded yet" before the first), window `all`, `week`, `month` or `season:<name>`, players ranked by time taken part, 50 a page; linked from `/boards` | as `/boards` ("Participation boards are private…" otherwise) |
 
 The forms and links work without JavaScript; htmx swaps only the main content. On a narrow screen a

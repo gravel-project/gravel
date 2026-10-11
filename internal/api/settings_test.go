@@ -35,7 +35,9 @@ func TestOrganizationSettings(t *testing.T) {
 			Presence: &hubv1.DiscordPresence{Channel: "1300000000000000102", Note: "Counts members who share their activity.", Games: []*hubv1.DiscordPresenceGame{
 				{Game: "wardogs", Label: "War Dogs", Activities: []string{"WARDOGS"}},
 				{Game: "cs2", Label: "Counter-Strike 2", ApplicationIds: []string{"1158877933042143272"}},
-			}}},
+			}},
+			Recaps: []*hubv1.DiscordRecap{{Server: "htg-wardogs-1", Channel: "1300000000000000103", Title: "Wardogs Wednesday", Floor: 20, Note: "See you next week.",
+				Hours: []*hubv1.DiscordSeedingHours{{Days: []string{"wed"}, From: "18:00", To: "22:00"}}}}},
 		Stats: &hubv1.StatsSettings{MinMatches: 5, Timezone: "America/Chicago", RawRetentionMonths: 6, Seasons: []*hubv1.StatsSeason{{Name: "Season 02", Game: "wardogs", From: "2026-10-15", To: "2027-01-15"}}},
 		Games: map[string]*hubv1.GameSettings{"wardogs": {
 			Theme: &hubv1.GameTheme{Light: &hubv1.ThemeTokens{Accent: "#8a5a00"}, Dark: &hubv1.ThemeTokens{Accent: "#f0b429"}, BannerUrl: "https://hiddentoken.com/brand/wardogs.png", BannerAlt: "War Dogs"},
@@ -79,6 +81,9 @@ func TestOrganizationSettings(t *testing.T) {
 	}
 	if !proto.Equal(&hubv1.DiscordSettings{Seeding: d.GetSeeding()}, &hubv1.DiscordSettings{Seeding: want.GetDiscord().GetSeeding()}) {
 		t.Errorf("seeding read back: %v", d.GetSeeding())
+	}
+	if !proto.Equal(&hubv1.DiscordSettings{Recaps: d.GetRecaps()}, &hubv1.DiscordSettings{Recaps: want.GetDiscord().GetRecaps()}) {
+		t.Errorf("recaps read back: %v", d.GetRecaps())
 	}
 	if !proto.Equal(d.GetPresence(), want.GetDiscord().GetPresence()) {
 		t.Errorf("presence read back: %v", d.GetPresence())

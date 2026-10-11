@@ -1411,6 +1411,48 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.GetParticipationBoardResponse'
+  /gravel.hub.v1.StatsService/GetSessionRecap:
+    post:
+      tags:
+        - gravel.hub.v1.StatsService
+      summary: GetSessionRecap
+      description: |-
+        GetSessionRecap is what one server's window held (ADR-0018): its occupancy, the matches that
+         overlap it and the top five by kills. The window is at most 24 hours and must have ended.
+         The same access as GetBoard.
+      operationId: gravel.hub.v1.StatsService.GetSessionRecap
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.GetSessionRecapRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.GetSessionRecapResponse'
   /gravel.hub.v1.StatsService/ListMatches:
     post:
       tags:
@@ -2221,6 +2263,39 @@ components:
       title: DiscordPresenceGame
       additionalProperties: false
       description: One game on the presence card and how its Discord activity is recognized.
+    gravel.hub.v1.DiscordRecap:
+      type: object
+      properties:
+        server:
+          type: string
+          title: server
+          description: 'The server''s id in the hub: "htg-wardogs-1"; one rule per server.'
+        channel:
+          type: string
+          title: channel
+          description: Where the recap is posted.
+        title:
+          type: string
+          title: title
+          description: 'The session''s name in the post: "Wardogs Wednesday".'
+        hours:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.DiscordSeedingHours'
+          title: hours
+          description: The sessions, as seeding's windows; none is a rule that never posts.
+        floor:
+          type: integer
+          title: floor
+          format: int32
+          description: The player count "minutes at or above" counts against, 0 to 1000; 0 leaves it out.
+        note:
+          type: string
+          title: note
+          description: A line appended to the post, at most 200 characters.
+      title: DiscordRecap
+      additionalProperties: false
+      description: After each of its weekly windows, the bot posts what the server's window held.
     gravel.hub.v1.DiscordRecognition:
       type: object
       properties:
@@ -2377,6 +2452,12 @@ components:
             - $ref: '#/components/schemas/gravel.hub.v1.DiscordPresence'
           title: presence
           description: The "who's playing now" card (the presence module, ADR-0017); unset is none.
+        recaps:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.DiscordRecap'
+          title: recaps
+          description: The session recaps, at most 10, one per server (the recaps module, ADR-0018).
       title: DiscordSettings
       additionalProperties: false
       description: |-
@@ -2756,6 +2837,74 @@ components:
             - $ref: '#/components/schemas/gravel.hub.v1.Server'
           title: server
       title: GetServerStatusResponse
+      additionalProperties: false
+    gravel.hub.v1.GetSessionRecapRequest:
+      type: object
+      properties:
+        serverId:
+          type: string
+          title: server_id
+        from:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: from
+        to:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: to
+        floor:
+          type: integer
+          title: floor
+          format: int32
+          description: The player count minutes_at_floor counts against, 0 to 1000; 0 counts none.
+      title: GetSessionRecapRequest
+      additionalProperties: false
+    gravel.hub.v1.GetSessionRecapResponse:
+      type: object
+      properties:
+        from:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: from
+        to:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: to
+        floor:
+          type: integer
+          title: floor
+          format: int32
+        peakPlayers:
+          type: integer
+          title: peak_players
+          format: int32
+          description: The most players on at once, by the minute.
+        minutes:
+          type: integer
+          title: minutes
+          format: int32
+          description: The minutes anyone was on, and those whose fewest players reached the floor.
+        minutesAtFloor:
+          type: integer
+          title: minutes_at_floor
+          format: int32
+        players:
+          type: integer
+          title: players
+          format: int32
+          description: The distinct players seen in the window.
+        matches:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.RecapMatch'
+          title: matches
+        top:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.BoardEntry'
+          title: top
+          description: The players with the most kills in those matches, at most five, each with a kill.
+      title: GetSessionRecapResponse
       additionalProperties: false
     gravel.hub.v1.Identity:
       type: object
@@ -3590,6 +3739,38 @@ components:
       description: |-
         ProfileTotals is a member's totals over one window: "all", "week", "month", or "season" with
          season naming one running now. from and to are unset for all time.
+    gravel.hub.v1.RecapMatch:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+        startedAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: started_at
+        endedAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: ended_at
+          description: Unset while the match is on.
+        map:
+          type: string
+          title: map
+        teams:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.TeamScore'
+          title: teams
+          description: 'The last team scores the polls saw: the final ones once the match ended.'
+        players:
+          type: integer
+          title: players
+          format: int32
+          description: The players seen in it during the window.
+      title: RecapMatch
+      additionalProperties: false
+      description: RecapMatch is one match that overlaps a recap's window.
     gravel.hub.v1.RecordParticipationRequest:
       type: object
       properties:

@@ -60,4 +60,11 @@ func TestModules(t *testing.T) {
 	if got := names(cfg); got != "core,moderation,modlog,seeding,presence" {
 		t.Errorf("presence on: %s", got)
 	}
+	if bot.Default().Recaps.Enabled {
+		t.Error("recaps are off by default")
+	}
+	cfg.Recaps.Enabled = true
+	if got := names(cfg); got != "core,moderation,modlog,seeding,presence,recaps" {
+		t.Errorf("recaps on: %s", got)
+	}
 }

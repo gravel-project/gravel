@@ -187,7 +187,7 @@ func hubDashboard() dashboard {
 func botDashboard() dashboard {
 	return dashboard{
 		UID: "gravel-bot", Title: "gravel bot", BuildInfo: "gravel_bot_build_info",
-		Description: "The gravel Discord bot: the gateway, interactions against Discord's three seconds, role sync, Linked Roles, the server cards, the mod log, seeding, the presence card, the moderation command and the Go runtime (gravel docs/bot.md, Observability).",
+		Description: "The gravel Discord bot: the gateway, interactions against Discord's three seconds, role sync, Linked Roles, the server cards, the mod log, seeding, the presence card, the session recaps, the moderation command and the Go runtime (gravel docs/bot.md, Observability).",
 		Rows: []row{
 			{Title: "Overview", Panels: []panel{
 				{Title: "Up", Kind: "stat", Width: 3, Mappings: upMap, Thresholds: []step{{Color: "red"}, {Value: 1, Color: "green"}}, Targets: []target{{Expr: `up{` + sel + `}`, Legend: "{{instance}}"}}},
@@ -286,6 +286,15 @@ func botDashboard() dashboard {
 				{Title: "Presence card updates", Kind: "timeseries", Width: 24, Optional: "presence is off or no count changed in the range",
 					Description: "posted or edited: a count changed; forbidden: the bot may not read or post in the channel; error: Discord failed, retried at the next pass.",
 					Targets:     []target{{Expr: `sum by (result) (increase(gravel_bot_presence_updates_total{` + sel + `}[$__rate_interval]))`, Legend: "{{result}}"}}},
+			}},
+			{Title: "Session recaps", Panels: []panel{
+				{Title: "Recaps", Kind: "timeseries", Width: 18, Optional: "recaps are off or no window ended in the range",
+					Description: "posted: a recap went out after a window; nobody: nobody was on, so nothing was posted; forbidden: the bot may not read or post in the channel; error: the hub or Discord failed, retried at the next pass.",
+					Targets:     []target{{Expr: `sum by (server, result) (increase(gravel_bot_recaps_total{` + sel + `}[$__rate_interval]))`, Legend: "{{server}} {{result}}"}}},
+				{Title: "Since the last recaps pass", Kind: "stat", Unit: "s", Width: 6, Optional: "recaps are off",
+					Description: "Orange after 5 minutes and red after 15 (five and fifteen default intervals); a recap that keeps failing holds it.",
+					Thresholds:  []step{{Color: "green"}, {Value: 300, Color: "orange"}, {Value: 900, Color: "red"}},
+					Targets:     []target{{Expr: `time() - max(gravel_bot_recaps_last_success_timestamp_seconds{` + sel + `})`}}},
 			}},
 			{Title: "Moderation command", Panels: []panel{
 				{Title: "Moderation commands", Kind: "timeseries", Width: 24, Optional: "the moderation command is off or nobody used it in the range",

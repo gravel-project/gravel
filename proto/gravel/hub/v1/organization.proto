@@ -170,6 +170,24 @@ message DiscordSettings {
   repeated DiscordSeeding seeding = 6;
   // The "who's playing now" card (the presence module, ADR-0017); unset is none.
   DiscordPresence presence = 7;
+  // The session recaps, at most 10, one per server (the recaps module, ADR-0018).
+  repeated DiscordRecap recaps = 8;
+}
+
+// After each of its weekly windows, the bot posts what the server's window held.
+message DiscordRecap {
+  // The server's id in the hub: "htg-wardogs-1"; one rule per server.
+  string server = 1;
+  // Where the recap is posted.
+  string channel = 2;
+  // The session's name in the post: "Wardogs Wednesday".
+  string title = 3;
+  // The sessions, as seeding's windows; none is a rule that never posts.
+  repeated DiscordSeedingHours hours = 4;
+  // The player count "minutes at or above" counts against, 0 to 1000; 0 leaves it out.
+  int32 floor = 5;
+  // A line appended to the post, at most 200 characters.
+  string note = 6;
 }
 
 // One game on the presence card and how its Discord activity is recognized.

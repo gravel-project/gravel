@@ -2,7 +2,7 @@
   "annotations": {
     "list": []
   },
-  "description": "The gravel Discord bot: the gateway, interactions against Discord's three seconds, role sync, Linked Roles, the server cards, the mod log, seeding, the presence card, the moderation command and the Go runtime (gravel docs/bot.md, Observability).",
+  "description": "The gravel Discord bot: the gateway, interactions against Discord's three seconds, role sync, Linked Roles, the server cards, the mod log, seeding, the presence card, the session recaps, the moderation command and the Go runtime (gravel docs/bot.md, Observability).",
   "editable": false,
   "graphTooltip": 1,
   "panels": [
@@ -1944,6 +1944,152 @@
       },
       "id": 35,
       "panels": [],
+      "title": "Session recaps",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "posted: a recap went out after a window; nobody: nobody was on, so nothing was posted; forbidden: the bot may not read or post in the channel; error: the hub or Discord failed, retried at the next pass. No data is expected when recaps are off or no window ended in the range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gravelOptional": "recaps are off or no window ended in the range",
+      "gridPos": {
+        "h": 8,
+        "w": 18,
+        "x": 0,
+        "y": 76
+      },
+      "id": 36,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (server, result) (increase(gravel_bot_recaps_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "{{server}} {{result}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Recaps",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Orange after 5 minutes and red after 15 (five and fifteen default intervals); a recap that keeps failing holds it. No data is expected when recaps are off.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 300
+              },
+              {
+                "color": "red",
+                "value": 900
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gravelOptional": "recaps are off",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 76
+      },
+      "id": 37,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "time() - max(gravel_bot_recaps_last_success_timestamp_seconds{job=\"$job\", instance=~\"$instance\"})",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Since the last recaps pass",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 84
+      },
+      "id": 38,
+      "panels": [],
       "title": "Moderation command",
       "type": "row"
     },
@@ -1983,9 +2129,9 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 76
+        "y": 85
       },
-      "id": 36,
+      "id": 39,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2018,9 +2164,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 84
+        "y": 93
       },
-      "id": 37,
+      "id": 40,
       "panels": [],
       "title": "Runtime",
       "type": "row"
@@ -2059,9 +2205,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 85
+        "y": 94
       },
-      "id": 38,
+      "id": 41,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2122,9 +2268,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 85
+        "y": 94
       },
-      "id": 39,
+      "id": 42,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2185,9 +2331,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 85
+        "y": 94
       },
-      "id": 40,
+      "id": 43,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2248,9 +2394,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 93
+        "y": 102
       },
-      "id": 41,
+      "id": 44,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2311,9 +2457,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 93
+        "y": 102
       },
-      "id": 42,
+      "id": 45,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2374,9 +2520,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 93
+        "y": 102
       },
-      "id": 43,
+      "id": 46,
       "options": {
         "legend": {
           "displayMode": "list",

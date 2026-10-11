@@ -168,3 +168,31 @@ func (h Hours) At(now time.Time, loc *time.Location) (start, end time.Time, ok b
 	}
 	return time.Time{}, time.Time{}, false
 }
+
+// Last is the most recent window that has ended by now in loc (its end at or before now): its
+// start and end as instants, and false when none ended in the past eight days (no window).
+// Session recaps (ADR-0018) post for it.
+func (h Hours) Last(now time.Time, loc *time.Location) (start, end time.Time, ok bool) {
+	local := now.In(loc)
+	for back := 0; back <= 8; back++ { // today back to the same weekday a week ago, and an overnight one before
+		y, m, d := local.Date()
+		day := time.Date(y, m, d-back, 12, 0, 0, 0, loc)
+		dy, dm, dd := day.Date()
+		for _, s := range h.spans {
+			if s.day != day.Weekday() {
+				continue
+			}
+			from := time.Date(dy, dm, dd, 0, s.from, 0, 0, loc)
+			to := time.Date(dy, dm, dd, 0, s.to, 0, 0, loc)
+			if !to.After(now) && (!ok || to.After(end)) {
+				start, end, ok = from, to, true
+			}
+		}
+		if ok {
+			// Windows never overlap (Parse refuses it), so one that starts on an earlier day also
+			// ends earlier: the latest end found on the latest day is the last window.
+			return start, end, true
+		}
+	}
+	return start, end, ok
+}

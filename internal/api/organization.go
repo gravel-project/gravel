@@ -107,6 +107,13 @@ func settingsToProto(set org.Settings, at time.Time) *hubv1.OrganizationSettings
 			}
 			p.Discord.Seeding = append(p.Discord.Seeding, ps)
 		}
+		for _, r := range d.Recaps {
+			pr := &hubv1.DiscordRecap{Server: r.Server, Channel: r.Channel, Title: r.Title, Floor: int32(r.Floor), Note: r.Note} //nolint:gosec // bounded by validation
+			for _, h := range r.Hours {
+				pr.Hours = append(pr.Hours, &hubv1.DiscordSeedingHours{Days: h.Days, From: h.From, To: h.To})
+			}
+			p.Discord.Recaps = append(p.Discord.Recaps, pr)
+		}
 		if pr := d.Presence; !pr.IsZero() {
 			p.Discord.Presence = &hubv1.DiscordPresence{Channel: pr.Channel, Note: pr.Note}
 			for _, g := range pr.Games {
@@ -167,6 +174,13 @@ func settingsFromProto(p *hubv1.OrganizationSettings) org.Settings {
 			rule.Hours = append(rule.Hours, org.SeedingHours{Days: h.GetDays(), From: h.GetFrom(), To: h.GetTo()})
 		}
 		set.Discord.Seeding = append(set.Discord.Seeding, rule)
+	}
+	for _, r := range d.GetRecaps() {
+		rule := org.RecapRule{Server: r.GetServer(), Channel: r.GetChannel(), Title: r.GetTitle(), Floor: int(r.GetFloor()), Note: r.GetNote()}
+		for _, h := range r.GetHours() {
+			rule.Hours = append(rule.Hours, org.SeedingHours{Days: h.GetDays(), From: h.GetFrom(), To: h.GetTo()})
+		}
+		set.Discord.Recaps = append(set.Discord.Recaps, rule)
 	}
 	if pr := d.GetPresence(); pr != nil {
 		set.Discord.Presence = org.Presence{Channel: pr.GetChannel(), Note: pr.GetNote()}

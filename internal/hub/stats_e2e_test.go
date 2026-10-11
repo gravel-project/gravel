@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/gravel-project/gravel/games/wardogs/wardogstest"
 	hubv1 "github.com/gravel-project/gravel/gen/gravel/hub/v1"
@@ -85,6 +86,13 @@ func TestStatsFromPolls(t *testing.T) {
 	if _, err := client.GetBoard(ctx, connect.NewRequest(&hubv1.GetBoardRequest{})); connect.CodeOf(err) != connect.CodeUnauthenticated {
 		t.Errorf("a private board, anonymously: %v", err)
 	}
+	recapReq := func(from, to time.Time, floor int32) *connect.Request[hubv1.GetSessionRecapRequest] {
+		return connect.NewRequest(&hubv1.GetSessionRecapRequest{ServerId: "wd-1", From: timestamppb.New(from), To: timestamppb.New(to), Floor: floor})
+	}
+	now := time.Now()
+	if _, err := client.GetSessionRecap(ctx, recapReq(now.Add(-time.Hour), now, 2)); connect.CodeOf(err) != connect.CodeUnauthenticated {
+		t.Errorf("a private recap, anonymously: %v", err)
+	}
 	if _, err := org.New(st, cfg.Claim.TokenTTL, quiet()).UpdateSettings(ctx, org.Settings{Stats: org.Stats{Public: true}}); err != nil {
 		t.Fatal(err)
 	}
@@ -100,6 +108,38 @@ func TestStatsFromPolls(t *testing.T) {
 	if err != nil || len(ms.Msg.GetMatches()) != 1 || ms.Msg.GetMatches()[0].GetPlayers() != 2 || ms.Msg.GetMatches()[0].GetMap() != "Ozeti" {
 		t.Errorf("matches: %v %v", ms, err)
 	}
+	// The recap of the last hour (ADR-0018): the polls' occupancy, the match with its scores, and
+	// the top by kills without Ben, who has none.
+	now = time.Now()
+	rc, err := client.GetSessionRecap(ctx, recapReq(now.Add(-time.Hour), now, 2))
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := rc.Msg
+	if r.GetPeakPlayers() < 2 || r.GetMinutes() < 1 || r.GetMinutesAtFloor() < 1 || r.GetPlayers() != 2 || len(r.GetMatches()) != 1 || r.GetMatches()[0].GetMap() != "Ozeti" {
+		t.Errorf("recap: %v", r)
+	}
+	if len(r.GetMatches()) == 1 && len(r.GetMatches()[0].GetTeams()) == 0 {
+		t.Errorf("the match keeps the polls' team scores: %v", r.GetMatches()[0])
+	}
+	if top := r.GetTop(); len(top) != 1 || top[0].GetKills() < 2 || !top[0].GetPseudonymous() || strings.Contains(top[0].GetName(), "Ana") {
+		t.Errorf("recap top: %v", top)
+	}
+	if rc, err := client.GetSessionRecap(ctx, recapReq(now.Add(-time.Hour), now, 3)); err != nil || rc.Msg.GetMinutesAtFloor() != 0 {
+		t.Errorf("a floor above the peak counts no minute: %v %v", rc, err)
+	}
+	for name, req := range map[string]*connect.Request[hubv1.GetSessionRecapRequest]{
+		"backwards":        recapReq(now, now.Add(-time.Hour), 0),
+		"over a day":       recapReq(now.Add(-25*time.Hour), now, 0),
+		"not ended":        recapReq(now.Add(-time.Hour), now.Add(time.Hour), 0),
+		"a negative floor": recapReq(now.Add(-time.Hour), now, -1),
+		"no server":        connect.NewRequest(&hubv1.GetSessionRecapRequest{From: timestamppb.New(now.Add(-time.Hour)), To: timestamppb.New(now)}),
+	} {
+		if _, err := client.GetSessionRecap(ctx, req); connect.CodeOf(err) != connect.CodeInvalidArgument {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+
 	if _, err := client.GetBoard(ctx, connect.NewRequest(&hubv1.GetBoardRequest{Metric: "headshots"})); connect.CodeOf(err) != connect.CodeInvalidArgument {
 		t.Errorf("a bad metric: %v", err)
 	}

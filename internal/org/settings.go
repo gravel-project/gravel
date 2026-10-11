@@ -195,7 +195,43 @@ type Discord struct {
 	// Presence is "who's playing now" (discord/modules/presence, ADR-0017): a card with how many
 	// members are playing each game, counted from Discord presence and never stored.
 	Presence Presence `json:"presence,omitzero" yaml:"presence,omitempty"`
+	// Recaps are the session recaps (discord/modules/recaps, ADR-0018): after each of a rule's
+	// weekly windows, the bot posts what the server's window held. One rule per server.
+	Recaps []RecapRule `json:"recaps,omitempty" yaml:"recaps,omitempty"`
 }
+
+// RecapRule is when and where the bot posts a server's session recap: a few minutes after each of
+// its weekly windows ends, unless nobody was on.
+type RecapRule struct {
+	Server  string `json:"server" yaml:"server"`
+	Channel string `json:"channel" yaml:"channel"`
+	// Title names the session in the post: "Wardogs Wednesday".
+	Title string `json:"title" yaml:"title"`
+	// Hours are the sessions, as seeding's (in stats.timezone). None is a rule that never posts.
+	Hours []SeedingHours `json:"hours,omitempty" yaml:"hours,omitempty"`
+	// Floor is the player count "minutes at or above" counts against (War Dogs, 20); 0 leaves
+	// the line out.
+	Floor int `json:"floor,omitempty" yaml:"floor,omitempty"`
+	// Note is a line appended to the post.
+	Note string `json:"note,omitempty" yaml:"note,omitempty"`
+}
+
+// Windows are the rule's hours as discord/seedhours reads them.
+func (r RecapRule) Windows() []seedhours.Window {
+	out := make([]seedhours.Window, len(r.Hours))
+	for i, h := range r.Hours {
+		out[i] = seedhours.Window{Days: h.Days, From: h.From, To: h.To}
+	}
+	return out
+}
+
+// Recap rules' bounds.
+const (
+	MaxRecapRules = 10
+	MaxRecapTitle = 60
+	MaxRecapFloor = 1000
+	MaxRecapNote  = 200
+)
 
 // Presence places the "who's playing now" card: one message in Channel, edited when a count
 // changes. A member counts for a game while Discord shows them playing it, which only members who
@@ -330,7 +366,7 @@ var MappedProviders = []string{"discord", "steam"}
 // IsZero reports whether nothing is set.
 func (d Discord) IsZero() bool {
 	return d.GuildID == "" && d.Roles.IsZero() && len(d.Recognition) == 0 && len(d.ServerCards) == 0 && d.ModLog == "" && len(d.Seeding) == 0 &&
-		d.Presence.IsZero()
+		d.Presence.IsZero() && len(d.Recaps) == 0
 }
 
 // IsZero reports whether no role is mapped.
@@ -531,7 +567,7 @@ func validateDiscord(d Discord, bad func(string, ...any)) {
 		return
 	}
 	if d.GuildID == "" {
-		bad("discord.guild_id: required when roles are mapped, server cards placed, seeding set or presence placed")
+		bad("discord.guild_id: required when roles are mapped, server cards placed, seeding set, presence placed or recaps set")
 	} else if !snowflakeOK(d.GuildID) {
 		bad("discord.guild_id: %q is not a Discord id", d.GuildID)
 	}
@@ -600,6 +636,42 @@ func validateDiscord(d Discord, bad func(string, ...any)) {
 	}
 	validateSeeding(d, bad)
 	validatePresence(d.Presence, bad)
+	validateRecaps(d, bad)
+}
+
+func validateRecaps(d Discord, bad func(string, ...any)) {
+	if len(d.Recaps) > MaxRecapRules {
+		bad("discord.recaps: %d rules, at most %d", len(d.Recaps), MaxRecapRules)
+	}
+	servers := map[string]int{}
+	for i, r := range d.Recaps {
+		field := fmt.Sprintf("discord.recaps[%d]", i)
+		if !serverID.MatchString(r.Server) {
+			bad("%s.server: %q is not a server id (lower-case letters, digits and hyphens)", field, r.Server)
+		} else if j, dup := servers[r.Server]; dup {
+			bad("%s.server: %q already has a rule (discord.recaps[%d])", field, r.Server, j)
+		} else {
+			servers[r.Server] = i
+		}
+		if !snowflakeOK(r.Channel) {
+			bad("%s.channel: %q is not a Discord id", field, r.Channel)
+		}
+		title := strings.TrimSpace(r.Title)
+		if title == "" || utf8.RuneCountInString(title) > MaxRecapTitle || strings.ContainsFunc(title, unicode.IsControl) {
+			bad("%s.title: one line of 1 to %d characters", field, MaxRecapTitle)
+		}
+		if r.Floor < 0 || r.Floor > MaxRecapFloor {
+			bad("%s.floor: %d is not between 0 and %d", field, r.Floor, MaxRecapFloor)
+		}
+		_, probs := seedhours.Parse(r.Windows())
+		for _, p := range probs {
+			bad("%s.hours%s: %s", field, p.Field, p.Reason)
+		}
+		note := strings.TrimSpace(r.Note)
+		if utf8.RuneCountInString(note) > MaxRecapNote || strings.ContainsFunc(note, unicode.IsControl) {
+			bad("%s.note: one line of at most %d characters", field, MaxRecapNote)
+		}
+	}
 }
 
 func validatePresence(p Presence, bad func(string, ...any)) {
@@ -860,6 +932,16 @@ func (s Settings) Normalized() Settings {
 	}
 	if len(s.Discord.Presence.Games) == 0 {
 		s.Discord.Presence.Games = nil
+	}
+	for i := range s.Discord.Recaps {
+		r := &s.Discord.Recaps[i]
+		r.Title, r.Note = strings.TrimSpace(r.Title), strings.TrimSpace(r.Note)
+		if len(r.Hours) == 0 {
+			r.Hours = nil
+		}
+	}
+	if len(s.Discord.Recaps) == 0 {
+		s.Discord.Recaps = nil
 	}
 	if len(s.Games) == 0 {
 		s.Games = nil

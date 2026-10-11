@@ -55,6 +55,9 @@ seeding:                         # seeding calls and minutes, off by default (be
 presence:                        # the "who's playing now" card, off by default (below); the card is the Organization settings' discord.presence
   enabled: false                 # needs the gateway and the Presence Intent toggle
   interval: 1m                   # how often the card is brought up to date; at least 15s
+recaps:                          # session recaps, off by default (below); the rules are the Organization settings' discord.recaps
+  enabled: false
+  interval: 1m                   # how often the rules are checked; at least 15s
 server:
   listen: 127.0.0.1:8081         # /interactions, /healthz, /readyz; put TLS termination in front
   internal_listen: 127.0.0.1:9091   # /metrics; keep it off the public network
@@ -350,6 +353,62 @@ placed the module idles and says so once. Metrics:
 - `gravel_bot_presence_updates_total{result}` (`posted`, `edited`, `forbidden`, `error`);
 - `gravel_bot_presence_last_success_timestamp_seconds`.
 
+### Recaps (`discord/modules/recaps`)
+
+A recap after each session: what the server's window held, posted a few minutes after it ends
+(ADR-0018).
+
+**Rules.** The Organization settings' `discord.recaps` (docs/hub.md, "Organization settings") has
+at most one rule per server, ten in all:
+
+- `server`, the `channel` the recap is posted in, and a `title` ("Wardogs Wednesday");
+- `hours`: the sessions, as seeding's weekly windows in `stats.timezone`;
+- `floor`: the player count "minutes at or above" counts against (0 leaves the line out);
+- `note`: a line appended to the post.
+
+**Posts.** Every `interval`, a pass reads the settings. For each rule it takes the most recent
+window that ended at least three minutes ago, so the last polls are in. If that window has no recap
+yet, the module reads `GetSessionRecap` (docs/hub.md "Session recaps") and posts one message:
+
+```text
+## Wardogs Wednesday recap
+**HTG WARDOGS | NA WEST | #1** · October 14, 2026 6:00 PM to 10:00 PM
+Peak **24** players · **1h 35m** at 20 or more · **31** players
+
+**Matches**
+- Ozeti: Lonestar **1200** · Valkyra **900**
+- Europe
+
+**Top by kills**
+1. Jo: **31** kills
+2. Brave Otter: **12** kills
+
+See you next Wednesday.
+
+[The full recap](https://app.example.com/servers/htg-wardogs-1/recap?…)
+-# recap `htg-wardogs-1` · 1791673200
+```
+
+- **Times:** Discord shows them in the reader's zone.
+- **Names:** players appear as the boards show them, under a pseudonym unless the member chose their
+  name. A name a game or a player chose is escaped.
+- **Matches:** at most eight are listed; the page has them all. Under the floor all night reads "No
+  match started."
+- **Pings and previews:** the post pings no one, and the link makes no preview.
+- **Nobody came:** with peak 0 and no player, nothing is posted.
+
+**Restart.** The bot keeps no state in the hub. Before it posts, it reads the channel's 100 newest
+messages for its own marker with the server and the window's start, so a restart never posts twice.
+After a restart it posts what is missing, for a window that ended within the last day. A recap the
+hub or Discord fails is retried every pass.
+
+The bot needs **View Channel, Send Messages and Read Message History** in the channel. Its app needs
+**`stats:read`** unless `stats.public` is on. A refusal is counted as `forbidden` and logged once.
+With no rule the module idles and says so once. Metrics:
+
+- `gravel_bot_recaps_total{server,result}` (`posted`, `nobody`, `forbidden`, `error`);
+- `gravel_bot_recaps_last_success_timestamp_seconds`.
+
 ### Moderation (`discord/modules/moderation`)
 
 The moderation slash command, `/<moderation.command>` (`/mod` by default), with a subcommand per
@@ -462,6 +521,8 @@ of them (ADR-0009, `deploy/README.md` "Dashboards").
 | `gravel_bot_presence_playing` | gauge | `game` | members Discord shows playing the game, at the last pass | presence off, no card placed, the bot can't see presences, or the guild not delivered yet |
 | `gravel_bot_presence_members_tracked` | gauge | | members in the live view: online and playing anything | presence off |
 | `gravel_bot_presence_updates_total` | counter | `result` (`posted`, `edited`, `forbidden`, `error`) | presence card posts and edits, and the failures | presence off, or until the first update |
+| `gravel_bot_recaps_total` | counter | `server`, `result` (`posted`, `nobody`, `forbidden`, `error`) | session recaps posted, windows nobody came to, and the failures | recaps off, or until a window's recap |
+| `gravel_bot_recaps_last_success_timestamp_seconds` | gauge | | when the last pass that left no recap failing completed (an idle pass counts) | recaps off (0 until the first such pass) |
 | `gravel_bot_presence_last_success_timestamp_seconds` | gauge | | when the last pass brought the card up to date (an idle pass counts; waiting for the guild doesn't) | presence off (0 until the first such pass) |
 
 ## Tests
@@ -488,5 +549,10 @@ a fake channel API with the runtime's own intent check: offline members, non-gam
 streaming and duplicates not counted, matching by name and by application id, an unchanged count
 costing no Discord call, one edit in place on a change, a settings change applied without an event,
 waiting for the guild, the card saying it can't see without the intent and showing counts after the
-toggle and a restart, finding its card again, and every gateway event the view follows. The gateway
+toggle and a restart, finding its card again, and every gateway event the view follows. Recaps are
+tested as the last ended window (an overnight window, the daylight-saving change) and as passes on a
+fake clock against a fake hub and a fake channel API: nothing before the window ends plus the grace,
+one post with the right window, floor, numbers, matches, top and link, no second post on the next
+pass or after a restart, another author's marker ignored, no post when nobody came, under the floor
+all night, retries after a hub failure, a forbidden channel, the catch-up limit, and escaping. The gateway
 itself is disgo's and is not driven in tests.

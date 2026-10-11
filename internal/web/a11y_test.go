@@ -148,6 +148,23 @@ func TestAccessibility(t *testing.T) {
 				Rows: []templates.ParticipationRow{{Rank: 1, Name: "Brave Falcon", Pseudonymous: true, Time: "2h 05m", Times: 5},
 					{Rank: 2, Name: "Jo", UserID: "u1", Time: "45m", Times: 2}}})
 		},
+		// A session recap (ADR-0018) in its game's overlay: the numbers, the matches, the top five.
+		"/fixture/recap": func() templ.Component {
+			p := base
+			p.Title = online.Name + " recap"
+			p.Game = &templates.Game{ID: "wardogs", Name: "War Dogs"}
+			return templates.Recap(templates.RecapPage{Page: p, ServerID: online.ID, ServerName: online.Name, BoardURL: "/boards?scope=server%3Ahtg-wardogs-1",
+				Window: "Wed Oct 7, 2026, 18:00 to 22:00 CDT", Floor: 20, PeakPlayers: 31, Minutes: 236, MinutesAtFloor: 174, Players: 44,
+				Matches: []templates.RecapMatch{{Started: "18:02", Ended: "18:44", Map: "Ozeti", Players: 28, Teams: []templates.Team{{Name: "Lonestar", Score: 412}, {Name: "Boreal", Score: 388}}},
+					{Started: "21:30", Map: "Bakurani", Players: 19}},
+				Top: []templates.BoardRow{{Rank: 1, Name: "Brave Falcon", Pseudonymous: true, Cells: []string{"42", "10", "4.20", "2h 05m", "2"}},
+					{Rank: 2, Name: "Jo", UserID: "u1", Cells: []string{"30", "12", "2.50", "45m", "1"}}}})
+		},
+		"/fixture/recap-nobody": func() templ.Component {
+			p := base
+			p.Title = online.Name + " recap"
+			return templates.Recap(templates.RecapPage{Page: p, ServerID: online.ID, ServerName: online.Name, BoardURL: "/boards", Window: "Wed Oct 7, 2026, 18:00 to 22:00 CDT"})
+		},
 		"/fixture/participation-empty": func() templ.Component {
 			p := base
 			p.Title = "Participation"
@@ -235,7 +252,7 @@ func TestAccessibility(t *testing.T) {
 
 	paths := []string{"/login", "/fixture/account-unowned", "/fixture/account-owner", "/fixture/error",
 		"/fixture/servers", "/fixture/server", "/fixture/server-anonymous", "/fixture/server-game-overlay", "/fixture/boards", "/fixture/member-self", "/fixture/member", "/fixture/members",
-		"/fixture/participation", "/fixture/participation-empty", "/fixture/member-participation",
+		"/fixture/participation", "/fixture/participation-empty", "/fixture/member-participation", "/fixture/recap", "/fixture/recap-nobody",
 		"/fixture/server-moderator", "/fixture/confirm", "/fixture/log", "/fixture/account-apps", "/fixture/consent"}
 	// A fixture left out of the list would never be scanned and the run would still pass.
 	for path := range fixtures {
