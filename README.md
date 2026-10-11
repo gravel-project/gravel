@@ -2,7 +2,7 @@
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="internal/web/static/brand/github/readme-banner-dark.svg">
-  <img alt="gravel: host many game servers across many games with one control plane and cross-game stats" src="internal/web/static/brand/github/readme-banner-light.svg" width="1280">
+  <img alt="gravel: track every game server your community runs, with cross-game stats and one control plane" src="internal/web/static/brand/github/readme-banner-light.svg" width="1280">
 </picture>
 
 > Open-source, Kubernetes-native framework for hosting many game servers across many games, with one control interface and cross-game statistics. Each server is a grain; the fleet is the gravel.
