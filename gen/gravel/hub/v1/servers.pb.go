@@ -321,7 +321,9 @@ func (x *TeamScore) GetScore() int64 {
 type ServerStatus struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// "unknown" (not polled yet), "ok", "unreachable", "credential_refused", "credential_missing",
-	// "rate_limited" or "error". The cause of a failure is in the hub's log, never here.
+	// "rate_limited" or "error"; for a cloud-VM server whose host is not running, "parked" or
+	// "provisioning" (being made, started, resized or parked). The cause of a failure is in the
+	// hub's log, never here.
 	State string `protobuf:"bytes,1,opt,name=state,proto3" json:"state,omitempty"`
 	// False after two failed polls in a row; true again on the next success.
 	Reachable bool `protobuf:"varint,2,opt,name=reachable,proto3" json:"reachable,omitempty"`
@@ -579,8 +581,11 @@ type Server struct {
 	// Where it runs: "qonzer-slc".
 	Location string `protobuf:"bytes,4,opt,name=location,proto3" json:"location,omitempty"`
 	// "official" or "community".
-	Trust         string        `protobuf:"bytes,5,opt,name=trust,proto3" json:"trust,omitempty"`
-	Status        *ServerStatus `protobuf:"bytes,7,opt,name=status,proto3" json:"status,omitempty"`
+	Trust  string        `protobuf:"bytes,5,opt,name=trust,proto3" json:"trust,omitempty"`
+	Status *ServerStatus `protobuf:"bytes,7,opt,name=status,proto3" json:"status,omitempty"`
+	// The driver that controls it: "wardogs" (a server the hub reaches), "cloudvm" (one on a VM the
+	// hub makes, which has a ServerHost).
+	Driver        string `protobuf:"bytes,8,opt,name=driver,proto3" json:"driver,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -655,6 +660,13 @@ func (x *Server) GetStatus() *ServerStatus {
 		return x.Status
 	}
 	return nil
+}
+
+func (x *Server) GetDriver() string {
+	if x != nil {
+		return x.Driver
+	}
+	return ""
 }
 
 // ServerPlayer is one connected player at the last successful poll.
@@ -1163,14 +1175,15 @@ const file_gravel_hub_v1_servers_proto_rawDesc = "" +
 	"ServerJoin\x12\x16\n" +
 	"\x06method\x18\x01 \x01(\tR\x06method\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value\x12\x12\n" +
-	"\x04hint\x18\x03 \x01(\tR\x04hint\"\xbb\x01\n" +
+	"\x04hint\x18\x03 \x01(\tR\x04hint\"\xd3\x01\n" +
 	"\x06Server\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x17\n" +
 	"\agame_id\x18\x03 \x01(\tR\x06gameId\x12\x1a\n" +
 	"\blocation\x18\x04 \x01(\tR\blocation\x12\x14\n" +
 	"\x05trust\x18\x05 \x01(\tR\x05trust\x123\n" +
-	"\x06status\x18\a \x01(\v2\x1b.gravel.hub.v1.ServerStatusR\x06statusJ\x04\b\x06\x10\aR\aseeding\"\xcc\x01\n" +
+	"\x06status\x18\a \x01(\v2\x1b.gravel.hub.v1.ServerStatusR\x06status\x12\x16\n" +
+	"\x06driver\x18\b \x01(\tR\x06driverJ\x04\b\x06\x10\aR\aseeding\"\xcc\x01\n" +
 	"\fServerPlayer\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1a\n" +
 	"\bprovider\x18\x02 \x01(\tR\bprovider\x12\x18\n" +

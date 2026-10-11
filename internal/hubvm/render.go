@@ -21,6 +21,7 @@ import (
 	"text/template"
 
 	"github.com/gravel-project/gravel/deploy"
+	"github.com/gravel-project/gravel/internal/vmdoc"
 )
 
 // Profiles.
@@ -29,16 +30,16 @@ const (
 	ProfileStock = "stock"
 )
 
-// The runtime user's fixed identity. The data volume's files belong to these ids, so every
-// instance that mounts the volume must give the user the same ones.
+// The runtime user's fixed identity (vmdoc's: the hub's host and a game VM share it).
 const (
-	DefaultUser       = "gravel"
-	DefaultUID        = 1100
-	DefaultSubIDStart = 524288
+	DefaultUser       = vmdoc.DefaultUser
+	DefaultUID        = vmdoc.DefaultUID
+	DefaultSubIDStart = vmdoc.DefaultSubIDStart
 )
 
-// BasePackages are installed on every hub host.
-var BasePackages = []string{"podman", "git", "jq", "dnf5-plugin-automatic"}
+// BasePackages are installed on every hub host: vmdoc's, and git and jq for an operator's
+// configuration management.
+var BasePackages = append(slices.Clone(vmdoc.BasePackages[:1]), "git", "jq", vmdoc.BasePackages[1])
 
 //go:embed templates/*.tmpl
 var templates embed.FS
@@ -74,20 +75,9 @@ type StockParams struct {
 }
 
 var (
-	hostnameRE = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
-	userRE     = regexp.MustCompile(`^[a-z_][a-z0-9_-]{0,31}$`)
-	packageRE  = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._+-]*$`)
-	imageRE    = regexp.MustCompile(`^[a-z0-9][a-z0-9./_-]*(:[A-Za-z0-9._-]+)?(@sha256:[0-9a-f]{64})?$`)
-	originRE   = regexp.MustCompile(`^https?://[A-Za-z0-9.-]+(:[0-9]+)?$`)
-	keyRE      = regexp.MustCompile(`^(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp(256|384|521)|sk-ssh-ed25519@openssh\.com|sk-ecdsa-sha2-nistp256@openssh\.com) [A-Za-z0-9+/=]+( [^\n]*)?$`)
+	imageRE  = regexp.MustCompile(`^[a-z0-9][a-z0-9./_-]*(:[A-Za-z0-9._-]+)?(@sha256:[0-9a-f]{64})?$`)
+	originRE = regexp.MustCompile(`^https?://[A-Za-z0-9.-]+(:[0-9]+)?$`)
 )
-
-// file is one file the document writes outside the user's home.
-type file struct {
-	Path    string
-	Mode    string
-	Content string
-}
 
 // Render returns the cloud-init document for the parameters. It holds no secret: the parameters
 // cannot carry one.
@@ -95,27 +85,39 @@ func Render(p Params) (string, error) {
 	if err := p.normalize(); err != nil {
 		return "", err
 	}
-	t, err := template.New("").Funcs(template.FuncMap{"indent": indent}).ParseFS(templates, "templates/*.tmpl")
+	t, err := template.New("").ParseFS(templates, "templates/*.tmpl")
 	if err != nil {
 		return "", fmt.Errorf("hubvm: templates: %w", err)
 	}
-	firstBoot, err := execute(t, "first-boot.sh.tmpl", p)
-	if err != nil {
-		return "", err
-	}
-	var files []file
+	doc := p.base()
 	if p.Profile == ProfileStock {
-		files, err = stockFiles(t, p)
-		if err != nil {
+		if doc.Files, err = stockFiles(t, p); err != nil {
+			return "", err
+		}
+		if doc.FirstBootTail, err = execute(t, "stock-tail.sh.tmpl", p); err != nil {
 			return "", err
 		}
 	}
-	return execute(t, "cloud-init.yaml.tmpl", struct {
-		Params
-		Packages  []string
-		FirstBoot string
-		Files     []file
-	}{p, packages(p.ExtraPackages), firstBoot, files})
+	return vmdoc.Render(doc)
+}
+
+// base is the shared document's parameters for a hub host, without the stock profile's parts.
+func (p Params) base() vmdoc.Params {
+	return vmdoc.Params{
+		Header: `# A gravel hub host (ADR-0020), rendered by ` + "`gravel hub create` or `gravel hub cloud-init`" + `.
+# Profile: ` + p.Profile + `. Anything on the instance can read this document from the metadata
+# service, so it holds no secret: the stock profile's secrets are generated on the host at first
+# boot, and anything else (a tunnel token) is pushed over SSH afterwards.`,
+		FirstBootComment: `# gravel hub host, every boot of an instance (cloud-init runcmd runs once per instance, so this
+# runs on the first boot of each new instance, including one that replaces an earlier instance
+# on the same volume). Profile: ` + p.Profile + `.`,
+		FirstBootVars: `# Two markers on the volume: one for the home's setup, one for the stock install, so a boot that
+# failed halfway through the install never relabels podman's storage when it tries again.
+home_marker=$home/.gravel-home
+stock_marker=$home/.gravel-stock`,
+		Hostname: p.Hostname, SSHKeys: p.SSHKeys, DataDevice: p.DataDevice,
+		User: p.User, UID: p.UID, SubIDStart: p.SubIDStart, Packages: packages(p.ExtraPackages),
+	}
 }
 
 func (p *Params) normalize() error {
@@ -141,46 +143,12 @@ func (p *Params) normalize() error {
 	default:
 		return fmt.Errorf("hubvm: profile %q: want %s or %s", p.Profile, ProfileHost, ProfileStock)
 	}
-	if !hostnameRE.MatchString(p.Hostname) {
-		return fmt.Errorf("hubvm: hostname %q: lower-case letters, digits and hyphens, at most 63", p.Hostname)
+	// The shared checks and defaults are vmdoc's; copy back what it filled in.
+	d := p.base()
+	if err := d.Normalize(); err != nil {
+		return err
 	}
-	if len(p.SSHKeys) == 0 {
-		return fmt.Errorf("hubvm: at least one SSH public key is needed (no password logins)")
-	}
-	p.SSHKeys = slices.Clone(p.SSHKeys) // trimmed below; the caller's slice stays as it was
-	for i, k := range p.SSHKeys {
-		k = strings.TrimSpace(k)
-		if !keyRE.MatchString(k) {
-			return fmt.Errorf("hubvm: SSH key %d is not an OpenSSH public key", i+1)
-		}
-		p.SSHKeys[i] = k
-	}
-	if !strings.HasPrefix(p.DataDevice, "/dev/") || strings.ContainsAny(p.DataDevice, " \t\n\"'") {
-		return fmt.Errorf("hubvm: data device %q must be a /dev path", p.DataDevice)
-	}
-	for _, pkg := range p.ExtraPackages {
-		if !packageRE.MatchString(pkg) {
-			return fmt.Errorf("hubvm: package %q is not a package name", pkg)
-		}
-	}
-	if p.User == "" {
-		p.User = DefaultUser
-	}
-	if !userRE.MatchString(p.User) || p.User == "admin" || p.User == "root" {
-		return fmt.Errorf("hubvm: runtime user %q is not allowed", p.User)
-	}
-	if p.UID == 0 {
-		p.UID = DefaultUID
-	}
-	if p.UID < 1000 || p.UID > 60000 {
-		return fmt.Errorf("hubvm: uid %d: want a regular user id, 1000–60000", p.UID)
-	}
-	if p.SubIDStart == 0 {
-		p.SubIDStart = DefaultSubIDStart
-	}
-	if p.SubIDStart < 100000 {
-		return fmt.Errorf("hubvm: subordinate ids start at %d: want at least 100000", p.SubIDStart)
-	}
+	p.SSHKeys, p.User, p.UID, p.SubIDStart = d.SSHKeys, d.User, d.UID, d.SubIDStart
 	return nil
 }
 
@@ -197,8 +165,8 @@ func packages(extra []string) []string {
 
 // stockFiles are gravel's own units, the hub's configuration and the drop-in the stock profile
 // adds, staged under /usr/local/share/gravel for first-boot to install into the user's home.
-func stockFiles(t *template.Template, p Params) ([]file, error) {
-	var files []file
+func stockFiles(t *template.Template, p Params) ([]vmdoc.File, error) {
+	var files []vmdoc.File
 	err := fs.WalkDir(deploy.Quadlet, "quadlet", func(name string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
@@ -207,7 +175,7 @@ func stockFiles(t *template.Template, p Params) ([]file, error) {
 		if err != nil {
 			return err
 		}
-		files = append(files, file{Path: "/usr/local/share/gravel/quadlet/" + path.Base(name), Mode: "0644", Content: string(b)})
+		files = append(files, vmdoc.File{Path: "/usr/local/share/gravel/quadlet/" + path.Base(name), Mode: "0644", Content: string(b)})
 		return nil
 	})
 	if err != nil {
@@ -218,8 +186,8 @@ func stockFiles(t *template.Template, p Params) ([]file, error) {
 		return nil, err
 	}
 	files = append(files,
-		file{Path: "/usr/local/share/gravel/hub.yaml", Mode: "0644", Content: hubYAML},
-		file{Path: "/usr/local/share/gravel/gravel-hub-vm.conf", Mode: "0644", Content: dropIn(p.Stock)},
+		vmdoc.File{Path: "/usr/local/share/gravel/hub.yaml", Mode: "0644", Content: hubYAML},
+		vmdoc.File{Path: "/usr/local/share/gravel/gravel-hub-vm.conf", Mode: "0644", Content: dropIn(p.Stock)},
 	)
 	return files, nil
 }
@@ -244,14 +212,5 @@ func execute(t *template.Template, name string, data any) (string, error) {
 	return b.String(), nil
 }
 
-// indent prefixes every non-empty line with n spaces, for a block scalar in YAML.
-func indent(n int, s string) string {
-	pad := strings.Repeat(" ", n)
-	lines := strings.Split(strings.TrimRight(s, "\n"), "\n")
-	for i, l := range lines {
-		if l != "" {
-			lines[i] = pad + l
-		}
-	}
-	return strings.Join(lines, "\n")
-}
+// indent is vmdoc.Indent, kept for this package's tests.
+func indent(n int, s string) string { return vmdoc.Indent(n, s) }

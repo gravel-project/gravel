@@ -1,0 +1,7 @@
+hostname : quiet
+version  : 1.40.6.4/14064 10551 secure  public
+players  : 0 humans, 0 bots (10 max) (hibernating) (unreserved)
+loaded spawngroup(  1)  : SV:  [1: de_dust2 | main lump | mapload]
+---------players--------
+  id     time ping loss      state   rate adr name
+#end

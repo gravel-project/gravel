@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/netip"
 	"regexp"
 	"slices"
 	"strings"
@@ -106,7 +105,7 @@ func Create(ctx context.Context, p cloud.Provider, s Spec, dryRun bool) (Result,
 	if s.VolumeGiB < 1 {
 		return Result{}, fmt.Errorf("hubvm: the data volume needs a size")
 	}
-	sshFrom, err := NormalizeCIDRs(s.SSHFrom)
+	sshFrom, err := cloud.NormalizeCIDRs(s.SSHFrom)
 	if err != nil {
 		return Result{}, err
 	}
@@ -216,7 +215,7 @@ func ensureFirewall(ctx context.Context, p cloud.Provider, name string, sshFrom 
 	switch {
 	case cur == nil:
 		step.Action = Created
-	case sameFirewall(cur.FirewallSpec, want):
+	case cloud.SameFirewallSpec(cur.FirewallSpec, want):
 		step.Action, step.Resource = Unchanged, cur.ID
 		return cur, step, nil
 	default:
@@ -259,26 +258,6 @@ func SSHSources(fw cloud.Firewall) []string {
 	}
 	slices.Sort(out)
 	return slices.Compact(out)
-}
-
-func sameFirewall(a, b cloud.FirewallSpec) bool {
-	norm := func(s cloud.FirewallSpec) string {
-		var parts []string
-		for _, set := range [][]cloud.Rule{s.Inbound, s.Outbound} {
-			var rules []string
-			for _, r := range set {
-				addrs := slices.Clone(r.Addresses)
-				slices.Sort(addrs)
-				rules = append(rules, r.Protocol+"/"+r.Ports+"/"+strings.Join(addrs, ","))
-			}
-			slices.Sort(rules)
-			parts = append(parts, strings.Join(rules, ";"))
-		}
-		tags := slices.Clone(s.Tags)
-		slices.Sort(tags)
-		return s.Name + "|" + strings.Join(tags, ",") + "|" + strings.Join(parts, "|")
-	}
-	return norm(a) == norm(b)
 }
 
 func ensureVolume(ctx context.Context, p cloud.Provider, s Spec, dryRun bool) (*cloud.Volume, Step, bool, error) {
@@ -443,7 +422,7 @@ func AllowSSH(ctx context.Context, p cloud.Provider, name string, cidrs []string
 	if err := ValidName(name); err != nil {
 		return Step{}, err
 	}
-	sshFrom, err := NormalizeCIDRs(cidrs)
+	sshFrom, err := cloud.NormalizeCIDRs(cidrs)
 	if err != nil {
 		return Step{}, err
 	}
@@ -459,38 +438,6 @@ func AllowSSH(ctx context.Context, p cloud.Provider, name string, cidrs []string
 	}
 	_, step, err := ensureFirewall(ctx, p, name, sshFrom, dryRun)
 	return step, err
-}
-
-// NormalizeCIDRs parses addresses and prefixes ("203.0.113.4" becomes "203.0.113.4/32"), masks
-// them, and returns them sorted without duplicates.
-func NormalizeCIDRs(in []string) ([]string, error) {
-	var out []string
-	for _, s := range in {
-		s = strings.TrimSpace(s)
-		if s == "" {
-			continue
-		}
-		var pfx netip.Prefix
-		if strings.Contains(s, "/") {
-			p, err := netip.ParsePrefix(s)
-			if err != nil {
-				return nil, fmt.Errorf("hubvm: %q is not an address or CIDR", s)
-			}
-			pfx = p.Masked()
-		} else {
-			a, err := netip.ParseAddr(s)
-			if err != nil {
-				return nil, fmt.Errorf("hubvm: %q is not an address or CIDR", s)
-			}
-			pfx = netip.PrefixFrom(a.Unmap(), a.Unmap().BitLen())
-		}
-		if pfx.Bits() == 0 {
-			return nil, fmt.Errorf("hubvm: %q admits SSH from everywhere; name the operator's addresses", s)
-		}
-		out = append(out, pfx.String())
-	}
-	slices.Sort(out)
-	return slices.Compact(out), nil
 }
 
 func orNone(ip string) string {

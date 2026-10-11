@@ -1,0 +1,134 @@
+package templates
+
+import (
+	"fmt"
+	"time"
+)
+
+// HostSection is a cloud-VM server's host on its page, for the owner and moderators: where it is,
+// what it costs, and park, unpark, resize and destroy (each through a confirmation page).
+templ HostSection(p ServerPage) {
+	<section aria-labelledby="host-heading">
+		<h2 id="host-heading">Server machine</h2>
+		<dl class="facts">
+			<dt>State</dt>
+			<dd>
+				{ p.Host.StateLabel }
+				if p.Host.Step != "" {
+					<span class="muted">({ p.Host.Step })</span>
+				}
+				if !p.Host.Since.IsZero() {
+					<span class="muted">since { at(p.Host.Since) }</span>
+				}
+			</dd>
+			if p.Host.ErrorCode != "" {
+				<dt>Trouble</dt>
+				<dd>A step keeps failing: { p.Host.ErrorCode }. The hub retries it; its log says why.</dd>
+			}
+			if p.Host.Size != "" {
+				<dt>Size</dt>
+				<dd>
+					{ p.Host.Size }
+					if p.Host.TargetSize != "" {
+						<span class="muted">moving to { p.Host.TargetSize }</span>
+					}
+				</dd>
+			}
+			if p.Host.Address != "" {
+				<dt>Address</dt>
+				<dd>
+					<code>{ p.Host.Address }</code>
+					if p.Host.Reserved {
+						<span class="muted">reserved: it stays when the machine is parked</span>
+					}
+				</dd>
+			}
+			<dt>Cost</dt>
+			<dd>{ usd(p.Host.HourlyUSD) } an hour while running; { usd(p.Host.MonthUSD) } so far this month ({ fmt.Sprintf("%.1f", p.Host.HoursMonth) } hours). The disk and the address bill too.</dd>
+			if p.Host.ReadySeconds > 0 {
+				<dt>Last start</dt>
+				<dd>Booted in { secs(p.Host.BootSeconds) }, playable in { secs(p.Host.ReadySeconds) }.</dd>
+			}
+			<dt>Parks itself</dt>
+			<dd>
+				if p.Host.ParkAfter > 0 {
+					after { p.Host.ParkAfter.String() } with nobody on
+				} else {
+					never
+				}
+			</dd>
+		</dl>
+		if p.Host.CanUnpark {
+			@hostForm(p, "unpark", "Start the server")
+		}
+		if p.Host.CanPark {
+			@hostForm(p, "park", "Park the server")
+		}
+		if p.Host.CanResize && len(p.Host.Sizes) > 0 {
+			<form method="post" action={ templ.SafeURL("/servers/" + p.Server.ID + "/host") }>
+				<input type="hidden" name="_csrf" value={ p.CSRF }/>
+				<input type="hidden" name="action" value="resize"/>
+				<label for="host-size">Resize the machine to</label>
+				<select id="host-size" name="size">
+					for _, s := range p.Host.Sizes {
+						<option value={ s.Slug }>{ s.Label }</option>
+					}
+				</select>
+				<button type="submit">Review</button>
+			</form>
+		}
+		if p.Host.CanDestroy {
+			@hostForm(p, "destroy", "Destroy the machine")
+		}
+	</section>
+}
+
+templ hostForm(p ServerPage, action, label string) {
+	<form method="post" action={ templ.SafeURL("/servers/" + p.Server.ID + "/host") } class="inline">
+		<input type="hidden" name="_csrf" value={ p.CSRF }/>
+		<input type="hidden" name="action" value={ action }/>
+		<button type="submit">{ label }</button>
+	</form>
+}
+
+// HostConfirm asks before a host request is sent.
+templ HostConfirm(p HostConfirmPage) {
+	@Layout(p.Page) {
+		@HostConfirmContent(p)
+	}
+}
+
+// HostConfirmContent is HostConfirm without the layout, for htmx.
+templ HostConfirmContent(p HostConfirmPage) {
+	@GameScope(p.Game) {
+		<h1>{ p.Question }</h1>
+		if p.Warning != "" {
+			<p>{ p.Warning }</p>
+		}
+		<p class="muted">It is recorded in the moderation log with your name.</p>
+		<form method="post" action={ templ.SafeURL("/servers/" + p.ServerID + "/host") }>
+			<input type="hidden" name="_csrf" value={ p.CSRF }/>
+			<input type="hidden" name="action" value={ p.Action }/>
+			<input type="hidden" name="size" value={ p.Size }/>
+			<input type="hidden" name="confirm" value="1"/>
+			if p.OfferForce {
+				<p>
+					<input id="host-force" type="checkbox" name="force" value="1"/>
+					<label for="host-force">Resize even if players are on</label>
+				</p>
+			}
+			if p.OfferDeleteVolume {
+				<p>
+					<input id="host-delete-volume" type="checkbox" name="delete_volume" value="1"/>
+					<label for="host-delete-volume">Also delete the disk with the game's install, and release the address</label>
+				</p>
+			}
+			<button type="submit">Yes, { p.Action }</button>
+			<a href={ templ.SafeURL("/servers/" + p.ServerID) }>Cancel</a>
+		</form>
+	}
+}
+
+func usd(v float64) string { return fmt.Sprintf("$%.2f", v) }
+
+func secs(n int) string { return (time.Duration(n) * time.Second).String() }

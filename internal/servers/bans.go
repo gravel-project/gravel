@@ -18,21 +18,62 @@ type BanEntry struct {
 	Hub *store.Ban
 }
 
+// keepsHubList says whether a server's bans go through the hub's list: the driver writes the list
+// into the server's configuration (CapConfigWrite), or enforces it itself (drivers.BanList).
+func keepsHubList(drv drivers.Driver, caps []string) bool {
+	if _, ok := drv.(drivers.BanList); ok {
+		return true
+	}
+	_, ok := drv.(drivers.Configurer)
+	return ok && slices.Contains(caps, drivers.CapConfigWrite)
+}
+
+// setBans hands the hub's list to the driver: into the server's configuration, or to a driver
+// that enforces it.
+func setBans(ctx context.Context, drv drivers.Driver, list []drivers.Identity) error {
+	if bl, ok := drv.(drivers.BanList); ok {
+		return bl.SetBans(ctx, list)
+	}
+	if c, ok := drv.(drivers.Configurer); ok {
+		_, err := c.SetConfigBans(ctx, list)
+		return err
+	}
+	return fmt.Errorf("%w: %s", drivers.ErrNotSupported, drivers.CapConfigWrite)
+}
+
+// Prime hands a new driver that enforces the hub's ban list the server's active bans (the
+// monitor's Primer). Other drivers need nothing.
+func (m *Moderation) Prime(ctx context.Context, srv Server, drv drivers.Driver) error {
+	bl, ok := drv.(drivers.BanList)
+	if !ok {
+		return nil
+	}
+	list, err := m.hubList(ctx, srv.ID)
+	if err != nil {
+		return err
+	}
+	return bl.SetBans(ctx, list)
+}
+
 // adopt takes over a server's ban list the first time the hub writes it: the identities the
 // server's configuration bans are imported as hub bans, so nothing a host banned before is
-// dropped when the hub writes its list.
-func (m *Moderation) adopt(ctx context.Context, serverID string, drv drivers.ExternalReachable) error {
+// dropped when the hub writes its list. A driver without a configuration document (it enforces
+// the list itself) has nothing to import.
+func (m *Moderation) adopt(ctx context.Context, serverID string, drv drivers.Driver) error {
 	done, err := m.bans.BanListAdopted(ctx, m.orgID, serverID)
 	if err != nil || done {
 		return err
 	}
-	doc, err := drv.Config(ctx)
-	if err != nil {
-		return err
-	}
-	imported := make([]store.Ban, 0, len(doc.Bans))
-	for _, b := range doc.Bans {
-		imported = append(imported, store.Ban{Provider: b.Provider, Subject: b.Subject})
+	var imported []store.Ban
+	if c, ok := drv.(drivers.Configurer); ok {
+		doc, err := c.Config(ctx)
+		if err != nil {
+			return err
+		}
+		imported = make([]store.Ban, 0, len(doc.Bans))
+		for _, b := range doc.Bans {
+			imported = append(imported, store.Ban{Provider: b.Provider, Subject: b.Subject})
+		}
 	}
 	adopted, err := m.bans.AdoptBanList(ctx, m.orgID, serverID, imported, m.now().UTC())
 	if err != nil {
@@ -57,13 +98,14 @@ func (m *Moderation) hubList(ctx context.Context, serverID string) ([]drivers.Id
 	return out, nil
 }
 
-// hubBan bans or unbans through the hub's list, written into the server's configuration. Both
+// hubBan bans or unbans through the hub's list, written into the server's configuration or handed
+// to a driver that enforces it. Both
 // directions fail toward banned: a ban is recorded before the server is written and rolled back
 // if the server refuses; an unban writes the server first and lifts the record after, so a lift
 // that fails is re-applied as a ban by the next write. The server's own ban route runs too, best
 // effort: it kicks a player who is on (a configuration ban takes effect at their next join) and
 // clears an RCON-made ban.
-func (m *Moderation) hubBan(ctx context.Context, serverID string, drv drivers.ExternalReachable, caps []string, a Action, auditID int64) error {
+func (m *Moderation) hubBan(ctx context.Context, serverID string, drv drivers.Driver, caps []string, a Action, auditID int64) error {
 	now := m.now().UTC()
 	switch a.Kind {
 	case ActionBan:
@@ -77,7 +119,7 @@ func (m *Moderation) hubBan(ctx context.Context, serverID string, drv drivers.Ex
 		if err != nil {
 			return err
 		}
-		if _, err := drv.SetConfigBans(ctx, list); err != nil {
+		if err := setBans(ctx, drv, list); err != nil {
 			if added {
 				if lerr := m.bans.LiftBan(ctx, m.orgID, serverID, a.Player.Provider, a.Player.Subject, nil, m.now().UTC()); lerr != nil {
 					m.logger.Error("the server refused the ban and the hub's record could not be rolled back; the next write will send it",
@@ -108,7 +150,7 @@ func (m *Moderation) hubBan(ctx context.Context, serverID string, drv drivers.Ex
 			rest = append(rest, drivers.Identity{Provider: b.Provider, Subject: b.Subject})
 		}
 		if had {
-			if _, err := drv.SetConfigBans(ctx, rest); err != nil {
+			if err := setBans(ctx, drv, rest); err != nil {
 				return err
 			}
 			if err := m.bans.LiftBan(ctx, m.orgID, serverID, a.Player.Provider, a.Player.Subject, &auditID, m.now().UTC()); err != nil {

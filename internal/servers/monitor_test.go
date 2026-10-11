@@ -42,7 +42,7 @@ func newMonitorRig(t *testing.T, opt wardogstest.Options) *monitorRig {
 	r.cred = filepath.Join(t.TempDir(), "rcon")
 	r.setCredential(t, wardogstest.Token)
 	reg := prometheus.NewRegistry()
-	registry := drivers.Registry{wardogsdriver.Name: wardogsdriver.New}
+	registry := drivers.Registry{wardogsdriver.Name: wardogsdriver.Factory}
 	r.svc = New(serverstest.NewFakeStore(), uuid.New(), registry.Names(), logger)
 	r.run = jobs.New(logger, reg)
 	r.mon = NewMonitor(r.svc, registry, r.run, reg, "test", logger)

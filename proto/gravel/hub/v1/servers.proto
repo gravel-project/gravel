@@ -53,7 +53,9 @@ message TeamScore {
 // ServerStatus is the hub's last observation of a server. It carries no personal data.
 message ServerStatus {
   // "unknown" (not polled yet), "ok", "unreachable", "credential_refused", "credential_missing",
-  // "rate_limited" or "error". The cause of a failure is in the hub's log, never here.
+  // "rate_limited" or "error"; for a cloud-VM server whose host is not running, "parked" or
+  // "provisioning" (being made, started, resized or parked). The cause of a failure is in the
+  // hub's log, never here.
   string state = 1;
   // False after two failed polls in a row; true again on the next success.
   bool reachable = 2;
@@ -111,6 +113,9 @@ message Server {
   reserved 6;
   reserved "seeding";
   ServerStatus status = 7;
+  // The driver that controls it: "wardogs" (a server the hub reaches), "cloudvm" (one on a VM the
+  // hub makes, which has a ServerHost).
+  string driver = 8;
 }
 
 // ServerPlayer is one connected player at the last successful poll.

@@ -1,15 +1,12 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
-	"net"
-	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -17,6 +14,7 @@ import (
 	"github.com/gravel-project/gravel/cloud"
 	"github.com/gravel-project/gravel/cloud/digitalocean"
 	"github.com/gravel-project/gravel/internal/hubvm"
+	"github.com/gravel-project/gravel/internal/publicaddr"
 )
 
 // providerConfig is what every provider is made from: a token file, and the provider's own
@@ -120,32 +118,15 @@ func (f sshFromFlags) cidrs(ctx context.Context) ([]string, error) {
 	return out, nil
 }
 
-// traceURL answers with this machine's public address as Cloudflare's edge sees it ("ip=…").
-// It is an IPv4 literal, so the request leaves over IPv4: the firewall rule is for the address a
-// later SSH connection comes from, and an IPv4 hub host is reached over IPv4.
-var traceURL = "https://1.1.1.1/cdn-cgi/trace"
+// traceURL is where this machine's public address is read from; a test points it elsewhere.
+var traceURL = publicaddr.TraceURL
 
 func publicAddress(ctx context.Context) (string, error) {
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, traceURL, nil)
+	a, err := publicaddr.Detect(ctx, nil, traceURL)
 	if err != nil {
 		return "", err
 	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("find this machine's public address: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-	sc := bufio.NewScanner(io.LimitReader(resp.Body, 1<<16))
-	for sc.Scan() {
-		if v, ok := strings.CutPrefix(sc.Text(), "ip="); ok {
-			if ip := net.ParseIP(strings.TrimSpace(v)); ip != nil {
-				return ip.String(), nil
-			}
-		}
-	}
-	return "", fmt.Errorf("find this machine's public address: no ip= in %s's answer", traceURL)
+	return a.String(), nil
 }
 
 func printSteps(w io.Writer, steps []hubvm.Step, dryRun bool) {

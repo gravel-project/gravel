@@ -232,6 +232,10 @@ observability-check: image ## Run the dashboards against a live hub in a throwaw
 hub-vm: ## Boot a stock hub host in a local KVM VM from its cloud-init document, recreate it on the same disk, compare (ADR-0020)
 	$(CURDIR)/deploy/hub-vm.sh drill
 
+.PHONY: game-vm
+game-vm: ## Boot a CS2 game host in a local KVM VM from the cloud-VM driver's document, push its environment over SSH, check the game starts (ADR-0003)
+	$(CURDIR)/deploy/game-vm.sh drill
+
 .PHONY: clean
 clean: ## Remove build outputs (not the tools)
 	rm -f $(BIN)/gravel-hub $(BIN)/gravel-hub.tar $(BIN)/gravel-bot $(BIN)/gravel

@@ -1,40 +1,3 @@
-#!/bin/bash
-# gravel hub host, every boot of an instance (cloud-init runcmd runs once per instance, so this
-# runs on the first boot of each new instance, including one that replaces an earlier instance
-# on the same volume). Profile: {{ .Profile }}.
-set -euo pipefail
-user={{ .User }}
-home=/home/$user
-# Two markers on the volume: one for the home's setup, one for the stock install, so a boot that
-# failed halfway through the install never relabels podman's storage when it tries again.
-home_marker=$home/.gravel-home
-stock_marker=$home/.gravel-stock
-
-mountpoint -q "$home" || { echo "first-boot: $home is not mounted: is the data volume attached?" >&2; exit 1; }
-
-# The volume's first boot: give the home to the user, with the usual dotfiles and SELinux labels.
-# On a later instance the volume already carries all of it, and relabelling podman's storage
-# would be wrong, so nothing here runs twice.
-if [[ ! -e "$home_marker" ]]; then
-  chown "$user:$user" "$home"
-  chmod 0700 "$home"
-  cp -r --update=none /etc/skel/. "$home/"
-  chown -R "$user:$user" "$home"
-  restorecon -R "$home"
-  install -o "$user" -g "$user" -m 0644 /dev/null "$home_marker"
-fi
-
-# The user's systemd instance outlives logins (linger lives on the root disk, so every instance
-# sets it); wait for it before talking to it.
-loginctl enable-linger "$user"
-uid=$(id -u "$user")
-for _ in $(seq 1 60); do
-  [[ -S /run/user/$uid/bus ]] && break
-  sleep 1
-done
-as_user() { runuser -u "$user" -- env HOME="$home" XDG_RUNTIME_DIR="/run/user/$uid" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus" "$@"; }
-{{- if eq .Profile "stock" }}
-
 # The stock hub (deploy/quadlet in gravel): units and configuration installed once per volume, so
 # an operator's later edits survive a replacement instance. The secrets are made here, on the
 # host, and never leave it.
@@ -60,6 +23,3 @@ if [[ ! -e "$stock_marker" ]]; then
 fi
 as_user systemctl --user daemon-reload
 as_user systemctl --user start gravel-hub.service
-{{- end }}
-
-echo "first-boot: done"

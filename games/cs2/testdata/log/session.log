@@ -1,0 +1,22 @@
+10/12/2026 - 19:00:00.000 - Log file started (file "logs/L010_000_002_002_27015_202610121900_000.log") (game "/home/steam/cs2-dedicated/game/csgo") (version "10551")
+10/12/2026 - 19:00:00.100 - Loading map "de_mirage"
+10/12/2026 - 19:00:00.110 - server cvars start
+10/12/2026 - 19:00:00.111 - "sv_password" = "hunter2-join"
+10/12/2026 - 19:00:00.112 - "tv_relaypassword" = ""
+10/12/2026 - 19:00:00.113 - "mp_friendlyfire" = "false"
+10/12/2026 - 19:00:00.120 - server cvars end
+10/12/2026 - 19:01:00.000 - "Player One<2><[U:1:22202]><>" connected, address "198.51.100.10:27005"
+10/12/2026 - 19:01:01.000 - "Player One<2><[U:1:22202]><>" STEAM USERID validated
+10/12/2026 - 19:01:05.000 - "Player One<2><[U:1:22202]><>" entered the game
+10/12/2026 - 19:01:06.000 - "Player One<2><[U:1:22202]>" switched from team <Unassigned> to <CT>
+10/12/2026 - 19:01:10.000 - "Two<3><[U:1:22203]><>" connected, address "198.51.100.11:27005"
+10/12/2026 - 19:01:12.000 - "Two<3><[U:1:22203]><>" entered the game
+10/12/2026 - 19:01:13.000 - "Two<3><[U:1:22203]>" switched from team <Unassigned> to <TERRORIST>
+10/12/2026 - 19:01:14.000 - "Bot Ted<4><BOT><>" connected, address ""
+10/12/2026 - 19:02:00.000 - "Player One<2><[U:1:22202]><CT>" [10 20 30] killed "Two<3><[U:1:22203]><TERRORIST>" [-10 -20 -30] with "ak47" (headshot)
+10/12/2026 - 19:02:30.000 - "Player One<2><[U:1:22202]><CT>" [10 20 30] killed "Bot Ted<4><BOT><TERRORIST>" [-10 -20 -30] with "ak47"
+10/12/2026 - 19:03:00.000 - "Two<3><[U:1:22203]><TERRORIST>" [1 2 3] committed suicide with "world"
+10/12/2026 - 19:04:00.000 - this line is not one cs2log knows
+not a log line at all
+10/12/2026 - 19:05:00.000 - "Two<3><[U:1:22203]><TERRORIST>" disconnected (reason "NETWORK_DISCONNECT_DISCONNECT_BY_USER")
+10/12/2026 - 19:40:00.000 - Game Over: competitive mg_active de_mirage score 13:11 after 38 min

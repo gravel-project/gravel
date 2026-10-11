@@ -31,6 +31,8 @@ var stateLabels = map[string]string{
 	"credential_missing": "Unavailable",
 	"rate_limited":       "Unavailable",
 	"error":              "Unavailable",
+	"parked":             "Parked",
+	"provisioning":       "Starting up",
 }
 
 // metricLabels are a board column's headers.
@@ -189,6 +191,9 @@ func (h *Handler) server(w http.ResponseWriter, r *http.Request) {
 	}
 	if p.User.CanModerate() {
 		sp.Mod = h.modControls(r, id, s.GetStatus().GetCapabilities())
+		if s.GetDriver() == "cloudvm" {
+			sp.Host = h.hostPanel(r, id, p.User.Owner)
+		}
 	}
 	h.render(w, r, http.StatusOK, b, templates.Server(sp), templates.ServerContent(sp))
 }

@@ -87,7 +87,7 @@ func TestParseManifestAndDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := m.Validate(Specs(), []string{"wardogs"}); err != nil {
+	if err := m.Validate(Specs(), []string{"wardogs"}, nil); err != nil {
 		t.Fatal(err)
 	}
 	s := m.Servers[0]
@@ -142,9 +142,9 @@ func TestValidate(t *testing.T) {
 		{"version", func(m *Manifest) { m.Version = 2 }, "version: got 2"},
 		{"unknown game", func(m *Manifest) { m.Games = append(m.Games, GameRef{ID: "quake"}) }, `games[1].id: "quake" is not a game this hub ships (cs2, pubg, seaofthieves, starcitizen, wardogs)`},
 		{"catalog game", func(m *Manifest) {
-			m.Games = append(m.Games, GameRef{ID: "cs2"})
-			m.Servers[0].Game = "cs2"
-		}, "servers[0].game: Counter-Strike 2 is a catalog entry; gravel has no driver for its servers yet"},
+			m.Games = append(m.Games, GameRef{ID: "pubg"})
+			m.Servers[0].Game = "pubg"
+		}, "servers[0].game: PUBG is a catalog entry; gravel has no driver for its servers yet"},
 		{"length loosened", func(m *Manifest) {
 			m.Games[0].Bands = append(m.Games[0].Bands, Band{Section: "/Script/WDGame.WDGameSession", Key: "ServerName", MaxLength: i64(65)})
 		}, "max_length: 65 must be from 1 to the spec's 64"},
@@ -192,7 +192,7 @@ func TestValidate(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			m := base()
 			c.edit(&m)
-			err := m.Validate(Specs(), []string{"wardogs"})
+			err := m.Validate(Specs(), []string{"wardogs"}, nil)
 			if err == nil || !errors.Is(err, ErrInvalidManifest) || !strings.Contains(err.Error(), c.want) {
 				t.Errorf("err = %v, want %q", err, c.want)
 			}
@@ -200,11 +200,11 @@ func TestValidate(t *testing.T) {
 	}
 	m := base()
 	m.Servers[0].Trust, m.Servers[0].Location = "", ""
-	if err := m.Validate(Specs(), []string{"wardogs"}); err == nil || strings.Count(err.Error(), ErrInvalidManifest.Error()) != 2 {
+	if err := m.Validate(Specs(), []string{"wardogs"}, nil); err == nil || strings.Count(err.Error(), ErrInvalidManifest.Error()) != 2 {
 		t.Errorf("two problems reported as %v", err)
 	}
 	m = base()
-	if err := m.Validate(Specs(), nil); err == nil || !strings.Contains(err.Error(), "is not a driver this hub has") {
+	if err := m.Validate(Specs(), nil, nil); err == nil || !strings.Contains(err.Error(), "is not a driver this hub has") {
 		t.Errorf("a hub without the driver = %v", err)
 	}
 }

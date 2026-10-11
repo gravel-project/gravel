@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"os"
 	"reflect"
+	"slices"
 	"strings"
 	"time"
 
@@ -23,17 +24,19 @@ import (
 type Store interface {
 	ListGames(ctx context.Context, orgID uuid.UUID, includeRemoved bool) ([]store.Game, error)
 	ListManagedServers(ctx context.Context, orgID uuid.UUID, includeRemoved bool) ([]store.ManagedServer, error)
-	ApplyServers(ctx context.Context, orgID uuid.UUID, games []store.Game, servers []store.ManagedServer, now time.Time) error
+	ListLocations(ctx context.Context, orgID uuid.UUID) ([]store.Location, error)
+	ApplyServers(ctx context.Context, orgID uuid.UUID, games []store.Game, locations []store.Location, servers []store.ManagedServer, now time.Time) error
 }
 
 // Service applies manifests and reads the games and servers back.
 type Service struct {
-	st      Store
-	orgID   uuid.UUID
-	specs   map[string]Spec
-	drivers []string
-	logger  *slog.Logger
-	now     func() time.Time
+	st        Store
+	orgID     uuid.UUID
+	specs     map[string]Spec
+	drivers   []string
+	providers []string
+	logger    *slog.Logger
+	now       func() time.Time
 }
 
 // New builds a service for an organization; drivers are the names the hub's registry has.
@@ -41,8 +44,49 @@ func New(st Store, orgID uuid.UUID, drivers []string, logger *slog.Logger) *Serv
 	return &Service{st: st, orgID: orgID, specs: Specs(), drivers: drivers, logger: logger, now: time.Now}
 }
 
-// Validate checks a manifest against the shipped specs and the hub's drivers.
-func (s *Service) Validate(m Manifest) error { return m.Validate(s.specs, s.drivers) }
+// WithProviders sets the clouds this hub makes VMs in (the cloud-VM driver's locations name one).
+func (s *Service) WithProviders(names ...string) *Service {
+	s.providers = slices.Clone(names)
+	return s
+}
+
+// Validate checks a manifest against the shipped specs, the hub's drivers and its clouds.
+func (s *Service) Validate(m Manifest) error { return m.Validate(s.specs, s.drivers, s.providers) }
+
+// Locations are the clouds the manifest defines, by id.
+func (s *Service) Locations(ctx context.Context) ([]Location, error) {
+	rows, err := s.st.ListLocations(ctx, s.orgID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Location, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, Location{ID: r.ID, Provider: r.Provider, Region: r.Region, Project: r.Project,
+			TokenFile: r.TokenFile, SSHKeyFile: r.SSHKeyFile, Image: r.Image,
+			ExtraSSHKeys: r.ExtraSSHKeys, SSHFrom: r.SSHFrom})
+	}
+	return out, nil
+}
+
+// Location is one defined location, or store.ErrNotFound.
+func (s *Service) Location(ctx context.Context, id string) (Location, error) {
+	all, err := s.Locations(ctx)
+	if err != nil {
+		return Location{}, err
+	}
+	for _, l := range all {
+		if l.ID == id {
+			return l, nil
+		}
+	}
+	return Location{}, store.ErrNotFound
+}
+
+// Spec is a shipped Game spec by id.
+func (s *Service) Spec(id string) (Spec, bool) {
+	sp, ok := s.specs[id]
+	return sp, ok
+}
 
 // Game is an enabled game: its spec with the manifest's bands applied.
 type Game struct {
@@ -117,7 +161,11 @@ func (s *Service) Manifest(ctx context.Context) (Manifest, error) {
 	if err != nil {
 		return Manifest{}, err
 	}
-	m := Manifest{Version: ManifestVersion, Servers: srvs}
+	locs, err := s.Locations(ctx)
+	if err != nil {
+		return Manifest{}, err
+	}
+	m := Manifest{Version: ManifestVersion, Servers: srvs, Locations: locs}
 	for _, g := range games {
 		m.Games = append(m.Games, GameRef{ID: g.ID, Bands: g.Tightened})
 	}
@@ -126,7 +174,7 @@ func (s *Service) Manifest(ctx context.Context) (Manifest, error) {
 
 // Change is one difference apply makes.
 type Change struct {
-	Kind   string // "game" or "server"
+	Kind   string // "game", "location" or "server"
 	ID     string
 	Action string // "added", "changed" or "removed"
 }
@@ -154,17 +202,31 @@ func (s *Service) Apply(ctx context.Context, m Manifest, opt ApplyOptions) ([]Ch
 	}
 	if opt.CheckCredentials {
 		var errs []error
+		check := func(what, f string) {
+			if b, err := os.ReadFile(f); err != nil {
+				errs = append(errs, fmt.Errorf("%w: %s: %s: %w", ErrCredentialFile, what, f, err))
+			} else if strings.TrimSpace(string(b)) == "" {
+				errs = append(errs, fmt.Errorf("%w: %s: %s is empty", ErrCredentialFile, what, f))
+			}
+		}
+		for _, l := range m.Locations {
+			check("location "+l.ID, l.TokenFile)
+			check("location "+l.ID, l.SSHKeyFile)
+		}
 		for _, srv := range m.Servers {
 			files := []string{srv.CredentialFile}
 			if srv.Feed != nil {
 				files = append(files, srv.Feed.TokenFile)
 			}
-			for _, f := range files {
-				if b, err := os.ReadFile(f); err != nil {
-					errs = append(errs, fmt.Errorf("%w: server %s: %s: %w", ErrCredentialFile, srv.ID, f, err))
-				} else if strings.TrimSpace(string(b)) == "" {
-					errs = append(errs, fmt.Errorf("%w: server %s: %s is empty", ErrCredentialFile, srv.ID, f))
+			if vm := srv.VM; vm != nil {
+				for _, f := range []string{vm.PasswordFile, vm.PublisherTokenFile} {
+					if f != "" {
+						files = append(files, f)
+					}
 				}
+			}
+			for _, f := range files {
+				check("server "+srv.ID, f)
 			}
 		}
 		if len(errs) > 0 {
@@ -187,6 +249,12 @@ func (s *Service) Apply(ctx context.Context, m Manifest, opt ApplyOptions) ([]Ch
 		}
 		games = append(games, store.Game{ID: g.ID, Bands: bands})
 	}
+	locs := make([]store.Location, 0, len(m.Locations))
+	for _, l := range m.Locations {
+		locs = append(locs, store.Location{ID: l.ID, Provider: l.Provider, Region: l.Region, Project: l.Project,
+			TokenFile: l.TokenFile, SSHKeyFile: l.SSHKeyFile, Image: l.Image,
+			ExtraSSHKeys: slices.Clone(l.ExtraSSHKeys), SSHFrom: slices.Clone(l.SSHFrom)})
+	}
 	rows := make([]store.ManagedServer, 0, len(m.Servers))
 	for _, srv := range m.Servers {
 		r, err := toRow(srv)
@@ -195,7 +263,7 @@ func (s *Service) Apply(ctx context.Context, m Manifest, opt ApplyOptions) ([]Ch
 		}
 		rows = append(rows, r)
 	}
-	if err := s.st.ApplyServers(ctx, s.orgID, games, rows, s.now()); err != nil {
+	if err := s.st.ApplyServers(ctx, s.orgID, games, locs, rows, s.now()); err != nil {
 		return nil, err
 	}
 	for _, c := range changes {
@@ -222,6 +290,24 @@ func diff(current, want Manifest) []Change {
 	for _, g := range current.Games {
 		if !wantGames[g.ID] {
 			out = append(out, Change{"game", g.ID, "removed"})
+		}
+	}
+	curLoc := map[string]Location{}
+	for _, l := range current.Locations {
+		curLoc[l.ID] = l
+	}
+	wantLoc := map[string]bool{}
+	for _, l := range want.Locations {
+		wantLoc[l.ID] = true
+		if c, ok := curLoc[l.ID]; !ok {
+			out = append(out, Change{"location", l.ID, "added"})
+		} else if !reflect.DeepEqual(c, l) {
+			out = append(out, Change{"location", l.ID, "changed"})
+		}
+	}
+	for _, l := range current.Locations {
+		if !wantLoc[l.ID] {
+			out = append(out, Change{"location", l.ID, "removed"})
 		}
 	}
 	curSrv := map[string]Server{}
@@ -257,6 +343,20 @@ func toRow(s Server) (store.ManagedServer, error) {
 		}
 		r.Feed = b
 	}
+	if s.VM != nil {
+		b, err := json.Marshal(s.VM)
+		if err != nil {
+			return store.ManagedServer{}, err
+		}
+		r.VM = b
+	}
+	if s.Settings != nil {
+		b, err := json.Marshal(s.Settings)
+		if err != nil {
+			return store.ManagedServer{}, err
+		}
+		r.Settings = b
+	}
 	return r, nil
 }
 
@@ -271,6 +371,18 @@ func fromRow(r store.ManagedServer) (Server, error) {
 			return Server{}, fmt.Errorf("servers: server %s: feed: %w", r.ID, err)
 		}
 		s.Feed = &f
+	}
+	if len(r.VM) > 0 && string(r.VM) != "null" {
+		var vm VMSpec
+		if err := json.Unmarshal(r.VM, &vm); err != nil {
+			return Server{}, fmt.Errorf("servers: server %s: vm: %w", r.ID, err)
+		}
+		s.VM = &vm
+	}
+	if len(r.Settings) > 0 && string(r.Settings) != "null" {
+		if err := json.Unmarshal(r.Settings, &s.Settings); err != nil {
+			return Server{}, fmt.Errorf("servers: server %s: settings: %w", r.ID, err)
+		}
 	}
 	return s, nil
 }

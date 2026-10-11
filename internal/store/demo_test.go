@@ -21,7 +21,7 @@ func demoDB(t *testing.T) (*store.Store, store.Organization) {
 	o := newOrg(t, st)
 	srv := store.ManagedServer{ID: "wd-1", GameID: "wardogs", Name: "War Dogs #1", Driver: "wardogs", Location: "sim",
 		Endpoint: "http://127.0.0.1:7789", CredentialFile: "/run/secrets/wd", PollInterval: 15 * time.Second, Trust: "official"}
-	if err := st.ApplyServers(context.Background(), o.ID, []store.Game{{ID: "wardogs", Bands: json.RawMessage(`[]`)}}, []store.ManagedServer{srv}, time.Now()); err != nil {
+	if err := st.ApplyServers(context.Background(), o.ID, []store.Game{{ID: "wardogs", Bands: json.RawMessage(`[]`)}}, nil, []store.ManagedServer{srv}, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	return st, o

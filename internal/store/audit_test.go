@@ -26,7 +26,7 @@ func TestAuditLogIsAppendOnly(t *testing.T) {
 		Endpoint: "http://203.0.113.10:7789", CredentialFile: "/run/secrets/wd", PollInterval: 15 * time.Second, Trust: "official"}
 	two := srv
 	two.ID = "wd-2"
-	if err := st.ApplyServers(ctx, o.ID, []store.Game{{ID: "wardogs", Bands: json.RawMessage(`[]`)}}, []store.ManagedServer{srv, two}, t0); err != nil {
+	if err := st.ApplyServers(ctx, o.ID, []store.Game{{ID: "wardogs", Bands: json.RawMessage(`[]`)}}, nil, []store.ManagedServer{srv, two}, t0); err != nil {
 		t.Fatal(err)
 	}
 	u, err := st.RegisterUser(ctx, store.User{ID: uuid.New(), OrganizationID: o.ID, DisplayName: "Owner"}, ident("discord", "1", t0))
@@ -126,7 +126,7 @@ func TestAuditLogIsAppendOnly(t *testing.T) {
 	}
 
 	// A server taken out of the manifest keeps its entries (it is marked removed, not deleted).
-	if err := st.ApplyServers(ctx, o.ID, []store.Game{{ID: "wardogs", Bands: json.RawMessage(`[]`)}}, []store.ManagedServer{two}, t0.Add(time.Hour)); err != nil {
+	if err := st.ApplyServers(ctx, o.ID, []store.Game{{ID: "wardogs", Bands: json.RawMessage(`[]`)}}, nil, []store.ManagedServer{two}, t0.Add(time.Hour)); err != nil {
 		t.Fatal(err)
 	}
 	if kept, err := st.ListAuditEntries(ctx, o.ID, store.AuditFilter{ServerID: "wd-1", Limit: 10}); err != nil || len(kept) != 1 {

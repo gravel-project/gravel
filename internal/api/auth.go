@@ -52,14 +52,18 @@ var memberProcedures = map[string]string{
 	hubv1connect.ModerationServiceMovePlayerProcedure:                apps.ScopeServersModerate,
 	hubv1connect.ModerationServiceListServerBansProcedure:            apps.ScopeServersModerate,
 	hubv1connect.ModerationServiceListAuditLogProcedure:              apps.ScopeServersModerate,
-	hubv1connect.ServerConfigServiceGetServerConfigProcedure:         apps.ScopeServersConfigure,
-	hubv1connect.ServerConfigServicePlanServerConfigProcedure:        apps.ScopeServersConfigure,
-	hubv1connect.ServerConfigServiceApplyServerConfigProcedure:       apps.ScopeServersConfigure,
-	hubv1connect.StatsServiceGetBoardProcedure:                       apps.ScopeStatsRead,
-	hubv1connect.StatsServiceListMatchesProcedure:                    apps.ScopeStatsRead,
-	hubv1connect.StatsServiceGetMemberProfileProcedure:               apps.ScopeStatsRead,
-	hubv1connect.StatsServiceGetParticipationBoardProcedure:          apps.ScopeStatsRead,
-	hubv1connect.StatsServiceGetSessionRecapProcedure:                apps.ScopeStatsRead,
+	hubv1connect.ServerHostServiceGetServerHostProcedure:             apps.ScopeServersRead,
+	hubv1connect.ServerHostServiceListServerHostEventsProcedure:      apps.ScopeServersRead,
+	hubv1connect.ServerHostServiceSetServerHostDesiredProcedure:      apps.ScopeServersModerate,
+	// ResizeServerHost and DestroyServerHost are the owner's, in person, and stay out.
+	hubv1connect.ServerConfigServiceGetServerConfigProcedure:   apps.ScopeServersConfigure,
+	hubv1connect.ServerConfigServicePlanServerConfigProcedure:  apps.ScopeServersConfigure,
+	hubv1connect.ServerConfigServiceApplyServerConfigProcedure: apps.ScopeServersConfigure,
+	hubv1connect.StatsServiceGetBoardProcedure:                 apps.ScopeStatsRead,
+	hubv1connect.StatsServiceListMatchesProcedure:              apps.ScopeStatsRead,
+	hubv1connect.StatsServiceGetMemberProfileProcedure:         apps.ScopeStatsRead,
+	hubv1connect.StatsServiceGetParticipationBoardProcedure:    apps.ScopeStatsRead,
+	hubv1connect.StatsServiceGetSessionRecapProcedure:          apps.ScopeStatsRead,
 	// RecordParticipation is an app's own (ADR-0014) and stays out: a member's token never
 	// stands in for the app.
 }

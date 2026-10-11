@@ -1,9 +1,10 @@
-# The Counter-Strike 2 Game spec gravel ships: a catalog entry until the driver arrives (P4).
+# The Counter-Strike 2 Game spec gravel ships. Its cloudvm section is how the cloud-VM driver
+# (ADR-0003) runs a server on a VM the hub makes.
 id: cs2
 name: Counter-Strike 2
 # Logs carry SteamID3 ([U:1:N]); gravel keys players by the SteamID64 it converts to.
 identity_provider: steam
-drivers: []
+drivers: [cloudvm]
 plugins:
   # Valve's server guidelines forbid item spoofing (weapon skins, knives, gloves, stickers, music
   # kits, fake ranks or coins). The penalty is every GSLT on the operator's account disabled and
@@ -30,3 +31,51 @@ plugins:
 # CS2 items are never a paid benefit, and supporter reserved slots are a grey area under the same
 # guidelines: off until counsel says otherwise.
 no_paid_perks: true
+
+# How a CS2 server runs on a VM the hub makes (the cloud-VM driver, ADR-0003): joedwards32/cs2, the
+# maintained image the community runs (steamrt4; it runs SteamCMD's app_update 730 at every start,
+# so a restart is the patch-day step), with its ~60 GB install on the data volume. The hub writes the
+# environment file it reads over SSH; nothing here is secret.
+cloudvm:
+  image: ghcr.io/joedwards32/cs2:5.0.0@sha256:90e6ef414ec29da557b9e615e7a86dd992606689a9bae31334805cf6e5d92531
+  runtime_uid: 1000                       # the image's steam user
+  install_dir: /home/steam/cs2-dedicated
+  volume_min_gib: 80                      # the install is about 60 GB and grows with updates
+  log_timezone: Etc/UTC                   # the image's
+  ready_timeout: 45m                      # a first start downloads the install
+  ports:
+    - {name: game, protocol: udp, port: 27015, public: true}
+    - {name: rcon, protocol: tcp, port: 27015, public: false}   # the game port over TCP; the hub only
+    - {name: tv, protocol: udp, port: 27020, public: true, when: tv}
+  rcon_port: 27015
+  join_port: 27015
+  join_hint: "In CS2's console: connect <address>; password <password>. The password is shared where you found this server."
+  env:
+    CS2_PORT: "27015"
+    CS2_LAN: "0"
+    CS2_LOG: "on"
+    # The image warns that hibernation crashes the server, and a hibernating server would not
+    # answer the hub's status polls.
+    CS2_SERVER_HIBERNATE: "0"
+    TV_PORT: "27020"
+  secrets:
+    rcon_password: CS2_RCONPW
+    join_password: CS2_PW
+    publisher_token: SRCDS_TOKEN          # a Game Server Login Token, when the server needs one
+    feed_url: CS2_LOG_HTTP_URL            # logaddress_add_http: the hub's ingest route, token in the path
+  settings:
+    # The image sed-substitutes the name into server.cfg and evals its command line, so the name is
+    # held to characters neither treats specially (no slash, quote, backslash, dollar or semicolon),
+    # and the image's free-form CS2_ADDITIONAL_ARGS is not offered at all.
+    - {key: server_name, env: CS2_SERVERNAME, type: string, max_length: 64, default_from: name, pattern: '[A-Za-z0-9 _.,:!#|()+@-]+'}
+    - {key: game_alias, env: CS2_GAMEALIAS, type: enum, values: [competitive, wingman, casual, deathmatch, custom], default: competitive, conflicts: [game_type, game_mode]}
+    - {key: game_type, env: CS2_GAMETYPE, type: int, min: 0, max: 6, conflicts: [game_alias]}
+    - {key: game_mode, env: CS2_GAMEMODE, type: int, min: 0, max: 3, requires: [game_type], conflicts: [game_alias]}
+    - {key: map_group, env: CS2_MAPGROUP, type: string, pattern: 'mg_[a-z0-9_]+', default: mg_active}
+    - {key: start_map, env: CS2_STARTMAP, type: string, pattern: '[a-z0-9_]+', max_length: 64, default: de_inferno}
+    - {key: max_players, env: CS2_MAXPLAYERS, type: int, min: 2, max: 64, default: "10"}
+    - {key: tv, env: TV_ENABLE, type: bool, default: "false"}
+  # The sizes a server moves through as it fills (gravel#37); DigitalOcean's dedicated-CPU plans.
+  ladder:
+    - {size: c-2, players: 10}
+    - {size: c-4, players: 20}

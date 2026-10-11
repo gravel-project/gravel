@@ -1,8 +1,5 @@
 #cloud-config
-# A gravel hub host (ADR-0020), rendered by `gravel hub create` or `gravel hub cloud-init`.
-# Profile: {{ .Profile }}. Anything on the instance can read this document from the metadata
-# service, so it holds no secret: the stock profile's secrets are generated on the host at first
-# boot, and anything else (a tunnel token) is pushed over SSH afterwards.
+{{ .Header }}
 #
 # The data volume is the runtime user's home. Everything stateful lives there: podman's storage
 # (images, volumes, the secret store), the units, the configuration. A replacement instance that

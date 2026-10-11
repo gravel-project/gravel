@@ -58,7 +58,7 @@ func openServers(ctx context.Context, cfg config.Config, create bool) (*servers.
 		st.Close()
 		return nil, nil, err
 	}
-	return servers.New(st, organization.ID, hub.Drivers().Names(), logger), st.Close, nil
+	return servers.New(st, organization.ID, hub.DriverNames(), logger).WithProviders(hub.CloudProviders()...), st.Close, nil
 }
 
 func serversExport(ctx context.Context, args []string, stdout, stderr io.Writer) int {
@@ -186,7 +186,7 @@ func readServersManifest(path string) (servers.Manifest, error) {
 	if err != nil {
 		return servers.Manifest{}, err
 	}
-	if err := m.Validate(servers.Specs(), hub.Drivers().Names()); err != nil {
+	if err := m.Validate(servers.Specs(), hub.DriverNames(), hub.CloudProviders()); err != nil {
 		return servers.Manifest{}, err
 	}
 	return m, nil

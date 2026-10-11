@@ -206,6 +206,28 @@ func TestAccessibility(t *testing.T) {
 				Mod: &templates.ModControls{Kick: true, Ban: true, Unban: true, Message: true, Broadcast: true,
 					Bans: []templates.BanRow{{Subject: "76561190000000009", Name: "76561190000000009", Reason: "cheating", By: "Jo", At: now}}}})
 		},
+		"/fixture/server-host": func() templ.Component {
+			p := base
+			p.Title, p.User, p.CSRF = "HTG CS2", owner, "csrf"
+			return templates.Server(templates.ServerPage{Page: p, Server: online, ObservedAt: &now, BoardURL: "/boards",
+				Mod: &templates.ModControls{Kick: true, Ban: true, Unban: true, Broadcast: true},
+				Host: &templates.HostPanel{State: "running", StateLabel: "Running", Since: now, Size: "c-2", Address: "203.0.113.50", Reserved: true,
+					HourlyUSD: 0.0625, MonthUSD: 3.5, HoursMonth: 56, BootSeconds: 70, ReadySeconds: 1500, ParkAfter: 30 * time.Minute,
+					CanPark: true, CanResize: true, Sizes: []templates.HostSizeOption{{Slug: "c-4", Label: "c-4 · 4 vCPU · 8 GB · $0.125/h"}}}})
+		},
+		"/fixture/server-host-parked": func() templ.Component {
+			p := base
+			p.Title, p.User, p.CSRF = "HTG CS2", owner, "csrf"
+			return templates.Server(templates.ServerPage{Page: p, Server: online, BoardURL: "/boards", Mod: &templates.ModControls{},
+				Host: &templates.HostPanel{State: "parked", StateLabel: "Parked", Since: now, Address: "203.0.113.50", Reserved: true,
+					ErrorCode: "cloud_rate_limited", CanUnpark: true, CanDestroy: true}})
+		},
+		"/fixture/host-confirm": func() templ.Component {
+			p := base
+			p.Title, p.User, p.CSRF = "Confirm", owner, "csrf"
+			return templates.HostConfirm(templates.HostConfirmPage{Page: p, ServerID: "htg-cs2-1", ServerName: "HTG CS2", Action: "resize", Size: "c-4",
+				Question: "Resize HTG CS2 to c-4?", Warning: "Everyone on is disconnected for a few minutes.", OfferForce: true})
+		},
 		"/fixture/confirm": func() templ.Component {
 			p := base
 			p.Title, p.User, p.CSRF = "Confirm", owner, "csrf"
@@ -261,7 +283,7 @@ func TestAccessibility(t *testing.T) {
 	paths := []string{"/login", "/fixture/account-unowned", "/fixture/account-owner", "/fixture/error",
 		"/fixture/servers", "/fixture/servers-demo", "/fixture/server", "/fixture/server-anonymous", "/fixture/server-game-overlay", "/fixture/boards", "/fixture/member-self", "/fixture/member", "/fixture/members",
 		"/fixture/participation", "/fixture/participation-empty", "/fixture/member-participation", "/fixture/recap", "/fixture/recap-nobody",
-		"/fixture/server-moderator", "/fixture/confirm", "/fixture/log", "/fixture/account-apps", "/fixture/consent"}
+		"/fixture/server-moderator", "/fixture/server-host", "/fixture/server-host-parked", "/fixture/host-confirm", "/fixture/confirm", "/fixture/log", "/fixture/account-apps", "/fixture/consent"}
 	// A fixture left out of the list would never be scanned and the run would still pass.
 	for path := range fixtures {
 		if !slices.Contains(paths, path) {

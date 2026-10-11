@@ -47,7 +47,7 @@ func TestIngestRoute(t *testing.T) {
 			Endpoint: fake.URL, CredentialFile: cred, Trust: servers.TrustOfficial,
 			Feed: &servers.Feed{URL: "https://ingest.example.com", TokenFile: feedToken}}},
 	}
-	if _, err := servers.New(st, o.ID, hub.Drivers().Names(), quiet()).Apply(ctx, m, servers.ApplyOptions{CheckCredentials: true}); err != nil {
+	if _, err := servers.New(st, o.ID, hub.DriverNames(), quiet()).Apply(ctx, m, servers.ApplyOptions{CheckCredentials: true}); err != nil {
 		t.Fatal(err)
 	}
 	h, err := hub.New(ctx, hub.Options{Config: cfg, Logger: quiet(), Version: "test", Providers: []identity.Registration{}})

@@ -21,7 +21,7 @@ func TestBanLists(t *testing.T) {
 	t0 := time.Date(2026, 10, 10, 1, 0, 0, 0, time.UTC)
 	srv := store.ManagedServer{ID: "wd-1", GameID: "wardogs", Name: "War Dogs #1", Driver: "wardogs", Location: "slc",
 		Endpoint: "http://203.0.113.10:7789", CredentialFile: "/run/secrets/wd", PollInterval: 15 * time.Second, Trust: "official"}
-	if err := st.ApplyServers(ctx, o.ID, []store.Game{{ID: "wardogs", Bands: json.RawMessage(`[]`)}}, []store.ManagedServer{srv}, t0); err != nil {
+	if err := st.ApplyServers(ctx, o.ID, []store.Game{{ID: "wardogs", Bands: json.RawMessage(`[]`)}}, nil, []store.ManagedServer{srv}, t0); err != nil {
 		t.Fatal(err)
 	}
 	u, err := st.RegisterUser(ctx, store.User{ID: uuid.New(), OrganizationID: o.ID, DisplayName: "Owner"}, ident("discord", "1", t0))

@@ -206,6 +206,9 @@ templ serverBody(p ServerPage) {
 		<p><a href={ templ.SafeURL(p.BoardURL) }>This server's leaderboard</a></p>
 	</section>
 	if p.Mod != nil {
+		if p.Host != nil {
+			@HostSection(p)
+		}
 		@ModSection(p)
 	}
 }

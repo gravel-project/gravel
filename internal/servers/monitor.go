@@ -29,6 +29,10 @@ const (
 	StateCredentialMissing = "credential_missing" // the credential file could not be read or is empty
 	StateRateLimited       = "rate_limited"       // the server asked the hub to wait
 	StateError             = "error"              // anything else; see the hub's log
+	// A server whose host the hub makes (the cloud-VM driver) and that is not up: parked (or never
+	// made), or being made, started, resized or parked. Nothing is polled until it runs.
+	StateParked       = "parked"
+	StateProvisioning = "provisioning"
 )
 
 // MissesUnreachable is how many failed polls in a row mark a server unreachable.
@@ -75,6 +79,7 @@ type Monitor struct {
 	buildChanges *prometheus.CounterVec
 
 	sink    ObservationSink
+	primer  Primer
 	mu      sync.Mutex
 	workers map[string]*worker
 	obs     map[string]Observation
@@ -82,7 +87,7 @@ type Monitor struct {
 
 type worker struct {
 	def    Server
-	drv    drivers.ExternalReachable
+	drv    drivers.Driver
 	cred   [32]byte // hash of the credential the driver holds
 	misses int
 	state  string // last state logged, so a lasting failure is logged once
@@ -141,7 +146,7 @@ func (m *Monitor) Observation(id string) (Observation, bool) {
 // Driver is the driver the monitor runs for a live server and the capabilities its first good
 // poll read (nil before one); moderation calls go through it, so a server has one client and one
 // token. ok is false for a server the monitor does not watch.
-func (m *Monitor) Driver(id string) (drivers.ExternalReachable, []string, bool) {
+func (m *Monitor) Driver(id string) (drivers.Driver, []string, bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	w, ok := m.workers[id]
@@ -231,9 +236,21 @@ func (m *Monitor) startWorker(def Server, cred string, sum [32]byte) error {
 	if !ok {
 		return fmt.Errorf("servers: server %s: no driver %q", def.ID, def.Driver)
 	}
-	drv, err := factory(drivers.Target{Endpoint: def.Endpoint, Credential: cred, UserAgent: m.userAgent, Logger: m.logger.With("server", def.ID)})
+	drv, err := factory(drivers.Target{ServerID: def.ID, Game: def.Game, Endpoint: def.Endpoint, Credential: cred, UserAgent: m.userAgent, Logger: m.logger.With("server", def.ID)})
 	if err != nil {
 		return fmt.Errorf("servers: server %s: %w", def.ID, err)
+	}
+	m.mu.Lock()
+	primer := m.primer
+	m.mu.Unlock()
+	if primer != nil {
+		// A driver that enforces the hub's ban list starts with it; a failure is logged, and the
+		// next ban or unban hands the list over again.
+		pctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		if err := primer(pctx, def, drv); err != nil {
+			m.logger.Warn("could not prime the server's driver", "server", def.ID, "error", err.Error())
+		}
+		cancel()
 	}
 	m.mu.Lock()
 	if old, ok := m.workers[def.ID]; ok && old.def.Game != def.Game {
@@ -288,6 +305,9 @@ func (m *Monitor) watchBuild(ctx context.Context, id string) error {
 		return nil
 	}
 	build, err := w.drv.Build(ctx)
+	if errors.Is(err, drivers.ErrHostNotRunning) {
+		return nil
+	}
 	if err != nil {
 		return fmt.Errorf("server %s: build: %s", id, stateOf(err))
 	}
@@ -414,6 +434,17 @@ type ObservationSink interface {
 	Observe(ctx context.Context, server Server, o Observation)
 }
 
+// Primer runs once for every driver the monitor starts, before its first poll: the hub's ban
+// list handed to a driver that enforces it (Moderation.Prime).
+type Primer func(ctx context.Context, server Server, drv drivers.Driver) error
+
+// SetPrimer sets what runs for every new driver; nil runs nothing.
+func (m *Monitor) SetPrimer(f Primer) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.primer = f
+}
+
 // SetSink sets where good polls are sent; nil sends them nowhere.
 func (m *Monitor) SetSink(s ObservationSink) {
 	m.mu.Lock()
@@ -421,8 +452,42 @@ func (m *Monitor) SetSink(s ObservationSink) {
 	m.sink = s
 }
 
+// hostDown records a server whose host is not running: its phase is the state, it is not
+// reachable, and the poll is not a failure (nothing to retry; the host's own machine runs).
+func (m *Monitor) hostDown(w *worker, err error) error {
+	state := StateProvisioning
+	var hs *drivers.HostStateError
+	if errors.As(err, &hs) && hs.Phase == drivers.HostParked {
+		state = StateParked
+	} else if errors.As(err, &hs) && hs.Phase == drivers.HostError {
+		state = StateError
+	}
+	m.mu.Lock()
+	if m.workers[w.def.ID] != w {
+		m.mu.Unlock()
+		return nil
+	}
+	o := m.obs[w.def.ID]
+	o.State, o.Reachable, o.Players = state, false, nil
+	o.Status = drivers.Status{}
+	m.obs[w.def.ID] = o
+	w.misses = 0
+	first := w.state != state
+	w.state = state
+	m.reachable.WithLabelValues(w.def.ID, w.def.Game).Set(0)
+	m.players.WithLabelValues(w.def.ID, w.def.Game).Set(0)
+	m.mu.Unlock()
+	if first {
+		m.logger.Info("server's host is not running", "server", w.def.ID, "state", state)
+	}
+	return nil
+}
+
 // failed records a failed poll and returns the error for the runner.
 func (m *Monitor) failed(w *worker, err error) error {
+	if errors.Is(err, drivers.ErrHostNotRunning) {
+		return m.hostDown(w, err)
+	}
 	state := stateOf(err)
 	m.mu.Lock()
 	if m.workers[w.def.ID] != w {

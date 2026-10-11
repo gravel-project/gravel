@@ -87,4 +87,18 @@ Two more constraints. The feed's format is unverified: S1 (deploy#49) is meant t
     is how S1 reads them.
   - **`gravel-hub ingest export --server ID`** prints them as JSON lines for that.
   - **Migration 9** adds `ingest_batches` and the `feed` column on `managed_servers`.
-
+- **2026-10-11, the log route as built (#36).** A source that cannot send an `Authorization`
+  header (CS2's `logaddress_add_http`) posts to `POST /api/ingest/log/<token>`.
+  - **The token in the path** needs guards the bearer route does not: the access log writes the
+    path as `/api/ingest/log/<redacted>` (`httpx.SetLogPath`), and a log source's token is refused
+    on the bearer route.
+  - **Pinned to the host.** A batch is accepted only from the IPv4 of the server's own running
+    instance (not its reserved address, which is inbound only); anything else is 401, counted as
+    `address_mismatch`.
+  - **Redacted before it is stored.** CS2's startup cvar dump can carry `sv_password` and the
+    RCON password, and the log can echo the token; the driver's redaction runs before the insert,
+    so the raw-first rule keeps a redacted batch.
+  - **Provenance:** the headers the source defines are stored with the batch (CS2: instance token,
+    byte offsets, ticks, timestamp, map and score), with the body at most 256 KiB.
+  - **The tap.** After the insert, the batch is handed to the server's driver, whose roster is how
+    a CS2 server's players are known; the parser for stats events (#4) is still to come.

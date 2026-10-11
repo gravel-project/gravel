@@ -136,7 +136,7 @@ func (s *ServerServer) lookup(ctx context.Context, id string) (servers.Server, e
 
 // server is the public view: never the endpoint or the credential file.
 func (s *ServerServer) server(srv servers.Server) *hubv1.Server {
-	p := &hubv1.Server{Id: srv.ID, Name: srv.Name, GameId: srv.Game, Location: srv.Location, Trust: srv.Trust}
+	p := &hubv1.Server{Id: srv.ID, Name: srv.Name, GameId: srv.Game, Location: srv.Location, Trust: srv.Trust, Driver: srv.Driver}
 	st := &hubv1.ServerStatus{State: servers.StateUnknown, RotationIndex: -1, NextRotationIndex: -1}
 	if o, ok := s.obs.Observation(srv.ID); ok {
 		st.State, st.Reachable, st.Build, st.Capabilities = o.State, o.Reachable, o.Build, o.Capabilities

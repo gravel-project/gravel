@@ -2,10 +2,15 @@
 // is written in domain terms; drivers/<game> adapts a game's client library (games/<game>) to it,
 // and nothing outside that package imports the game's wire format.
 //
-// ExternalReachable is the driver for a server gravel can reach but does not run (RCON, SSH).
-// Its capabilities are a set the server grants right now, never a constant: a game whose API
-// changes between builds loses a capability instead of failing, and the pages and the bot show
-// "not available". Moderation (Moderator) and configuration (Configurer) are part of it.
+// Driver is what the hub's monitor and moderation need from any server: its build, the
+// capabilities it grants right now, its status and players, and moderation (Moderator). The
+// capabilities are a set, never a constant: a game whose API changes between builds loses a
+// capability instead of failing, and the pages and the bot show "not available".
+//
+// ExternalReachable is the driver for a server gravel can reach but does not run (RCON, SSH):
+// a Driver that also reads and writes the server's configuration document (Configurer). The
+// cloud-VM driver (ADR-0003, drivers/cloudvm) runs the server on a VM the hub made; it has no
+// configuration document and enforces the hub's ban list itself (BanList).
 package drivers
 
 import (
@@ -31,6 +36,10 @@ const (
 	CapRotation    = "rotation"
 	CapConfigRead  = "config_read"
 	CapConfigWrite = "config_write"
+	// CapPark and CapResize are a server whose host the hub owns (ADR-0003): it can park the
+	// host when nobody plays and resize it between sizes.
+	CapPark   = "park"
+	CapResize = "resize"
 )
 
 // Errors a driver returns, wrapping the game client's own.
@@ -51,7 +60,25 @@ var (
 	// ErrRejected is a request the server, or the driver before sending, refused as invalid: a
 	// message over the game's length cap, an identity the game does not key players by.
 	ErrRejected = errors.New("drivers: the server rejected the request")
+	// ErrHostNotRunning is a server whose host is not up: parked, being made, or failing. A
+	// HostStateError carries the phase; the monitor records it and polls nothing.
+	ErrHostNotRunning = errors.New("drivers: the server's host is not running")
 )
+
+// Host phases a HostStateError names.
+const (
+	HostParked       = "parked"
+	HostProvisioning = "provisioning"
+	HostError        = "error"
+)
+
+// HostStateError is ErrHostNotRunning with the host's phase (HostParked, …).
+type HostStateError struct{ Phase string }
+
+func (e *HostStateError) Error() string { return "drivers: the server's host is " + e.Phase }
+
+// Unwrap makes the error ErrHostNotRunning.
+func (e *HostStateError) Unwrap() error { return ErrHostNotRunning }
 
 // Identity is a player's provider identity (principle 5: stats and moderation are keyed by it,
 // never by a gravel user id; the hub resolves it to a member at read time).
@@ -165,10 +192,9 @@ type Moderator interface {
 	Bans(ctx context.Context) ([]Ban, error)
 }
 
-// ExternalReachable controls a server gravel reaches over the network and does not run.
-type ExternalReachable interface {
+// Driver controls one server: what the monitor polls and moderation calls.
+type Driver interface {
 	Moderator
-	Configurer
 	// Build is the server's build string, read from a route that needs no credential. A change
 	// re-reads the capabilities.
 	Build(ctx context.Context) (string, error)
@@ -180,9 +206,27 @@ type ExternalReachable interface {
 	SetCredential(credential string)
 }
 
+// ExternalReachable controls a server gravel reaches over the network and does not run: a
+// Driver with the server's configuration document.
+type ExternalReachable interface {
+	Driver
+	Configurer
+}
+
+// BanList is a driver that enforces the hub's ban list itself (the cloud-VM driver kicks a banned
+// identity when it connects). The hub owns the list and hands it over whole, after every change
+// and to every new driver.
+type BanList interface {
+	SetBans(ctx context.Context, bans []Identity) error
+}
+
 // Target is what a driver is built for.
 type Target struct {
-	// Endpoint is the server's control address (an RCON origin).
+	// ServerID and Game name the server, as the manifest does.
+	ServerID string
+	Game     string
+	// Endpoint is the server's control address (an RCON origin); "" for a driver that learns the
+	// address itself (the cloud-VM driver, which made the host).
 	Endpoint string
 	// Credential is the secret the manifest's file held; never logged.
 	Credential string
@@ -192,7 +236,7 @@ type Target struct {
 }
 
 // Factory builds a driver.
-type Factory func(Target) (ExternalReachable, error)
+type Factory func(Target) (Driver, error)
 
 // Registry is the drivers a hub has, by name.
 type Registry map[string]Factory

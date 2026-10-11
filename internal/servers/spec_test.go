@@ -31,7 +31,7 @@ func TestCatalogSpecs(t *testing.T) {
 		if !ok || s.Name != c.name || s.IdentityProvider != c.provider || s.NoPaidPerks != c.noPaidPerks {
 			t.Errorf("%s spec = %+v", c.id, s)
 		}
-		if c.id != "wardogs" && len(s.Drivers) != 0 {
+		if c.id != "wardogs" && c.id != "cs2" && len(s.Drivers) != 0 {
 			t.Errorf("%s has drivers %v; it is a catalog entry", c.id, s.Drivers)
 		}
 	}
@@ -178,7 +178,7 @@ func TestTightenNewKinds(t *testing.T) {
 		t.Fatal(err)
 	}
 	m.Games[0].Bands = append(m.Games[0].Bands, Band{Section: gs, Key: "ServerImageURL", Hosts: []string{"i.ibb.co"}}, Band{Section: gs, Key: "ServerName", MaxLength: i64(40)})
-	if err := m.Validate(Specs(), []string{"wardogs"}); err != nil {
+	if err := m.Validate(Specs(), []string{"wardogs"}, nil); err != nil {
 		t.Errorf("tightenings refused: %v", err)
 	}
 }

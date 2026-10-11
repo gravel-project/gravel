@@ -70,6 +70,16 @@ func Recover(logger *slog.Logger) func(http.Handler) http.Handler {
 	}
 }
 
+type logPathKey struct{}
+
+// SetLogPath replaces the path the access log writes for this request: a route whose path holds a
+// secret (a log-push token) logs a redacted one. It does nothing outside Logging.
+func SetLogPath(ctx context.Context, path string) {
+	if p, ok := ctx.Value(logPathKey{}).(*string); ok {
+		*p = path
+	}
+}
+
 // Logging writes one structured line per request. Requests to quietPaths (health probes) are
 // logged at debug level unless they fail.
 func Logging(logger *slog.Logger, quietPaths ...string) func(http.Handler) http.Handler {
@@ -81,9 +91,10 @@ func Logging(logger *slog.Logger, quietPaths ...string) func(http.Handler) http.
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
 			rec := &recorder{ResponseWriter: w}
-			next.ServeHTTP(rec, r)
+			path := r.URL.Path
+			next.ServeHTTP(rec, r.WithContext(context.WithValue(r.Context(), logPathKey{}, &path)))
 			level := slog.LevelInfo
-			if quiet[r.URL.Path] {
+			if quiet[path] {
 				level = slog.LevelDebug
 			}
 			if rec.status() >= 500 {
@@ -91,7 +102,7 @@ func Logging(logger *slog.Logger, quietPaths ...string) func(http.Handler) http.
 			}
 			logger.LogAttrs(r.Context(), level, "request",
 				slog.String("method", r.Method),
-				slog.String("path", r.URL.Path),
+				slog.String("path", path),
 				slog.Int("status", rec.status()),
 				slog.Int64("bytes", rec.bytes),
 				slog.Duration("duration", time.Since(start)),

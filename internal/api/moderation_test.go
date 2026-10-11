@@ -32,7 +32,7 @@ type fakeDriver struct {
 	draft drivers.ConfigDraft
 }
 
-func (f *fakeDriver) Driver(id string) (drivers.ExternalReachable, []string, bool) {
+func (f *fakeDriver) Driver(id string) (drivers.Driver, []string, bool) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if id != "wd-1" {

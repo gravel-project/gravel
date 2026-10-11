@@ -164,7 +164,7 @@ func TestMemberTokensCodesAndGrants(t *testing.T) {
 	}
 
 	// The audit log names a member and the app they acted through; it still needs an actor.
-	if err := st.ApplyServers(ctx, o.ID, []store.Game{{ID: "wardogs", Bands: json.RawMessage(`[]`)}}, []store.ManagedServer{{ID: "wd-1", GameID: "wardogs", Name: "W",
+	if err := st.ApplyServers(ctx, o.ID, []store.Game{{ID: "wardogs", Bands: json.RawMessage(`[]`)}}, nil, []store.ManagedServer{{ID: "wd-1", GameID: "wardogs", Name: "W",
 		Driver: "wardogs", Location: "slc", Endpoint: "http://203.0.113.10:7789", CredentialFile: "/x", PollInterval: 15 * time.Second, Trust: "official"}}, now); err != nil {
 		t.Fatal(err)
 	}
