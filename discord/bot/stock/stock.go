@@ -1,8 +1,8 @@
 // Package stock is gravel's stock set of bot modules, as a bot.yaml enables them: core
 // (/whoami, /link) always, role sync, Linked Roles, the server cards, the moderation command, the
-// mod log, seeding, the presence card and the session recaps when their sections turn them on. A
-// host's bot starts from this set and adds its own modules, so a module gravel adds later reaches
-// every host bot at its next gravel upgrade (ADR-0008 §1).
+// mod log, seeding, the presence card, the session recaps and the go-live posts when their sections
+// turn them on. A host's bot starts from this set and adds its own modules, so a module gravel adds
+// later reaches every host bot at its next gravel upgrade (ADR-0008 §1).
 package stock
 
 import (
@@ -19,6 +19,7 @@ import (
 	"github.com/gravel-project/gravel/discord/modules/rolesync"
 	"github.com/gravel-project/gravel/discord/modules/seeding"
 	"github.com/gravel-project/gravel/discord/modules/servercards"
+	"github.com/gravel-project/gravel/discord/modules/streams"
 )
 
 // Modules returns the stock modules the configuration enables, in registration order.
@@ -51,6 +52,17 @@ func Modules(cfg bot.Config, hub *hubclient.Client) []bot.Module {
 	}
 	if cfg.Recaps.Enabled {
 		mods = append(mods, recaps.New(hub, recaps.Config{Interval: cfg.Recaps.Interval, PublicURL: cfg.Hub.PublicURL}))
+	}
+	if cfg.Streams.Enabled {
+		hc := streams.HTTPClient()
+		var platforms []streams.Platform
+		if a := cfg.Streams.Twitch; a.Set() {
+			platforms = append(platforms, streams.NewTwitch(streams.App{ClientID: a.ClientID, ClientSecret: a.ClientSecret}, hc))
+		}
+		if a := cfg.Streams.Kick; a.Set() {
+			platforms = append(platforms, streams.NewKick(streams.App{ClientID: a.ClientID, ClientSecret: a.ClientSecret}, hc))
+		}
+		mods = append(mods, streams.New(hub, streams.Config{Interval: cfg.Streams.Interval, Platforms: platforms}))
 	}
 	return mods
 }

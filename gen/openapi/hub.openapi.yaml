@@ -2458,12 +2458,60 @@ components:
             $ref: '#/components/schemas/gravel.hub.v1.DiscordRecap'
           title: recaps
           description: The session recaps, at most 10, one per server (the recaps module, ADR-0018).
+        streams:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.DiscordStreams'
+          title: streams
+          description: The go-live posts for the community's streamers (the streams module, ADR-0019); unset is none.
       title: DiscordSettings
       additionalProperties: false
       description: |-
         DiscordSettings is the guild the bot works in (ADR-0008): the roles role sync maps and the
          channels the server cards live in. Ids are Discord snowflakes as strings; empty means the bot
          has nothing to do.
+    gravel.hub.v1.DiscordStreamer:
+      type: object
+      properties:
+        platform:
+          type: string
+          title: platform
+          description: '"twitch" or "kick".'
+        login:
+          type: string
+          title: login
+          description: 'The channel''s login on the platform, as in its URL: "hiddentoken" for twitch.tv/hiddentoken.'
+        label:
+          type: string
+          title: label
+          description: The name the post shows; the login when empty.
+      title: DiscordStreamer
+      additionalProperties: false
+      description: One streamer the bot watches.
+    gravel.hub.v1.DiscordStreams:
+      type: object
+      properties:
+        channel:
+          type: string
+          title: channel
+        role:
+          type: string
+          title: role
+          description: A role the post pings when a stream starts (an opt-in role); empty pings no one.
+        note:
+          type: string
+          title: note
+          description: A line the host writes under each post.
+        streamers:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.DiscordStreamer'
+          title: streamers
+          description: At most 10.
+      title: DiscordStreams
+      additionalProperties: false
+      description: |-
+        Go-live posts: one message per stream in the channel, edited when the stream ends. Stream
+         metadata only; nothing about viewers is read.
     gravel.hub.v1.Game:
       type: object
       properties:

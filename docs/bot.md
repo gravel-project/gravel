@@ -58,6 +58,15 @@ presence:                        # the "who's playing now" card, off by default 
 recaps:                          # session recaps, off by default (below); the rules are the Organization settings' discord.recaps
   enabled: false
   interval: 1m                   # how often the rules are checked; at least 15s
+streams:                         # go-live posts, off by default (below); the streamers are the Organization settings' discord.streams
+  enabled: false
+  interval: 1m                   # how often the platforms are asked who is live; at least 30s
+  twitch:                        # the application from dev.twitch.tv; leave out for no Twitch
+    client_id: "…"
+    client_secret_file: /run/secrets/gravel-bot-twitch-client-secret   # or GRAVEL_BOT_TWITCH_CLIENT_SECRET
+  kick:                          # the application from kick.com's developer settings; leave out for no Kick
+    client_id: "…"
+    client_secret_file: /run/secrets/gravel-bot-kick-client-secret     # or GRAVEL_BOT_KICK_CLIENT_SECRET
 server:
   listen: 127.0.0.1:8081         # /interactions, /healthz, /readyz; put TLS termination in front
   internal_listen: 127.0.0.1:9091   # /metrics; keep it off the public network
@@ -74,6 +83,8 @@ log:
 |---|---|---|---|
 | The bot token | `GRAVEL_BOT_DISCORD_TOKEN` | `discord.token_file` | `discord.token` |
 | The hub client secret | `GRAVEL_BOT_HUB_CLIENT_SECRET` | `hub.client_secret_file` | `hub.client_secret` |
+| The Twitch application's secret | `GRAVEL_BOT_TWITCH_CLIENT_SECRET` | `streams.twitch.client_secret_file` | `streams.twitch.client_secret` |
+| The Kick application's secret | `GRAVEL_BOT_KICK_CLIENT_SECRET` | `streams.kick.client_secret_file` | `streams.kick.client_secret` |
 
 ## The Discord application
 
@@ -409,6 +420,64 @@ With no rule the module idles and says so once. Metrics:
 - `gravel_bot_recaps_total{server,result}` (`posted`, `nobody`, `forbidden`, `error`);
 - `gravel_bot_recaps_last_success_timestamp_seconds`.
 
+### Streams (`discord/modules/streams`)
+
+Go-live posts: when one of the community's streamers goes live on Twitch or Kick, one post in a
+channel, edited when the stream ends (ADR-0019).
+
+**Streamers.** The Organization settings' `discord.streams` (docs/hub.md, "Organization settings")
+places the posts:
+
+- `channel`: where they go;
+- `role`: an opt-in role each new post pings (never the guild's `@everyone`); empty pings no one;
+- `note`: an optional line under each post;
+- `streamers`, up to 10: a `platform` (`twitch` or `kick`), the channel's `login` as in its URL
+  (`hiddentoken` for twitch.tv/hiddentoken) and an optional `label` the post shows instead.
+
+**The applications.** Each platform is asked with an app access token from the host's own
+developer application, whose credentials are bot.yaml's `streams.twitch` and `streams.kick`. On
+Twitch, register an application at dev.twitch.tv (any OAuth redirect URL; the bot never uses one)
+and take its client id and a new secret. On Kick, create an app under the account's developer
+settings. A platform without an application is skipped, and its streamers logged once. The token
+reads public stream metadata and nothing about viewers.
+
+**Passes.** Every `interval`, a pass reads the settings and asks each platform which of its
+streamers are live: one call per platform. A streamer who went live gets a post:
+
+```text
+🔴 **Hidden Token** is live on Twitch
+**Season 02 preview** · War Dogs
+https://www.twitch.tv/hiddentoken
+Grab the Stream role in #roles to be pinged.
+@Stream
+-# stream twitch `hiddentoken` · 312345
+```
+
+When the stream ends, the post is edited to "**Hidden Token** was live on Twitch · ended 2 minutes
+ago". The ping goes, the link's preview is suppressed, and the edit pings nobody. A stream that
+drops and comes back within ten minutes edits its post back to live instead of posting and pinging
+again. Titles and names a streamer chose are escaped.
+
+**Restart.** The bot keeps no state in the hub. The first pass reads the channel's 100 newest
+messages for its own markers (the stream's platform, login and id), so a stream announced before a
+restart is not announced again, and one that ended while the bot was away is marked ended. Twitch
+gives each stream an id. Kick gives none, so its id is the stream's start time.
+
+**Failures.** A platform that fails, refuses the application or rate-limits the bot leaves its
+streamers' posts as they are until it answers again. A 429 waits out the platform's
+`Retry-After` (Twitch's `Ratelimit-Reset`), a minute when it names none, at most 15. A refused token
+is replaced once in the same pass. A post Discord fails is retried next pass. If the stream ended in
+between, nothing is posted.
+
+The bot needs **View Channel, Send Messages and Read Message History** in the channel, and **Mention
+@everyone, @here and All Roles** only if the role isn't mentionable. Its app needs no scope beyond
+reading the settings. With no streamer listed the module idles and says so once. Metrics:
+
+- `gravel_bot_streams_live{platform}`: the listed streamers live at the platform's last answer;
+- `gravel_bot_streams_polls_total{platform,result}` (`ok`, `throttled`, `unauthorized`, `error`);
+- `gravel_bot_streams_posts_total{platform,result}` (`posted`, `resumed`, `ended`, `forbidden`, `error`);
+- `gravel_bot_streams_last_success_timestamp_seconds`.
+
 ### Moderation (`discord/modules/moderation`)
 
 The moderation slash command, `/<moderation.command>` (`/mod` by default), with a subcommand per
@@ -524,6 +593,10 @@ of them (ADR-0009, `deploy/README.md` "Dashboards").
 | `gravel_bot_recaps_total` | counter | `server`, `result` (`posted`, `nobody`, `forbidden`, `error`) | session recaps posted, windows nobody came to, and the failures | recaps off, or until a window's recap |
 | `gravel_bot_recaps_last_success_timestamp_seconds` | gauge | | when the last pass that left no recap failing completed (an idle pass counts) | recaps off (0 until the first such pass) |
 | `gravel_bot_presence_last_success_timestamp_seconds` | gauge | | when the last pass brought the card up to date (an idle pass counts; waiting for the guild doesn't) | presence off (0 until the first such pass) |
+| `gravel_bot_streams_live` | gauge | `platform` | the listed streamers live at the platform's last answer | streams off, or until the platform first answers |
+| `gravel_bot_streams_polls_total` | counter | `platform`, `result` (`ok`, `throttled`, `unauthorized`, `error`) | calls asking a platform who is live | streams off, or until the first call |
+| `gravel_bot_streams_posts_total` | counter | `platform`, `result` (`posted`, `resumed`, `ended`, `forbidden`, `error`) | go-live posts, their edits, and the failures | streams off, or until the first post |
+| `gravel_bot_streams_last_success_timestamp_seconds` | gauge | | when the last pass in which every platform answered and every post went through completed (an idle pass counts) | streams off (0 until the first such pass) |
 
 ## Tests
 

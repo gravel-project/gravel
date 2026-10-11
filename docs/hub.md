@@ -238,6 +238,14 @@ discord:                     # what the bot manages (docs/bot.md); ids as quoted
         - {days: [wed], from: "18:00", to: "22:00"}
       floor: 20              # "minutes at 20 or more" (0 to 1000; 0 leaves the line out)
       note: See you next Wednesday.   # optional, one line of at most 200 characters
+  streams:                   # go-live posts (docs/bot.md "Streams"); stream metadata only
+    channel: "…"             # where the posts go; the bot needs View Channel, Send Messages, Read Message History
+    role: "…"                # optional: an opt-in role each new post pings; never guild_id
+    note: Grab the Stream role in #roles to be pinged.   # optional, one line of at most 200 characters
+    streamers:               # at least 1, at most 10
+      - platform: twitch     # twitch or kick
+        login: hiddentoken   # as in the channel's URL, lower case
+        label: Hidden Token  # optional, what the post shows; the login when empty (at most 40 characters)
   presence:                  # the "who's playing now" card (docs/bot.md "Presence"); counts only, nothing stored
     channel: "…"             # where the card lives; the bot needs View Channel, Send Messages, Read Message History
     note: Counts members who share their activity on Discord.   # optional, one line of at most 200 characters
@@ -322,6 +330,11 @@ as weekly `hours`, in the same form and with the same rules as seeding's. A few 
 window ends, the bot posts the recap, unless nobody was on. Keep the hours in step with the event
 members see: HTG's Wardogs Wednesdays is both a Discord Scheduled Event and this rule. The bot's
 app needs `stats:read` unless `stats.public` is on.
+
+The `streams` posts (ADR-0019) need a channel and at least one streamer. A login is the channel's
+name as its URL spells it: Twitch's are 4 to 25 letters, digits and underscores; Kick's also take
+hyphens. A streamer is listed once per platform. The platforms' applications are the bot's
+(bot.yaml `streams`), never the settings', and the module is off until bot.yaml turns it on.
 
 The `presence` card (ADR-0017) needs a channel and at least one game. Each game needs an activity
 name or an application id to recognize it by, and no name (compared without regard to case) or id

@@ -198,6 +198,56 @@ type Discord struct {
 	// Recaps are the session recaps (discord/modules/recaps, ADR-0018): after each of a rule's
 	// weekly windows, the bot posts what the server's window held. One rule per server.
 	Recaps []RecapRule `json:"recaps,omitempty" yaml:"recaps,omitempty"`
+	// Streams are the go-live posts (discord/modules/streams, ADR-0019): one post per stream of
+	// each listed streamer, edited when the stream ends.
+	Streams Streams `json:"streams,omitzero" yaml:"streams,omitempty"`
+}
+
+// Streams places the go-live posts: when a listed streamer goes live on Twitch or Kick the bot
+// posts once in Channel, pinging Role when one is set, and edits the post when the stream ends.
+// Empty is no posts. The bot needs each platform's app credentials in bot.yaml.
+type Streams struct {
+	Channel string `json:"channel,omitempty" yaml:"channel,omitempty"`
+	// Role is pinged by each go-live post: an opt-in role members choose. Empty pings no one.
+	Role string `json:"role,omitempty" yaml:"role,omitempty"`
+	// Note is a line the host writes under each post.
+	Note string `json:"note,omitempty" yaml:"note,omitempty"`
+	// Streamers are watched in this order, at most MaxStreamers.
+	Streamers []Streamer `json:"streamers,omitempty" yaml:"streamers,omitempty"`
+}
+
+// Streamer is one channel on a streaming platform.
+type Streamer struct {
+	// Platform is StreamTwitch or StreamKick.
+	Platform string `json:"platform" yaml:"platform"`
+	// Login is the channel's name in its URL: "hiddentoken" for twitch.tv/hiddentoken. Lower case.
+	Login string `json:"login" yaml:"login"`
+	// Label is the name the post shows; the login when empty.
+	Label string `json:"label,omitempty" yaml:"label,omitempty"`
+}
+
+// IsZero reports whether no post is placed.
+func (s Streams) IsZero() bool {
+	return s.Channel == "" && s.Role == "" && s.Note == "" && len(s.Streamers) == 0
+}
+
+// The streaming platforms and the go-live posts' bounds.
+const (
+	StreamTwitch     = "twitch"
+	StreamKick       = "kick"
+	MaxStreamers     = 10
+	MaxStreamerLabel = 40
+	MaxStreamsNote   = 200
+)
+
+// StreamPlatforms are the platforms a streamer may be on.
+var StreamPlatforms = []string{StreamTwitch, StreamKick}
+
+// streamLogins are each platform's channel names: Twitch's 4 to 25 letters, digits and
+// underscores; Kick's slugs, which also take hyphens.
+var streamLogins = map[string]*regexp.Regexp{
+	StreamTwitch: regexp.MustCompile(`^[a-z0-9][a-z0-9_]{3,24}$`),
+	StreamKick:   regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{2,24}$`),
 }
 
 // RecapRule is when and where the bot posts a server's session recap: a few minutes after each of
@@ -366,7 +416,7 @@ var MappedProviders = []string{"discord", "steam"}
 // IsZero reports whether nothing is set.
 func (d Discord) IsZero() bool {
 	return d.GuildID == "" && d.Roles.IsZero() && len(d.Recognition) == 0 && len(d.ServerCards) == 0 && d.ModLog == "" && len(d.Seeding) == 0 &&
-		d.Presence.IsZero() && len(d.Recaps) == 0
+		d.Presence.IsZero() && len(d.Recaps) == 0 && d.Streams.IsZero()
 }
 
 // IsZero reports whether no role is mapped.
@@ -567,7 +617,7 @@ func validateDiscord(d Discord, bad func(string, ...any)) {
 		return
 	}
 	if d.GuildID == "" {
-		bad("discord.guild_id: required when roles are mapped, server cards placed, seeding set, presence placed or recaps set")
+		bad("discord.guild_id: required when roles are mapped, server cards placed, seeding set, presence placed, recaps set or streams placed")
 	} else if !snowflakeOK(d.GuildID) {
 		bad("discord.guild_id: %q is not a Discord id", d.GuildID)
 	}
@@ -637,6 +687,52 @@ func validateDiscord(d Discord, bad func(string, ...any)) {
 	validateSeeding(d, bad)
 	validatePresence(d.Presence, bad)
 	validateRecaps(d, bad)
+	validateStreams(d, bad)
+}
+
+func validateStreams(d Discord, bad func(string, ...any)) {
+	s := d.Streams
+	if s.IsZero() {
+		return
+	}
+	if !snowflakeOK(s.Channel) {
+		bad("discord.streams.channel: %q is not a Discord id", s.Channel)
+	}
+	if s.Role != "" {
+		if !snowflakeOK(s.Role) {
+			bad("discord.streams.role: %q is not a Discord id", s.Role)
+		} else if s.Role == d.GuildID {
+			bad("discord.streams.role: %q is the guild's @everyone role; name an opt-in role or none", s.Role)
+		}
+	}
+	note := strings.TrimSpace(s.Note)
+	if utf8.RuneCountInString(note) > MaxStreamsNote || strings.ContainsFunc(note, unicode.IsControl) {
+		bad("discord.streams.note: one line of at most %d characters", MaxStreamsNote)
+	}
+	switch n := len(s.Streamers); {
+	case n == 0:
+		bad("discord.streams.streamers: at least one streamer")
+	case n > MaxStreamers:
+		bad("discord.streams.streamers: %d streamers, at most %d", n, MaxStreamers)
+	}
+	seen := map[string]int{}
+	for i, st := range s.Streamers {
+		field := fmt.Sprintf("discord.streams.streamers[%d]", i)
+		login, ok := streamLogins[st.Platform]
+		if !ok {
+			bad("%s.platform: %q is not a platform (%s)", field, st.Platform, strings.Join(StreamPlatforms, ", "))
+		} else if !login.MatchString(st.Login) {
+			bad("%s.login: %q is not a %s channel name (lower case, as in its URL)", field, st.Login, st.Platform)
+		} else if j, dup := seen[st.Platform+"/"+st.Login]; dup {
+			bad("%s: %s %q is already listed (discord.streams.streamers[%d])", field, st.Platform, st.Login, j)
+		} else {
+			seen[st.Platform+"/"+st.Login] = i
+		}
+		label := strings.TrimSpace(st.Label)
+		if utf8.RuneCountInString(label) > MaxStreamerLabel || strings.ContainsFunc(label, unicode.IsControl) {
+			bad("%s.label: one line of at most %d characters", field, MaxStreamerLabel)
+		}
+	}
 }
 
 func validateRecaps(d Discord, bad func(string, ...any)) {
@@ -942,6 +1038,13 @@ func (s Settings) Normalized() Settings {
 	}
 	if len(s.Discord.Recaps) == 0 {
 		s.Discord.Recaps = nil
+	}
+	s.Discord.Streams.Note = strings.TrimSpace(s.Discord.Streams.Note)
+	for i := range s.Discord.Streams.Streamers {
+		s.Discord.Streams.Streamers[i].Label = strings.TrimSpace(s.Discord.Streams.Streamers[i].Label)
+	}
+	if len(s.Discord.Streams.Streamers) == 0 {
+		s.Discord.Streams.Streamers = nil
 	}
 	if len(s.Games) == 0 {
 		s.Games = nil

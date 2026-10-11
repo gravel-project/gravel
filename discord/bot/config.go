@@ -35,6 +35,8 @@ const MinServerCardsInterval = 5 * time.Second
 const (
 	EnvDiscordToken    = "GRAVEL_BOT_DISCORD_TOKEN"
 	EnvHubClientSecret = "GRAVEL_BOT_HUB_CLIENT_SECRET"
+	EnvTwitchSecret    = "GRAVEL_BOT_TWITCH_CLIENT_SECRET"
+	EnvKickSecret      = "GRAVEL_BOT_KICK_CLIENT_SECRET"
 )
 
 // Config is bot.yaml: the Discord application, the hub to call, the listeners and the log. Like
@@ -52,6 +54,7 @@ type Config struct {
 	Seeding     Seeding     `yaml:"seeding"`
 	Presence    Presence    `yaml:"presence"`
 	Recaps      Recaps      `yaml:"recaps"`
+	Streams     Streams     `yaml:"streams"`
 	Server      Server      `yaml:"server"`
 	Log         Log         `yaml:"log"`
 }
@@ -149,6 +152,41 @@ type Recaps struct {
 // per rule whose window ended and isn't recapped yet.
 const MinRecapsInterval = 15 * time.Second
 
+// Streams posts when the Organization settings' discord.streams streamers go live
+// (discord/modules/streams, ADR-0019). Off by default: each platform needs a developer
+// application of the host's, whose credentials are here; a platform without them is skipped.
+type Streams struct {
+	Enabled bool `yaml:"enabled"`
+	// Interval is how often the platforms are asked who is live: the longest a go-live post waits.
+	Interval time.Duration `yaml:"interval"`
+	// Twitch is the application from dev.twitch.tv; its secret from GRAVEL_BOT_TWITCH_CLIENT_SECRET,
+	// then client_secret_file, then client_secret.
+	Twitch StreamApp `yaml:"twitch"`
+	// Kick is the application from kick.com's developer settings; its secret from
+	// GRAVEL_BOT_KICK_CLIENT_SECRET, then client_secret_file, then client_secret.
+	Kick StreamApp `yaml:"kick"`
+}
+
+// StreamApp is a streaming platform's developer application: the bot asks for an app access token
+// with its client credentials, which reads public stream metadata and nothing of a viewer's.
+type StreamApp struct {
+	ClientID         string `yaml:"client_id"`
+	ClientSecret     string `yaml:"client_secret"`
+	ClientSecretFile string `yaml:"client_secret_file"`
+
+	secretSource string
+}
+
+// Set reports whether the application is configured.
+func (a StreamApp) Set() bool { return a.ClientID != "" && a.ClientSecret != "" }
+
+// SecretSource says where the secret came from, never the secret.
+func (a StreamApp) SecretSource() string { return a.secretSource }
+
+// MinStreamsInterval is the go-live posts' floor: each pass is one call per platform, well inside
+// both platforms' limits.
+const MinStreamsInterval = 30 * time.Second
+
 // Discord is the application the bot runs as.
 type Discord struct {
 	// ApplicationID and PublicKey come from the Developer Portal; the key verifies HTTP
@@ -222,6 +260,7 @@ func Default() Config {
 		Seeding:     Seeding{Interval: 30 * time.Second},
 		Presence:    Presence{Interval: time.Minute},
 		Recaps:      Recaps{Interval: time.Minute},
+		Streams:     Streams{Interval: time.Minute},
 		Server:      Server{Listen: "127.0.0.1:8081", InternalListen: "127.0.0.1:9091", ShutdownTimeout: 15 * time.Second},
 		Log:         Log{Level: "info", Format: "json"},
 	}
@@ -250,6 +289,12 @@ func Parse(r io.Reader, env Env) (Config, error) {
 		return Config{}, err
 	}
 	if c.Hub.ClientSecret, c.Hub.secretSource, err = resolveSecret(env, EnvHubClientSecret, c.Hub.ClientSecretFile, c.Hub.ClientSecret, "hub.client_secret"); err != nil {
+		return Config{}, err
+	}
+	if c.Streams.Twitch.ClientSecret, c.Streams.Twitch.secretSource, err = resolveSecret(env, EnvTwitchSecret, c.Streams.Twitch.ClientSecretFile, c.Streams.Twitch.ClientSecret, "streams.twitch.client_secret"); err != nil {
+		return Config{}, err
+	}
+	if c.Streams.Kick.ClientSecret, c.Streams.Kick.secretSource, err = resolveSecret(env, EnvKickSecret, c.Streams.Kick.ClientSecretFile, c.Streams.Kick.ClientSecret, "streams.kick.client_secret"); err != nil {
 		return Config{}, err
 	}
 	if c.Hub.PublicURL == "" {
@@ -367,6 +412,20 @@ func (c Config) Validate() error {
 	}
 	if c.Recaps.Interval < MinRecapsInterval {
 		bad("recaps.interval: %s is shorter than %s", c.Recaps.Interval, MinRecapsInterval)
+	}
+	if c.Streams.Interval < MinStreamsInterval {
+		bad("streams.interval: %s is shorter than %s", c.Streams.Interval, MinStreamsInterval)
+	}
+	for _, p := range []struct {
+		name string
+		app  StreamApp
+	}{{"twitch", c.Streams.Twitch}, {"kick", c.Streams.Kick}} {
+		if (p.app.ClientID == "") != (p.app.ClientSecret == "") {
+			bad("streams.%s: client_id and the client secret go together", p.name)
+		}
+	}
+	if c.Streams.Enabled && !c.Streams.Twitch.Set() && !c.Streams.Kick.Set() {
+		bad("streams.enabled: no platform's application is set; set streams.twitch or streams.kick")
 	}
 	if c.Presence.Enabled && !c.Discord.Gateway {
 		bad("presence.enabled: presence comes only over the gateway; set discord.gateway: true")

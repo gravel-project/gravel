@@ -267,6 +267,9 @@ func describeDiscord(d org.Discord) string {
 	if n := len(d.Recaps); n > 0 {
 		out += fmt.Sprintf(", %d recap rules", n)
 	}
+	if n := len(d.Streams.Streamers); n > 0 {
+		out += fmt.Sprintf(", go-live posts for %d streamers", n)
+	}
 	if n := len(d.Presence.Games); n > 0 {
 		out += fmt.Sprintf(", a presence card with %d games", n)
 	}

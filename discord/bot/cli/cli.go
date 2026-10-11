@@ -222,9 +222,20 @@ func (p Program) configCheck(args []string, stdout, stderr io.Writer) int {
 	if cfg.Presence.Enabled {
 		presence = "every " + cfg.Presence.Interval.String()
 	}
-	fmt.Fprintf(stdout, "config ok: application %s, commands %s, gateway %t, hub %s (public %s, client %s), token from %s, hub secret from %s, role sync %s, linked roles %t, server cards %s, seeding %s, presence %s, recaps %s, listen %s, internal %s, modules %s\n",
+	streamsOn := "off"
+	if cfg.Streams.Enabled {
+		var apps []string
+		if cfg.Streams.Twitch.Set() {
+			apps = append(apps, "twitch secret from "+cfg.Streams.Twitch.SecretSource())
+		}
+		if cfg.Streams.Kick.Set() {
+			apps = append(apps, "kick secret from "+cfg.Streams.Kick.SecretSource())
+		}
+		streamsOn = "every " + cfg.Streams.Interval.String() + " (" + strings.Join(apps, ", ") + ")"
+	}
+	fmt.Fprintf(stdout, "config ok: application %s, commands %s, gateway %t, hub %s (public %s, client %s), token from %s, hub secret from %s, role sync %s, linked roles %t, server cards %s, seeding %s, presence %s, recaps %s, streams %s, listen %s, internal %s, modules %s\n",
 		cfg.Discord.ApplicationID, guilds, cfg.Discord.Gateway, cfg.Hub.URL, cfg.Hub.PublicURL, cfg.Hub.ClientID,
-		cfg.Discord.TokenSource(), cfg.Hub.SecretSource(), roleSync, cfg.LinkedRoles.Enabled, serverCards, seeding, presence, recapsOn, cfg.Server.Listen, cfg.Server.InternalListen,
+		cfg.Discord.TokenSource(), cfg.Hub.SecretSource(), roleSync, cfg.LinkedRoles.Enabled, serverCards, seeding, presence, recapsOn, streamsOn, cfg.Server.Listen, cfg.Server.InternalListen,
 		strings.Join(names, ", "))
 	return 0
 }

@@ -172,6 +172,30 @@ message DiscordSettings {
   DiscordPresence presence = 7;
   // The session recaps, at most 10, one per server (the recaps module, ADR-0018).
   repeated DiscordRecap recaps = 8;
+  // The go-live posts for the community's streamers (the streams module, ADR-0019); unset is none.
+  DiscordStreams streams = 9;
+}
+
+// One streamer the bot watches.
+message DiscordStreamer {
+  // "twitch" or "kick".
+  string platform = 1;
+  // The channel's login on the platform, as in its URL: "hiddentoken" for twitch.tv/hiddentoken.
+  string login = 2;
+  // The name the post shows; the login when empty.
+  string label = 3;
+}
+
+// Go-live posts: one message per stream in the channel, edited when the stream ends. Stream
+// metadata only; nothing about viewers is read.
+message DiscordStreams {
+  string channel = 1;
+  // A role the post pings when a stream starts (an opt-in role); empty pings no one.
+  string role = 2;
+  // A line the host writes under each post.
+  string note = 3;
+  // At most 10.
+  repeated DiscordStreamer streamers = 4;
 }
 
 // After each of its weekly windows, the bot posts what the server's window held.
