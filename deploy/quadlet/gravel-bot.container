@@ -10,7 +10,7 @@ Requires=gravel-hub.service
 After=gravel-hub.service
 
 [Container]
-Image=ghcr.io/gravel-project/gravel-bot@sha256:7577674239f77189ca3d1d1be3951705294065220397d2abc63b040a4301734c
+Image=ghcr.io/gravel-project/gravel-bot@sha256:029e569fb7b0df6b31e84e6d4c8ed7c0d01a68d6ce024a2c3fbea40742834405
 ContainerName=gravel-bot
 Network=gravel.network
 PublishPort=127.0.0.1:8081:8081

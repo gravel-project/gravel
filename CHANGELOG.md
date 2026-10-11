@@ -8,6 +8,8 @@ patch release is everything else.
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-10-11
+
 ### Added
 
 - ADR-0018 (proposed; accepted when merged): session recaps from the poll, a page and a post (hidden-token-gaming/htg#56).
@@ -37,6 +39,10 @@ patch release is everything else.
 - Modules can ask for gateway intents: a module implementing `bot.IntentsModule` (`Intents() gateway.Intents`) adds them to the runtime's base, and `Registry.HasIntent` says what it got. For a privileged intent a module adds, the runtime reads the application's flags once at start. One the application isn't allowed in the Developer Portal is left out with an error naming the toggle, and `gravel_bot_gateway_intent_missing{intent}` is 1 (on the bot dashboard). Before, Discord would close the whole session (4014), so one module's missing toggle stopped the bot. `Runtime.Intents()` reports the session's intents. docs/bot.md ("A host's bot").
 
 - Signed images from every green push to `main`, so a host can deploy main without waiting for a release. CI's new `publish` job runs on a push to `main` once every other job has passed (never on a pull request) and publishes `ghcr.io/gravel-project/gravel-hub` and `gravel-bot` as `main-<commit>` and `main`: multi-arch, an SBOM attached, cosign-signed keyless with the identity `.github/workflows/ci.yml@refs/heads/main`, and `--certificate-github-workflow-sha` binds a signature to its commit. `gravel-postgres` is published the same way only when the push changed `deploy/postgres/`. `latest` and the version tags stay with releases. A main build reports `git describe`'s version without the `v` (`0.8.0-3-gabc1234`) and carries the commit in `org.opencontainers.image.revision`. docs/releasing.md ("Images from main") has the verify command and what a host gives up by running main.
+
+### Changed
+
+- The quadlet units pin the 0.8.0 images by index digest, both verified with cosign 3 against the release workflow at `v0.8.0` (the 0.7.1 hub as a control, a wrong-tag identity refused): `ghcr.io/gravel-project/gravel-hub@sha256:a5f0a6246f31d7b54640f80245fe16832a271b77d62b2ee1259255a55aa5a1a2` and `ghcr.io/gravel-project/gravel-bot@sha256:029e569fb7b0df6b31e84e6d4c8ed7c0d01a68d6ce024a2c3fbea40742834405`.
 
 ### Fixed
 
@@ -431,7 +437,8 @@ patch release is everything else.
 
 - README and CLAUDE.md follow ADR-0001: status line, principle 2 (the resource lives in the hub's database), the hub and backup paragraphs, the adapter-repo rule, the local-dev default, and a seven-step build order with the issues behind each step. The launch games are the five Hidden Token Gaming plays, in three shapes, with War Dogs first; the open threads link the design-delta issues #2–#9 (#1).
 
-[Unreleased]: https://github.com/gravel-project/gravel/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/gravel-project/gravel/compare/v0.8.1...HEAD
+[0.8.1]: https://github.com/gravel-project/gravel/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/gravel-project/gravel/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/gravel-project/gravel/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/gravel-project/gravel/compare/v0.6.7...v0.7.0
