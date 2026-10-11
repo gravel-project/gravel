@@ -1,0 +1,24 @@
+# Written by the gravel hub (the cloud-VM driver, ADR-0003) for server {{ .ServerID }}: {{ .GameName }}
+# in its container. The environment file holds the server's settings and secrets; the hub pushes
+# it over SSH, never in cloud-init, and the unit waits for it. The game's install lives on the data
+# volume (~/{{ .Game }}), so a new instance on the same volume starts without downloading it again.
+[Unit]
+Description={{ .GameName }} ({{ .ServerID }})
+ConditionPathExists=%h/.config/{{ .Game }}/env
+
+[Container]
+Image={{ .Image }}
+ContainerName={{ .Game }}
+Network=host
+UserNS=keep-id:uid={{ .RuntimeUID }},gid={{ .RuntimeUID }}
+Volume=%h/{{ .Game }}:{{ .InstallDir }}:Z
+EnvironmentFile=%h/.config/{{ .Game }}/env
+
+[Service]
+Restart=always
+RestartSec=10
+# The image is pulled at the first start.
+TimeoutStartSec=900
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,9 @@
+# The game's unit, installed on every new instance (the root disk is new; the volume keeps the
+# install and the environment file). Until the hub pushes the environment file over SSH the unit's
+# condition skips it; on an instance that replaces another the file is already there and it starts.
+as_user mkdir -p "$home/.config/containers/systemd" "$home/.config/{{ .Game }}" "$home/{{ .Game }}"
+install -o "$user" -g "$user" -m 0644 /usr/local/share/gravel/{{ .Game }}.container "$home/.config/containers/systemd/{{ .Game }}.container"
+restorecon -R "$home/.config"
+as_user systemctl --user daemon-reload
+as_user systemctl --user start {{ .Game }}.service || true
+install -o "$user" -g "$user" -m 0644 /dev/null "$home/.gravel-boot-done"
