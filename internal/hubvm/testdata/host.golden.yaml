@@ -1,0 +1,125 @@
+#cloud-config
+# A gravel hub host (ADR-0020), rendered by `gravel hub create` or `gravel hub cloud-init`.
+# Profile: host. Anything on the instance can read this document from the metadata
+# service, so it holds no secret: the stock profile's secrets are generated on the host at first
+# boot, and anything else (a tunnel token) is pushed over SSH afterwards.
+#
+# The data volume is the runtime user's home. Everything stateful lives there: podman's storage
+# (images, volumes, the secret store), the units, the configuration. A replacement instance that
+# boots this document on the same volume comes back as it was; the first boot of a volume is the
+# only one that formats it or installs anything into it.
+# The hostname is set in runcmd: cloud-init's own attempt runs before the system bus is up on
+# Fedora, fails once and marks the whole run degraded even though its retry succeeds.
+preserve_hostname: true
+timezone: Etc/UTC
+ssh_pwauth: false
+disable_root: true
+
+# Format the volume only if it holds no filesystem yet, then mount it as the runtime user's home.
+# disk_setup and mounts run before users_groups, so the user is created onto the mounted home.
+fs_setup:
+  - label: gravel-data
+    filesystem: ext4
+    device: /dev/disk/by-id/scsi-0DO_Volume_hub-1-data
+    overwrite: false
+mounts:
+  - [ "LABEL=gravel-data", "/home/gravel", "ext4", "defaults,nofail,x-systemd.device-timeout=60s", "0", "2" ]
+
+# admin maintains the OS (sudo). The runtime user runs the hub's rootless containers and has no
+# sudo; its uid and subordinate id ranges are fixed (bootcmd below), so the files on the volume
+# belong to the same ids on every instance that mounts it.
+users:
+  - name: admin
+    groups: [wheel]
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    shell: /bin/bash
+    lock_passwd: true
+    ssh_authorized_keys:
+      - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGravelTestKeyGravelTestKeyGravelTestKey000 gravel-test"
+  - name: gravel
+    uid: 1100
+    homedir: /home/gravel
+    shell: /bin/bash
+    lock_passwd: true
+    ssh_authorized_keys:
+      - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGravelTestKeyGravelTestKeyGravelTestKey000 gravel-test"
+
+# Before useradd: the runtime user's subordinate ids, so useradd keeps them instead of choosing
+# the next free range (which would depend on the order users were made).
+bootcmd:
+  - [ sh, -c, "grep -q '^gravel:' /etc/subuid 2>/dev/null || echo 'gravel:524288:65536' >> /etc/subuid" ]
+  - [ sh, -c, "grep -q '^gravel:' /etc/subgid 2>/dev/null || echo 'gravel:524288:65536' >> /etc/subgid" ]
+
+package_update: true
+package_upgrade: false
+packages:
+  - podman
+  - git
+  - jq
+  - dnf5-plugin-automatic
+  - golang
+  - gh
+
+write_files:
+  - path: /etc/ssh/sshd_config.d/10-gravel.conf
+    permissions: "0644"
+    content: |
+      PermitRootLogin no
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+  # Security updates only, applied by dnf-automatic's daily timer; no automatic reboot.
+  - path: /etc/dnf/automatic.conf
+    permissions: "0644"
+    content: |
+      [commands]
+      upgrade_type = security
+      apply_updates = yes
+      reboot = never
+      [emitters]
+      emit_via = stdio
+  - path: /usr/local/libexec/gravel/first-boot
+    permissions: "0755"
+    content: |
+      #!/bin/bash
+      # gravel hub host, every boot of an instance (cloud-init runcmd runs once per instance, so this
+      # runs on the first boot of each new instance, including one that replaces an earlier instance
+      # on the same volume). Profile: host.
+      set -euo pipefail
+      user=gravel
+      home=/home/$user
+      # Two markers on the volume: one for the home's setup, one for the stock install, so a boot that
+      # failed halfway through the install never relabels podman's storage when it tries again.
+      home_marker=$home/.gravel-home
+      stock_marker=$home/.gravel-stock
+
+      mountpoint -q "$home" || { echo "first-boot: $home is not mounted: is the data volume attached?" >&2; exit 1; }
+
+      # The volume's first boot: give the home to the user, with the usual dotfiles and SELinux labels.
+      # On a later instance the volume already carries all of it, and relabelling podman's storage
+      # would be wrong, so nothing here runs twice.
+      if [[ ! -e "$home_marker" ]]; then
+        chown "$user:$user" "$home"
+        chmod 0700 "$home"
+        cp -r --update=none /etc/skel/. "$home/"
+        chown -R "$user:$user" "$home"
+        restorecon -R "$home"
+        install -o "$user" -g "$user" -m 0644 /dev/null "$home_marker"
+      fi
+
+      # The user's systemd instance outlives logins (linger lives on the root disk, so every instance
+      # sets it); wait for it before talking to it.
+      loginctl enable-linger "$user"
+      uid=$(id -u "$user")
+      for _ in $(seq 1 60); do
+        [[ -S /run/user/$uid/bus ]] && break
+        sleep 1
+      done
+      as_user() { runuser -u "$user" -- env HOME="$home" XDG_RUNTIME_DIR="/run/user/$uid" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus" "$@"; }
+
+      echo "first-boot: done"
+
+runcmd:
+  - [ hostnamectl, set-hostname, hub-1 ]
+  - [ systemctl, enable, --now, dnf5-automatic.timer ]
+  - [ systemctl, reload, sshd ]
+  - [ /usr/local/libexec/gravel/first-boot ]

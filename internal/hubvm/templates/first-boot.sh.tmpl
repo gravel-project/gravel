@@ -1,0 +1,65 @@
+#!/bin/bash
+# gravel hub host, every boot of an instance (cloud-init runcmd runs once per instance, so this
+# runs on the first boot of each new instance, including one that replaces an earlier instance
+# on the same volume). Profile: {{ .Profile }}.
+set -euo pipefail
+user={{ .User }}
+home=/home/$user
+# Two markers on the volume: one for the home's setup, one for the stock install, so a boot that
+# failed halfway through the install never relabels podman's storage when it tries again.
+home_marker=$home/.gravel-home
+stock_marker=$home/.gravel-stock
+
+mountpoint -q "$home" || { echo "first-boot: $home is not mounted: is the data volume attached?" >&2; exit 1; }
+
+# The volume's first boot: give the home to the user, with the usual dotfiles and SELinux labels.
+# On a later instance the volume already carries all of it, and relabelling podman's storage
+# would be wrong, so nothing here runs twice.
+if [[ ! -e "$home_marker" ]]; then
+  chown "$user:$user" "$home"
+  chmod 0700 "$home"
+  cp -r --update=none /etc/skel/. "$home/"
+  chown -R "$user:$user" "$home"
+  restorecon -R "$home"
+  install -o "$user" -g "$user" -m 0644 /dev/null "$home_marker"
+fi
+
+# The user's systemd instance outlives logins (linger lives on the root disk, so every instance
+# sets it); wait for it before talking to it.
+loginctl enable-linger "$user"
+uid=$(id -u "$user")
+for _ in $(seq 1 60); do
+  [[ -S /run/user/$uid/bus ]] && break
+  sleep 1
+done
+as_user() { runuser -u "$user" -- env HOME="$home" XDG_RUNTIME_DIR="/run/user/$uid" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus" "$@"; }
+{{- if eq .Profile "stock" }}
+
+# The stock hub (deploy/quadlet in gravel): units and configuration installed once per volume, so
+# an operator's later edits survive a replacement instance. The secrets are made here, on the
+# host, and never leave it.
+if [[ ! -e "$stock_marker" ]]; then
+  as_user mkdir -p "$home/.config/containers/systemd" "$home/.config/gravel"
+  for unit in /usr/local/share/gravel/quadlet/*; do
+    case "$unit" in *cloudflared*) continue ;; esac   # installed by `gravel hub create` with its token
+    install -o "$user" -g "$user" -m 0644 "$unit" "$home/.config/containers/systemd/"
+  done
+  install -d -o "$user" -g "$user" -m 0755 "$home/.config/containers/systemd/gravel-hub.container.d"
+  install -o "$user" -g "$user" -m 0644 /usr/local/share/gravel/gravel-hub-vm.conf "$home/.config/containers/systemd/gravel-hub.container.d/10-gravel-hub-vm.conf"
+  install -o "$user" -g "$user" -m 0644 /usr/local/share/gravel/hub.yaml "$home/.config/gravel/hub.yaml"
+  random_hex() { od -An -tx1 -N"$1" /dev/urandom | tr -d ' \n'; }
+  # Each secret only if missing: a retry after a failed boot keeps the ones Postgres already uses.
+  if ! as_user podman secret exists gravel-db-password; then
+    password=$(random_hex 24)
+    printf '%s' "$password" | as_user podman secret create gravel-db-password -
+    printf 'postgres://gravel:%s@gravel-postgres:5432/gravel?sslmode=disable' "$password" | as_user podman secret create --replace gravel-db-url -
+    unset password
+  fi
+  as_user podman secret exists gravel-stats-pseudonym-key || random_hex 32 | as_user podman secret create gravel-stats-pseudonym-key -
+  install -o "$user" -g "$user" -m 0644 /dev/null "$stock_marker"
+fi
+as_user systemctl --user daemon-reload
+as_user systemctl --user start gravel-hub.service
+{{- end }}
+
+echo "first-boot: done"

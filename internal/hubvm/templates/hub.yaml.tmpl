@@ -1,0 +1,36 @@
+# The stock hub's configuration, written once per data volume by `gravel hub create --profile
+# stock` (ADR-0020); edit it on the host (~/.config/gravel/hub.yaml, docs/hub.md) and restart
+# gravel-hub. No secrets here: they are podman secrets made on the host, mounted under /run/secrets.
+version: 1
+
+organization:
+  name: {{ .OrgName | printf "%q" }}
+
+server:
+  listen: 0.0.0.0:8080          # published on the host's 127.0.0.1 only; the tunnel reaches it by name
+  internal_listen: 0.0.0.0:9090 # /metrics and pprof, the same
+{{- if .BehindTunnel }}
+  client_ip_header: CF-Connecting-IP
+{{- end }}
+
+database:
+  url_file: /run/secrets/gravel-db-url
+  migrate: auto
+
+log:
+  level: info
+  format: json
+
+# Login is off until the operator registers a Discord application (docs/hub.md "Login").
+auth:
+  base_url: {{ .PublicURL }}
+  discord:
+    enabled: false
+    client_id: ""
+    client_secret_file: /run/secrets/gravel-discord-client-secret
+  steam:
+    enabled: false
+    api_key_file: /run/secrets/gravel-steam-api-key
+
+stats:
+  pseudonym_key_file: /run/secrets/gravel-stats-pseudonym-key

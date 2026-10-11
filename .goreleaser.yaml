@@ -33,6 +33,24 @@ builds:
       - -trimpath
     ldflags:
       - -s -w -X main.version={{ .Version }}
+  # The operator's CLI (ADR-0020): an archive on the release, no image. It runs on the operator's
+  # machine, so macOS too.
+  - id: gravel
+    main: ./cmd/gravel
+    binary: gravel
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+
 archives:
   - id: gravel-hub
     ids:
@@ -46,6 +64,12 @@ archives:
     formats:
       - tar.gz
     name_template: "gravel-bot_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+  - id: gravel
+    ids:
+      - gravel
+    formats:
+      - tar.gz
+    name_template: "gravel_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
 checksum:
   name_template: checksums.txt

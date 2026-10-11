@@ -90,9 +90,10 @@ a11y: ## Run axe over the rendered pages (needs node and Chrome; CI does too)
 	A11Y=1 AXE_CLI_VERSION=$(AXE_CLI_VERSION) $(GO) test -count=1 -run TestAccessibility ./internal/web/
 
 .PHONY: build
-build: ## Build the hub and bot binaries into .bin/
+build: ## Build the hub, bot and CLI binaries into .bin/
 	$(GO) build -trimpath -ldflags '$(LDFLAGS)' -o $(BIN)/gravel-hub ./cmd/gravel-hub
 	$(GO) build -trimpath -ldflags '$(LDFLAGS)' -o $(BIN)/gravel-bot ./cmd/gravel-bot
+	$(GO) build -trimpath -ldflags '$(LDFLAGS)' -o $(BIN)/gravel ./cmd/gravel
 
 .PHONY: fmt-check
 fmt-check: ## Fail on unformatted Go
@@ -227,9 +228,13 @@ dashboards: ## Regenerate the Grafana dashboards from internal/tools/dashboards
 observability-check: image ## Run the dashboards against a live hub in a throwaway pod (podman); fails on a hub panel with no data
 	$(CURDIR)/deploy/observability/check.sh
 
+.PHONY: hub-vm
+hub-vm: ## Boot a stock hub host in a local KVM VM from its cloud-init document, recreate it on the same disk, compare (ADR-0020)
+	$(CURDIR)/deploy/hub-vm.sh drill
+
 .PHONY: clean
 clean: ## Remove build outputs (not the tools)
-	rm -f $(BIN)/gravel-hub $(BIN)/gravel-hub.tar
+	rm -f $(BIN)/gravel-hub $(BIN)/gravel-hub.tar $(BIN)/gravel-bot $(BIN)/gravel
 	rm -rf dist
 
 .PHONY: help

@@ -1,0 +1,300 @@
+#cloud-config
+# A gravel hub host (ADR-0020), rendered by `gravel hub create` or `gravel hub cloud-init`.
+# Profile: stock. Anything on the instance can read this document from the metadata
+# service, so it holds no secret: the stock profile's secrets are generated on the host at first
+# boot, and anything else (a tunnel token) is pushed over SSH afterwards.
+#
+# The data volume is the runtime user's home. Everything stateful lives there: podman's storage
+# (images, volumes, the secret store), the units, the configuration. A replacement instance that
+# boots this document on the same volume comes back as it was; the first boot of a volume is the
+# only one that formats it or installs anything into it.
+# The hostname is set in runcmd: cloud-init's own attempt runs before the system bus is up on
+# Fedora, fails once and marks the whole run degraded even though its retry succeeds.
+preserve_hostname: true
+timezone: Etc/UTC
+ssh_pwauth: false
+disable_root: true
+
+# Format the volume only if it holds no filesystem yet, then mount it as the runtime user's home.
+# disk_setup and mounts run before users_groups, so the user is created onto the mounted home.
+fs_setup:
+  - label: gravel-data
+    filesystem: ext4
+    device: /dev/disk/by-id/scsi-0DO_Volume_hub-1-data
+    overwrite: false
+mounts:
+  - [ "LABEL=gravel-data", "/home/gravel", "ext4", "defaults,nofail,x-systemd.device-timeout=60s", "0", "2" ]
+
+# admin maintains the OS (sudo). The runtime user runs the hub's rootless containers and has no
+# sudo; its uid and subordinate id ranges are fixed (bootcmd below), so the files on the volume
+# belong to the same ids on every instance that mounts it.
+users:
+  - name: admin
+    groups: [wheel]
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    shell: /bin/bash
+    lock_passwd: true
+    ssh_authorized_keys:
+      - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGravelTestKeyGravelTestKeyGravelTestKey000 gravel-test"
+  - name: gravel
+    uid: 1100
+    homedir: /home/gravel
+    shell: /bin/bash
+    lock_passwd: true
+    ssh_authorized_keys:
+      - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGravelTestKeyGravelTestKeyGravelTestKey000 gravel-test"
+
+# Before useradd: the runtime user's subordinate ids, so useradd keeps them instead of choosing
+# the next free range (which would depend on the order users were made).
+bootcmd:
+  - [ sh, -c, "grep -q '^gravel:' /etc/subuid 2>/dev/null || echo 'gravel:524288:65536' >> /etc/subuid" ]
+  - [ sh, -c, "grep -q '^gravel:' /etc/subgid 2>/dev/null || echo 'gravel:524288:65536' >> /etc/subgid" ]
+
+package_update: true
+package_upgrade: false
+packages:
+  - podman
+  - git
+  - jq
+  - dnf5-plugin-automatic
+  - golang
+  - gh
+
+write_files:
+  - path: /etc/ssh/sshd_config.d/10-gravel.conf
+    permissions: "0644"
+    content: |
+      PermitRootLogin no
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+  # Security updates only, applied by dnf-automatic's daily timer; no automatic reboot.
+  - path: /etc/dnf/automatic.conf
+    permissions: "0644"
+    content: |
+      [commands]
+      upgrade_type = security
+      apply_updates = yes
+      reboot = never
+      [emitters]
+      emit_via = stdio
+  - path: /usr/local/libexec/gravel/first-boot
+    permissions: "0755"
+    content: |
+      #!/bin/bash
+      # gravel hub host, every boot of an instance (cloud-init runcmd runs once per instance, so this
+      # runs on the first boot of each new instance, including one that replaces an earlier instance
+      # on the same volume). Profile: stock.
+      set -euo pipefail
+      user=gravel
+      home=/home/$user
+      # Two markers on the volume: one for the home's setup, one for the stock install, so a boot that
+      # failed halfway through the install never relabels podman's storage when it tries again.
+      home_marker=$home/.gravel-home
+      stock_marker=$home/.gravel-stock
+
+      mountpoint -q "$home" || { echo "first-boot: $home is not mounted: is the data volume attached?" >&2; exit 1; }
+
+      # The volume's first boot: give the home to the user, with the usual dotfiles and SELinux labels.
+      # On a later instance the volume already carries all of it, and relabelling podman's storage
+      # would be wrong, so nothing here runs twice.
+      if [[ ! -e "$home_marker" ]]; then
+        chown "$user:$user" "$home"
+        chmod 0700 "$home"
+        cp -r --update=none /etc/skel/. "$home/"
+        chown -R "$user:$user" "$home"
+        restorecon -R "$home"
+        install -o "$user" -g "$user" -m 0644 /dev/null "$home_marker"
+      fi
+
+      # The user's systemd instance outlives logins (linger lives on the root disk, so every instance
+      # sets it); wait for it before talking to it.
+      loginctl enable-linger "$user"
+      uid=$(id -u "$user")
+      for _ in $(seq 1 60); do
+        [[ -S /run/user/$uid/bus ]] && break
+        sleep 1
+      done
+      as_user() { runuser -u "$user" -- env HOME="$home" XDG_RUNTIME_DIR="/run/user/$uid" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus" "$@"; }
+
+      # The stock hub (deploy/quadlet in gravel): units and configuration installed once per volume, so
+      # an operator's later edits survive a replacement instance. The secrets are made here, on the
+      # host, and never leave it.
+      if [[ ! -e "$stock_marker" ]]; then
+        as_user mkdir -p "$home/.config/containers/systemd" "$home/.config/gravel"
+        for unit in /usr/local/share/gravel/quadlet/*; do
+          case "$unit" in *cloudflared*) continue ;; esac   # installed by `gravel hub create` with its token
+          install -o "$user" -g "$user" -m 0644 "$unit" "$home/.config/containers/systemd/"
+        done
+        install -d -o "$user" -g "$user" -m 0755 "$home/.config/containers/systemd/gravel-hub.container.d"
+        install -o "$user" -g "$user" -m 0644 /usr/local/share/gravel/gravel-hub-vm.conf "$home/.config/containers/systemd/gravel-hub.container.d/10-gravel-hub-vm.conf"
+        install -o "$user" -g "$user" -m 0644 /usr/local/share/gravel/hub.yaml "$home/.config/gravel/hub.yaml"
+        random_hex() { od -An -tx1 -N"$1" /dev/urandom | tr -d ' \n'; }
+        # Each secret only if missing: a retry after a failed boot keeps the ones Postgres already uses.
+        if ! as_user podman secret exists gravel-db-password; then
+          password=$(random_hex 24)
+          printf '%s' "$password" | as_user podman secret create gravel-db-password -
+          printf 'postgres://gravel:%s@gravel-postgres:5432/gravel?sslmode=disable' "$password" | as_user podman secret create --replace gravel-db-url -
+          unset password
+        fi
+        as_user podman secret exists gravel-stats-pseudonym-key || random_hex 32 | as_user podman secret create gravel-stats-pseudonym-key -
+        install -o "$user" -g "$user" -m 0644 /dev/null "$stock_marker"
+      fi
+      as_user systemctl --user daemon-reload
+      as_user systemctl --user start gravel-hub.service
+
+      echo "first-boot: done"
+  - path: /usr/local/share/gravel/quadlet/gravel-cloudflared.container
+    permissions: "0644"
+    content: |
+      # Optional: a Cloudflare Tunnel that exposes the hub with no inbound ports. The tunnel's origin is
+      # http://gravel-hub:8080 on gravel.network. Secret: gravel-tunnel-token
+      # (`podman secret create gravel-tunnel-token <file>`), read from its file under /run/secrets, never
+      # from the environment (a child process or a crash report would see it there). cloudflared
+      # 2026.10.0, pinned by digest in gravel's mirror (deploy/mirror/images.txt copies :latest weekly;
+      # a digest stays pullable after :latest moves on).
+      [Unit]
+      Description=Cloudflare Tunnel for the gravel hub
+      After=gravel-hub.service
+
+      [Container]
+      Image=ghcr.io/gravel-project/mirror/cloudflared@sha256:9b49eed8f62806d5d45ddf59ecefb5710429598ea6d3fcccd2af938f621b2b07
+      ContainerName=gravel-cloudflared
+      Network=gravel.network
+      Secret=gravel-tunnel-token
+      Exec=tunnel --no-autoupdate run --token-file /run/secrets/gravel-tunnel-token
+
+      [Service]
+      Restart=always
+
+      [Install]
+      WantedBy=default.target
+  - path: /usr/local/share/gravel/quadlet/gravel-hub.container
+    permissions: "0644"
+    content: |
+      # The gravel hub, pinned by digest to a release of ghcr.io/gravel-project/gravel-hub (0.8.1; the
+      # index digest covers amd64 and arm64). docs/releasing.md says how to verify a release and move
+      # the pin. For a local build use `make image` and Image=localhost/gravel-hub:dev.
+      # Config: ~/.config/gravel/hub.yaml (docs/hub.md). Secret: gravel-db-url
+      # (`podman secret create gravel-db-url <file>`, the file holding the postgres:// URL). With login
+      # enabled, also gravel-discord-client-secret and, optionally, gravel-steam-api-key.
+      [Unit]
+      Description=gravel hub
+      Requires=gravel-postgres.service
+      After=gravel-postgres.service
+
+      [Container]
+      Image=ghcr.io/gravel-project/gravel-hub@sha256:440148d47a9731b5526bbcea1db96eebc4b356e295ab8c8a9bb490856042b2a2
+      ContainerName=gravel-hub
+      Network=gravel.network
+      PublishPort=127.0.0.1:8080:8080
+      PublishPort=127.0.0.1:9090:9090
+      Volume=%h/.config/gravel/hub.yaml:/etc/gravel/hub.yaml:ro,Z
+      Secret=gravel-db-url
+      # Secret=gravel-discord-client-secret
+      # Secret=gravel-steam-api-key
+      Exec=serve --config /etc/gravel/hub.yaml
+      # Exec form on purpose: a plain string runs through /bin/sh -c, and the distroless image has no shell.
+      HealthCmd=["CMD", "/ko-app/gravel-hub", "healthcheck"]
+      HealthInterval=30s
+      HealthTimeout=3s
+      HealthRetries=3
+
+      [Service]
+      Restart=always
+      TimeoutStartSec=300
+
+      [Install]
+      WantedBy=default.target
+  - path: /usr/local/share/gravel/quadlet/gravel-postgres.container
+    permissions: "0644"
+    content: |
+      # Postgres 17 for the hub. Pin a digest in production. Secret: gravel-db-password
+      # (`podman secret create gravel-db-password <file>`).
+      [Unit]
+      Description=Postgres for the gravel hub
+
+      [Container]
+      Image=public.ecr.aws/docker/library/postgres:17
+      ContainerName=gravel-postgres
+      Network=gravel.network
+      Volume=gravel-postgres.volume:/var/lib/postgresql/data
+      Environment=POSTGRES_USER=gravel POSTGRES_DB=gravel POSTGRES_PASSWORD_FILE=/run/secrets/gravel-db-password
+      Secret=gravel-db-password
+      HealthCmd=pg_isready -U gravel -d gravel
+      HealthInterval=10s
+      HealthTimeout=3s
+      HealthRetries=6
+
+      [Service]
+      Restart=always
+      TimeoutStartSec=300
+
+      [Install]
+      WantedBy=default.target
+  - path: /usr/local/share/gravel/quadlet/gravel-postgres.volume
+    permissions: "0644"
+    content: |
+      # Postgres data. Back it up with the hub's backup job; never bind-mount a host path here.
+      [Unit]
+      Description=gravel Postgres data
+
+      [Volume]
+  - path: /usr/local/share/gravel/quadlet/gravel.network
+    permissions: "0644"
+    content: |
+      # Private network shared by the hub, Postgres and cloudflared. Containers reach each other by
+      # unit name (gravel-postgres, gravel-hub).
+      [Unit]
+      Description=gravel hub network
+
+      [Network]
+  - path: /usr/local/share/gravel/hub.yaml
+    permissions: "0644"
+    content: |
+      # The stock hub's configuration, written once per data volume by `gravel hub create --profile
+      # stock` (ADR-0020); edit it on the host (~/.config/gravel/hub.yaml, docs/hub.md) and restart
+      # gravel-hub. No secrets here: they are podman secrets made on the host, mounted under /run/secrets.
+      version: 1
+
+      organization:
+        name: "Example"
+
+      server:
+        listen: 0.0.0.0:8080          # published on the host's 127.0.0.1 only; the tunnel reaches it by name
+        internal_listen: 0.0.0.0:9090 # /metrics and pprof, the same
+        client_ip_header: CF-Connecting-IP
+
+      database:
+        url_file: /run/secrets/gravel-db-url
+        migrate: auto
+
+      log:
+        level: info
+        format: json
+
+      # Login is off until the operator registers a Discord application (docs/hub.md "Login").
+      auth:
+        base_url: https://hub.example.com
+        discord:
+          enabled: false
+          client_id: ""
+          client_secret_file: /run/secrets/gravel-discord-client-secret
+        steam:
+          enabled: false
+          api_key_file: /run/secrets/gravel-steam-api-key
+
+      stats:
+        pseudonym_key_file: /run/secrets/gravel-stats-pseudonym-key
+  - path: /usr/local/share/gravel/gravel-hub-vm.conf
+    permissions: "0644"
+    content: |
+      # Written by gravel hub create --profile stock (ADR-0020).
+      [Container]
+      Secret=gravel-stats-pseudonym-key
+      Image=ghcr.io/gravel-project/gravel-hub@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+
+runcmd:
+  - [ hostnamectl, set-hostname, hub-1 ]
+  - [ systemctl, enable, --now, dnf5-automatic.timer ]
+  - [ systemctl, reload, sshd ]
+  - [ /usr/local/libexec/gravel/first-boot ]

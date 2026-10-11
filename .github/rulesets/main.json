@@ -71,6 +71,10 @@
             "integration_id": 15368
           },
           {
+            "context": "hub-vm",
+            "integration_id": 15368
+          },
+          {
             "context": "integration",
             "integration_id": 15368
           },

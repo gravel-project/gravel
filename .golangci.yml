@@ -34,6 +34,15 @@ linters:
           deny:
             - pkg: github.com/gravel-project/gravel
               desc: "game client packages under games/ must not depend on gravel; they are extracted as standalone modules at the open-source cut (ADR-0001)"
+        # A cloud's SDK stays behind cloud.Provider (ADR-0003): only cloud/<provider>/ imports it.
+        cloud-sdks:
+          list-mode: lax
+          files:
+            - "$all"
+            - "!**/cloud/**"
+          deny:
+            - pkg: github.com/digitalocean/godo
+              desc: "only cloud/... may import a cloud vendor SDK; use cloud.Provider (ADR-0003)"
   exclusions:
     generated: lax
     paths:

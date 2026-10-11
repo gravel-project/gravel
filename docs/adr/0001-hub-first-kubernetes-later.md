@@ -43,3 +43,7 @@ Two of the README's own rules already point this way: Agones is a hard dependenc
 - The operator, Agones, Flux, k3s, kubeconform and the Kind e2e job move to the Counter-Strike 2 phase. Until then CI is gofmt, vet, race tests, golangci-lint, govulncheck, `buf lint` and `buf breaking`, and an integration job against a Postgres service container.
 - `Game` specs stay declarative YAML manifests and the catalog repo stays planned; they are applied through the API instead of `kubectl`.
 - The README's principles 1–12 hold. Principle 2's wording changes to say where the resource lives; principle 4's restatement is #3.
+
+## Amendments
+
+- **2026-10-11, build order step 5 starts with the hub's own host (ADR-0020).** The first `gravel` CLI commands are `gravel hub create|status|destroy|allow-ssh|ssh|cloud-init`, which make and look after the hub's VM through `cloud.Provider` before any hub exists; the cloud provider interface and its DigitalOcean implementation (#35) move here from step 6 with them. The rest of step 5 (`gravel claim` and the HTTP-JSON client) follows; the cloud-VM driver, vertical scaling and the operator stay in step 6.

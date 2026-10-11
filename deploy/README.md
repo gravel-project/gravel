@@ -45,6 +45,10 @@ token the hub logs is pasted on the account page after the first login (`docs/hu
 
 ## Production: quadlet units
 
+On a cloud VM, `gravel hub create --profile stock` does the steps below for you: it makes the
+host, installs these units, generates the secrets on the host and installs a tunnel token over SSH
+([docs/cli.md](../docs/cli.md)). By hand:
+
 1. The unit pins a release of `ghcr.io/gravel-project/gravel-hub` by digest. Verify it before
    trusting it (`docs/releasing.md`): `cosign verify ghcr.io/gravel-project/gravel-hub@<digest>
    --certificate-oidc-issuer https://token.actions.githubusercontent.com
