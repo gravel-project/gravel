@@ -78,6 +78,8 @@ apps:
 stats:
   pseudonym_key_file: /run/secrets/gravel-stats-pseudonym-key   # the key pseudonyms are chosen with ([Stats](#stats-adr-0012))
 demo: false                      # true marks a demo hub: every page says its data is made up ([Demo hub](#demo-hub-gravel112))
+cloud:
+  egress_cidrs: []               # the hub's own address, which cloud-VM servers' firewalls admit RCON and SSH from; empty asks a public service ([Cloud-VM servers](#cloud-vm-servers-adr-0003))
 ```
 
 **Secrets.** Four, each with the same precedence: the environment variable, then the `*_file`
@@ -508,9 +510,10 @@ publisher's rules), and a **server** is one a driver controls. A deployment decl
 in `servers.yaml` and applies it like the Organization settings; the hub stores them (migration 6)
 and never stores a credential, only the file to read it from.
 
-**Game specs and publisher rules (gravel#8).** gravel ships five specs. War Dogs has a driver.
-Counter-Strike 2, Sea of Thieves, Star Citizen and PUBG are **catalog entries** (`drivers: []`):
-their rules are known before gravel can run a server for them. A manifest may enable a catalog
+**Game specs and publisher rules (gravel#8).** gravel ships five specs. War Dogs has a driver;
+Counter-Strike 2 has the cloud-VM driver ([Cloud-VM servers](#cloud-vm-servers-adr-0003)). Sea of
+Thieves, Star Citizen and PUBG are **catalog entries** (`drivers: []`): their rules are known
+before gravel can run a server for them. A manifest may enable a catalog
 game, but a server for one is refused. A spec's rules:
 
 | Rule | What it is | Enforced |
@@ -578,7 +581,8 @@ token and, after a 401, nothing protected until the credential file changes, so 
 costs one strike against the server's three-strike lockout.
 
 The public status says what happened, never why: `state` is `unknown` (not polled yet), `ok`,
-`unreachable`, `credential_refused`, `credential_missing`, `rate_limited` or `error`, and the cause
+`unreachable`, `credential_refused`, `credential_missing`, `rate_limited` or `error` (and, for a
+cloud-VM server whose machine is not running, `parked` or `provisioning`), and the cause
 (which may name the control address) is in the hub's log, once per change of state.
 `capabilities` is what the server grants now, so a page or a bot shows an absent one as not
 available.
@@ -593,6 +597,109 @@ the route-level diff (War Dogs: routes added, removed or renamed), which is what
 fixtures needs (`games/wardogs/README.md`). `gravel_driver_build_info{server,game,build}` names the
 build each server runs, and `gravel_driver_build_changes_total{server,game}` counts the changes;
 alert on an increase of the counter (a host's Prometheus rule). 
+
+### Cloud-VM servers (ADR-0003)
+
+A cloud-VM server runs on a VM the hub makes, sizes, parks and destroys itself, through
+`cloud.Provider` (DigitalOcean today). The hub boots the VM from a cloud-init document (vmdoc: an
+`admin` user for the OS, the runtime user `gravel` whose home is the data volume, podman, security
+updates), installs the game's container as a rootless quadlet, pushes the game's environment file
+over SSH (never in the document: the cloud keeps it, and anything on the instance can read it), and
+controls the game over its own channels: RCON, and the log the game pushes to the hub's [log
+route](#ingestion-adr-0011). What a game needs on the VM is its Game spec's `cloudvm` section
+(image by digest, ports, install path, environment, the settings a manifest may set); the driver is
+the same for every game. Counter-Strike 2 is the first (the `joedwards32/cs2` image, which updates
+the game at every start, so a restart is the patch-day step).
+
+```yaml
+locations:                                   # the clouds the hub makes VMs in
+  - id: do-sfo3
+    provider: digitalocean
+    region: sfo3
+    project: 7fd3841c-8bd5-49b1-bf2b-8956a8e252e0   # optional; an id survives a rename
+    token_file: /run/secrets/gravel-digitalocean-token   # the API token, a podman secret
+    ssh_key_file: /run/secrets/gravel-cloudvm-ssh-key    # the hub's ed25519 private key (ssh-keygen -t ed25519)
+    image: fedora-44-x64                     # optional
+    extra_ssh_keys: ["ssh-ed25519 AAAA… ops"]   # optional: operators' break-glass keys on the VMs
+    ssh_from: ["198.51.100.7/32"]            # optional: addresses SSH is admitted from besides the hub's
+servers:
+  - id: cs2-1                                # a letter first, at most 40: it names the volume and firewall
+    name: "Our CS2 | 10-man"
+    game: cs2
+    driver: cloudvm
+    location: do-sfo3                        # one of locations; no endpoint: the hub knows the address
+    credential_file: /run/secrets/cs2-rcon-password
+    poll_interval: 15s
+    trust: official
+    feed:                                    # required: the game's log is how its players are known
+      url: https://ingest.example.com        # an origin; the hub adds /api/ingest/log/<token>
+      token_file: /run/secrets/cs2-feed-token
+    vm:
+      size: c-2                              # the provider's size the VM is made at
+      volume_gib: 100                        # the install's disk (at least the spec's minimum, 80 for CS2)
+      address: reserved                      # reserved (kept across parks and resizes; default) or ephemeral
+      park_after: 30m                        # optional: park after this long empty (5m–24h); absent never
+      password_file: /run/secrets/cs2-join-password   # optional: the password players join with
+      publisher_token_file: /run/secrets/cs2-gslt     # optional: a Game Server Login Token
+    settings:                                # what the spec's cloudvm.settings declares, checked by type
+      game_alias: competitive                # competitive · wingman · casual · deathmatch · custom
+      map_group: mg_active
+      start_map: de_mirage
+      max_players: 10
+      tv: false
+```
+
+`hub.yaml` names the hub's own address for the VMs' firewalls (`cloud.egress_cidrs`); without it
+the hub asks a public service every ten minutes. Set it on a hub with a fixed address.
+
+**What the hub makes, and finds again.** Everything carries the tags `gravel-server` and
+`gravel-server:<id>`; the instance is named `<id>`, the volume `<id>-data`, the firewall
+`gravel-server-<id>`, and the hub's key is registered as `gravel-hub-<location>`. The firewall
+admits the game's public ports (CS2: UDP 27015) from everyone, RCON (TCP 27015) and SSH only from
+the hub (and `ssh_from`), and re-pins them when the hub's address changes. A `server_hosts` row
+records what the hub wants and where it got to; the cloud is the truth, so a hub that stops in the
+middle of anything finds what exists by its tags and names and carries on without making it
+twice.
+
+| State | What the hub is doing | The status says |
+|---|---|---|
+| `creating` | firewall, volume, reserved address, instance, the address assigned | `provisioning` |
+| `booting` | waiting for the first boot (cloud-init, the game's unit installed); SSH host key trusted on first use and pinned | `provisioning` |
+| `starting` | the environment file pushed over SSH, then waiting for the game to answer RCON (a first start downloads the install: CS2 is about 60 GB) | `provisioning` |
+| `running` | polled like any server; settings or secrets changed in the manifest reach the game when it is empty | `ok` (or a failure) |
+| `parking` | players warned, the game stopped, the instance stopped and, where a stopped instance bills (DigitalOcean), destroyed | `provisioning` |
+| `parked` | nothing: the volume and the reserved address stay; unparking makes a new instance on them | `parked` |
+| `resizing` | the game stopped, the instance stopped, resized (CPU and memory only: the root disk never changes, so the way back is open) and started | `provisioning` |
+| `destroying` | the instance, then the volume and the address only when asked, then the firewall | `provisioning` |
+
+A step that fails keeps its state, shows a word (`error_code`: `cloud_failed`,
+`cloud_rate_limited`, `boot_timeout`, `install_timeout`, `ssh_host_key_changed`,
+`duplicate_instances`, `volume_not_ours`, …) and is retried with a backoff up to ten minutes. A
+host key that changes, or two instances with the server's tag, stop the host until a human looks.
+Removing a server from the manifest parks its host; destroying it is a separate request.
+
+**Parking and resizing.** An empty server past `park_after` is parked by the hub (its event says
+`idle`). The owner and moderators park and start a server (`SetServerHostDesired`, or the server
+page's "Server machine" section); the owner resizes it to a size the provider allows from its
+current one (`ResizeServerHost`; refused with players on unless `force`) and destroys a parked one
+(`DestroyServerHost`; the volume and the address stay unless asked). A resize disconnects everyone
+for a few minutes; the scaling policy that decides it at a map change is #37.
+
+```sh
+curl -s -X POST -H 'Content-Type: application/json' -b "gravel_session=…" \
+  -d '{"server_id":"cs2-1","desired":"running"}' https://app.example.com/gravel.hub.v1.ServerHostService/SetServerHostDesired
+```
+
+**Moderation.** A CS2 server offers status, players, kick, broadcast (`say`) and bans; kill,
+message and moving a player are not offered. Players are known from the log the game pushes (CS2's
+`status` lists no SteamIDs), so a player is kickable once their connect line arrived. The hub's ban
+list is enforced by the driver itself: a banned SteamID is kicked as it connects.
+
+**Rehearse it locally.** `deploy/game-vm.sh drill` boots the CS2 document in a local VM (qemu/KVM,
+as `make hub-vm` does for the hub's host), pushes the environment over SSH and checks the game's
+container runs as the runtime user; `drill-full` also lets the game download, answers RCON and
+pushes its log to a local listener, then proves a new instance on the same disk plays again with no
+push and no download.
 
 ### Configuration and the hub's ban list
 
@@ -694,6 +801,17 @@ the edge, as HTG does with `ingest.hiddentoken.com` through its Tunnel).
   the game's adapter into stats events (#4, after the first real captures). Until then they wait
   as `pending`. `gravel-hub ingest export --server ID` prints them, so a deployment can read its
   first captures; they hold players' SteamIDs, so redact them before they leave the host.
+
+**The log route.** A game that cannot send an Authorization header pushes to
+`POST /api/ingest/log/<token>` instead (CS2's `logaddress_add_http`; the cloud-VM driver writes the
+URL into the game's environment). The token in the path needs three guards the bearer route does
+not: the access log writes the path as `/api/ingest/log/<redacted>`; a batch is accepted only from
+the address of the server's own host (anything else, or a server whose host is not running, is 401
+and counted as `address_mismatch`); and the batch is kept redacted (CS2: secret cvars in its startup
+dump, and the token wherever the log echoes it). The batch is stored with the headers the source
+defines (CS2: instance token, byte offsets, ticks, timestamp, game state), at most 256 KiB, then
+handed to the driver, whose roster is how a CS2 server's players are known. A log source's token
+is refused on the bearer route.
 
 Metrics: `gravel_ingest_batches_total{server,source,result}` (`server="unknown"` when the token
 matched none) and `gravel_ingest_last_batch_timestamp_seconds{server}`, on the hub dashboard's
@@ -1184,6 +1302,15 @@ and the digest-pin procedure.
 | `gravel_server_reachable` | gauge | `server`, `game` | 1 while a server answers its polls, 0 after two failed polls in a row | until the server's first poll; gone when it is removed |
 | `gravel_server_players`, `gravel_server_max_players` | gauge | `server`, `game` | players on, and public slots, at the last successful poll | until the first successful poll |
 | `gravel_server_last_observed_timestamp_seconds` | gauge | `server`, `game` | the last successful poll | until the first successful poll |
+| `gravel_cloudvm_host_state` | gauge | `server`, `state` (every state, 0 or 1) | the state of each cloud-VM server's host (ADR-0003) | until the hub first sees the host |
+| `gravel_cloudvm_state_since_timestamp_seconds` | gauge | `server` | when the host entered its state; long in a transition is a stuck step | until the hub first sees the host |
+| `gravel_cloudvm_host_failing` | gauge | `server`, `code` | 1 while a host's step keeps failing, by its error word | while nothing fails |
+| `gravel_cloudvm_operations_total` | counter | `server`, `op` (`create`, `unpark`, `park`, `resize`, `destroy`, `recreate`, `restart`), `result` (`ok`, `error`: one failed attempt) | host operations | until the first |
+| `gravel_cloudvm_operation_duration_seconds` | histogram (5 s–1 h) | `op` | from leaving a resting state to reaching the next | until the first |
+| `gravel_cloudvm_running_seconds_total` | counter | `server` | how long the host ran: what the cloud bills | until it first runs |
+| `gravel_cloudvm_hourly_price_usd` | gauge | `server`, `size` | a running host's price | while it is not running |
+| `gravel_cloudvm_log_batches_total` | counter | `server` | log batches that reached the game's roster | until the first batch |
+| `gravel_cloudvm_bans_enforced_total` | counter | `server` | banned players kicked as they connected | until the first |
 | `gravel_stats_matches_total` | counter | `server`, `game` | matches the stats store started (ADR-0012) | until the first match |
 | `gravel_stats_rows_written_total` | counter | `server` | player rows written from polls | until someone is on |
 | `gravel_stats_record_errors_total` | counter | `server` | polls the stats store could not write | until one fails |
