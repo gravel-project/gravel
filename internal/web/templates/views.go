@@ -271,6 +271,52 @@ type ServerPage struct {
 	Join *Join
 	// Mod is set for the owner and moderators: the controls the server's driver offers.
 	Mod *ModControls
+	// Host is set for the owner and moderators of a cloud-VM server: the VM it runs on.
+	Host *HostPanel
+}
+
+// HostPanel is a cloud-VM server's host as its page shows the owner and moderators.
+type HostPanel struct {
+	State      string // the host's state word
+	StateLabel string // what a reader sees for it
+	Step       string
+	ErrorCode  string
+	Since      time.Time
+	Size       string
+	TargetSize string
+	Address    string
+	Reserved   bool
+	HourlyUSD  float64
+	MonthUSD   float64
+	HoursMonth float64
+	// BootSeconds and ReadySeconds are the last start's: to the first boot, to the game answering.
+	BootSeconds  int
+	ReadySeconds int
+	// ParkAfter is how long an empty server runs before it is parked; 0 never.
+	ParkAfter time.Duration
+	// What the reader may do now.
+	CanPark, CanUnpark, CanResize, CanDestroy bool
+	Sizes                                     []HostSizeOption
+}
+
+// HostSizeOption is a size a host may move to.
+type HostSizeOption struct {
+	Slug  string
+	Label string
+}
+
+// HostConfirmPage asks before a host request is sent.
+type HostConfirmPage struct {
+	Page
+	ServerID   string
+	ServerName string
+	Action     string // park, unpark, resize, destroy
+	Question   string
+	Size       string
+	// Warning is said before the button (players disconnected, data deleted).
+	Warning string
+	// Force and DeleteVolume are the switches the confirmation offers.
+	OfferForce, OfferDeleteVolume bool
 }
 
 // ModControls are the moderation controls a server page shows a moderator; each is shown only

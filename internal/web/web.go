@@ -59,6 +59,7 @@ type Handler struct {
 	serverAPI hubv1connect.ServerServiceClient
 	statsAPI  hubv1connect.StatsServiceClient
 	modAPI    hubv1connect.ModerationServiceClient
+	hostAPI   hubv1connect.ServerHostServiceClient
 	appAPI    hubv1connect.AppServiceClient
 
 	// Observe, when set, is told how every callback ended: result is "ok", "denied", "failed",
@@ -94,6 +95,7 @@ func New(ids *identity.Service, sess *session.Manager, api http.Handler, theme T
 		serverAPI: hubv1connect.NewServerServiceClient(client, "http://hub", connect.WithProtoJSON()),
 		statsAPI:  hubv1connect.NewStatsServiceClient(client, "http://hub", connect.WithProtoJSON()),
 		modAPI:    hubv1connect.NewModerationServiceClient(client, "http://hub", connect.WithProtoJSON()),
+		hostAPI:   hubv1connect.NewServerHostServiceClient(client, "http://hub", connect.WithProtoJSON()),
 		appAPI:    hubv1connect.NewAppServiceClient(client, "http://hub", connect.WithProtoJSON()),
 	}, nil
 }
@@ -112,6 +114,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /members/{id}", h.member)
 	mux.HandleFunc("POST /profile/name", h.setName)
 	mux.HandleFunc("POST /servers/{id}/moderate", h.moderate)
+	mux.HandleFunc("POST /servers/{id}/host", h.host)
 	mux.HandleFunc("GET /servers/{id}/log", h.auditLog)
 	mux.HandleFunc("GET /members", h.members)
 	mux.HandleFunc("POST /members/role", h.setRole)

@@ -39,6 +39,7 @@ type rig struct {
 	servers *fakeServers
 	stats   *fakeStats
 	mod     *fakeMod
+	hosts   *fakeHosts
 	sess    *session.Manager
 	apps    *apps.Service
 	appSt   *appstest.FakeStore
@@ -87,7 +88,7 @@ func newRigWithTheme(t *testing.T, theme templates.Theme) *rig {
 func newRigWith(t *testing.T, theme templates.Theme, login bool) *rig {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	r := &rig{idSt: identitytest.NewFakeStore(), servers: newFakeServers(), stats: &fakeStats{}, mod: &fakeMod{}}
+	r := &rig{idSt: identitytest.NewFakeStore(), servers: newFakeServers(), stats: &fakeStats{}, mod: &fakeMod{}, hosts: newFakeHosts()}
 	orgSvc := org.New(&orgtest.FakeStore{}, 15*time.Minute, logger)
 	o, token, err := orgSvc.EnsureBuiltin(context.Background(), "Hidden Token Gaming")
 	if err != nil {
@@ -118,6 +119,7 @@ func newRigWith(t *testing.T, theme templates.Theme, login bool) *rig {
 	apiMux.Handle(hubv1connect.NewServerServiceHandler(r.servers, member))
 	apiMux.Handle(hubv1connect.NewStatsServiceHandler(r.stats, member))
 	apiMux.Handle(hubv1connect.NewModerationServiceHandler(r.mod, member))
+	apiMux.Handle(hubv1connect.NewServerHostServiceHandler(r.hosts, member))
 	apiMux.Handle(hubv1connect.NewAppServiceHandler(api.NewAppServer(r.apps, logger), member))
 	h, err := web.New(ids, sess, sess.Middleware(apiMux), web.StaticTheme{T: theme}, logger)
 	if err != nil {
@@ -133,7 +135,7 @@ func newRigWith(t *testing.T, theme templates.Theme, login bool) *rig {
 	// introspection endpoints, and the pages.
 	mux := http.NewServeMux()
 	for _, svc := range []string{hubv1connect.OrganizationServiceName, hubv1connect.IdentityServiceName, hubv1connect.ServerServiceName,
-		hubv1connect.StatsServiceName, hubv1connect.ModerationServiceName, hubv1connect.AppServiceName} {
+		hubv1connect.StatsServiceName, hubv1connect.ModerationServiceName, hubv1connect.ServerHostServiceName, hubv1connect.AppServiceName} {
 		mux.Handle("/"+svc+"/", apiMux)
 	}
 	mux.Handle("/oauth/token", r.apps.TokenHandler())
