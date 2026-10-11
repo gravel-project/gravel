@@ -84,6 +84,8 @@ type boardStore struct {
 	q       store.BoardQuery
 	rows    []store.BoardRow
 	members map[store.PlayerKey]store.BoardMember
+	shown   map[uuid.UUID]bool
+	writes  int // name choices written
 }
 
 func (b *boardStore) Board(_ context.Context, q store.BoardQuery) ([]store.BoardRow, error) {
@@ -105,7 +107,18 @@ func (b *boardStore) BoardMembers(_ context.Context, keys []store.PlayerKey) (ma
 	return out, nil
 }
 
-func (b *boardStore) SetShowNameOnBoards(context.Context, uuid.UUID, bool) error { return nil }
+func (b *boardStore) ShowNameOnBoards(_ context.Context, id uuid.UUID) (bool, error) {
+	return b.shown[id], nil
+}
+
+func (b *boardStore) SetShowNameOnBoards(_ context.Context, id uuid.UUID, show bool) error {
+	if b.shown == nil {
+		b.shown = map[uuid.UUID]bool{}
+	}
+	b.shown[id] = show
+	b.writes++
+	return nil
+}
 
 func newBoards(set org.Stats, rows ...store.BoardRow) (*Boards, *boardStore) {
 	bs := &boardStore{memStore: newMemStore(), rows: rows, members: map[store.PlayerKey]store.BoardMember{}}
@@ -231,10 +244,31 @@ func TestBoardCache(t *testing.T) {
 	if !read(Query{}) {
 		t.Error("a write was not seen after BoardLiveTTL")
 	}
-	if err := b.SetShowName(ctx, uuid.New(), true); err != nil {
-		t.Fatal(err)
+	// A name choice is a change like a recorded poll: seen within BoardLiveTTL, never at once, so
+	// toggling it can't keep the boards uncached. An unchanged choice writes and marks nothing.
+	member := uuid.New()
+	if read(Query{}) {
+		t.Fatal("the fresh answer was not kept")
 	}
+	if err := b.SetShowName(ctx, member, false); err != nil || bs.writes != 0 {
+		t.Fatalf("an unchanged choice: %v, %d writes", err, bs.writes)
+	}
+	seen := bs.changes.Seen()
+	if err := b.SetShowName(ctx, member, true); err != nil || bs.writes != 1 || bs.changes.Seen() == seen {
+		t.Fatalf("a changed choice is written and marks the stats changed: %v, %d writes", err, bs.writes)
+	}
+	for range 50 { // a member toggling as fast as they can
+		_ = b.SetShowName(ctx, member, false)
+		_ = b.SetShowName(ctx, member, true)
+	}
+	if read(Query{}) {
+		t.Error("a name choice re-read the board inside BoardLiveTTL")
+	}
+	now = now.Add(BoardLiveTTL)
 	if !read(Query{}) {
-		t.Error("a name choice left the cached board")
+		t.Error("a name choice was not seen after BoardLiveTTL")
+	}
+	if read(Query{}) {
+		t.Error("the re-read answer was not kept")
 	}
 }
