@@ -75,6 +75,7 @@ type Monitor struct {
 	buildChanges *prometheus.CounterVec
 
 	sink    ObservationSink
+	primer  Primer
 	mu      sync.Mutex
 	workers map[string]*worker
 	obs     map[string]Observation
@@ -82,7 +83,7 @@ type Monitor struct {
 
 type worker struct {
 	def    Server
-	drv    drivers.ExternalReachable
+	drv    drivers.Driver
 	cred   [32]byte // hash of the credential the driver holds
 	misses int
 	state  string // last state logged, so a lasting failure is logged once
@@ -141,7 +142,7 @@ func (m *Monitor) Observation(id string) (Observation, bool) {
 // Driver is the driver the monitor runs for a live server and the capabilities its first good
 // poll read (nil before one); moderation calls go through it, so a server has one client and one
 // token. ok is false for a server the monitor does not watch.
-func (m *Monitor) Driver(id string) (drivers.ExternalReachable, []string, bool) {
+func (m *Monitor) Driver(id string) (drivers.Driver, []string, bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	w, ok := m.workers[id]
@@ -231,9 +232,21 @@ func (m *Monitor) startWorker(def Server, cred string, sum [32]byte) error {
 	if !ok {
 		return fmt.Errorf("servers: server %s: no driver %q", def.ID, def.Driver)
 	}
-	drv, err := factory(drivers.Target{Endpoint: def.Endpoint, Credential: cred, UserAgent: m.userAgent, Logger: m.logger.With("server", def.ID)})
+	drv, err := factory(drivers.Target{ServerID: def.ID, Game: def.Game, Endpoint: def.Endpoint, Credential: cred, UserAgent: m.userAgent, Logger: m.logger.With("server", def.ID)})
 	if err != nil {
 		return fmt.Errorf("servers: server %s: %w", def.ID, err)
+	}
+	m.mu.Lock()
+	primer := m.primer
+	m.mu.Unlock()
+	if primer != nil {
+		// A driver that enforces the hub's ban list starts with it; a failure is logged, and the
+		// next ban or unban hands the list over again.
+		pctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		if err := primer(pctx, def, drv); err != nil {
+			m.logger.Warn("could not prime the server's driver", "server", def.ID, "error", err.Error())
+		}
+		cancel()
 	}
 	m.mu.Lock()
 	if old, ok := m.workers[def.ID]; ok && old.def.Game != def.Game {
@@ -412,6 +425,17 @@ func (m *Monitor) poll(ctx context.Context, id string) error {
 // store's way in (ADR-0012). Observe runs on the poll's goroutine and must not block for long.
 type ObservationSink interface {
 	Observe(ctx context.Context, server Server, o Observation)
+}
+
+// Primer runs once for every driver the monitor starts, before its first poll: the hub's ban
+// list handed to a driver that enforces it (Moderation.Prime).
+type Primer func(ctx context.Context, server Server, drv drivers.Driver) error
+
+// SetPrimer sets what runs for every new driver; nil runs nothing.
+func (m *Monitor) SetPrimer(f Primer) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.primer = f
 }
 
 // SetSink sets where good polls are sent; nil sends them nowhere.

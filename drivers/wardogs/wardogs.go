@@ -74,6 +74,9 @@ const joinHint = "Paste it into Join by ID at the bottom left of the Community b
 
 var _ drivers.ExternalReachable = (*Driver)(nil)
 
+// Factory is New as a drivers.Factory (the registry's type).
+func Factory(t drivers.Target) (drivers.Driver, error) { return New(t) }
+
 // New builds a driver; nothing is sent until the first call.
 func New(t drivers.Target) (drivers.ExternalReachable, error) {
 	logger := t.Logger

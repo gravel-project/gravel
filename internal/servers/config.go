@@ -19,11 +19,12 @@ func (m *Moderation) configTarget(ctx context.Context, server string, need strin
 	if err != nil {
 		return Server{}, nil, drivers.ConfigDraft{}, err
 	}
-	drv, caps, ok := m.src.Driver(srv.ID)
+	d, caps, ok := m.src.Driver(srv.ID)
 	if !ok || caps == nil {
 		return Server{}, nil, drivers.ConfigDraft{}, ErrNotObserved
 	}
-	if !slices.Contains(caps, need) {
+	drv, isConfig := d.(drivers.ExternalReachable)
+	if !isConfig || !slices.Contains(caps, need) {
 		return Server{}, nil, drivers.ConfigDraft{}, fmt.Errorf("%w: %s", drivers.ErrNotSupported, need)
 	}
 	var draft drivers.ConfigDraft

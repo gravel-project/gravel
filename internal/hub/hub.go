@@ -98,7 +98,7 @@ const pruneEvery = 10 * time.Minute
 
 // Drivers are the drivers this hub has, by the name servers.yaml uses.
 func Drivers() drivers.Registry {
-	return drivers.Registry{wardogsdriver.Name: wardogsdriver.New}
+	return drivers.Registry{wardogsdriver.Name: wardogsdriver.Factory}
 }
 
 // New connects to the database, applies the migration policy, ensures the built-in organization

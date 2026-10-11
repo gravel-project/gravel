@@ -117,7 +117,7 @@ type BanStore interface {
 // DriverSource hands out the driver the monitor runs for a server, with the capabilities it
 // last read; ok is false for a server the monitor does not watch.
 type DriverSource interface {
-	Driver(id string) (drv drivers.ExternalReachable, capabilities []string, ok bool)
+	Driver(id string) (drv drivers.Driver, capabilities []string, ok bool)
 }
 
 // Moderation performs the calls that change a server, moderation and configuration, through its
@@ -171,7 +171,7 @@ func (m *Moderation) Do(ctx context.Context, actor Actor, a Action) (int64, erro
 			return 0, fmt.Errorf("%w: %s", drivers.ErrNotSupported, c)
 		}
 	}
-	hubBans := (a.Kind == ActionBan || a.Kind == ActionUnban) && slices.Contains(caps, drivers.CapConfigWrite)
+	hubBans := (a.Kind == ActionBan || a.Kind == ActionUnban) && keepsHubList(drv, caps)
 	if hubBans {
 		if err := m.adopt(ctx, srv.ID, drv); err != nil {
 			return 0, err
@@ -232,7 +232,7 @@ func (m *Moderation) finish(ctx context.Context, serverID, action string, id int
 	}
 }
 
-func (m *Moderation) call(ctx context.Context, drv drivers.ExternalReachable, a Action) error {
+func (m *Moderation) call(ctx context.Context, drv drivers.Driver, a Action) error {
 	switch a.Kind {
 	case ActionKick:
 		return drv.Kick(ctx, a.Player, a.Reason)
