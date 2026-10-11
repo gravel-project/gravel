@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strconv"
 	"strings"
 	"time"
 
@@ -64,7 +65,11 @@ func (r SSH) Run(ctx context.Context, t RemoteTarget, stdin io.Reader, command s
 			return nil
 		},
 	}
-	addr := net.JoinHostPort(t.Address, "22")
+	port := "22"
+	if t.Port > 0 {
+		port = strconv.Itoa(t.Port)
+	}
+	addr := net.JoinHostPort(t.Address, port)
 	d := net.Dialer{Timeout: dialTimeout}
 	conn, err := d.DialContext(ctx, "tcp", addr)
 	if err != nil {

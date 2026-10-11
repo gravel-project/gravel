@@ -183,8 +183,10 @@ type Remote interface {
 // RemoteTarget is where and as whom Remote runs.
 type RemoteTarget struct {
 	Address string
-	User    string
-	Signer  ssh.Signer
+	// Port is the SSH port; 0 is 22 (a local VM's forwarded port in a drill).
+	Port   int
+	User   string
+	Signer ssh.Signer
 	// HostKey is the key the host must present; "" trusts the first one.
 	HostKey string
 }

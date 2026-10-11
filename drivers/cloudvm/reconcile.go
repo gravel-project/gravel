@@ -463,15 +463,20 @@ func (t *tick) boot(ctx context.Context, h *Host) (bool, error) {
 	return true, nil
 }
 
+// EnvScript is the command the hub runs on a host over SSH, the environment file on its stdin:
+// the file is written 0600 in one move, and with restart the game's unit restarts on it.
+func EnvScript(game string, restart bool) string {
+	script := "set -eu\numask 077\nmkdir -p ~/.config/" + game + "\ncat > ~/.config/" + game + "/env.tmp\nmv -f ~/.config/" + game + "/env.tmp ~/.config/" + game + "/env\n"
+	if restart {
+		script += "systemctl --user daemon-reload\nsystemctl --user restart " + game + ".service\n"
+	}
+	return script
+}
+
 // pushEnv writes the game's environment file and restarts its unit (or, with restart false, only
 // writes it).
 func (t *tick) pushEnv(ctx context.Context, h *Host, env []byte, restart bool) error {
-	g := t.s.Game
-	script := "set -eu\numask 077\nmkdir -p ~/.config/" + g + "\ncat > ~/.config/" + g + "/env.tmp\nmv -f ~/.config/" + g + "/env.tmp ~/.config/" + g + "/env\n"
-	if restart {
-		script += "systemctl --user daemon-reload\nsystemctl --user restart " + g + ".service\n"
-	}
-	if err := t.remote(ctx, h, env, script); err != nil {
+	if err := t.remote(ctx, h, env, EnvScript(t.s.Game, restart)); err != nil {
 		var se *stepError
 		if errors.As(err, &se) {
 			return err

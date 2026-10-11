@@ -40,3 +40,4 @@ go.work.sum
 # The development stack: generated secrets and the local backup store.
 deploy/store/
 /.hub-vm/
+/.game-vm/
