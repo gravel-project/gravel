@@ -7,7 +7,8 @@
 // A window whose to is before its from runs overnight: {days: [fri], from: "22:00", to: "02:00"}
 // starts on Friday at 22:00 and ends on Saturday at 02:00. Times are wall-clock times in the zone,
 // so a window keeps its local hours across a daylight-saving change. A time the change skips (the
-// hour that does not exist in spring) moves forward by the change, as Go's time.Date does.
+// hour that does not exist in spring) reads an hour earlier, as Go's time.Date returns it: in
+// America/Chicago on 2026-03-08, 02:30 is 01:30 CST (07:30Z).
 package seedhours
 
 import (
