@@ -21,7 +21,7 @@ func TestIngestBatches(t *testing.T) {
 	srv := store.ManagedServer{ID: "wd-1", GameID: "wardogs", Name: "War Dogs #1", Driver: "wardogs", Location: "slc",
 		Endpoint: "http://203.0.113.10:7789", CredentialFile: "/run/secrets/wd", PollInterval: 15 * time.Second, Trust: "official",
 		Feed: json.RawMessage(`{"url": "https://ingest.example.com", "token_file": "/run/secrets/feed"}`)}
-	if err := st.ApplyServers(ctx, o.ID, []store.Game{{ID: "wardogs"}}, []store.ManagedServer{srv}, t0); err != nil {
+	if err := st.ApplyServers(ctx, o.ID, []store.Game{{ID: "wardogs"}}, nil, []store.ManagedServer{srv}, t0); err != nil {
 		t.Fatal(err)
 	}
 	got, err := st.ListManagedServers(ctx, o.ID, false)
@@ -33,7 +33,7 @@ func TestIngestBatches(t *testing.T) {
 		t.Errorf("feed = %s, %v", got[0].Feed, err)
 	}
 	// The same server again changes nothing; without its feed it changes.
-	if err := st.ApplyServers(ctx, o.ID, []store.Game{{ID: "wardogs"}}, []store.ManagedServer{srv}, t0.Add(time.Hour)); err != nil {
+	if err := st.ApplyServers(ctx, o.ID, []store.Game{{ID: "wardogs"}}, nil, []store.ManagedServer{srv}, t0.Add(time.Hour)); err != nil {
 		t.Fatal(err)
 	}
 	if got, _ := st.ListManagedServers(ctx, o.ID, false); !got[0].UpdatedAt.Equal(t0) {

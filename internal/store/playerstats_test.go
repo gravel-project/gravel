@@ -22,7 +22,7 @@ func TestPlayerStats(t *testing.T) {
 		return store.ManagedServer{ID: id, GameID: "wardogs", Name: id, Driver: "wardogs", Location: "slc", Endpoint: "http://203.0.113.10:7789",
 			CredentialFile: "/run/secrets/wd", PollInterval: 15 * time.Second, Trust: trust}
 	}
-	if err := st.ApplyServers(ctx, o.ID, []store.Game{{ID: "wardogs"}}, []store.ManagedServer{srv("wd-1", "official"), srv("wd-2", "community")}, t0); err != nil {
+	if err := st.ApplyServers(ctx, o.ID, []store.Game{{ID: "wardogs"}}, nil, []store.ManagedServer{srv("wd-1", "official"), srv("wd-2", "community")}, t0); err != nil {
 		t.Fatal(err)
 	}
 

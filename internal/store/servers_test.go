@@ -27,7 +27,7 @@ func TestApplyServers(t *testing.T) {
 	two := srv
 	two.ID, two.Feed = "wd-2", nil
 
-	if err := st.ApplyServers(ctx, o.ID, []store.Game{wd}, []store.ManagedServer{srv, two}, t0); err != nil {
+	if err := st.ApplyServers(ctx, o.ID, []store.Game{wd}, nil, []store.ManagedServer{srv, two}, t0); err != nil {
 		t.Fatal(err)
 	}
 	games, err := st.ListGames(ctx, o.ID, false)
@@ -54,7 +54,7 @@ func TestApplyServers(t *testing.T) {
 	t1 := t0.Add(time.Hour)
 	wdReordered := wd
 	wdReordered.Bands = json.RawMessage(`[{"section":"MatchState.Playing.KOTH","key":"ScorePeriod","max":24}]`)
-	if err := st.ApplyServers(ctx, o.ID, []store.Game{wdReordered}, []store.ManagedServer{srv, two}, t1); err != nil {
+	if err := st.ApplyServers(ctx, o.ID, []store.Game{wdReordered}, nil, []store.ManagedServer{srv, two}, t1); err != nil {
 		t.Fatal(err)
 	}
 	got, _ = st.ListManagedServers(ctx, o.ID, false)
@@ -67,7 +67,7 @@ func TestApplyServers(t *testing.T) {
 	t2 := t1.Add(time.Hour)
 	changed := srv
 	changed.Name = "Renamed"
-	if err := st.ApplyServers(ctx, o.ID, []store.Game{wd}, []store.ManagedServer{changed}, t2); err != nil {
+	if err := st.ApplyServers(ctx, o.ID, []store.Game{wd}, nil, []store.ManagedServer{changed}, t2); err != nil {
 		t.Fatal(err)
 	}
 	got, _ = st.ListManagedServers(ctx, o.ID, false)
@@ -81,7 +81,7 @@ func TestApplyServers(t *testing.T) {
 
 	// Back in the manifest: revived, the row is the same one.
 	t3 := t2.Add(time.Hour)
-	if err := st.ApplyServers(ctx, o.ID, []store.Game{wd}, []store.ManagedServer{changed, two}, t3); err != nil {
+	if err := st.ApplyServers(ctx, o.ID, []store.Game{wd}, nil, []store.ManagedServer{changed, two}, t3); err != nil {
 		t.Fatal(err)
 	}
 	got, _ = st.ListManagedServers(ctx, o.ID, false)
@@ -90,7 +90,7 @@ func TestApplyServers(t *testing.T) {
 	}
 
 	// Everything out: servers and the game marked removed, nothing deleted.
-	if err := st.ApplyServers(ctx, o.ID, nil, nil, t3.Add(time.Hour)); err != nil {
+	if err := st.ApplyServers(ctx, o.ID, nil, nil, nil, t3.Add(time.Hour)); err != nil {
 		t.Fatal(err)
 	}
 	if live, _ := st.ListManagedServers(ctx, o.ID, false); len(live) != 0 {
@@ -106,7 +106,7 @@ func TestApplyServers(t *testing.T) {
 	// A server whose game is not there is refused, and the transaction leaves nothing behind.
 	orphan := srv
 	orphan.ID, orphan.GameID = "cs-1", "cs2"
-	if err := st.ApplyServers(ctx, o.ID, []store.Game{wd}, []store.ManagedServer{orphan}, t3.Add(2*time.Hour)); err == nil {
+	if err := st.ApplyServers(ctx, o.ID, []store.Game{wd}, nil, []store.ManagedServer{orphan}, t3.Add(2*time.Hour)); err == nil {
 		t.Error("a server of an unknown game was stored")
 	}
 	if g, _ := st.ListGames(ctx, o.ID, false); len(g) != 0 {
@@ -125,7 +125,7 @@ func TestServerSeedingColumnDropped(t *testing.T) {
 	srv := store.ManagedServer{ID: "wd-1", GameID: "wardogs", Name: "War Dogs #1", Driver: "wardogs", Location: "slc",
 		Endpoint: "http://203.0.113.10:7789", CredentialFile: "/run/secrets/wd", PollInterval: 15 * time.Second, Trust: "official",
 		Feed: json.RawMessage(`{"url": "https://ingest.example.com", "token_file": "/run/secrets/wd-feed"}`)}
-	if err := st.ApplyServers(ctx, o.ID, []store.Game{{ID: "wardogs"}}, []store.ManagedServer{srv}, t0); err != nil {
+	if err := st.ApplyServers(ctx, o.ID, []store.Game{{ID: "wardogs"}}, nil, []store.ManagedServer{srv}, t0); err != nil {
 		t.Fatal(err)
 	}
 	if err := st.MigrateDownTo(ctx, 14); err != nil {
@@ -149,7 +149,7 @@ func TestServerSeedingColumnDropped(t *testing.T) {
 	if _, err := conn.Exec(ctx, `SELECT seeding FROM managed_servers`); err == nil || !strings.Contains(err.Error(), "seeding") {
 		t.Errorf("the column is gone: %v", err)
 	}
-	if err := st.ApplyServers(ctx, o.ID, []store.Game{{ID: "wardogs"}}, []store.ManagedServer{srv}, t0.Add(time.Hour)); err != nil {
+	if err := st.ApplyServers(ctx, o.ID, []store.Game{{ID: "wardogs"}}, nil, []store.ManagedServer{srv}, t0.Add(time.Hour)); err != nil {
 		t.Errorf("apply after the migration: %v", err)
 	}
 }

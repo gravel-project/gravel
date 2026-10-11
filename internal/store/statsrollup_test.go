@@ -186,7 +186,7 @@ func seedServers(t *testing.T, st *store.Store, orgID uuid.UUID) {
 		return store.ManagedServer{ID: id, GameID: "wardogs", Name: id, Driver: "wardogs", Location: "slc", Endpoint: "http://203.0.113.10:7789",
 			CredentialFile: "/run/secrets/wd", PollInterval: 15 * time.Second, Trust: trust}
 	}
-	if err := st.ApplyServers(context.Background(), orgID, []store.Game{{ID: "wardogs"}},
+	if err := st.ApplyServers(context.Background(), orgID, []store.Game{{ID: "wardogs"}}, nil,
 		[]store.ManagedServer{srv("wd-1", "official"), srv("wd-2", "community")}, time.Now()); err != nil {
 		t.Fatal(err)
 	}

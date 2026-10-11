@@ -87,7 +87,7 @@ func TestParseManifestAndDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := m.Validate(Specs(), []string{"wardogs"}); err != nil {
+	if err := m.Validate(Specs(), []string{"wardogs"}, nil); err != nil {
 		t.Fatal(err)
 	}
 	s := m.Servers[0]
@@ -192,7 +192,7 @@ func TestValidate(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			m := base()
 			c.edit(&m)
-			err := m.Validate(Specs(), []string{"wardogs"})
+			err := m.Validate(Specs(), []string{"wardogs"}, nil)
 			if err == nil || !errors.Is(err, ErrInvalidManifest) || !strings.Contains(err.Error(), c.want) {
 				t.Errorf("err = %v, want %q", err, c.want)
 			}
@@ -200,11 +200,11 @@ func TestValidate(t *testing.T) {
 	}
 	m := base()
 	m.Servers[0].Trust, m.Servers[0].Location = "", ""
-	if err := m.Validate(Specs(), []string{"wardogs"}); err == nil || strings.Count(err.Error(), ErrInvalidManifest.Error()) != 2 {
+	if err := m.Validate(Specs(), []string{"wardogs"}, nil); err == nil || strings.Count(err.Error(), ErrInvalidManifest.Error()) != 2 {
 		t.Errorf("two problems reported as %v", err)
 	}
 	m = base()
-	if err := m.Validate(Specs(), nil); err == nil || !strings.Contains(err.Error(), "is not a driver this hub has") {
+	if err := m.Validate(Specs(), nil, nil); err == nil || !strings.Contains(err.Error(), "is not a driver this hub has") {
 		t.Errorf("a hub without the driver = %v", err)
 	}
 }

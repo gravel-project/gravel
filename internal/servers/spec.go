@@ -12,6 +12,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/gravel-project/gravel/drivers"
+	"github.com/gravel-project/gravel/drivers/cloudvm"
 	"github.com/gravel-project/gravel/games/cs2"
 	"github.com/gravel-project/gravel/games/pubg"
 	"github.com/gravel-project/gravel/games/seaofthieves"
@@ -38,6 +39,9 @@ type Spec struct {
 	NoPaidPerks bool `yaml:"no_paid_perks"`
 	// Layout is how the pages show the game: declarative data, so the core stays game-agnostic.
 	Layout Layout `yaml:"layout"`
+	// CloudVM is how the game runs on a VM the hub makes (the cloud-VM driver, ADR-0003); nil for a
+	// game that driver does not run.
+	CloudVM *cloudvm.Profile `yaml:"cloudvm,omitempty"`
 }
 
 // Layout is a game's page layout (README, Leaderboards & UI).
@@ -254,6 +258,11 @@ func ParseSpec(b []byte) (Spec, error) {
 	for i, a := range s.Plugins.Allow {
 		if pluginKey(a) == "" {
 			problems = append(problems, fmt.Sprintf("plugins.allow[%d]: %q has no letter or digit", i, a))
+		}
+	}
+	if s.CloudVM != nil {
+		if err := s.CloudVM.Validate(); err != nil {
+			problems = append(problems, strings.ReplaceAll(err.Error(), "\n", "; "))
 		}
 	}
 	if len(problems) > 0 {

@@ -21,13 +21,28 @@ type FakeStore struct {
 	mu      sync.Mutex
 	games   map[string]store.Game
 	servers map[string]store.ManagedServer
+	locs    map[string]store.Location
 	// Applies counts ApplyServers calls.
 	Applies int
 }
 
 // NewFakeStore is an empty store.
 func NewFakeStore() *FakeStore {
-	return &FakeStore{games: map[string]store.Game{}, servers: map[string]store.ManagedServer{}}
+	return &FakeStore{games: map[string]store.Game{}, servers: map[string]store.ManagedServer{}, locs: map[string]store.Location{}}
+}
+
+// ListLocations returns the live locations by id.
+func (f *FakeStore) ListLocations(_ context.Context, _ uuid.UUID) ([]store.Location, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var out []store.Location
+	for _, l := range f.locs {
+		if l.RemovedAt == nil {
+			out = append(out, l)
+		}
+	}
+	slices.SortFunc(out, func(a, b store.Location) int { return strings.Compare(a.ID, b.ID) })
+	return out, nil
 }
 
 // ListGames returns the games by id.
@@ -59,7 +74,7 @@ func (f *FakeStore) ListManagedServers(_ context.Context, _ uuid.UUID, includeRe
 }
 
 // ApplyServers applies like the real store.
-func (f *FakeStore) ApplyServers(_ context.Context, orgID uuid.UUID, games []store.Game, servers []store.ManagedServer, now time.Time) error {
+func (f *FakeStore) ApplyServers(_ context.Context, orgID uuid.UUID, games []store.Game, locations []store.Location, servers []store.ManagedServer, now time.Time) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.Applies++
@@ -76,6 +91,31 @@ func (f *FakeStore) ApplyServers(_ context.Context, orgID uuid.UUID, games []sto
 		}
 		g.UpdatedAt = now
 		f.games[g.ID] = g
+	}
+	keepL := map[string]bool{}
+	for _, l := range locations {
+		keepL[l.ID] = true
+		l.OrganizationID = orgID
+		old, ok := f.locs[l.ID]
+		if ok {
+			cmp := old
+			cmp.CreatedAt, cmp.UpdatedAt, cmp.RemovedAt = l.CreatedAt, l.UpdatedAt, l.RemovedAt
+			if old.RemovedAt == nil && reflect.DeepEqual(cmp, l) {
+				continue
+			}
+			l.CreatedAt = old.CreatedAt
+		} else {
+			l.CreatedAt = now
+		}
+		l.UpdatedAt, l.RemovedAt = now, nil
+		f.locs[l.ID] = l
+	}
+	for id, l := range f.locs {
+		if !keepL[id] && l.RemovedAt == nil {
+			t := now
+			l.RemovedAt, l.UpdatedAt = &t, now
+			f.locs[id] = l
+		}
 	}
 	keepS := map[string]bool{}
 	for _, s := range servers {

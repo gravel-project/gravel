@@ -96,6 +96,9 @@ type Hub struct {
 // buckets dropped.
 const pruneEvery = 10 * time.Minute
 
+// CloudProviders are the clouds this hub makes VMs in, by the name a servers.yaml location uses.
+func CloudProviders() []string { return []string{"digitalocean"} }
+
 // Drivers are the drivers this hub has, by the name servers.yaml uses.
 func Drivers() drivers.Registry {
 	return drivers.Registry{wardogsdriver.Name: wardogsdriver.Factory}
@@ -201,7 +204,7 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 	h.jobs = jobs.New(logger, h.registry)
 	h.jobs.Start(jobs.Job{Name: "prune", Every: pruneEvery, Run: func(ctx context.Context) error { h.Prune(ctx); return nil }})
 	registry := Drivers()
-	h.servers = servers.New(st, o.ID, registry.Names(), logger)
+	h.servers = servers.New(st, o.ID, registry.Names(), logger).WithProviders(CloudProviders()...)
 	h.monitor = servers.NewMonitor(h.servers, registry, h.jobs, h.registry, "gravel-hub/"+h.version, logger)
 	h.monitor.Start()
 	h.moderation = servers.NewModeration(h.servers, h.monitor, st, st, o.ID, h.registry, logger)
