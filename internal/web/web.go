@@ -172,6 +172,16 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 	h.render(w, r, http.StatusOK, b, templates.Login(lp), templates.LoginContent(lp))
 }
 
+// canLogIn reports whether any provider signs members in (not only links an account).
+func (h *Handler) canLogIn() bool {
+	for _, reg := range h.ids.Providers() {
+		if reg.Login {
+			return true
+		}
+	}
+	return false
+}
+
 func (h *Handler) account(w http.ResponseWriter, r *http.Request) {
 	if _, ok := session.FromContext(r.Context()); !ok {
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
@@ -564,7 +574,7 @@ type pageData struct {
 // pending flash.
 func (h *Handler) page(r *http.Request, title string) (pageData, *browser, error) {
 	ctx, b := withBrowser(r)
-	p := pageData{Page: templates.Page{Title: title}}
+	p := pageData{Page: templates.Page{Title: title, CanLogIn: h.canLogIn()}}
 	org, err := h.orgAPI.GetOrganization(ctx, connect.NewRequest(&hubv1.GetOrganizationRequest{}))
 	if err != nil {
 		return p, b, fmt.Errorf("GetOrganization: %w", err)

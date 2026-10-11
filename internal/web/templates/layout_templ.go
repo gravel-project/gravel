@@ -226,7 +226,7 @@ func Layout(p Page) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-		} else {
+		} else if p.CanLogIn {
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "<a href=\"/login\">Log in</a>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err

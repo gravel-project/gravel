@@ -125,6 +125,9 @@ type Page struct {
 	Theme     Theme
 	HeaderNav []NavLink
 	FooterNav []NavLink
+	// CanLogIn is whether the hub has a login provider: without one (a demo hub, gravel#146) the
+	// pages offer no login.
+	CanLogIn bool
 	// Game is set on a game's pages (a server, its moderation pages, a board scoped to the game
 	// or one of its servers); nil elsewhere.
 	Game *Game

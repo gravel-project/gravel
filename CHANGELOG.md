@@ -45,6 +45,7 @@ patch release is everything else.
 
 ### Fixed
 
+- A hub with no login provider (a demo hub) no longer offers a login it can't do (#146). The header had a "Log in" link to a page that says no provider is configured, and the server page said "Log in to see who's on". The link is gone, and the server page says only members can see who's on and that this hub has no login. A test covers both kinds of hub, and putting the link back fails it.
 - `discord/seedhours`'s package comment said a time the spring daylight-saving change skips "moves forward". Go's `time.Date`, which it uses, returns it an hour earlier: in America/Chicago on 2026-03-08, 02:30 is 01:30 CST. The comment now says so, and `TestSpringGap` holds the behaviour. Nothing changes at run time; Muster's anchors (hidden-token-gaming/htg) already match it.
 - A member's "show my name" choice can no longer empty the stats caches. `SetBoardName` used to drop every cached board, participation board and recap on every call, so any logged-in member, calling it at their rate limit (600 a minute by default), could keep every public board uncached and send each view to Postgres. Now an unchanged choice writes nothing, and a change marks the stats as changed, as a recorded poll does. The member sees their name on the boards within a minute (`BoardLiveTTL`) instead of at once, and toggling forces at most one re-read per cached answer per minute. The tests cover the unchanged call, 100 toggles inside the minute, and the change seen after it; removing either half fails them.
 

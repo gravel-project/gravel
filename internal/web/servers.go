@@ -147,6 +147,9 @@ func (h *Handler) server(w http.ResponseWriter, r *http.Request) {
 	switch connect.CodeOf(err) {
 	case connect.CodeUnauthenticated:
 		sp.PlayersNote = "Log in to see who's on."
+		if !h.canLogIn() {
+			sp.PlayersNote = "Only members can see who's on, and this hub has no login."
+		}
 	case connect.CodePermissionDenied:
 		sp.PlayersNote = "Only members can see who's on."
 	case connect.CodeFailedPrecondition, connect.CodeUnavailable:
