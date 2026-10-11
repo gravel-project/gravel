@@ -35,10 +35,11 @@ func newFakeServers() *fakeServers {
 		servers: []*hubv1.Server{
 			{Id: "htg-wardogs-1", Name: "HTG WARDOGS | NA WEST | #1", GameId: "wardogs", Location: "qonzer-slc", Trust: "official",
 				Status: &hubv1.ServerStatus{State: "ok", Reachable: true, ObservedAt: observed, Players: 24, MaxPlayers: 80, Map: "Ozeti", RotationMap: "Europe", NextRotationMap: "NorthAmerica",
+					Join:         &hubv1.ServerJoin{Method: "id", Value: "a968511e-a098-48ec-9bdb-909255478f15", Hint: "Paste it into Join by ID <here>."},
 					Capabilities: []string{"status", "players", "kick", "message", "broadcast", "bans", "ban", "unban"},
 					Teams:        []*hubv1.TeamScore{{Name: "Lonestar", Score: 412}, {Name: "Boreal", Score: 388}}}},
 			{Id: "friends-1", Name: "Friends' server", GameId: "wardogs", Location: "home", Trust: "community",
-				Status: &hubv1.ServerStatus{State: "unreachable"}},
+				Status: &hubv1.ServerStatus{State: "unreachable", Join: &hubv1.ServerJoin{Method: "id", Value: "ffffffff-0000-4000-8000-000000000000"}}},
 		},
 		players: []*hubv1.ServerPlayer{
 			{Name: "Jo <script>", Subject: "76561190000000001", Team: "Lonestar", Kills: 7, Deaths: 2, PingMs: 41, UserId: "u1"},
@@ -215,7 +216,8 @@ func TestServerPage(t *testing.T) {
 		t.Fatalf("server: %d", resp.StatusCode)
 	}
 	for _, want := range []string{"<h1>HTG WARDOGS | NA WEST | #1</h1>", "As of Oct 10, 20:00 UTC", "Lonestar", "412", "Jo &lt;script&gt;", ">member<",
-		"41 ms", "Bakurani", "42m", ">live<", `href="/boards?scope=server%3Ahtg-wardogs-1"`, "<p>Next map: NorthAmerica</p>"} {
+		"41 ms", "Bakurani", "42m", ">live<", `href="/boards?scope=server%3Ahtg-wardogs-1"`, "<p>Next map: NorthAmerica</p>",
+		"<p>Join by ID: <code>a968511e-a098-48ec-9bdb-909255478f15</code></p>", "Paste it into Join by ID &lt;here&gt;."} {
 		if !strings.Contains(body, want) {
 			t.Errorf("the server page lacks %q", want)
 		}
@@ -234,6 +236,11 @@ func TestServerPage(t *testing.T) {
 	r.servers.playersErr = connect.CodeUnavailable
 	if _, body = get(t, browser(t), r.srv.URL+"/servers/htg-wardogs-1"); !strings.Contains(body, "isn&#39;t answering") {
 		t.Errorf("an unavailable server: %s", body)
+	}
+
+	// An unreachable server's page offers no join: there is nothing to join.
+	if _, body := get(t, browser(t), r.srv.URL+"/servers/friends-1"); strings.Contains(body, "Join by ID") {
+		t.Error("an unreachable server's page shows how to join it")
 	}
 
 	if resp, _ := get(t, browser(t), r.srv.URL+"/servers/nope"); resp.StatusCode != http.StatusNotFound {

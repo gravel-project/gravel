@@ -348,8 +348,10 @@ type ServerStatus struct {
 	// Dogs: the theatre, "Europe", where map is the level in play); empty when unknown.
 	RotationMap     string `protobuf:"bytes,15,opt,name=rotation_map,json=rotationMap,proto3" json:"rotation_map,omitempty"`
 	NextRotationMap string `protobuf:"bytes,16,opt,name=next_rotation_map,json=nextRotationMap,proto3" json:"next_rotation_map,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// How a player gets onto the server from the game, when the driver knows; unset otherwise.
+	Join          *ServerJoin `protobuf:"bytes,17,opt,name=join,proto3" json:"join,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ServerStatus) Reset() {
@@ -494,6 +496,78 @@ func (x *ServerStatus) GetNextRotationMap() string {
 	return ""
 }
 
+func (x *ServerStatus) GetJoin() *ServerJoin {
+	if x != nil {
+		return x.Join
+	}
+	return nil
+}
+
+// ServerJoin is how a player reaches a server from the game. It is public: what a community
+// shares to bring players in.
+type ServerJoin struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// "id": paste value into the game's own server browser (War Dogs: Join by ID); "address":
+	// value is host:port; "uri": value is a link that launches the game onto the server.
+	Method string `protobuf:"bytes,1,opt,name=method,proto3" json:"method,omitempty"`
+	Value  string `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	// One line saying where the value goes, in the game's terms.
+	Hint          string `protobuf:"bytes,3,opt,name=hint,proto3" json:"hint,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ServerJoin) Reset() {
+	*x = ServerJoin{}
+	mi := &file_gravel_hub_v1_servers_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ServerJoin) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ServerJoin) ProtoMessage() {}
+
+func (x *ServerJoin) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_servers_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ServerJoin.ProtoReflect.Descriptor instead.
+func (*ServerJoin) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_servers_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *ServerJoin) GetMethod() string {
+	if x != nil {
+		return x.Method
+	}
+	return ""
+}
+
+func (x *ServerJoin) GetValue() string {
+	if x != nil {
+		return x.Value
+	}
+	return ""
+}
+
+func (x *ServerJoin) GetHint() string {
+	if x != nil {
+		return x.Hint
+	}
+	return ""
+}
+
 // Server is a server a driver controls (ManagedServer), as the public sees it: never its control
 // address or where its credential is.
 type Server struct {
@@ -513,7 +587,7 @@ type Server struct {
 
 func (x *Server) Reset() {
 	*x = Server{}
-	mi := &file_gravel_hub_v1_servers_proto_msgTypes[5]
+	mi := &file_gravel_hub_v1_servers_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -525,7 +599,7 @@ func (x *Server) String() string {
 func (*Server) ProtoMessage() {}
 
 func (x *Server) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_servers_proto_msgTypes[5]
+	mi := &file_gravel_hub_v1_servers_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -538,7 +612,7 @@ func (x *Server) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Server.ProtoReflect.Descriptor instead.
 func (*Server) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_servers_proto_rawDescGZIP(), []int{5}
+	return file_gravel_hub_v1_servers_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *Server) GetId() string {
@@ -602,7 +676,7 @@ type ServerPlayer struct {
 
 func (x *ServerPlayer) Reset() {
 	*x = ServerPlayer{}
-	mi := &file_gravel_hub_v1_servers_proto_msgTypes[6]
+	mi := &file_gravel_hub_v1_servers_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -614,7 +688,7 @@ func (x *ServerPlayer) String() string {
 func (*ServerPlayer) ProtoMessage() {}
 
 func (x *ServerPlayer) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_servers_proto_msgTypes[6]
+	mi := &file_gravel_hub_v1_servers_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -627,7 +701,7 @@ func (x *ServerPlayer) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerPlayer.ProtoReflect.Descriptor instead.
 func (*ServerPlayer) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_servers_proto_rawDescGZIP(), []int{6}
+	return file_gravel_hub_v1_servers_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *ServerPlayer) GetName() string {
@@ -694,7 +768,7 @@ type ListGamesRequest struct {
 
 func (x *ListGamesRequest) Reset() {
 	*x = ListGamesRequest{}
-	mi := &file_gravel_hub_v1_servers_proto_msgTypes[7]
+	mi := &file_gravel_hub_v1_servers_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -706,7 +780,7 @@ func (x *ListGamesRequest) String() string {
 func (*ListGamesRequest) ProtoMessage() {}
 
 func (x *ListGamesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_servers_proto_msgTypes[7]
+	mi := &file_gravel_hub_v1_servers_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -719,7 +793,7 @@ func (x *ListGamesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListGamesRequest.ProtoReflect.Descriptor instead.
 func (*ListGamesRequest) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_servers_proto_rawDescGZIP(), []int{7}
+	return file_gravel_hub_v1_servers_proto_rawDescGZIP(), []int{8}
 }
 
 type ListGamesResponse struct {
@@ -731,7 +805,7 @@ type ListGamesResponse struct {
 
 func (x *ListGamesResponse) Reset() {
 	*x = ListGamesResponse{}
-	mi := &file_gravel_hub_v1_servers_proto_msgTypes[8]
+	mi := &file_gravel_hub_v1_servers_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -743,7 +817,7 @@ func (x *ListGamesResponse) String() string {
 func (*ListGamesResponse) ProtoMessage() {}
 
 func (x *ListGamesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_servers_proto_msgTypes[8]
+	mi := &file_gravel_hub_v1_servers_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -756,7 +830,7 @@ func (x *ListGamesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListGamesResponse.ProtoReflect.Descriptor instead.
 func (*ListGamesResponse) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_servers_proto_rawDescGZIP(), []int{8}
+	return file_gravel_hub_v1_servers_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *ListGamesResponse) GetGames() []*Game {
@@ -774,7 +848,7 @@ type ListServersRequest struct {
 
 func (x *ListServersRequest) Reset() {
 	*x = ListServersRequest{}
-	mi := &file_gravel_hub_v1_servers_proto_msgTypes[9]
+	mi := &file_gravel_hub_v1_servers_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -786,7 +860,7 @@ func (x *ListServersRequest) String() string {
 func (*ListServersRequest) ProtoMessage() {}
 
 func (x *ListServersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_servers_proto_msgTypes[9]
+	mi := &file_gravel_hub_v1_servers_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -799,7 +873,7 @@ func (x *ListServersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListServersRequest.ProtoReflect.Descriptor instead.
 func (*ListServersRequest) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_servers_proto_rawDescGZIP(), []int{9}
+	return file_gravel_hub_v1_servers_proto_rawDescGZIP(), []int{10}
 }
 
 type ListServersResponse struct {
@@ -811,7 +885,7 @@ type ListServersResponse struct {
 
 func (x *ListServersResponse) Reset() {
 	*x = ListServersResponse{}
-	mi := &file_gravel_hub_v1_servers_proto_msgTypes[10]
+	mi := &file_gravel_hub_v1_servers_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -823,7 +897,7 @@ func (x *ListServersResponse) String() string {
 func (*ListServersResponse) ProtoMessage() {}
 
 func (x *ListServersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_servers_proto_msgTypes[10]
+	mi := &file_gravel_hub_v1_servers_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -836,7 +910,7 @@ func (x *ListServersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListServersResponse.ProtoReflect.Descriptor instead.
 func (*ListServersResponse) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_servers_proto_rawDescGZIP(), []int{10}
+	return file_gravel_hub_v1_servers_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ListServersResponse) GetServers() []*Server {
@@ -855,7 +929,7 @@ type GetServerStatusRequest struct {
 
 func (x *GetServerStatusRequest) Reset() {
 	*x = GetServerStatusRequest{}
-	mi := &file_gravel_hub_v1_servers_proto_msgTypes[11]
+	mi := &file_gravel_hub_v1_servers_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -867,7 +941,7 @@ func (x *GetServerStatusRequest) String() string {
 func (*GetServerStatusRequest) ProtoMessage() {}
 
 func (x *GetServerStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_servers_proto_msgTypes[11]
+	mi := &file_gravel_hub_v1_servers_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -880,7 +954,7 @@ func (x *GetServerStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetServerStatusRequest.ProtoReflect.Descriptor instead.
 func (*GetServerStatusRequest) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_servers_proto_rawDescGZIP(), []int{11}
+	return file_gravel_hub_v1_servers_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *GetServerStatusRequest) GetServerId() string {
@@ -899,7 +973,7 @@ type GetServerStatusResponse struct {
 
 func (x *GetServerStatusResponse) Reset() {
 	*x = GetServerStatusResponse{}
-	mi := &file_gravel_hub_v1_servers_proto_msgTypes[12]
+	mi := &file_gravel_hub_v1_servers_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -911,7 +985,7 @@ func (x *GetServerStatusResponse) String() string {
 func (*GetServerStatusResponse) ProtoMessage() {}
 
 func (x *GetServerStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_servers_proto_msgTypes[12]
+	mi := &file_gravel_hub_v1_servers_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -924,7 +998,7 @@ func (x *GetServerStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetServerStatusResponse.ProtoReflect.Descriptor instead.
 func (*GetServerStatusResponse) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_servers_proto_rawDescGZIP(), []int{12}
+	return file_gravel_hub_v1_servers_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *GetServerStatusResponse) GetServer() *Server {
@@ -943,7 +1017,7 @@ type ListServerPlayersRequest struct {
 
 func (x *ListServerPlayersRequest) Reset() {
 	*x = ListServerPlayersRequest{}
-	mi := &file_gravel_hub_v1_servers_proto_msgTypes[13]
+	mi := &file_gravel_hub_v1_servers_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -955,7 +1029,7 @@ func (x *ListServerPlayersRequest) String() string {
 func (*ListServerPlayersRequest) ProtoMessage() {}
 
 func (x *ListServerPlayersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_servers_proto_msgTypes[13]
+	mi := &file_gravel_hub_v1_servers_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -968,7 +1042,7 @@ func (x *ListServerPlayersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListServerPlayersRequest.ProtoReflect.Descriptor instead.
 func (*ListServerPlayersRequest) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_servers_proto_rawDescGZIP(), []int{13}
+	return file_gravel_hub_v1_servers_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ListServerPlayersRequest) GetServerId() string {
@@ -989,7 +1063,7 @@ type ListServerPlayersResponse struct {
 
 func (x *ListServerPlayersResponse) Reset() {
 	*x = ListServerPlayersResponse{}
-	mi := &file_gravel_hub_v1_servers_proto_msgTypes[14]
+	mi := &file_gravel_hub_v1_servers_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1001,7 +1075,7 @@ func (x *ListServerPlayersResponse) String() string {
 func (*ListServerPlayersResponse) ProtoMessage() {}
 
 func (x *ListServerPlayersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_servers_proto_msgTypes[14]
+	mi := &file_gravel_hub_v1_servers_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1014,7 +1088,7 @@ func (x *ListServerPlayersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListServerPlayersResponse.ProtoReflect.Descriptor instead.
 func (*ListServerPlayersResponse) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_servers_proto_rawDescGZIP(), []int{14}
+	return file_gravel_hub_v1_servers_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ListServerPlayersResponse) GetPlayers() []*ServerPlayer {
@@ -1062,7 +1136,7 @@ const file_gravel_hub_v1_servers_proto_rawDesc = "" +
 	"\tTeamScore\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05color\x18\x02 \x01(\tR\x05color\x12\x14\n" +
-	"\x05score\x18\x03 \x01(\x03R\x05score\"\xb9\x04\n" +
+	"\x05score\x18\x03 \x01(\x03R\x05score\"\xe8\x04\n" +
 	"\fServerStatus\x12\x14\n" +
 	"\x05state\x18\x01 \x01(\tR\x05state\x12\x1c\n" +
 	"\treachable\x18\x02 \x01(\bR\treachable\x12;\n" +
@@ -1083,7 +1157,13 @@ const file_gravel_hub_v1_servers_proto_rawDesc = "" +
 	"\x0erotation_index\x18\r \x01(\x05R\rrotationIndex\x12.\n" +
 	"\x13next_rotation_index\x18\x0e \x01(\x05R\x11nextRotationIndex\x12!\n" +
 	"\frotation_map\x18\x0f \x01(\tR\vrotationMap\x12*\n" +
-	"\x11next_rotation_map\x18\x10 \x01(\tR\x0fnextRotationMap\"\xbb\x01\n" +
+	"\x11next_rotation_map\x18\x10 \x01(\tR\x0fnextRotationMap\x12-\n" +
+	"\x04join\x18\x11 \x01(\v2\x19.gravel.hub.v1.ServerJoinR\x04join\"N\n" +
+	"\n" +
+	"ServerJoin\x12\x16\n" +
+	"\x06method\x18\x01 \x01(\tR\x06method\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value\x12\x12\n" +
+	"\x04hint\x18\x03 \x01(\tR\x04hint\"\xbb\x01\n" +
 	"\x06Server\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x17\n" +
@@ -1134,49 +1214,51 @@ func file_gravel_hub_v1_servers_proto_rawDescGZIP() []byte {
 	return file_gravel_hub_v1_servers_proto_rawDescData
 }
 
-var file_gravel_hub_v1_servers_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
+var file_gravel_hub_v1_servers_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
 var file_gravel_hub_v1_servers_proto_goTypes = []any{
 	(*Band)(nil),                      // 0: gravel.hub.v1.Band
 	(*Game)(nil),                      // 1: gravel.hub.v1.Game
 	(*GameLayout)(nil),                // 2: gravel.hub.v1.GameLayout
 	(*TeamScore)(nil),                 // 3: gravel.hub.v1.TeamScore
 	(*ServerStatus)(nil),              // 4: gravel.hub.v1.ServerStatus
-	(*Server)(nil),                    // 5: gravel.hub.v1.Server
-	(*ServerPlayer)(nil),              // 6: gravel.hub.v1.ServerPlayer
-	(*ListGamesRequest)(nil),          // 7: gravel.hub.v1.ListGamesRequest
-	(*ListGamesResponse)(nil),         // 8: gravel.hub.v1.ListGamesResponse
-	(*ListServersRequest)(nil),        // 9: gravel.hub.v1.ListServersRequest
-	(*ListServersResponse)(nil),       // 10: gravel.hub.v1.ListServersResponse
-	(*GetServerStatusRequest)(nil),    // 11: gravel.hub.v1.GetServerStatusRequest
-	(*GetServerStatusResponse)(nil),   // 12: gravel.hub.v1.GetServerStatusResponse
-	(*ListServerPlayersRequest)(nil),  // 13: gravel.hub.v1.ListServerPlayersRequest
-	(*ListServerPlayersResponse)(nil), // 14: gravel.hub.v1.ListServerPlayersResponse
-	(*timestamppb.Timestamp)(nil),     // 15: google.protobuf.Timestamp
+	(*ServerJoin)(nil),                // 5: gravel.hub.v1.ServerJoin
+	(*Server)(nil),                    // 6: gravel.hub.v1.Server
+	(*ServerPlayer)(nil),              // 7: gravel.hub.v1.ServerPlayer
+	(*ListGamesRequest)(nil),          // 8: gravel.hub.v1.ListGamesRequest
+	(*ListGamesResponse)(nil),         // 9: gravel.hub.v1.ListGamesResponse
+	(*ListServersRequest)(nil),        // 10: gravel.hub.v1.ListServersRequest
+	(*ListServersResponse)(nil),       // 11: gravel.hub.v1.ListServersResponse
+	(*GetServerStatusRequest)(nil),    // 12: gravel.hub.v1.GetServerStatusRequest
+	(*GetServerStatusResponse)(nil),   // 13: gravel.hub.v1.GetServerStatusResponse
+	(*ListServerPlayersRequest)(nil),  // 14: gravel.hub.v1.ListServerPlayersRequest
+	(*ListServerPlayersResponse)(nil), // 15: gravel.hub.v1.ListServerPlayersResponse
+	(*timestamppb.Timestamp)(nil),     // 16: google.protobuf.Timestamp
 }
 var file_gravel_hub_v1_servers_proto_depIdxs = []int32{
 	0,  // 0: gravel.hub.v1.Game.bands:type_name -> gravel.hub.v1.Band
 	2,  // 1: gravel.hub.v1.Game.layout:type_name -> gravel.hub.v1.GameLayout
-	15, // 2: gravel.hub.v1.ServerStatus.observed_at:type_name -> google.protobuf.Timestamp
+	16, // 2: gravel.hub.v1.ServerStatus.observed_at:type_name -> google.protobuf.Timestamp
 	3,  // 3: gravel.hub.v1.ServerStatus.teams:type_name -> gravel.hub.v1.TeamScore
-	4,  // 4: gravel.hub.v1.Server.status:type_name -> gravel.hub.v1.ServerStatus
-	1,  // 5: gravel.hub.v1.ListGamesResponse.games:type_name -> gravel.hub.v1.Game
-	5,  // 6: gravel.hub.v1.ListServersResponse.servers:type_name -> gravel.hub.v1.Server
-	5,  // 7: gravel.hub.v1.GetServerStatusResponse.server:type_name -> gravel.hub.v1.Server
-	6,  // 8: gravel.hub.v1.ListServerPlayersResponse.players:type_name -> gravel.hub.v1.ServerPlayer
-	15, // 9: gravel.hub.v1.ListServerPlayersResponse.observed_at:type_name -> google.protobuf.Timestamp
-	7,  // 10: gravel.hub.v1.ServerService.ListGames:input_type -> gravel.hub.v1.ListGamesRequest
-	9,  // 11: gravel.hub.v1.ServerService.ListServers:input_type -> gravel.hub.v1.ListServersRequest
-	11, // 12: gravel.hub.v1.ServerService.GetServerStatus:input_type -> gravel.hub.v1.GetServerStatusRequest
-	13, // 13: gravel.hub.v1.ServerService.ListServerPlayers:input_type -> gravel.hub.v1.ListServerPlayersRequest
-	8,  // 14: gravel.hub.v1.ServerService.ListGames:output_type -> gravel.hub.v1.ListGamesResponse
-	10, // 15: gravel.hub.v1.ServerService.ListServers:output_type -> gravel.hub.v1.ListServersResponse
-	12, // 16: gravel.hub.v1.ServerService.GetServerStatus:output_type -> gravel.hub.v1.GetServerStatusResponse
-	14, // 17: gravel.hub.v1.ServerService.ListServerPlayers:output_type -> gravel.hub.v1.ListServerPlayersResponse
-	14, // [14:18] is the sub-list for method output_type
-	10, // [10:14] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	5,  // 4: gravel.hub.v1.ServerStatus.join:type_name -> gravel.hub.v1.ServerJoin
+	4,  // 5: gravel.hub.v1.Server.status:type_name -> gravel.hub.v1.ServerStatus
+	1,  // 6: gravel.hub.v1.ListGamesResponse.games:type_name -> gravel.hub.v1.Game
+	6,  // 7: gravel.hub.v1.ListServersResponse.servers:type_name -> gravel.hub.v1.Server
+	6,  // 8: gravel.hub.v1.GetServerStatusResponse.server:type_name -> gravel.hub.v1.Server
+	7,  // 9: gravel.hub.v1.ListServerPlayersResponse.players:type_name -> gravel.hub.v1.ServerPlayer
+	16, // 10: gravel.hub.v1.ListServerPlayersResponse.observed_at:type_name -> google.protobuf.Timestamp
+	8,  // 11: gravel.hub.v1.ServerService.ListGames:input_type -> gravel.hub.v1.ListGamesRequest
+	10, // 12: gravel.hub.v1.ServerService.ListServers:input_type -> gravel.hub.v1.ListServersRequest
+	12, // 13: gravel.hub.v1.ServerService.GetServerStatus:input_type -> gravel.hub.v1.GetServerStatusRequest
+	14, // 14: gravel.hub.v1.ServerService.ListServerPlayers:input_type -> gravel.hub.v1.ListServerPlayersRequest
+	9,  // 15: gravel.hub.v1.ServerService.ListGames:output_type -> gravel.hub.v1.ListGamesResponse
+	11, // 16: gravel.hub.v1.ServerService.ListServers:output_type -> gravel.hub.v1.ListServersResponse
+	13, // 17: gravel.hub.v1.ServerService.GetServerStatus:output_type -> gravel.hub.v1.GetServerStatusResponse
+	15, // 18: gravel.hub.v1.ServerService.ListServerPlayers:output_type -> gravel.hub.v1.ListServerPlayersResponse
+	15, // [15:19] is the sub-list for method output_type
+	11, // [11:15] is the sub-list for method input_type
+	11, // [11:11] is the sub-list for extension type_name
+	11, // [11:11] is the sub-list for extension extendee
+	0,  // [0:11] is the sub-list for field type_name
 }
 
 func init() { file_gravel_hub_v1_servers_proto_init() }
@@ -1191,7 +1273,7 @@ func file_gravel_hub_v1_servers_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gravel_hub_v1_servers_proto_rawDesc), len(file_gravel_hub_v1_servers_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   15,
+			NumMessages:   16,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

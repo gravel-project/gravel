@@ -23,6 +23,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"connectrpc.com/connect"
 	"github.com/disgoorg/disgo/discord"
@@ -449,6 +451,9 @@ func RenderCard(s *hubv1.Server, c Card) []discord.LayoutComponent {
 		if next := plain(st.GetNextRotationMap()); next != "" {
 			parts = append(parts, discord.NewTextDisplay("Next: "+next))
 		}
+		if join := joinLine(st.GetJoin()); join != "" {
+			parts = append(parts, discord.NewTextDisplay(join))
+		}
 		footer = "Live"
 		if observed > 0 {
 			footer += fmt.Sprintf(" · updated <t:%d:R>", observed-observed%60)
@@ -535,3 +540,40 @@ func plain(s string) string { return strings.TrimSpace(markdown.Replace(s)) }
 // keeps a value on one line.
 var markdown = strings.NewReplacer("\\", "\\\\", "*", "\\*", "_", "\\_", "~", "\\~", "`", "\\`", "|", "\\|", ">", "\\>", "#", "\\#",
 	"@", "@\u200b", "\n", " ", "\r", " ")
+
+// joinLine is how a player gets onto the server, from the driver: the method's label, the value as
+// code (one tap copies it on a phone) and the hint underneath; "" when the hub knows no way. The
+// value can't leave its code span, and the hint is escaped like any name.
+func joinLine(j *hubv1.ServerJoin) string {
+	value := strings.Map(func(r rune) rune {
+		if r == '`' || unicode.IsControl(r) {
+			return -1
+		}
+		return r
+	}, strings.TrimSpace(j.GetValue()))
+	if value == "" {
+		return ""
+	}
+	if utf8.RuneCountInString(value) > maxJoinValue {
+		return ""
+	}
+	line := fmt.Sprintf("**%s:** `%s`", joinLabel(j.GetMethod()), value)
+	if hint := plain(j.GetHint()); hint != "" {
+		line += "\n-# " + hint
+	}
+	return line
+}
+
+// maxJoinValue bounds a join value; a longer one is not shown rather than cut.
+const maxJoinValue = 200
+
+func joinLabel(method string) string {
+	switch method {
+	case "id":
+		return "Join by ID"
+	case "address":
+		return "Connect"
+	default:
+		return "Join"
+	}
+}

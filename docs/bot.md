@@ -178,7 +178,9 @@ footer). It edits that card and posts a new one only when none is there. A card'
 no one, whatever a name or the note says.
 
 **The map.** While the server is live, a card shows the current map's picture, full width under
-the name, and a "Next: <map>" line after the score when the game reports its rotation. The picture
+the name, a "Next: <map>" line after the score when the game reports its rotation, and how to join
+when the driver knows it ("**Join by ID:** `<id>`" as code, so a phone copies it in one tap, with the
+driver's hint in small text; docs/hub.md "How to join"). The picture
 comes from the Organization settings' `games.<id>.maps` (docs/hub.md): the image for the level in
 play (War Dogs: `Ozeti`), else for the rotation's current map (the theatre, `Europe`), each tried
 first in the lighting in play (`Europe/DayClear`) and then plain, else the

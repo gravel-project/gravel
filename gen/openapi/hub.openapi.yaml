@@ -3924,6 +3924,27 @@ components:
       description: |-
         Server is a server a driver controls (ManagedServer), as the public sees it: never its control
          address or where its credential is.
+    gravel.hub.v1.ServerJoin:
+      type: object
+      properties:
+        method:
+          type: string
+          title: method
+          description: |-
+            "id": paste value into the game's own server browser (War Dogs: Join by ID); "address":
+             value is host:port; "uri": value is a link that launches the game onto the server.
+        value:
+          type: string
+          title: value
+        hint:
+          type: string
+          title: hint
+          description: One line saying where the value goes, in the game's terms.
+      title: ServerJoin
+      additionalProperties: false
+      description: |-
+        ServerJoin is how a player reaches a server from the game. It is public: what a community
+         shares to bring players in.
     gravel.hub.v1.ServerPlayer:
       type: object
       properties:
@@ -4037,6 +4058,11 @@ components:
         nextRotationMap:
           type: string
           title: next_rotation_map
+        join:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.ServerJoin'
+          title: join
+          description: How a player gets onto the server from the game, when the driver knows; unset otherwise.
       title: ServerStatus
       additionalProperties: false
       description: ServerStatus is the hub's last observation of a server. It carries no personal data.

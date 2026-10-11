@@ -82,6 +82,12 @@ templ serverBody(p ServerPage) {
 	if p.NextMap != "" && p.Server.Online() {
 		<p>Next map: { p.NextMap }</p>
 	}
+	if p.Join != nil && p.Server.Online() {
+		<p>{ p.Join.Label }: <code>{ p.Join.Value }</code></p>
+		if p.Join.Hint != "" {
+			<p class="muted">{ p.Join.Hint }</p>
+		}
+	}
 	if p.ObservedAt != nil {
 		<p class="muted">As of { at(*p.ObservedAt) }</p>
 	}

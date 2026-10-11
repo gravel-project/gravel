@@ -53,11 +53,24 @@ type Driver struct {
 	rotation    map[int]string
 	rotationAt  time.Time
 	rotationErr bool // the last read failed; logged once until one succeeds
-	now         func() time.Time
+	// serverID is the host's identifier players join by, read at most once a JoinTTL.
+	idMu  sync.Mutex
+	id    string
+	idAt  time.Time
+	idErr bool
+	now   func() time.Time
 }
 
 // RotationTTL is how long the driver keeps the rotation's maps before reading them again.
 const RotationTTL = time.Minute
+
+// JoinTTL is how long the driver keeps the server's ID before reading it again: the host sets it,
+// and it survives restarts and map changes (War Dogs patch 0.11).
+const JoinTTL = 10 * time.Minute
+
+// joinHint says where a War Dogs player uses the ID (tested 2026-10-11, wardogs-server#8): no
+// launch URI or steam://connect joins a server; the Community browser's Join by ID does.
+const joinHint = "Paste it into Join by ID at the bottom left of the Community browser."
 
 var _ drivers.ExternalReachable = (*Driver)(nil)
 
@@ -152,7 +165,40 @@ func (d *Driver) Status(ctx context.Context) (drivers.Status, error) {
 	}
 	maps := d.rotationMaps(ctx)
 	out.RotationMap, out.NextRotationMap = maps[s.Rotation.NowIndex], maps[s.Rotation.NextIndex]
+	if id := d.serverID(ctx); id != "" {
+		out.Join = drivers.Join{Method: drivers.JoinByID, Value: id, Hint: joinHint}
+	}
 	return out, nil
+}
+
+// serverID is the host's identifier for the server, read again once JoinTTL has passed. Like the
+// rotation's names, a build without the route or a failed read never fails the status: no route
+// means no join, a failed read keeps the last good ID.
+func (d *Driver) serverID(ctx context.Context) string {
+	d.idMu.Lock()
+	defer d.idMu.Unlock()
+	if !d.idAt.IsZero() && d.now().Sub(d.idAt) < JoinTTL {
+		return d.id
+	}
+	d.idAt = d.now()
+	r, err := d.c.ServerID(ctx)
+	switch {
+	case errors.Is(err, wardogs.ErrNotSupported):
+		d.id = ""
+		return ""
+	case err != nil:
+		if !d.idErr {
+			d.logger.Warn("war dogs server id unreadable; the status goes without its join id", "error", err.Error())
+		}
+		d.idErr = true
+		return d.id
+	}
+	if d.idErr {
+		d.logger.Info("war dogs server id readable again")
+	}
+	d.idErr = false
+	d.id = strings.TrimSpace(r.ServerID)
+	return d.id
 }
 
 // rotationMaps is the rotation's map names by index, read again once RotationTTL has passed. A

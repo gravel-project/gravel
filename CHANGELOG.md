@@ -10,6 +10,7 @@ patch release is everything else.
 
 ### Added
 
+- How to join, on a server's status, its page and its Discord card (hidden-token-gaming/wardogs-server#8). `drivers.Status.Join` and `ServerStatus.join {method, value, hint}` (additive): `method` is `id`, `address` or `uri`, and the value is public, since it is what a community shares. The War Dogs driver reads the host's server ID (`GET /v1/server-id`) at most once every 10 minutes and offers it as Join by ID, with "Paste it into Join by ID at the bottom left of the Community browser". A build without the route, or an unset ID, offers nothing, and a failed read keeps the last good ID and never fails the status. That is the one way into a War Dogs server that works: John tested on 2026-10-11 that both `steam://run` launch URIs open only the main menu and `steam://connect` is refused. The server page shows "Join by ID: `<id>`" and the hint while the server is live. The card adds a "**Join by ID:** `<id>`" line, as code for a one-tap copy on a phone, and the hint in small text. The value can't leave its code span, and an overlong one is left out. Tests cover the driver (the TTL, a failed read, no route, an unset ID), the API, the page (escaping, nothing while unreachable) and the card.
 - ADR-0019 (proposed; accepted when merged): go-live posts for Twitch and Kick streams (hidden-token-gaming/htg#54).
 
 - Go-live posts (hidden-token-gaming/htg#54, ADR-0019): when one of the community's streamers goes live on Twitch or Kick, the bot posts once in a channel and edits the post when the stream ends.

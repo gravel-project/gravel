@@ -267,6 +267,8 @@ type ServerPage struct {
 	BoardURL    string
 	// NextMap is the rotation's next map as the game names it; empty when unknown.
 	NextMap string
+	// Join is how a player gets onto the server from the game; nil when the driver knows no way.
+	Join *Join
 	// Mod is set for the owner and moderators: the controls the server's driver offers.
 	Mod *ModControls
 }
@@ -501,4 +503,22 @@ type MembersPage struct {
 	Page
 	Members []MemberRow
 	NextURL string
+}
+
+// Join is how a player reaches a server from the game: the label for its method ("Join by ID"),
+// the value to copy and where it goes.
+type Join struct {
+	Label, Value, Hint string
+}
+
+// JoinLabel names a join method as the pages and the cards show it.
+func JoinLabel(method string) string {
+	switch method {
+	case "id":
+		return "Join by ID"
+	case "address":
+		return "Connect"
+	default:
+		return "Join"
+	}
 }
