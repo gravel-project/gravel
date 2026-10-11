@@ -72,7 +72,7 @@ func TestDemoHub(t *testing.T) {
 	}
 	m := servers.Manifest{Games: []servers.GameRef{{ID: "wardogs"}}, Servers: []servers.Server{{ID: "demo-1", Name: "Demo #1", Game: "wardogs",
 		Driver: "wardogs", Location: "sim", Endpoint: simSrv.URL, CredentialFile: cred, PollInterval: servers.Duration(5 * time.Second), Trust: servers.TrustOfficial}}}
-	if _, err := servers.New(st, o.ID, hub.Drivers().Names(), quiet()).Apply(ctx, m, servers.ApplyOptions{CheckCredentials: true}); err != nil {
+	if _, err := servers.New(st, o.ID, hub.DriverNames(), quiet()).Apply(ctx, m, servers.ApplyOptions{CheckCredentials: true}); err != nil {
 		t.Fatal(err)
 	}
 	seededAt := time.Now()

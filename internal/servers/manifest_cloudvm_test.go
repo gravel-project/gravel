@@ -52,15 +52,8 @@ servers:
       tv: false
 `
 
-// cloudSpecs are the shipped specs with Counter-Strike 2 run by the cloud-VM driver (the spec
-// gains the driver with it; until then a manifest naming it is refused as a catalog entry).
-func cloudSpecs() map[string]Spec {
-	specs := Specs()
-	cs2 := specs["cs2"]
-	cs2.Drivers = []string{"cloudvm"}
-	specs["cs2"] = cs2
-	return specs
-}
+// cloudSpecs are the shipped specs: Counter-Strike 2 is run by the cloud-VM driver.
+func cloudSpecs() map[string]Spec { return Specs() }
 
 var cloudDrivers = []string{"cloudvm", "wardogs"}
 
@@ -150,10 +143,10 @@ func TestCloudManifestValidation(t *testing.T) {
 			}
 		})
 	}
-	// Today's shipped CS2 spec names no driver: the cloud-VM driver arrives with it.
+	// A hub without the cloud: the location's provider is refused.
 	m := parseCloud(t)
-	if err := m.Validate(Specs(), cloudDrivers, []string{"digitalocean"}); err != nil && !strings.Contains(err.Error(), "catalog entry") && !strings.Contains(err.Error(), "does not control") {
-		t.Errorf("the shipped spec: %v", err)
+	if err := m.Validate(Specs(), cloudDrivers, nil); err == nil || !strings.Contains(err.Error(), "is not a cloud this hub has") {
+		t.Errorf("no providers: %v", err)
 	}
 }
 

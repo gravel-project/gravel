@@ -35,6 +35,10 @@ type Profile struct {
 	Ports        []Port   `yaml:"ports"`
 	// RCONPort is the TCP port the hub controls the game on (the firewall admits only the hub).
 	RCONPort int `yaml:"rcon_port"`
+	// JoinPort is the port players connect to, shown with the address; JoinHint says where the
+	// address goes, in the game's terms.
+	JoinPort int    `yaml:"join_port"`
+	JoinHint string `yaml:"join_hint"`
 	// Env are fixed environment lines every server of the game gets.
 	Env map[string]string `yaml:"env"`
 	// Secrets name the environment variables the hub's secrets are passed in.
@@ -173,6 +177,12 @@ func (p Profile) Validate() error {
 	}
 	if !rcon {
 		bad("rcon_port %d is not one of the ports (tcp)", p.RCONPort)
+	}
+	if !slices.ContainsFunc(p.Ports, func(x Port) bool { return x.Port == p.JoinPort && x.Public }) {
+		bad("join_port %d is not one of the public ports", p.JoinPort)
+	}
+	if strings.TrimSpace(p.JoinHint) == "" || len(p.JoinHint) > 200 {
+		bad("join_hint: one line, at most 200 characters")
 	}
 	for k := range p.Env {
 		if !envRE.MatchString(k) {

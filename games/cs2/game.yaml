@@ -4,7 +4,7 @@ id: cs2
 name: Counter-Strike 2
 # Logs carry SteamID3 ([U:1:N]); gravel keys players by the SteamID64 it converts to.
 identity_provider: steam
-drivers: []
+drivers: [cloudvm]
 plugins:
   # Valve's server guidelines forbid item spoofing (weapon skins, knives, gloves, stickers, music
   # kits, fake ranks or coins). The penalty is every GSLT on the operator's account disabled and
@@ -48,6 +48,8 @@ cloudvm:
     - {name: rcon, protocol: tcp, port: 27015, public: false}   # the game port over TCP; the hub only
     - {name: tv, protocol: udp, port: 27020, public: true, when: tv}
   rcon_port: 27015
+  join_port: 27015
+  join_hint: "In CS2's console: connect <address>; password <password>. The password is shared where you found this server."
   env:
     CS2_PORT: "27015"
     CS2_LAN: "0"

@@ -31,6 +31,8 @@ var stateLabels = map[string]string{
 	"credential_missing": "Unavailable",
 	"rate_limited":       "Unavailable",
 	"error":              "Unavailable",
+	"parked":             "Parked",
+	"provisioning":       "Starting up",
 }
 
 // metricLabels are a board column's headers.

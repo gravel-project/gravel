@@ -673,6 +673,23 @@ func (m *Manager) SourceAddress(serverID string) (netip.Addr, bool) {
 	return a, err == nil
 }
 
+// setBans replaces the identities a server kicks as they connect.
+func (m *Manager) setBans(serverID string, ids []drivers.Identity) {
+	m.mu.Lock()
+	rt, ok := m.hosts[serverID]
+	m.mu.Unlock()
+	if !ok {
+		return
+	}
+	set := make(map[drivers.Identity]bool, len(ids))
+	for _, id := range ids {
+		set[id] = true
+	}
+	rt.mu.Lock()
+	rt.bans = set
+	rt.mu.Unlock()
+}
+
 // gameForLocked is the host's game control at the instance's address, made again when the
 // address or the password changes. Call with rt.mu held.
 func (m *Manager) gameForLocked(rt *hostRT, s ServerSpec, instanceAddress string) (Game, error) {

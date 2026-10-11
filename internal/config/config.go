@@ -19,6 +19,8 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/gravel-project/gravel/cloud"
 )
 
 // CurrentVersion is the config file format this build understands.
@@ -51,10 +53,20 @@ type Config struct {
 	Backup       Backup       `yaml:"backup"`
 	Apps         Apps         `yaml:"apps"`
 	Stats        Stats        `yaml:"stats"`
+	Cloud        Cloud        `yaml:"cloud"`
 	// Demo marks a demo hub (gravel#112): every page says its members, matches and stats are
 	// made up, and `gravel-hub demo seed` may write fake history into its database. A hub without
 	// it refuses to start on a database that holds demo members.
 	Demo bool `yaml:"demo"`
+}
+
+// Cloud is what the cloud-VM driver (ADR-0003) needs from the hub's own configuration.
+type Cloud struct {
+	// EgressCIDRs are the addresses the hub reaches the internet from: the game hosts' firewalls
+	// admit RCON and SSH from them only. Empty asks a public service at start and every ten
+	// minutes; set it when the hub's address is fixed (a cloud host), so a lookup that fails or
+	// lies cannot lock the hub out.
+	EgressCIDRs []string `yaml:"egress_cidrs"`
 }
 
 // Stats is the stats store's one secret (ADR-0012 §5): the key pseudonyms are chosen with, so a
@@ -315,6 +327,9 @@ func (c Config) Validate() error {
 	}
 	if strings.TrimSpace(c.Organization.Name) == "" {
 		bad("organization.name: required")
+	}
+	if _, err := cloud.NormalizeCIDRs(c.Cloud.EgressCIDRs); err != nil {
+		bad("cloud.egress_cidrs: %v", err)
 	}
 	if err := checkAddr(c.Server.Listen); err != nil {
 		bad("server.listen: %v", err)

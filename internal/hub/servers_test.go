@@ -6,12 +6,14 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	"connectrpc.com/connect"
 
+	"github.com/gravel-project/gravel/drivers"
 	"github.com/gravel-project/gravel/games/wardogs/wardogstest"
 	hubv1 "github.com/gravel-project/gravel/gen/gravel/hub/v1"
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
@@ -48,7 +50,7 @@ func TestHubPollsAppliedServers(t *testing.T) {
 		Servers: []servers.Server{{ID: "wd-1", Name: "War Dogs #1", Game: "wardogs", Driver: "wardogs", Location: "slc",
 			Endpoint: fake.URL, CredentialFile: cred, Trust: servers.TrustOfficial}},
 	}
-	if _, err := servers.New(st, o.ID, hub.Drivers().Names(), quiet()).Apply(ctx, m, servers.ApplyOptions{CheckCredentials: true}); err != nil {
+	if _, err := servers.New(st, o.ID, hub.DriverNames(), quiet()).Apply(ctx, m, servers.ApplyOptions{CheckCredentials: true}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -109,5 +111,14 @@ func TestHubPollsAppliedServers(t *testing.T) {
 		if !found {
 			t.Errorf("MetricNames lacks %s", name)
 		}
+	}
+}
+
+func TestDriverRegistry(t *testing.T) {
+	if got := hub.DriverNames(); !slices.Equal(got, []string{"cloudvm", "wardogs"}) {
+		t.Errorf("names %v", got)
+	}
+	if _, err := hub.Drivers(hub.DriverDeps{})["cloudvm"](drivers.Target{ServerID: "x"}); err == nil {
+		t.Error("a cloud-VM driver outside the hub")
 	}
 }

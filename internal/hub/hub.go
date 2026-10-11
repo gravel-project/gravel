@@ -21,7 +21,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"github.com/gravel-project/gravel/cloud"
+	"github.com/gravel-project/gravel/cloud/digitalocean"
 	"github.com/gravel-project/gravel/drivers"
+	"github.com/gravel-project/gravel/drivers/cloudvm"
+	cs2game "github.com/gravel-project/gravel/drivers/cloudvm/cs2"
 	wardogsdriver "github.com/gravel-project/gravel/drivers/wardogs"
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
 	"github.com/gravel-project/gravel/internal/api"
@@ -35,6 +39,7 @@ import (
 	"github.com/gravel-project/gravel/internal/jobs"
 	"github.com/gravel-project/gravel/internal/metricnames"
 	"github.com/gravel-project/gravel/internal/org"
+	"github.com/gravel-project/gravel/internal/publicaddr"
 	"github.com/gravel-project/gravel/internal/ratelimit"
 	"github.com/gravel-project/gravel/internal/servers"
 	"github.com/gravel-project/gravel/internal/session"
@@ -51,6 +56,11 @@ type Options struct {
 	// Providers replaces the login providers the configuration describes. Tests use it to
 	// drive the flows with a fake; nil means "build them from the configuration".
 	Providers []identity.Registration
+	// CloudProviders, Remote and Egress replace the cloud-VM driver's clouds, its SSH and the
+	// hub's egress lookup (tests use a fake cloud); nil means the real ones.
+	CloudProviders func(ctx context.Context, l cloudvm.Location) (cloud.Provider, error)
+	Remote         cloudvm.Remote
+	Egress         func(ctx context.Context) ([]string, error)
 }
 
 // Hub is a started-but-not-listening service: handlers are ready, Run serves them.
@@ -65,6 +75,8 @@ type Hub struct {
 	sess       *session.Manager
 	apps       *apps.Service
 	servers    *servers.Service
+	hosts      *servers.Hosts
+	cloudvm    *cloudvm.Manager
 	monitor    *servers.Monitor
 	moderation *servers.Moderation
 	stats      *stats.Boards
@@ -99,9 +111,53 @@ const pruneEvery = 10 * time.Minute
 // CloudProviders are the clouds this hub makes VMs in, by the name a servers.yaml location uses.
 func CloudProviders() []string { return []string{"digitalocean"} }
 
+// DriverDeps are what a driver needs from the running hub.
+type DriverDeps struct {
+	// CloudVM is the cloud-VM driver's manager; without it the driver cannot run (servers check,
+	// in CI, only needs the names).
+	CloudVM *cloudvm.Manager
+}
+
 // Drivers are the drivers this hub has, by the name servers.yaml uses.
-func Drivers() drivers.Registry {
-	return drivers.Registry{wardogsdriver.Name: wardogsdriver.Factory}
+func Drivers(d DriverDeps) drivers.Registry {
+	r := drivers.Registry{wardogsdriver.Name: wardogsdriver.Factory}
+	if d.CloudVM != nil {
+		r[cloudvm.Name] = d.CloudVM.Factory()
+	} else {
+		r[cloudvm.Name] = func(drivers.Target) (drivers.Driver, error) {
+			return nil, errors.New("hub: the cloud-VM driver runs only inside the hub")
+		}
+	}
+	return r
+}
+
+// DriverNames are the drivers this hub has.
+func DriverNames() []string { return Drivers(DriverDeps{}).Names() }
+
+// games are the cloud-VM driver's game controls, by Game spec id.
+var games = map[string]cloudvm.GameFactory{"cs2": cs2game.New}
+
+// defaultImages are the OS images the cloud-VM driver boots, by provider.
+var defaultImages = map[string]string{"digitalocean": "fedora-44-x64"}
+
+func (h *Hub) cloudProvider(ctx context.Context, l cloudvm.Location) (cloud.Provider, error) {
+	switch l.Provider {
+	case "digitalocean":
+		return digitalocean.New(digitalocean.Config{Token: l.Token, Project: l.Project, UserAgent: "gravel-hub/" + h.version})
+	}
+	return nil, fmt.Errorf("hub: no cloud %q", l.Provider)
+}
+
+// egress is the hub's own address for the game hosts' firewalls: hub.yaml's, else asked.
+func (h *Hub) egress(ctx context.Context) ([]string, error) {
+	if len(h.cfg.Cloud.EgressCIDRs) > 0 {
+		return h.cfg.Cloud.EgressCIDRs, nil
+	}
+	a, err := publicaddr.Detect(ctx, nil, publicaddr.TraceURL)
+	if err != nil {
+		return nil, err
+	}
+	return []string{a.String()}, nil
 }
 
 // New connects to the database, applies the migration policy, ensures the built-in organization
@@ -203,11 +259,29 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 	// which reconciles a poll job per server with what `servers apply` stored.
 	h.jobs = jobs.New(logger, h.registry)
 	h.jobs.Start(jobs.Job{Name: "prune", Every: pruneEvery, Run: func(ctx context.Context) error { h.Prune(ctx); return nil }})
-	registry := Drivers()
-	h.servers = servers.New(st, o.ID, registry.Names(), logger).WithProviders(CloudProviders()...)
+	h.servers = servers.New(st, o.ID, DriverNames(), logger).WithProviders(CloudProviders()...)
+	// The cloud-VM driver (ADR-0003): the hub makes the VMs its servers run on. One manager owns
+	// every host; the monitor's drivers read it.
+	h.hosts = servers.NewHosts(h.servers, st, st, o.ID, logger)
+	cvm := cloudvm.Options{Providers: opts.CloudProviders, Remote: opts.Remote, Egress: opts.Egress, DefaultImages: defaultImages,
+		Runner: h.jobs, Logger: logger.With("driver", cloudvm.Name), Registerer: h.registry}
+	if cvm.Providers == nil {
+		cvm.Providers = h.cloudProvider
+	}
+	if cvm.Remote == nil {
+		cvm.Remote = cloudvm.SSH{}
+	}
+	if cvm.Egress == nil {
+		cvm.Egress = h.egress
+	}
+	h.cloudvm = cloudvm.NewManager(h.hosts, h.hosts, games, cvm)
+	h.hosts.Attach(h.cloudvm)
+	registry := Drivers(DriverDeps{CloudVM: h.cloudvm})
 	h.monitor = servers.NewMonitor(h.servers, registry, h.jobs, h.registry, "gravel-hub/"+h.version, logger)
-	h.monitor.Start()
 	h.moderation = servers.NewModeration(h.servers, h.monitor, st, st, o.ID, h.registry, logger)
+	h.monitor.SetPrimer(h.moderation.Prime)
+	h.monitor.Start()
+	h.cloudvm.Start()
 	// The stats store (ADR-0012): every good poll becomes matches and player totals; boards read
 	// them with the Organization settings' stats section.
 	// The recorder and the rollup count their writes, so the boards serve from memory while

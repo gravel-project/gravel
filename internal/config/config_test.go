@@ -349,3 +349,15 @@ func TestDemo(t *testing.T) {
 		t.Error("demo takes a boolean")
 	}
 }
+
+func TestCloudEgress(t *testing.T) {
+	cfg, err := Parse(strings.NewReader(minimal+"\ncloud:\n  egress_cidrs: [\"144.126.220.232\"]\n"), noEnv())
+	if err != nil || len(cfg.Cloud.EgressCIDRs) != 1 {
+		t.Fatalf("%+v %v", cfg.Cloud, err)
+	}
+	for _, bad := range []string{`["0.0.0.0/0"]`, `["not-an-address"]`} {
+		if _, err := Parse(strings.NewReader(minimal+"\ncloud:\n  egress_cidrs: "+bad+"\n"), noEnv()); err == nil || !strings.Contains(err.Error(), "cloud.egress_cidrs") {
+			t.Errorf("%s: %v", bad, err)
+		}
+	}
+}

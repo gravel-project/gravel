@@ -458,6 +458,14 @@ func RenderCard(s *hubv1.Server, c Card) []discord.LayoutComponent {
 		if observed > 0 {
 			footer += fmt.Sprintf(" · updated <t:%d:R>", observed-observed%60)
 		}
+	case st.GetState() == "parked":
+		colour = 0
+		parts = append(parts, discord.NewTextDisplay("**Parked.** Nobody was playing, so its machine is off. Staff start it from the server's page."))
+		footer = "Parked"
+	case st.GetState() == "provisioning":
+		colour = 0
+		parts = append(parts, discord.NewTextDisplay("**Starting up.** Its machine is being made or started; this takes a few minutes."))
+		footer = "Starting up"
 	case st.GetState() == "unknown" || st.GetState() == "":
 		colour = 0
 		parts = append(parts, discord.NewTextDisplay("Waiting for the first look at this server."))

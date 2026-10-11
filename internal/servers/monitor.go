@@ -29,6 +29,10 @@ const (
 	StateCredentialMissing = "credential_missing" // the credential file could not be read or is empty
 	StateRateLimited       = "rate_limited"       // the server asked the hub to wait
 	StateError             = "error"              // anything else; see the hub's log
+	// A server whose host the hub makes (the cloud-VM driver) and that is not up: parked (or never
+	// made), or being made, started, resized or parked. Nothing is polled until it runs.
+	StateParked       = "parked"
+	StateProvisioning = "provisioning"
 )
 
 // MissesUnreachable is how many failed polls in a row mark a server unreachable.
@@ -301,6 +305,9 @@ func (m *Monitor) watchBuild(ctx context.Context, id string) error {
 		return nil
 	}
 	build, err := w.drv.Build(ctx)
+	if errors.Is(err, drivers.ErrHostNotRunning) {
+		return nil
+	}
 	if err != nil {
 		return fmt.Errorf("server %s: build: %s", id, stateOf(err))
 	}
@@ -445,8 +452,42 @@ func (m *Monitor) SetSink(s ObservationSink) {
 	m.sink = s
 }
 
+// hostDown records a server whose host is not running: its phase is the state, it is not
+// reachable, and the poll is not a failure (nothing to retry; the host's own machine runs).
+func (m *Monitor) hostDown(w *worker, err error) error {
+	state := StateProvisioning
+	var hs *drivers.HostStateError
+	if errors.As(err, &hs) && hs.Phase == drivers.HostParked {
+		state = StateParked
+	} else if errors.As(err, &hs) && hs.Phase == drivers.HostError {
+		state = StateError
+	}
+	m.mu.Lock()
+	if m.workers[w.def.ID] != w {
+		m.mu.Unlock()
+		return nil
+	}
+	o := m.obs[w.def.ID]
+	o.State, o.Reachable, o.Players = state, false, nil
+	o.Status = drivers.Status{}
+	m.obs[w.def.ID] = o
+	w.misses = 0
+	first := w.state != state
+	w.state = state
+	m.reachable.WithLabelValues(w.def.ID, w.def.Game).Set(0)
+	m.players.WithLabelValues(w.def.ID, w.def.Game).Set(0)
+	m.mu.Unlock()
+	if first {
+		m.logger.Info("server's host is not running", "server", w.def.ID, "state", state)
+	}
+	return nil
+}
+
 // failed records a failed poll and returns the error for the runner.
 func (m *Monitor) failed(w *worker, err error) error {
+	if errors.Is(err, drivers.ErrHostNotRunning) {
+		return m.hostDown(w, err)
+	}
 	state := stateOf(err)
 	m.mu.Lock()
 	if m.workers[w.def.ID] != w {
