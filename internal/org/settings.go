@@ -192,7 +192,45 @@ type Discord struct {
 	// Seeding are the seeding rules (discord/modules/seeding, ADR-0016): when the bot calls the
 	// seeder role to a server under its player floor, one rule per server.
 	Seeding []SeedingRule `json:"seeding,omitempty" yaml:"seeding,omitempty"`
+	// Presence is "who's playing now" (discord/modules/presence, ADR-0017): a card with how many
+	// members are playing each game, counted from Discord presence and never stored.
+	Presence Presence `json:"presence,omitzero" yaml:"presence,omitempty"`
 }
+
+// Presence places the "who's playing now" card: one message in Channel, edited when a count
+// changes. A member counts for a game while Discord shows them playing it, which only members who
+// share their activity on Discord do. Empty is no card.
+type Presence struct {
+	Channel string `json:"channel,omitempty" yaml:"channel,omitempty"`
+	// Note is a line the host writes under the counts.
+	Note string `json:"note,omitempty" yaml:"note,omitempty"`
+	// Games are counted in this order, at most MaxPresenceGames.
+	Games []PresenceGame `json:"games,omitempty" yaml:"games,omitempty"`
+}
+
+// PresenceGame is one game on the card and how its Discord activity is recognized: by the name
+// Discord shows ("WARDOGS", compared without regard to case) or by the activity's Discord
+// application id. At least one of the two is required.
+type PresenceGame struct {
+	// Game is the line's key, in the metrics: "wardogs". The hub's game id where there is one.
+	Game string `json:"game" yaml:"game"`
+	// Label is what the card shows: "War Dogs".
+	Label          string   `json:"label" yaml:"label"`
+	Activities     []string `json:"activities,omitempty" yaml:"activities,omitempty"`
+	ApplicationIDs []string `json:"application_ids,omitempty" yaml:"application_ids,omitempty"`
+}
+
+// IsZero reports whether no card is placed.
+func (p Presence) IsZero() bool { return p.Channel == "" && p.Note == "" && len(p.Games) == 0 }
+
+// Presence card bounds.
+const (
+	MaxPresenceGames      = 20
+	MaxPresenceLabel      = 40
+	MaxPresenceActivities = 10
+	MaxPresenceActivity   = 128
+	MaxPresenceNote       = 200
+)
 
 // SeedingRule is when and where the bot calls for seeders for one server: inside one of its
 // weekly windows, while the server is live and under Below, at most once per Cooldown. Outside
@@ -291,7 +329,8 @@ var MappedProviders = []string{"discord", "steam"}
 
 // IsZero reports whether nothing is set.
 func (d Discord) IsZero() bool {
-	return d.GuildID == "" && d.Roles.IsZero() && len(d.Recognition) == 0 && len(d.ServerCards) == 0 && d.ModLog == "" && len(d.Seeding) == 0
+	return d.GuildID == "" && d.Roles.IsZero() && len(d.Recognition) == 0 && len(d.ServerCards) == 0 && d.ModLog == "" && len(d.Seeding) == 0 &&
+		d.Presence.IsZero()
 }
 
 // IsZero reports whether no role is mapped.
@@ -492,7 +531,7 @@ func validateDiscord(d Discord, bad func(string, ...any)) {
 		return
 	}
 	if d.GuildID == "" {
-		bad("discord.guild_id: required when roles are mapped, server cards placed or seeding set")
+		bad("discord.guild_id: required when roles are mapped, server cards placed, seeding set or presence placed")
 	} else if !snowflakeOK(d.GuildID) {
 		bad("discord.guild_id: %q is not a Discord id", d.GuildID)
 	}
@@ -560,6 +599,73 @@ func validateDiscord(d Discord, bad func(string, ...any)) {
 		}
 	}
 	validateSeeding(d, bad)
+	validatePresence(d.Presence, bad)
+}
+
+func validatePresence(p Presence, bad func(string, ...any)) {
+	if p.IsZero() {
+		return
+	}
+	if !snowflakeOK(p.Channel) {
+		bad("discord.presence.channel: %q is not a Discord id", p.Channel)
+	}
+	note := strings.TrimSpace(p.Note)
+	if utf8.RuneCountInString(note) > MaxPresenceNote || strings.ContainsFunc(note, unicode.IsControl) {
+		bad("discord.presence.note: one line of at most %d characters", MaxPresenceNote)
+	}
+	switch n := len(p.Games); {
+	case n == 0:
+		bad("discord.presence.games: at least one game")
+	case n > MaxPresenceGames:
+		bad("discord.presence.games: %d games, at most %d", n, MaxPresenceGames)
+	}
+	games := map[string]int{}
+	names := map[string]string{}
+	apps := map[string]string{}
+	for i, g := range p.Games {
+		field := fmt.Sprintf("discord.presence.games[%d]", i)
+		if !serverID.MatchString(g.Game) {
+			bad("%s.game: %q is not a key (lower-case letters, digits and hyphens)", field, g.Game)
+		} else if j, dup := games[g.Game]; dup {
+			bad("%s.game: %q is already on the card (discord.presence.games[%d])", field, g.Game, j)
+		} else {
+			games[g.Game] = i
+		}
+		label := strings.TrimSpace(g.Label)
+		if label == "" || utf8.RuneCountInString(label) > MaxPresenceLabel || strings.ContainsFunc(label, unicode.IsControl) {
+			bad("%s.label: one line of 1 to %d characters", field, MaxPresenceLabel)
+		}
+		if len(g.Activities)+len(g.ApplicationIDs) == 0 {
+			bad("%s: names no activity and no application id, so nothing would count", field)
+		}
+		if len(g.Activities) > MaxPresenceActivities {
+			bad("%s.activities: %d names, at most %d", field, len(g.Activities), MaxPresenceActivities)
+		}
+		if len(g.ApplicationIDs) > MaxPresenceActivities {
+			bad("%s.application_ids: %d ids, at most %d", field, len(g.ApplicationIDs), MaxPresenceActivities)
+		}
+		for j, a := range g.Activities {
+			key := strings.ToLower(strings.TrimSpace(a))
+			switch {
+			case key == "" || utf8.RuneCountInString(key) > MaxPresenceActivity || strings.ContainsFunc(key, unicode.IsControl):
+				bad("%s.activities[%d]: one line of 1 to %d characters", field, j, MaxPresenceActivity)
+			case names[key] != "":
+				bad("%s.activities[%d]: %q already counts for %s", field, j, a, names[key])
+			default:
+				names[key] = g.Game
+			}
+		}
+		for j, id := range g.ApplicationIDs {
+			switch {
+			case !snowflakeOK(id):
+				bad("%s.application_ids[%d]: %q is not a Discord id", field, j, id)
+			case apps[id] != "":
+				bad("%s.application_ids[%d]: %s already counts for %s", field, j, id, apps[id])
+			default:
+				apps[id] = g.Game
+			}
+		}
+	}
 }
 
 func validateSeeding(d Discord, bad func(string, ...any)) {
@@ -737,6 +843,23 @@ func (s Settings) Normalized() Settings {
 	}
 	if len(s.Discord.Seeding) == 0 {
 		s.Discord.Seeding = nil
+	}
+	s.Discord.Presence.Note = strings.TrimSpace(s.Discord.Presence.Note)
+	for i := range s.Discord.Presence.Games {
+		g := &s.Discord.Presence.Games[i]
+		g.Label = strings.TrimSpace(g.Label)
+		for j := range g.Activities {
+			g.Activities[j] = strings.TrimSpace(g.Activities[j])
+		}
+		if len(g.Activities) == 0 {
+			g.Activities = nil
+		}
+		if len(g.ApplicationIDs) == 0 {
+			g.ApplicationIDs = nil
+		}
+	}
+	if len(s.Discord.Presence.Games) == 0 {
+		s.Discord.Presence.Games = nil
 	}
 	if len(s.Games) == 0 {
 		s.Games = nil

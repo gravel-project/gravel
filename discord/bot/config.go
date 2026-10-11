@@ -50,6 +50,7 @@ type Config struct {
 	Moderation  Moderation  `yaml:"moderation"`
 	ModLog      ModLog      `yaml:"mod_log"`
 	Seeding     Seeding     `yaml:"seeding"`
+	Presence    Presence    `yaml:"presence"`
 	Server      Server      `yaml:"server"`
 	Log         Log         `yaml:"log"`
 }
@@ -117,6 +118,21 @@ type Seeding struct {
 // MinSeedingInterval is the seeding module's floor: each pass is two hub calls, and one more per
 // open session.
 const MinSeedingInterval = 10 * time.Second
+
+// Presence keeps the "who's playing now" card (discord/modules/presence, ADR-0017). Where it goes
+// and which games it counts are the Organization settings' discord.presence. Off by default: it
+// needs the gateway and Discord's privileged Presence Intent, which the application's owner turns
+// on in the Developer Portal (Bot → Privileged Gateway Intents). Without that toggle the bot still
+// runs and the card says it can't see who is playing.
+type Presence struct {
+	Enabled bool `yaml:"enabled"`
+	// Interval is how often the card is brought up to date: the longest a changed count waits.
+	Interval time.Duration `yaml:"interval"`
+}
+
+// MinPresenceInterval is the presence card's floor: each pass is one hub call, and an edit only
+// when a count changed.
+const MinPresenceInterval = 15 * time.Second
 
 // Discord is the application the bot runs as.
 type Discord struct {
@@ -189,6 +205,7 @@ func Default() Config {
 		Moderation:  Moderation{Command: "mod"},
 		ModLog:      ModLog{Interval: 15 * time.Second},
 		Seeding:     Seeding{Interval: 30 * time.Second},
+		Presence:    Presence{Interval: time.Minute},
 		Server:      Server{Listen: "127.0.0.1:8081", InternalListen: "127.0.0.1:9091", ShutdownTimeout: 15 * time.Second},
 		Log:         Log{Level: "info", Format: "json"},
 	}
@@ -328,6 +345,12 @@ func (c Config) Validate() error {
 	}
 	if c.Seeding.Interval < MinSeedingInterval {
 		bad("seeding.interval: %s is shorter than %s", c.Seeding.Interval, MinSeedingInterval)
+	}
+	if c.Presence.Interval < MinPresenceInterval {
+		bad("presence.interval: %s is shorter than %s", c.Presence.Interval, MinPresenceInterval)
+	}
+	if c.Presence.Enabled && !c.Discord.Gateway {
+		bad("presence.enabled: presence comes only over the gateway; set discord.gateway: true")
 	}
 	if c.Server.Listen == "" || c.Server.InternalListen == "" {
 		bad("server.listen and server.internal_listen: required")

@@ -10,6 +10,20 @@ patch release is everything else.
 
 ### Added
 
+- ADR-0017 (proposed; accepted when merged): "who's playing now", a presence card with counts only (hidden-token-gaming/htg#32, the presence half that ADR-0016 §7 deferred).
+
+- "Who's playing now", a stock bot module, `discord/modules/presence` (hidden-token-gaming/htg#32, ADR-0017).
+  - **The card:** one Components V2 message with a line per game ("**War Dogs** · 3 playing", "nobody right now"), the host's note, and when the counts last changed. It is edited in place only when a count changes and found again after a restart by its footer marker. It names no member and allows no mention.
+  - **What it sees:** guild presences over the gateway, a privileged intent. In memory only: each online member's playing and competing activities (name and application id). It starts from the guild's presences when the gateway delivers the guild, then follows each presence update and member leave. Offline members and other activities never count, and nothing reaches the hub or disk.
+  - **Honest when blind:** without the intent the card says the bot can't see what members are playing, never counts of nobody. Before the guild arrives, the card is left as it was.
+  - **Settings:** `discord.presence` (`channel`, `note`, up to 20 `games` of `game`, `label`, `activities` matched without regard to case, `application_ids`), every problem named, and no name or id counting for two games. `DiscordSettings.presence` (additive); `settings check` counts the games.
+  - **Config:** bot.yaml `presence {enabled, interval}`, off by default, every minute (at least 15 s), needing `discord.gateway`, shown by `config check`.
+  - **Metrics:** `gravel_bot_presence_playing{game}`, `gravel_bot_presence_members_tracked`, `gravel_bot_presence_updates_total{result}` and `gravel_bot_presence_last_success_timestamp_seconds`, on the bot dashboard's new Presence row.
+  - **Tests:** validation and manifest round trips; the API round trip; rendering; passes against a fake channel API with the runtime's real intent check, covering counting, matching, edits only on change, settings changes, waiting for the guild, the blind card and its recovery after the toggle, restarts, and every gateway event the view follows.
+  - **Docs:** docs/bot.md (Presence), docs/hub.md (Organization settings), deploy/bot.yaml.
+
+- Modules can ask for gateway intents: a module implementing `bot.IntentsModule` (`Intents() gateway.Intents`) adds them to the runtime's base, and `Registry.HasIntent` says what it got. For a privileged intent a module adds, the runtime reads the application's flags once at start. One the application isn't allowed in the Developer Portal is left out with an error naming the toggle, and `gravel_bot_gateway_intent_missing{intent}` is 1 (on the bot dashboard). Before, Discord would close the whole session (4014), so one module's missing toggle stopped the bot. `Runtime.Intents()` reports the session's intents. docs/bot.md ("A host's bot").
+
 - Signed images from every green push to `main`, so a host can deploy main without waiting for a release. CI's new `publish` job runs on a push to `main` once every other job has passed (never on a pull request) and publishes `ghcr.io/gravel-project/gravel-hub` and `gravel-bot` as `main-<commit>` and `main`: multi-arch, an SBOM attached, cosign-signed keyless with the identity `.github/workflows/ci.yml@refs/heads/main`, and `--certificate-github-workflow-sha` binds a signature to its commit. `gravel-postgres` is published the same way only when the push changed `deploy/postgres/`. `latest` and the version tags stay with releases. A main build reports `git describe`'s version without the `v` (`0.8.0-3-gabc1234`) and carries the commit in `org.opencontainers.image.revision`. docs/releasing.md ("Images from main") has the verify command and what a host gives up by running main.
 
 ### Fixed

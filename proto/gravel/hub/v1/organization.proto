@@ -168,6 +168,29 @@ message DiscordSettings {
   string mod_log = 5;
   // The seeding rules, at most 10 (the seeding module, ADR-0016).
   repeated DiscordSeeding seeding = 6;
+  // The "who's playing now" card (the presence module, ADR-0017); unset is none.
+  DiscordPresence presence = 7;
+}
+
+// One game on the presence card and how its Discord activity is recognized.
+message DiscordPresenceGame {
+  // The line's key, in the metrics: "wardogs".
+  string game = 1;
+  // What the card shows: "War Dogs".
+  string label = 2;
+  // Activity names as Discord shows them ("WARDOGS"), compared without regard to case.
+  repeated string activities = 3;
+  // The activities' Discord application ids.
+  repeated string application_ids = 4;
+}
+
+// The "who's playing now" card: one message, edited when a count changes. Counts only; the hub
+// and the bot keep no record of who played.
+message DiscordPresence {
+  string channel = 1;
+  // A line the host writes under the counts.
+  string note = 2;
+  repeated DiscordPresenceGame games = 3;
 }
 
 // StatsSeason is a named window of matches: from (included) to to (excluded), dates

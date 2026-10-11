@@ -214,9 +214,13 @@ func (p Program) configCheck(args []string, stdout, stderr io.Writer) int {
 	if cfg.Seeding.Enabled {
 		seeding = "every " + cfg.Seeding.Interval.String()
 	}
-	fmt.Fprintf(stdout, "config ok: application %s, commands %s, gateway %t, hub %s (public %s, client %s), token from %s, hub secret from %s, role sync %s, linked roles %t, server cards %s, seeding %s, listen %s, internal %s, modules %s\n",
+	presence := "off"
+	if cfg.Presence.Enabled {
+		presence = "every " + cfg.Presence.Interval.String()
+	}
+	fmt.Fprintf(stdout, "config ok: application %s, commands %s, gateway %t, hub %s (public %s, client %s), token from %s, hub secret from %s, role sync %s, linked roles %t, server cards %s, seeding %s, presence %s, listen %s, internal %s, modules %s\n",
 		cfg.Discord.ApplicationID, guilds, cfg.Discord.Gateway, cfg.Hub.URL, cfg.Hub.PublicURL, cfg.Hub.ClientID,
-		cfg.Discord.TokenSource(), cfg.Hub.SecretSource(), roleSync, cfg.LinkedRoles.Enabled, serverCards, seeding, cfg.Server.Listen, cfg.Server.InternalListen,
+		cfg.Discord.TokenSource(), cfg.Hub.SecretSource(), roleSync, cfg.LinkedRoles.Enabled, serverCards, seeding, presence, cfg.Server.Listen, cfg.Server.InternalListen,
 		strings.Join(names, ", "))
 	return 0
 }

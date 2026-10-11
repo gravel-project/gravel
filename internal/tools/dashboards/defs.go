@@ -187,7 +187,7 @@ func hubDashboard() dashboard {
 func botDashboard() dashboard {
 	return dashboard{
 		UID: "gravel-bot", Title: "gravel bot", BuildInfo: "gravel_bot_build_info",
-		Description: "The gravel Discord bot: the gateway, interactions against Discord's three seconds, role sync, Linked Roles, the server cards, the mod log, seeding, the moderation command and the Go runtime (gravel docs/bot.md, Observability).",
+		Description: "The gravel Discord bot: the gateway, interactions against Discord's three seconds, role sync, Linked Roles, the server cards, the mod log, seeding, the presence card, the moderation command and the Go runtime (gravel docs/bot.md, Observability).",
 		Rows: []row{
 			{Title: "Overview", Panels: []panel{
 				{Title: "Up", Kind: "stat", Width: 3, Mappings: upMap, Thresholds: []step{{Color: "red"}, {Value: 1, Color: "green"}}, Targets: []target{{Expr: `up{` + sel + `}`, Legend: "{{instance}}"}}},
@@ -266,6 +266,26 @@ func botDashboard() dashboard {
 				{Title: "Seeding record errors", Kind: "timeseries", Width: 6, Optional: "nothing failed to record in the range",
 					Description: "Failed attempts to record seeding minutes. They are retried every pass; an event the hub calls invalid is dropped alone and logged. A line that keeps rising is the hub away or the bot's app without participation:write.",
 					Targets:     []target{{Expr: `sum by (server) (increase(gravel_bot_seeding_record_errors_total{` + sel + `}[$__rate_interval]))`, Legend: "{{server}}"}}},
+			}},
+			{Title: "Presence", Panels: []panel{
+				{Title: "Playing now", Kind: "timeseries", Width: 12, Optional: "presence is off, places no card, or the bot can't see presences",
+					Description: "Members Discord shows playing each game on the presence card, at each pass. Only members who share their activity on Discord are seen; nothing about who is kept.",
+					Targets:     []target{{Expr: `max by (game) (gravel_bot_presence_playing{` + sel + `})`, Legend: "{{game}}"}}},
+				{Title: "Members seen playing", Kind: "stat", Width: 4, Optional: "presence is off",
+					Description: "Members in the bot's live view, online and playing anything; held in memory only.",
+					Targets:     []target{{Expr: `max(gravel_bot_presence_members_tracked{` + sel + `})`}}},
+				{Title: "Since the last presence pass", Kind: "stat", Unit: "s", Width: 4, Optional: "presence is off",
+					Description: "Orange after 5 minutes and red after 15 (five and fifteen default intervals). It also stalls while the gateway hasn't delivered the guild.",
+					Thresholds:  []step{{Color: "green"}, {Value: 300, Color: "orange"}, {Value: 900, Color: "red"}},
+					Targets:     []target{{Expr: `time() - max(gravel_bot_presence_last_success_timestamp_seconds{` + sel + `})`}}},
+				{Title: "Privileged intents left out", Kind: "stat", Width: 4, TextMode: "value_and_name", Optional: "no module asks for a privileged intent",
+					Mappings:    []valueMap{{Value: "0", Text: "Allowed", Color: "green"}, {Value: "1", Text: "Not enabled", Color: "red"}},
+					Thresholds:  []step{{Color: "green"}, {Value: 1, Color: "red"}},
+					Description: "A privileged intent a module asks for and the application isn't allowed in the Developer Portal (Bot, Privileged Gateway Intents). The bot runs without it; turn it on and restart the bot.",
+					Targets:     []target{{Expr: `max by (intent) (gravel_bot_gateway_intent_missing{` + sel + `})`, Legend: "{{intent}}"}}},
+				{Title: "Presence card updates", Kind: "timeseries", Width: 24, Optional: "presence is off or no count changed in the range",
+					Description: "posted or edited: a count changed; forbidden: the bot may not read or post in the channel; error: Discord failed, retried at the next pass.",
+					Targets:     []target{{Expr: `sum by (result) (increase(gravel_bot_presence_updates_total{` + sel + `}[$__rate_interval]))`, Legend: "{{result}}"}}},
 			}},
 			{Title: "Moderation command", Panels: []panel{
 				{Title: "Moderation commands", Kind: "timeseries", Width: 24, Optional: "the moderation command is off or nobody used it in the range",

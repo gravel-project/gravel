@@ -107,6 +107,12 @@ func settingsToProto(set org.Settings, at time.Time) *hubv1.OrganizationSettings
 			}
 			p.Discord.Seeding = append(p.Discord.Seeding, ps)
 		}
+		if pr := d.Presence; !pr.IsZero() {
+			p.Discord.Presence = &hubv1.DiscordPresence{Channel: pr.Channel, Note: pr.Note}
+			for _, g := range pr.Games {
+				p.Discord.Presence.Games = append(p.Discord.Presence.Games, &hubv1.DiscordPresenceGame{Game: g.Game, Label: g.Label, Activities: g.Activities, ApplicationIds: g.ApplicationIDs})
+			}
+		}
 	}
 	if st := set.Stats; !st.IsZero() {
 		p.Stats = &hubv1.StatsSettings{Public: st.Public, MinMatches: int32(st.MinMatches), Timezone: st.Timezone, //nolint:gosec // bounded by validation
@@ -161,6 +167,12 @@ func settingsFromProto(p *hubv1.OrganizationSettings) org.Settings {
 			rule.Hours = append(rule.Hours, org.SeedingHours{Days: h.GetDays(), From: h.GetFrom(), To: h.GetTo()})
 		}
 		set.Discord.Seeding = append(set.Discord.Seeding, rule)
+	}
+	if pr := d.GetPresence(); pr != nil {
+		set.Discord.Presence = org.Presence{Channel: pr.GetChannel(), Note: pr.GetNote()}
+		for _, g := range pr.GetGames() {
+			set.Discord.Presence.Games = append(set.Discord.Presence.Games, org.PresenceGame{Game: g.GetGame(), Label: g.GetLabel(), Activities: g.GetActivities(), ApplicationIDs: g.GetApplicationIds()})
+		}
 	}
 	st := p.GetStats()
 	set.Stats = org.Stats{Public: st.GetPublic(), MinMatches: int(st.GetMinMatches()), Timezone: st.GetTimezone(),

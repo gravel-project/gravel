@@ -52,6 +52,9 @@ server_cards:                    # the status cards; which server goes where is 
 seeding:                         # seeding calls and minutes, off by default (below); the rules are the Organization settings' discord.seeding
   enabled: false
   interval: 30s                  # how often the rules are checked and, during a session, who is on is read; at least 10s
+presence:                        # the "who's playing now" card, off by default (below); the card is the Organization settings' discord.presence
+  enabled: false                 # needs the gateway and the Presence Intent toggle
+  interval: 1m                   # how often the card is brought up to date; at least 15s
 server:
   listen: 127.0.0.1:8081         # /interactions, /healthz, /readyz; put TLS termination in front
   internal_listen: 127.0.0.1:9091   # /metrics; keep it off the public network
@@ -72,8 +75,8 @@ log:
 ## The Discord application
 
 In the Developer Portal: a Bot user; under Privileged Gateway Intents, **Server Members on**
-(role sync lists the guild's members, and the gateway's member events start a pass) and Message
-Content off; the application id and public key into the configuration; the token into a secret.
+(role sync lists the guild's members, and the gateway's member events start a pass), **Presence
+on only for the presence card** (below), and Message Content off; the application id and public key into the configuration; the token into a secret.
 Invite the bot with the `bot` and `applications.commands` scopes and the Manage Roles permission,
 and keep its role **above every role the mapping names** and below the staff roles: Discord lets a
 bot manage only the roles under its own.
@@ -293,6 +296,60 @@ retried at the next pass. With no rule the module idles and says so once. Metric
 - `gravel_bot_seeding_recorded_seconds_total{server}`;
 - `gravel_bot_seeding_record_errors_total{server}`.
 
+### Presence (`discord/modules/presence`)
+
+A "who's playing now" card: one message with how many members are playing each game right now
+(ADR-0017). Counts only. The card never names anyone, and nothing is stored.
+
+**The card.** The Organization settings' `discord.presence` (docs/hub.md, "Organization settings")
+places it:
+
+- `channel`: where the card lives;
+- `note`: an optional line under the counts;
+- `games`, up to 20, in the card's order: a `game` key (in the metrics), a `label` (on the card),
+  and how Discord's activity is recognized. `activities` are names as Discord shows them, compared
+  without regard to case; `application_ids` are the activities' Discord application ids. At least
+  one of the two is required, and a name or id counts for one game only.
+
+```text
+## Who's playing now
+**War Dogs** · 3 playing
+**Counter-Strike 2** · nobody right now
+Counts members who share their activity on Discord.
+-# `presence` · members who share their activity on Discord · changed 4 minutes ago
+```
+
+**What it sees.** The module asks the gateway for guild presences, a **privileged intent**: turn on
+**Presence Intent** under the application's Bot, Privileged Gateway Intents (a toggle under 100
+guilds). It keeps a live view in memory: for each online member, the names and application ids of
+what they are playing or competing in, nothing else. The view starts from the guild's presences
+when the gateway delivers the guild, and follows each presence update and member leave after it.
+Offline members and other activities (listening, streaming, a custom status) never enter it. Only
+members who share their activity on Discord are seen at all. A member counts once per game however
+many of their activities match it, and may count for two games.
+
+**Passes.** Every `interval`, a pass reads the settings and counts the view. The card is edited
+only when a count, a label or the note changed, so a quiet guild costs one hub call a pass and no
+Discord call. A settings change applies at the next pass, without waiting for a presence update.
+Like the server cards, the module finds its own card after a restart by the marker in its footer
+and posts a new one only when there is none, or when it was deleted.
+
+**When it can't see.** If the application isn't allowed the intent, the runtime leaves it out
+rather than lose the gateway (see [A host's bot](#a-hosts-bot)), and the card says the bot can't
+see what members are playing: never counts of nobody. Before the gateway has delivered the guild,
+the card is left as it was. `presence.enabled` needs `discord.gateway: true`, which `config check`
+enforces.
+
+The bot needs **View Channel, Send Messages and Read Message History** in the channel; the app
+needs no scope beyond reading the settings. A refusal is counted as `forbidden` and logged once; a
+Discord or hub failure is logged once while it lasts and retried at the next pass. With no card
+placed the module idles and says so once. Metrics:
+
+- `gravel_bot_presence_playing{game}`: each game's count at the last pass;
+- `gravel_bot_presence_members_tracked`: the live view's size;
+- `gravel_bot_presence_updates_total{result}` (`posted`, `edited`, `forbidden`, `error`);
+- `gravel_bot_presence_last_success_timestamp_seconds`.
+
 ### Moderation (`discord/modules/moderation`)
 
 The moderation slash command, `/<moderation.command>` (`/mod` by default), with a subcommand per
@@ -345,7 +402,19 @@ A module implements `Name()` and `Register(r *bot.Registry) error`; the registry
 commands with their handlers (disgo's `handler.CommandEvent`: reply with `CreateMessage`, or
 `DeferCreateMessage` then `UpdateInteractionResponse` for anything slower than three seconds),
 component handlers, gateway listeners and background jobs. A command name registered twice is a
-startup error. `hubclient.New` gives a module the hub's API as the app: `Identity()` and
+startup error.
+
+**Gateway intents.** The runtime asks the gateway for guilds and guild members (`Options.Intents`
+replaces that base). A module that needs more implements `bot.IntentsModule`
+(`Intents() gateway.Intents`), and the runtime asks for the union. For a **privileged** intent a
+module adds (presences, members, message content), the runtime first reads the application's
+flags, once at start. If the application isn't allowed the intent in the Developer Portal, the
+intent is left out, `gravel_bot_gateway_intent_missing{intent}` is 1, and an error names the
+toggle. Discord would otherwise close the whole session (4014), so one module's missing toggle
+costs that module and nothing else. A module checks what it got with `Registry.HasIntent`. When
+the flags can't be read, the intents are asked for as configured.
+
+`hubclient.New` gives a module the hub's API as the app: `Identity()` and
 `Organization()` are Connect clients that carry the bearer token and refresh it.
 
 ## Running it
@@ -389,6 +458,11 @@ of them (ADR-0009, `deploy/README.md` "Dashboards").
 | `gravel_bot_seeding_sessions_total` | counter | `server`, `outcome` (`started`, `reached`, `window_closed`) | seeding sessions opened by a call and how they ended | seeding off, or until the first session |
 | `gravel_bot_seeding_recorded_seconds_total` | counter | `server` | seeding time recorded as participation, every player together (a duplicate not counted) | seeding off, or until the first recording |
 | `gravel_bot_seeding_record_errors_total` | counter | `server` | failed attempts to record seeding minutes (retried every pass; an invalid event is dropped) | seeding off, or until the first failure |
+| `gravel_bot_gateway_intent_missing` | gauge | `intent` (`guild_presences`, `guild_members`, `message_content`) | 1 for a privileged intent a module asks for and the application isn't allowed, left out of the session; 0 when allowed | no module adds a privileged intent, or the gateway is off |
+| `gravel_bot_presence_playing` | gauge | `game` | members Discord shows playing the game, at the last pass | presence off, no card placed, the bot can't see presences, or the guild not delivered yet |
+| `gravel_bot_presence_members_tracked` | gauge | | members in the live view: online and playing anything | presence off |
+| `gravel_bot_presence_updates_total` | counter | `result` (`posted`, `edited`, `forbidden`, `error`) | presence card posts and edits, and the failures | presence off, or until the first update |
+| `gravel_bot_presence_last_success_timestamp_seconds` | gauge | | when the last pass brought the card up to date (an idle pass counts; waiting for the guild doesn't) | presence off (0 until the first such pass) |
 
 ## Tests
 
@@ -407,5 +481,12 @@ zone, both daylight-saving changes, overnight, overlaps) and as passes on a fake
 fake channel API and a fake hub: calls only inside a window, the cooldown, `call_at_start`, the
 floor and the window's end editing the same message, per-player seconds, recording once with retries
 and an invalid event dropped alone, restarts that resume or close a call, and a call that pings only
-its role. The gateway itself is disgo's and is not
-driven in tests.
+its role. The intents are tested against a fake application endpoint: allowed, allowed under 100
+guilds, refused (left out, the bot still builds), unreadable, the gateway off, and the base never
+checked. Presence is tested as rendering (counts, nobody, blind, escaped text) and as passes against
+a fake channel API with the runtime's own intent check: offline members, non-game activities,
+streaming and duplicates not counted, matching by name and by application id, an unchanged count
+costing no Discord call, one edit in place on a change, a settings change applied without an event,
+waiting for the guild, the card saying it can't see without the intent and showing counts after the
+toggle and a restart, finding its card again, and every gateway event the view follows. The gateway
+itself is disgo's and is not driven in tests.

@@ -2175,6 +2175,52 @@ components:
       title: ConfigStripped
       additionalProperties: false
       description: ConfigStripped is a key, or a whole section with no key, the server drops.
+    gravel.hub.v1.DiscordPresence:
+      type: object
+      properties:
+        channel:
+          type: string
+          title: channel
+        note:
+          type: string
+          title: note
+          description: A line the host writes under the counts.
+        games:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.DiscordPresenceGame'
+          title: games
+      title: DiscordPresence
+      additionalProperties: false
+      description: |-
+        The "who's playing now" card: one message, edited when a count changes. Counts only; the hub
+         and the bot keep no record of who played.
+    gravel.hub.v1.DiscordPresenceGame:
+      type: object
+      properties:
+        game:
+          type: string
+          title: game
+          description: 'The line''s key, in the metrics: "wardogs".'
+        label:
+          type: string
+          title: label
+          description: 'What the card shows: "War Dogs".'
+        activities:
+          type: array
+          items:
+            type: string
+          title: activities
+          description: Activity names as Discord shows them ("WARDOGS"), compared without regard to case.
+        applicationIds:
+          type: array
+          items:
+            type: string
+          title: application_ids
+          description: The activities' Discord application ids.
+      title: DiscordPresenceGame
+      additionalProperties: false
+      description: One game on the presence card and how its Discord activity is recognized.
     gravel.hub.v1.DiscordRecognition:
       type: object
       properties:
@@ -2326,6 +2372,11 @@ components:
             $ref: '#/components/schemas/gravel.hub.v1.DiscordSeeding'
           title: seeding
           description: The seeding rules, at most 10 (the seeding module, ADR-0016).
+        presence:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.DiscordPresence'
+          title: presence
+          description: The "who's playing now" card (the presence module, ADR-0017); unset is none.
       title: DiscordSettings
       additionalProperties: false
       description: |-
