@@ -124,6 +124,10 @@ make hub-vm                               # the CI drill: stock from nothing, re
 
 It needs `qemu-system-x86_64`, a writable `/dev/kvm`, `genisoimage` (or `xorriso`), `ssh` and Go.
 
+The VMs a hub makes for its game servers are the hub's, not the CLI's: they come from `servers.yaml`
+(`locations` and a server with `driver: cloudvm`) and boot from the same kind of document, and
+`deploy/game-vm.sh` rehearses one locally ([docs/hub.md](hub.md#cloud-vm-servers-adr-0003)).
+
 ## Commands
 
 | Command | What it does | Exit codes |

@@ -47,11 +47,18 @@ Also, when they apply:
 - `make generate` after editing a `.proto` file, a `.templ` page or the dashboard definitions
   (`internal/tools/dashboards/defs.go`). The generated code is committed and CI fails on drift.
 - `make a11y` when a page changes (axe over the pages; needs Node.js and Chrome).
-- `make hub-vm` when the hub host's cloud-init document (`internal/hubvm/templates/`), the stock
+- `make hub-vm` when the cloud-init document (`internal/vmdoc/templates/`, `internal/hubvm/templates/`), the stock
   units (`deploy/quadlet/`) or `deploy/hub-vm.sh` change: a stock hub booted in a local KVM VM,
   then a new instance on the same data disk (needs qemu, `/dev/kvm`, genisoimage and ssh; CI's
   `hub-vm` job runs it on every pull request). `go test ./internal/hubvm -update` rewrites the
   document's golden files after an intended change.
+- `make game-vm` when the cloud-init document (`internal/vmdoc/templates/`), the cloud-VM driver's
+  game units (`drivers/cloudvm/templates/`) or `deploy/game-vm.sh` change: a Counter-Strike 2 host
+  booted in a local KVM VM from the driver's document, its environment pushed over SSH and the
+  game's container started as the runtime user (same needs as `hub-vm`, and it pulls the 1.2 GB
+  game image, so CI does not run it). `deploy/game-vm.sh drill-full` also downloads the game
+  (about 60 GB), answers RCON and pushes its log; run it only on a fast link.
+  `go test ./internal/vmdoc ./drivers/cloudvm -update` rewrites the golden files.
 - `gravel-hub wardogs record` when War Dogs ships a new server build: the fixtures under
   `games/wardogs/testdata/<build>/` are recorded, reviewed and committed by a person
   ([games/wardogs/README.md](games/wardogs/README.md)).
