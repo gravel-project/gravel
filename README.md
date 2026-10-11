@@ -74,7 +74,7 @@ Under ADR-0001 these are hub resources first (rows behind the API). The operator
 A `ManagedServer` records a server that exists somewhere; a **driver** controls it. Each driver declares a **capabilities flag** and the UI only shows what the driver supports.
 
 - **Fully managed** — Agones underneath (port assignment, health, safe node drain). Agones is a hard dependency of the in-cluster path *only*; the framework must run without it for external-only hosts.
-- **Cloud-VM** — a single-tenant VM gravel creates, sizes, parks and destroys through the `cloud.Provider` interface (DigitalOcean first; AWS, Azure and Google Cloud behind the same interface later), the game under systemd from cloud-init, controlled over RCON and log push. The install lives on a detachable volume and a resize never touches disk; a vertical scaling policy walks a tier ladder (10 players → 20) only at a map change or match end ([ADR-0003](docs/adr/0003-cloud-vm-driver-behind-a-cloud-provider-interface.md)).
+- **Cloud-VM** — a single-tenant VM gravel creates, sizes, parks and destroys through the `cloud.Provider` interface (DigitalOcean first; AWS, Azure and Google Cloud behind the same interface later), the game under systemd from cloud-init, controlled over RCON and log push. The install lives on a detachable volume and a resize never touches disk; a vertical scaling policy walks a tier ladder (10 players → 20) only at a map change or match end ([ADR-0003](docs/adr/0003-cloud-vm-driver-behind-a-cloud-provider-interface.md)). The hub's **own** host is not a server: the `gravel` CLI makes it through the same interface, from outside, so it also works when there is no hub to recover ([ADR-0020](docs/adr/0020-the-hubs-own-host-made-by-the-cli-through-the-cloud-provider.md)).
 - **External but reachable** — RCON / SSH for stats and commands, no lifecycle control.
 - **Externally referenced** — registered so it shows in the UI; we can barely touch it.
 - The local-execution driver has **two flavors**: container-based (Linux) and native-process-based (Windows / bare). War Dogs, if ever brought in-cluster, rides the native flavor.
@@ -163,7 +163,7 @@ make check       # what CI runs: gofmt, vet, buf lint, golangci-lint, govulnchec
 make down
 ```
 
-The hub logs a one-time owner-claim token on first start; log in and paste it on the account page, or call `ClaimOwnership` with the session cookie ([docs/hub.md](docs/hub.md)). Login needs a Discord application; the stack runs without one ([deploy/README.md](deploy/README.md)). Production runs the same image as rootless quadlet units.
+The hub logs a one-time owner-claim token on first start; log in and paste it on the account page, or call `ClaimOwnership` with the session cookie ([docs/hub.md](docs/hub.md)). Login needs a Discord application; the stack runs without one ([deploy/README.md](deploy/README.md)). Production runs the same image as rootless quadlet units. On a cloud VM, `gravel hub create` makes the host and, with `--profile stock`, installs those units on it ([docs/cli.md](docs/cli.md), [ADR-0020](docs/adr/0020-the-hubs-own-host-made-by-the-cli-through-the-cloud-provider.md)).
 
 ## Local dev & runnability
 
@@ -203,7 +203,7 @@ A DigitalOcean droplet running Counter-Strike, deliberately cast as a **fake unt
 
 ## Repo layout (planned)
 
-- **This repo (`gravel`) is the monorepo for the core:** operator, core API, CLI, web UI, agent — everything that versions and releases together. Today: `cmd/gravel-hub` and `internal/` (the hub), `cmd/gravel-bot` and the public `discord/` tree (the bot runtime, the hub client and the stock modules a host's bot imports; ADR-0008), `proto/` with `gen/`, `deploy/`, `docs/`.
+- **This repo (`gravel`) is the monorepo for the core:** operator, core API, CLI, web UI, agent — everything that versions and releases together. Today: `cmd/gravel-hub` and `internal/` (the hub), `cmd/gravel-bot` and the public `discord/` tree (the bot runtime, the hub client and the stock modules a host's bot imports; ADR-0008), `cmd/gravel` (the operator's CLI) with `internal/hubvm` (the hub host's cloud-init document and steps; ADR-0020), `cloud/` (the cloud provider interface, its fake and conformance suite, and DigitalOcean; ADR-0003), `proto/` with `gen/`, `deploy/`, `docs/`.
 - **Separate repos across the plugin seams:** stats adapters (one per game) and the community game catalog. The repo boundary is the plugin boundary. **Until the open-source cut, adapters and drivers live here** as packages behind the same interfaces (ADR-0001). Each game's client library (its RCON, feed or log protocol) lives under `games/<game>/` with no gravel imports, enforced by a lint rule, so it becomes a standalone Go module at the cut; `drivers/<game>/` and `adapters/<game>/` are the gravel-side packages that use it.
 - Name rationale: `gsf` rejected (one letter off LinuxGSM's `GSM`), `grain` taken (grain-lang ships a `grain` binary), `grit` crowded, `gman` is Half-Life's. `gravel` is meaningful and effectively free; the only namesake is a small, low-activity Go build tool. "Gravel Server Manager = GSM" is a docs wink only, never the official expansion.
 
@@ -215,14 +215,14 @@ Revised by [ADR-0001](docs/adr/0001-hub-first-kubernetes-later.md) (2026-10-08).
 2. Identity: Discord and Steam login, `(provider, subject)` identities, sessions (#13, #5)
 3. External-reachable driver and the War Dogs adapter, the stats store, boards and moderation (#16, #4, #3, #17, #18)
 4. Composable Discord modules and OIDC for first-party apps (#15, #6), the participation API (#19)
-5. `gravel` CLI as a thin HTTP-JSON client, including `gravel claim` (ADR-0002)
-6. Operator + Agones as the fully managed driver, proven on a minimal DOKS cluster; the cloud provider interface and the DigitalOcean implementation; the cloud-VM driver with Counter-Strike 2 and vertical scaling at a map change; the Counter-Strike 2 adapter; the transient-server API (#21, #9, #35, #36, #37, #20; ADR-0003)
+5. `gravel` CLI: first `gravel hub`, the hub's own host through the cloud provider interface and its DigitalOcean implementation (#150, #35; ADR-0020); then the thin HTTP-JSON client, including `gravel claim` (ADR-0002)
+6. Operator + Agones as the fully managed driver, proven on a minimal DOKS cluster; the cloud-VM driver with Counter-Strike 2 and vertical scaling at a map change; the Counter-Strike 2 adapter; the transient-server API (#21, #9, #36, #37, #20; ADR-0003)
 7. Standalone agent for machines gravel does not own, and the untrusted-member test harness
 
 ## Open threads that need the outside world
 
 - **Design deltas from HTG (filed 2026-10-01, sequenced 2026-10-08):** #2 server-less games · #3 stats provenance · #4 inbound push ingestion · #5 identity pairs and proof-of-control · #6 OIDC for first-party apps · #7 branding and navigation · #8 publisher guardrails · #9 managed-path realities. The plan behind them is `hidden-token-gaming/handbook` `docs/plan.md` (private).
-- **DigitalOcean (ADR-0003, 2026-10-08):** #35 cloud provider interface and the DigitalOcean implementation · #36 cloud-VM driver · #37 vertical scaling policy. HTG's side: deploy#108 the stack and the measured region, deploy#109 the minimal DOKS cluster, deploy#110 the Counter-Strike 2 test Droplet.
+- **DigitalOcean (ADR-0003, 2026-10-08; ADR-0020, 2026-10-11):** #35 cloud provider interface and the DigitalOcean implementation and #150 `gravel hub` (the hub's own host; Hidden Token Gaming's hub moves onto it, hidden-token-gaming/deploy#93) · #36 cloud-VM driver · #37 vertical scaling policy. HTG's side: deploy#108 the stack and the measured region, deploy#109 the minimal DOKS cluster, deploy#110 the Counter-Strike 2 test Droplet.
 
 - **Lawyer:** raw-event retention (13-month placeholder), retention-for-ban-enforcement under GDPR, ToS + privacy policy for the public site.
 - **War Dogs:** stats confirmed to exist — pin down the exact format before building its adapter.

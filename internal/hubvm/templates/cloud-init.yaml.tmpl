@@ -1,0 +1,96 @@
+#cloud-config
+# A gravel hub host (ADR-0020), rendered by `gravel hub create` or `gravel hub cloud-init`.
+# Profile: {{ .Profile }}. Anything on the instance can read this document from the metadata
+# service, so it holds no secret: the stock profile's secrets are generated on the host at first
+# boot, and anything else (a tunnel token) is pushed over SSH afterwards.
+#
+# The data volume is the runtime user's home. Everything stateful lives there: podman's storage
+# (images, volumes, the secret store), the units, the configuration. A replacement instance that
+# boots this document on the same volume comes back as it was; the first boot of a volume is the
+# only one that formats it or installs anything into it.
+# The hostname is set in runcmd: cloud-init's own attempt runs before the system bus is up on
+# Fedora, fails once and marks the whole run degraded even though its retry succeeds.
+preserve_hostname: true
+timezone: Etc/UTC
+ssh_pwauth: false
+disable_root: true
+
+# Format the volume only if it holds no filesystem yet, then mount it as the runtime user's home.
+# disk_setup and mounts run before users_groups, so the user is created onto the mounted home.
+fs_setup:
+  - label: gravel-data
+    filesystem: ext4
+    device: {{ .DataDevice }}
+    overwrite: false
+mounts:
+  - [ "LABEL=gravel-data", "/home/{{ .User }}", "ext4", "defaults,nofail,x-systemd.device-timeout=60s", "0", "2" ]
+
+# admin maintains the OS (sudo). The runtime user runs the hub's rootless containers and has no
+# sudo; its uid and subordinate id ranges are fixed (bootcmd below), so the files on the volume
+# belong to the same ids on every instance that mounts it.
+users:
+  - name: admin
+    groups: [wheel]
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    shell: /bin/bash
+    lock_passwd: true
+    ssh_authorized_keys:
+{{- range .SSHKeys }}
+      - {{ printf "%q" . }}
+{{- end }}
+  - name: {{ .User }}
+    uid: {{ .UID }}
+    homedir: /home/{{ .User }}
+    shell: /bin/bash
+    lock_passwd: true
+    ssh_authorized_keys:
+{{- range .SSHKeys }}
+      - {{ printf "%q" . }}
+{{- end }}
+
+# Before useradd: the runtime user's subordinate ids, so useradd keeps them instead of choosing
+# the next free range (which would depend on the order users were made).
+bootcmd:
+  - [ sh, -c, "grep -q '^{{ .User }}:' /etc/subuid 2>/dev/null || echo '{{ .User }}:{{ .SubIDStart }}:65536' >> /etc/subuid" ]
+  - [ sh, -c, "grep -q '^{{ .User }}:' /etc/subgid 2>/dev/null || echo '{{ .User }}:{{ .SubIDStart }}:65536' >> /etc/subgid" ]
+
+package_update: true
+package_upgrade: false
+packages:
+{{- range .Packages }}
+  - {{ . }}
+{{- end }}
+
+write_files:
+  - path: /etc/ssh/sshd_config.d/10-gravel.conf
+    permissions: "0644"
+    content: |
+      PermitRootLogin no
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+  # Security updates only, applied by dnf-automatic's daily timer; no automatic reboot.
+  - path: /etc/dnf/automatic.conf
+    permissions: "0644"
+    content: |
+      [commands]
+      upgrade_type = security
+      apply_updates = yes
+      reboot = never
+      [emitters]
+      emit_via = stdio
+  - path: /usr/local/libexec/gravel/first-boot
+    permissions: "0755"
+    content: |
+{{ .FirstBoot | indent 6 }}
+{{- range .Files }}
+  - path: {{ .Path }}
+    permissions: "{{ .Mode }}"
+    content: |
+{{ .Content | indent 6 }}
+{{- end }}
+
+runcmd:
+  - [ hostnamectl, set-hostname, {{ .Hostname }} ]
+  - [ systemctl, enable, --now, dnf5-automatic.timer ]
+  - [ systemctl, reload, sshd ]
+  - [ /usr/local/libexec/gravel/first-boot ]

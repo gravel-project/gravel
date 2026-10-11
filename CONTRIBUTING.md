@@ -47,6 +47,11 @@ Also, when they apply:
 - `make generate` after editing a `.proto` file, a `.templ` page or the dashboard definitions
   (`internal/tools/dashboards/defs.go`). The generated code is committed and CI fails on drift.
 - `make a11y` when a page changes (axe over the pages; needs Node.js and Chrome).
+- `make hub-vm` when the hub host's cloud-init document (`internal/hubvm/templates/`), the stock
+  units (`deploy/quadlet/`) or `deploy/hub-vm.sh` change: a stock hub booted in a local KVM VM,
+  then a new instance on the same data disk (needs qemu, `/dev/kvm`, genisoimage and ssh; CI's
+  `hub-vm` job runs it on every pull request). `go test ./internal/hubvm -update` rewrites the
+  document's golden files after an intended change.
 - `gravel-hub wardogs record` when War Dogs ships a new server build: the fixtures under
   `games/wardogs/testdata/<build>/` are recorded, reviewed and committed by a person
   ([games/wardogs/README.md](games/wardogs/README.md)).

@@ -36,7 +36,8 @@ breaking. The public surfaces:
 | Metric names and labels (ADR-0009) | a series is renamed, loses a label or changes meaning; the dashboards change with it |
 | Deployment: quadlet unit, volume, network and secret names, compose service names, image names | a name a host's units or scripts use changes |
 | The database: migrations | a migration a host must run by hand, or one that can't be rolled back from |
-| The command lines of `gravel-hub` and `gravel-bot` | a command, flag or exit code a host's scripts rely on changes |
+| The command lines of `gravel-hub`, `gravel-bot` and `gravel` | a command, flag or exit code a host's scripts rely on changes |
+| What `gravel hub` makes: its tags (`gravel-hub`, `gravel-hub:<name>`), resource names (`<name>-data`, `gravel-hub-<name>`), the runtime user, its uid and subordinate ids, the volume's mount point | a name or id a hub made by an earlier release would no longer be found by, or would not mount with |
 
 0.1.0 to 0.6.0 were cut as minors under strict SemVer, one per feature; the rule above applies
 from the release after 0.6.0. What 1.0 means is a separate decision.
@@ -64,6 +65,7 @@ again; a tag can't be re-run against a different workflow file.
 | cosign signature (keyless, GitHub OIDC) and an SBOM, attached to the image | ghcr, beside the image |
 | `ghcr.io/gravel-project/gravel-postgres:X.Y.Z` and `:latest` (Postgres 17 plus WAL-G, multi-arch; `deploy/postgres/Containerfile`), cosign-signed, **only when `deploy/postgres/` changed since the previous release tag** (below) | ghcr, public |
 | `gravel-bot_X.Y.Z_linux_{amd64,arm64}.tar.gz` + `.sbom.json` each, and `ghcr.io/gravel-project/gravel-bot:X.Y.Z` and `:latest` (multi-arch, cosign-signed): the Discord bot with the stock modules (docs/bot.md) | the GitHub release; ghcr, public |
+| `gravel_X.Y.Z_{linux,darwin}_{amd64,arm64}.tar.gz` + `.sbom.json` each: the operator's CLI (docs/cli.md), no image | the GitHub release |
 
 ### The Postgres image has its own version line
 

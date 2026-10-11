@@ -1132,6 +1132,11 @@ migration has a `-- +goose Down` section so tests can reset a database.
 - **Production:** the quadlet units in `deploy/quadlet/` as rootless systemd user units, with
   the backup set from `deploy/quadlet/backup/`; see `deploy/README.md`. The config file must be
   readable by uid 65532, the container's user (mode 0644 is fine: it holds no secrets).
+- **A hub on a cloud VM:** `gravel hub create` makes the host (a firewall, a data volume that is
+  the runtime user's home, a Fedora instance from a cloud-init document) through a cloud provider,
+  and `--profile stock` installs these same units on it with secrets generated on the host;
+  `destroy` then `create` replaces the host with its data intact
+  ([docs/cli.md](cli.md), [ADR-0020](adr/0020-the-hubs-own-host-made-by-the-cli-through-the-cloud-provider.md)).
 
 The image is built by ko from `cmd/gravel-hub` on `gcr.io/distroless/static-debian12:nonroot`,
 runs as uid 65532, and has the binary at `/ko-app/gravel-hub` (`.ko.yaml`). Releases push it to
