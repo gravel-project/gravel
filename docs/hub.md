@@ -376,6 +376,16 @@ set gets a picture for every map: its own, else the fallback, else gravel's gene
 map to the status (`ServerStatus.rotation_map`, `next_rotation_map`), read at most once a minute;
 the server page shows the next one.
 
+**How to join.** A driver that knows how players reach its server puts it on the status as
+`ServerStatus.join {method, value, hint}`. `method` is `id` (paste `value` into the game's own
+server browser), `address` (`value` is host:port) or `uri` (a link that launches the game onto the
+server). `hint` is one line in the game's terms. It is public, since it is what a community
+shares to bring players in. The War Dogs driver reads the host's server ID (`GET /v1/server-id`) at
+most once every 10 minutes and offers it as `id` with "Paste it into Join by ID at the bottom left
+of the Community browser". That is the only way in that works (hidden-token-gaming/wardogs-server#8,
+2026-10-11): no launch URI and no `steam://connect` joins a War Dogs server. The server page and the
+Discord card show it while the server is live.
+
 ## Service credentials (ADR-0008)
 
 A first-party service (a host's Discord bot, later Muster) calls the API as an **app**, not as a
@@ -949,7 +959,7 @@ is the API's to decide, and a page says so in words when it is refused.
 | Page | Shows | Who sees what |
 |---|---|---|
 | `/servers` (also `/`) | every server: name, game, trust, state (Online, Offline, Checking, Unavailable), players and map | everyone |
-| `/servers/{id}` | the status with the team scores, the next map in the rotation and when it was observed, who is on (in-game name, team, kills, deaths, ping, a member badge), the last 10 matches, a link to the server's board | the status: everyone; who is on: members and the owner ("Log in to see who's on" otherwise); matches: as the boards |
+| `/servers/{id}` | the status with the team scores, the next map in the rotation, how to join (while live) and when it was observed, who is on (in-game name, team, kills, deaths, ping, a member badge), the last 10 matches, a link to the server's board | the status: everyone; who is on: members and the owner ("Log in to see who's on" otherwise); matches: as the boards |
 | `/members/{id}` (`/profile` is yours) | a member's totals over all time, this week, this month and each season running now (Official servers, every linked account), their participation over the same windows (a table per kind, [Participation](#participation-adr-0014)), their 20 most recent matches on any server, and on your own profile the switch that shows your name on leaderboards (`SetBoardName`) | the member, the owner and apps with `stats:read`; anyone when the member shows their name and `stats.public` is on; otherwise "no such profile", so a page never says who plays under a pseudonym. A named member on a board links here |
 | `/servers/{id}`, for the owner and moderators | per player in "Who's on": kick, ban or message, with a reason or the message; a Moderation section with a broadcast, a ban by SteamID64 for a player who isn't on, the ban list with unban, and the log link. A control shows only when the server's driver offers it (its capabilities). Every action goes through a confirmation page (`POST /servers/{id}/moderate`) that says exactly what will be sent, and is recorded in the audit log with the moderator's name | the owner and moderators ([Roles](#roles-adr-0013)) |
 | `/servers/{id}/log` | the server's moderation log, newest first: when, who (a member's name, or an app and who it acted for), the action, the player, the reason or message, the result | the owner and moderators |

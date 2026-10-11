@@ -641,6 +641,40 @@ func TestRenderMapImage(t *testing.T) {
 	}
 }
 
+// The card says how to join, from the driver (hidden-token-gaming/wardogs-server#8): the label for
+// the method, the value as code and the hint in small text; nothing while the server is degraded,
+// and a value that would leave its code span is cleaned.
+func TestRenderJoin(t *testing.T) {
+	s := live(23)
+	s.Status.NextRotationMap = "NorthAmerica"
+	s.Status.Join = &hubv1.ServerJoin{Method: "id", Value: "a968511e-a098-48ec-9bdb-909255478f15", Hint: "Paste it into Join by ID in the *Community* browser."}
+	want := "Next: NorthAmerica\n**Join by ID:** `a968511e-a098-48ec-9bdb-909255478f15`\n-# Paste it into Join by ID in the \\*Community\\* browser."
+	if got := text(servercards.RenderCard(s, servercards.Card{})); !strings.Contains(got, want) {
+		t.Errorf("join line:\n%s", got)
+	}
+	s.Status.Join = &hubv1.ServerJoin{Method: "address", Value: "203.0.113.7:27015"}
+	if got := text(servercards.RenderCard(s, servercards.Card{})); !strings.Contains(got, "**Connect:** `203.0.113.7:27015`") || strings.Contains(got, "-# \n") {
+		t.Errorf("an address, no hint:\n%s", got)
+	}
+	s.Status.Join = &hubv1.ServerJoin{Method: "id", Value: "abc`\n@everyone"}
+	if got := text(servercards.RenderCard(s, servercards.Card{})); !strings.Contains(got, "**Join by ID:** `abc@everyone`") {
+		t.Errorf("a value stays inside its code span:\n%s", got)
+	}
+	s.Status.Join = &hubv1.ServerJoin{Method: "id", Value: strings.Repeat("x", 201)}
+	if got := text(servercards.RenderCard(s, servercards.Card{})); strings.Contains(got, "Join by ID") {
+		t.Errorf("an overlong value is left out:\n%s", got)
+	}
+	down := live(23)
+	down.Status.State, down.Status.Reachable = "unreachable", false
+	down.Status.Join = &hubv1.ServerJoin{Method: "id", Value: "a968511e"}
+	if got := text(servercards.RenderCard(down, servercards.Card{})); strings.Contains(got, "Join by ID") {
+		t.Errorf("a degraded card offers no join:\n%s", got)
+	}
+	if got := text(servercards.RenderCard(live(23), servercards.Card{})); strings.Contains(got, "Join") {
+		t.Errorf("no join known, no line:\n%s", got)
+	}
+}
+
 // The image is part of the card: a map change edits the one message, and an unchanged map costs
 // no call.
 func TestMapChangeIsOneEdit(t *testing.T) {

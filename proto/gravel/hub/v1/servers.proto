@@ -80,6 +80,19 @@ message ServerStatus {
   // Dogs: the theatre, "Europe", where map is the level in play); empty when unknown.
   string rotation_map = 15;
   string next_rotation_map = 16;
+  // How a player gets onto the server from the game, when the driver knows; unset otherwise.
+  ServerJoin join = 17;
+}
+
+// ServerJoin is how a player reaches a server from the game. It is public: what a community
+// shares to bring players in.
+message ServerJoin {
+  // "id": paste value into the game's own server browser (War Dogs: Join by ID); "address":
+  // value is host:port; "uri": value is a link that launches the game onto the server.
+  string method = 1;
+  string value = 2;
+  // One line saying where the value goes, in the game's terms.
+  string hint = 3;
 }
 
 // Server is a server a driver controls (ManagedServer), as the public sees it: never its control

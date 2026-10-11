@@ -178,3 +178,76 @@ func TestStatusWithoutTheRotationRoute(t *testing.T) {
 		t.Errorf("status = %+v, %v, %d rotation reads", st, err, rotationReads(srv))
 	}
 }
+
+func idReads(srv *wardogstest.Server) int {
+	n := 0
+	for _, r := range srv.Requests() {
+		if r.Method == http.MethodGet && r.Path == "/v1/server-id" {
+			n++
+		}
+	}
+	return n
+}
+
+// The status says how players join: the host's server ID, pasted into Join by ID (the only way in
+// that works, hidden-token-gaming/wardogs-server#8), read at most once a JoinTTL.
+func TestStatusCarriesTheJoinID(t *testing.T) {
+	var failing atomic.Bool
+	srv := wardogstest.New(t, fixture, wardogstest.Options{Handle: map[string]http.HandlerFunc{
+		"GET /v1/server-id": func(w http.ResponseWriter, _ *http.Request) {
+			if failing.Load() {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			_, _ = io.WriteString(w, `{"serverId":" a968511e-a098-48ec-9bdb-909255478f15 "}`)
+		},
+	}})
+	d := newDriver(t, srv, wardogstest.Token)
+	now := time.Date(2026, 10, 11, 20, 0, 0, 0, time.UTC)
+	wardogs.SetNow(d, func() time.Time { return now })
+	ctx := context.Background()
+
+	st, err := d.Status(ctx)
+	want := drivers.Join{Method: drivers.JoinByID, Value: "a968511e-a098-48ec-9bdb-909255478f15", Hint: "Paste it into Join by ID at the bottom left of the Community browser."}
+	if err != nil || st.Join != want {
+		t.Fatalf("status = %+v, %v", st.Join, err)
+	}
+	now = now.Add(wardogs.JoinTTL - time.Second)
+	if _, err := d.Status(ctx); err != nil || idReads(srv) != 1 {
+		t.Errorf("within the TTL the ID is not read again: %d reads, %v", idReads(srv), err)
+	}
+	now = now.Add(time.Second)
+	if _, err := d.Status(ctx); err != nil || idReads(srv) != 2 {
+		t.Errorf("after it, it is: %d reads, %v", idReads(srv), err)
+	}
+	// A failed read never fails the status, and keeps the last good ID.
+	failing.Store(true)
+	now = now.Add(wardogs.JoinTTL)
+	if st, err := d.Status(ctx); err != nil || st.Join != want || idReads(srv) != 3 {
+		t.Errorf("a failed read: %+v, %v, %d reads", st.Join, err, idReads(srv))
+	}
+	// A first read that fails: no join, the status whole.
+	fresh := newDriver(t, srv, wardogstest.Token)
+	if st, err := fresh.Status(ctx); err != nil || st.Join != (drivers.Join{}) || st.Name == "" {
+		t.Errorf("no ID yet: %+v, %v", st, err)
+	}
+}
+
+// A build without the route, or a host that set no ID: no join, and the status as before.
+func TestStatusWithoutAServerID(t *testing.T) {
+	srv := wardogstest.New(t, fixture, wardogstest.Options{Remove: []string{"GET /v1/server-id"}})
+	d := newDriver(t, srv, wardogstest.Token)
+	ctx := context.Background()
+	if _, err := d.Capabilities(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if st, err := d.Status(ctx); err != nil || st.Join != (drivers.Join{}) || idReads(srv) != 0 {
+		t.Errorf("no route: %+v, %v, %d reads", st.Join, err, idReads(srv))
+	}
+	empty := wardogstest.New(t, fixture, wardogstest.Options{Handle: map[string]http.HandlerFunc{
+		"GET /v1/server-id": func(w http.ResponseWriter, _ *http.Request) { _, _ = io.WriteString(w, `{"serverId":""}`) },
+	}})
+	if st, err := newDriver(t, empty, wardogstest.Token).Status(ctx); err != nil || st.Join != (drivers.Join{}) {
+		t.Errorf("an unset ID: %+v, %v", st.Join, err)
+	}
+}

@@ -110,7 +110,8 @@ func TestAccessibility(t *testing.T) {
 		"/fixture/server-anonymous": func() templ.Component {
 			p := base
 			p.Title = online.Name
-			return templates.Server(templates.ServerPage{Page: p, Server: online, PlayersNote: "Log in to see who's on.", MatchesNote: "Match history is private on this hub.", BoardURL: "/boards"})
+			return templates.Server(templates.ServerPage{Page: p, Server: online, PlayersNote: "Log in to see who's on.", MatchesNote: "Match history is private on this hub.", BoardURL: "/boards",
+				Join: &templates.Join{Label: "Join by ID", Value: "a968511e-a098-48ec-9bdb-909255478f15", Hint: "Paste it into Join by ID at the bottom left of the Community browser."}})
 		},
 		// A game's page with its overlay (gravel#66): banner, game links, and the rig's War Dogs
 		// accent from /theme.css on the content.

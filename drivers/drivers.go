@@ -78,7 +78,28 @@ type Status struct {
 	// them in its rotation (War Dogs: the theatre, where Map is the level); empty when unknown.
 	RotationMap     string
 	NextRotationMap string
+	// Join is how a player gets onto the server from the game; zero when the driver knows no way.
+	Join Join
 }
+
+// Join is how a player reaches the server from the game: Method says what Value is, Hint says
+// where to use it, in the game's own terms. It is public: it is what a community shares to bring
+// players in.
+type Join struct {
+	// Method is JoinByID (paste Value in the game's own server browser), JoinByAddress (Value is
+	// host:port) or JoinByURI (Value is a link that launches the game onto the server); "" is none.
+	Method string
+	Value  string
+	// Hint is one line saying where Value goes: "Paste it into Join by ID in the Community browser."
+	Hint string
+}
+
+// The join methods.
+const (
+	JoinByID      = "id"
+	JoinByAddress = "address"
+	JoinByURI     = "uri"
+)
 
 // TeamScore is one team's (faction's) score.
 type TeamScore struct {

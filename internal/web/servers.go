@@ -138,6 +138,9 @@ func (h *Handler) server(w http.ResponseWriter, r *http.Request) {
 		at := t.AsTime()
 		sp.ObservedAt = &at
 	}
+	if j := s.GetStatus().GetJoin(); j.GetValue() != "" {
+		sp.Join = &templates.Join{Label: templates.JoinLabel(j.GetMethod()), Value: j.GetValue(), Hint: j.GetHint()}
+	}
 	for _, t := range s.GetStatus().GetTeams() {
 		sp.Teams = append(sp.Teams, templates.Team{Name: t.GetName(), Score: t.GetScore()})
 	}
