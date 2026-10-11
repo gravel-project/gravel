@@ -264,5 +264,8 @@ func describeDiscord(d org.Discord) string {
 	if n := len(d.Seeding); n > 0 {
 		out += fmt.Sprintf(", %d seeding rules", n)
 	}
+	if n := len(d.Presence.Games); n > 0 {
+		out += fmt.Sprintf(", a presence card with %d games", n)
+	}
 	return out
 }

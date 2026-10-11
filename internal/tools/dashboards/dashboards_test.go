@@ -67,6 +67,7 @@ func TestDashboardsMatchTheMetrics(t *testing.T) {
 	bcfg.Moderation.Enabled = true // off by default; on here so its metric is registered
 	bcfg.ModLog.Enabled = true     // likewise
 	bcfg.Seeding.Enabled = true    // likewise
+	bcfg.Presence.Enabled = true   // likewise
 	bcfg.Hub.URL, bcfg.Hub.PublicURL, bcfg.Hub.ClientID, bcfg.Hub.ClientSecret = "http://hub.invalid:8080", "https://app.example.com", "gravel_x", "s"
 	hc, err := hubclient.New(hubclient.Config{URL: bcfg.Hub.URL, ClientID: bcfg.Hub.ClientID, ClientSecret: bcfg.Hub.ClientSecret})
 	if err != nil {

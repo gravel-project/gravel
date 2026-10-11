@@ -1,8 +1,8 @@
 // Package stock is gravel's stock set of bot modules, as a bot.yaml enables them: core
 // (/whoami, /link) always, role sync, Linked Roles, the server cards, the moderation command, the
-// mod log and seeding when their sections turn them on. A host's bot starts from this set and adds
-// its own modules, so a module gravel adds later reaches every host bot at its next gravel upgrade
-// (ADR-0008 §1).
+// mod log, seeding and the presence card when their sections turn them on. A host's bot starts
+// from this set and adds its own modules, so a module gravel adds later reaches every host bot at
+// its next gravel upgrade (ADR-0008 §1).
 package stock
 
 import (
@@ -14,6 +14,7 @@ import (
 	"github.com/gravel-project/gravel/discord/modules/linkedroles"
 	"github.com/gravel-project/gravel/discord/modules/moderation"
 	"github.com/gravel-project/gravel/discord/modules/modlog"
+	"github.com/gravel-project/gravel/discord/modules/presence"
 	"github.com/gravel-project/gravel/discord/modules/rolesync"
 	"github.com/gravel-project/gravel/discord/modules/seeding"
 	"github.com/gravel-project/gravel/discord/modules/servercards"
@@ -43,6 +44,9 @@ func Modules(cfg bot.Config, hub *hubclient.Client) []bot.Module {
 	}
 	if cfg.Seeding.Enabled {
 		mods = append(mods, seeding.New(hub, seeding.Config{Interval: cfg.Seeding.Interval}))
+	}
+	if cfg.Presence.Enabled {
+		mods = append(mods, presence.New(hub, presence.Config{Interval: cfg.Presence.Interval}))
 	}
 	return mods
 }

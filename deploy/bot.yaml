@@ -42,6 +42,10 @@ seeding:                         # seeding calls and minutes for the Organizatio
   enabled: false
   interval: 30s                  # at least 10s
 
+presence:                        # the "who's playing now" card for the Organization settings' discord.presence; needs the gateway and the application's Presence Intent
+  enabled: false
+  interval: 1m                   # at least 15s
+
 server:
   listen: 0.0.0.0:8081           # /interactions, /healthz, /readyz
   internal_listen: 0.0.0.0:9091  # /metrics

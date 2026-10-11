@@ -229,6 +229,16 @@ discord:                     # what the bot manages (docs/bot.md); ids as quoted
       cooldown: 2h           # the least time between calls, 15m to 24h (default 2h)
       call_at_start: true    # a window's first call ignores a cooldown left from before it (default false)
       note: Join from the server browser.   # optional, one line of at most 200 characters
+  presence:                  # the "who's playing now" card (docs/bot.md "Presence"); counts only, nothing stored
+    channel: "…"             # where the card lives; the bot needs View Channel, Send Messages, Read Message History
+    note: Counts members who share their activity on Discord.   # optional, one line of at most 200 characters
+    games:                   # at least 1, at most 20, in the card's order
+      - game: wardogs        # the line's key, in the metrics (lower-case letters, digits, hyphens)
+        label: War Dogs      # what the card shows, at most 40 characters
+        activities: [WARDOGS]   # activity names as Discord shows them, any case; at most 10
+      - game: cs2
+        label: Counter-Strike 2
+        application_ids: ["…"]  # or the activity's Discord application id; at most 10
 stats:                       # the boards ([Stats](#stats-adr-0012))
   public: false              # true once the host's privacy policy covers stats; until then the owner and stats:read
   min_matches: 3             # a player's matches before a K/D board shows them (default 3)
@@ -297,6 +307,12 @@ next day, `from` equal to `to` is refused, and a rule's windows may not overlap.
 wall-clock in the zone, so HTG's `18:00`–`23:00` America/Chicago stays the evening across a
 daylight-saving change. A rule without windows never calls, and neither does a module that is off
 (`seeding.enabled` in bot.yaml). The bot's app needs `servers:read` and `participation:write`.
+
+The `presence` card (ADR-0017) needs a channel and at least one game. Each game needs an activity
+name or an application id to recognize it by, and no name (compared without regard to case) or id
+may count for two games. The card shows counts only, and only of members who share their activity
+on Discord: the bot keeps what they are playing in memory and nothing in the hub. It is drawn only
+by a bot with `presence.enabled` and the application's Presence Intent (docs/bot.md "Presence").
 
 ### Game overlays (gravel#66)
 

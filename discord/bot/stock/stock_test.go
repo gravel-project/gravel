@@ -53,4 +53,11 @@ func TestModules(t *testing.T) {
 	if got := names(cfg); got != "core,moderation,modlog,seeding" {
 		t.Errorf("seeding on: %s", got)
 	}
+	if bot.Default().Presence.Enabled {
+		t.Error("presence is off by default")
+	}
+	cfg.Presence.Enabled = true
+	if got := names(cfg); got != "core,moderation,modlog,seeding,presence" {
+		t.Errorf("presence on: %s", got)
+	}
 }

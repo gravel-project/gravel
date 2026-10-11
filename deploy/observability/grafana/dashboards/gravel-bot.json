@@ -2,7 +2,7 @@
   "annotations": {
     "list": []
   },
-  "description": "The gravel Discord bot: the gateway, interactions against Discord's three seconds, role sync, Linked Roles, the server cards, the mod log, seeding, the moderation command and the Go runtime (gravel docs/bot.md, Observability).",
+  "description": "The gravel Discord bot: the gateway, interactions against Discord's three seconds, role sync, Linked Roles, the server cards, the mod log, seeding, the presence card, the moderation command and the Go runtime (gravel docs/bot.md, Observability).",
   "editable": false,
   "graphTooltip": 1,
   "panels": [
@@ -1591,6 +1591,359 @@
       },
       "id": 29,
       "panels": [],
+      "title": "Presence",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Members Discord shows playing each game on the presence card, at each pass. Only members who share their activity on Discord are seen; nothing about who is kept. No data is expected when presence is off, places no card, or the bot can't see presences.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gravelOptional": "presence is off, places no card, or the bot can't see presences",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 59
+      },
+      "id": 30,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "max by (game) (gravel_bot_presence_playing{job=\"$job\", instance=~\"$instance\"})",
+          "legendFormat": "{{game}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Playing now",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Members in the bot's live view, online and playing anything; held in memory only. No data is expected when presence is off.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gravelOptional": "presence is off",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 59
+      },
+      "id": 31,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "max(gravel_bot_presence_members_tracked{job=\"$job\", instance=~\"$instance\"})",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Members seen playing",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Orange after 5 minutes and red after 15 (five and fifteen default intervals). It also stalls while the gateway hasn't delivered the guild. No data is expected when presence is off.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 300
+              },
+              {
+                "color": "red",
+                "value": 900
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gravelOptional": "presence is off",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 59
+      },
+      "id": 32,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "time() - max(gravel_bot_presence_last_success_timestamp_seconds{job=\"$job\", instance=~\"$instance\"})",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Since the last presence pass",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "A privileged intent a module asks for and the application isn't allowed in the Developer Portal (Bot, Privileged Gateway Intents). The bot runs without it; turn it on and restart the bot. No data is expected when no module asks for a privileged intent.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "green",
+                  "index": 0,
+                  "text": "Allowed"
+                },
+                "1": {
+                  "color": "red",
+                  "index": 1,
+                  "text": "Not enabled"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gravelOptional": "no module asks for a privileged intent",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 59
+      },
+      "id": 33,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "max by (intent) (gravel_bot_gateway_intent_missing{job=\"$job\", instance=~\"$instance\"})",
+          "legendFormat": "{{intent}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Privileged intents left out",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "posted or edited: a count changed; forbidden: the bot may not read or post in the channel; error: Discord failed, retried at the next pass. No data is expected when presence is off or no count changed in the range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gravelOptional": "presence is off or no count changed in the range",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 67
+      },
+      "id": 34,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (result) (increase(gravel_bot_presence_updates_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "{{result}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Presence card updates",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 75
+      },
+      "id": 35,
+      "panels": [],
       "title": "Moderation command",
       "type": "row"
     },
@@ -1630,9 +1983,9 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 59
+        "y": 76
       },
-      "id": 30,
+      "id": 36,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -1665,9 +2018,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 67
+        "y": 84
       },
-      "id": 31,
+      "id": 37,
       "panels": [],
       "title": "Runtime",
       "type": "row"
@@ -1706,9 +2059,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 68
+        "y": 85
       },
-      "id": 32,
+      "id": 38,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -1769,9 +2122,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 68
+        "y": 85
       },
-      "id": 33,
+      "id": 39,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -1832,9 +2185,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 68
+        "y": 85
       },
-      "id": 34,
+      "id": 40,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -1895,9 +2248,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 76
+        "y": 93
       },
-      "id": 35,
+      "id": 41,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -1958,9 +2311,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 76
+        "y": 93
       },
-      "id": 36,
+      "id": 42,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2021,9 +2374,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 76
+        "y": 93
       },
-      "id": 37,
+      "id": 43,
       "options": {
         "legend": {
           "displayMode": "list",

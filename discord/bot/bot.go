@@ -45,6 +45,17 @@ type Module interface {
 	Register(r *Registry) error
 }
 
+// IntentsModule is a module that needs gateway intents beyond the runtime's (guilds and guild
+// members): presence needs guild presences. The runtime asks Discord for the union. A privileged
+// intent (members, presences, message content) the application isn't allowed in the Developer
+// Portal is left out instead, with an error logged and gravel_bot_gateway_intent_missing set, so
+// one module's missing toggle never stops the bot: Discord would close the whole session (4014).
+// The module sees what it got through Registry.HasIntent.
+type IntentsModule interface {
+	Module
+	Intents() gateway.Intents
+}
+
 // Job is background work that runs for the life of the bot: a reconciler's loop, a poller. It
 // returns when ctx is done; an error stops the bot (a supervisor restarts it).
 type Job func(ctx context.Context) error
@@ -61,6 +72,8 @@ type Registry struct {
 	listen   []disgobot.EventListener
 
 	client  *disgobot.Client
+	intents gateway.Intents
+	gateway bool
 	metrics prometheus.Registerer
 	logger  *slog.Logger
 }
@@ -110,6 +123,10 @@ func (r *Registry) Rest() rest.Rest { return r.client.Rest }
 // ApplicationID is the application the bot runs as.
 func (r *Registry) ApplicationID() snowflake.ID { return r.client.ApplicationID }
 
+// HasIntent reports whether the gateway session asks for every intent in i: false when the
+// gateway is off, and for a privileged intent the application isn't allowed (IntentsModule).
+func (r *Registry) HasIntent(i gateway.Intents) bool { return r.gateway && r.intents.Has(i) }
+
 // Metrics registers a module's collectors beside the runtime's, on /metrics.
 func (r *Registry) Metrics() prometheus.Registerer { return r.metrics }
 
@@ -121,7 +138,8 @@ type Options struct {
 	Config  Config
 	Logger  *slog.Logger
 	Version string
-	// Intents replaces the default gateway intents (guilds and guild members).
+	// Intents replaces the default gateway intents (guilds and guild members). Modules add theirs
+	// (IntentsModule).
 	Intents *gateway.Intents
 	// RESTURL replaces Discord's API base, for tests against a fake.
 	RESTURL string
@@ -137,6 +155,7 @@ type Runtime struct {
 	client  *disgobot.Client
 	router  *handler.Mux
 	modules []Module
+	intents gateway.Intents
 
 	commands []discord.ApplicationCommandCreate
 	jobs     []namedJob
@@ -211,9 +230,9 @@ func New(opts Options, modules ...Module) (*Runtime, error) {
 	}
 	rt.registry.MustRegister(buildInfo, rt.interactions, rt.interactionDuration, rt.jobResults, gatewayCollector{rt})
 
-	intents := defaultIntents
+	base := defaultIntents
 	if opts.Intents != nil {
-		intents = *opts.Intents
+		base = *opts.Intents
 	}
 	httpClient := opts.HTTPClient
 	if httpClient == nil {
@@ -223,13 +242,19 @@ func New(opts Options, modules ...Module) (*Runtime, error) {
 	if opts.RESTURL != "" {
 		restOpts = append(restOpts, rest.WithURL(opts.RESTURL))
 	}
+	intentMissing := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "gravel_bot_gateway_intent_missing",
+		Help: "1 for a privileged gateway intent a module needs and the application isn't allowed in the Developer Portal, left out of the session.",
+	}, []string{"intent"})
+	rt.registry.MustRegister(intentMissing)
+	rt.intents = rt.gatewayIntents(cfg, base, modules, restOpts, intentMissing)
 	clientOpts := []disgobot.ConfigOpt{
 		disgobot.WithLogger(logger),
 		disgobot.WithRestClientConfigOpts(restOpts...),
 		disgobot.WithEventListeners(rt.router, rt.gatewayStatus()),
 	}
 	if cfg.Discord.Gateway {
-		clientOpts = append(clientOpts, disgobot.WithGatewayConfigOpts(gateway.WithIntents(intents), gateway.WithAutoReconnect(true)))
+		clientOpts = append(clientOpts, disgobot.WithGatewayConfigOpts(gateway.WithIntents(rt.intents), gateway.WithAutoReconnect(true)))
 	}
 	client, err := disgo.New(cfg.Discord.Token, clientOpts...)
 	if err != nil {
@@ -241,7 +266,8 @@ func New(opts Options, modules ...Module) (*Runtime, error) {
 	// through the one rate limiter.
 	names := map[string]string{}
 	for _, m := range modules {
-		reg := &Registry{module: m.Name(), router: rt.router, names: names, client: client, metrics: rt.registry, logger: logger.With("module", m.Name())}
+		reg := &Registry{module: m.Name(), router: rt.router, names: names, client: client, intents: rt.intents, gateway: cfg.Discord.Gateway,
+			metrics: rt.registry, logger: logger.With("module", m.Name())}
 		if err := m.Register(reg); err != nil {
 			client.Close(context.Background())
 			return nil, fmt.Errorf("bot: module %s: %w", m.Name(), err)
@@ -254,6 +280,62 @@ func New(opts Options, modules ...Module) (*Runtime, error) {
 	rt.public = rt.buildPublic(key)
 	rt.internal = rt.buildInternal()
 	return rt, nil
+}
+
+// privileged are the gateway intents Discord gates behind the Developer Portal's toggles, each with
+// the application flags that allow it (the full grant, or the one for bots in under 100 guilds).
+var privileged = []struct {
+	intent gateway.Intents
+	name   string
+	flags  discord.ApplicationFlags
+}{
+	{gateway.IntentGuildPresences, "guild_presences", discord.ApplicationFlagGatewayPresence | discord.ApplicationFlagGatewayPresenceLimited},
+	{gateway.IntentGuildMembers, "guild_members", discord.ApplicationFlagGatewayGuildMembers | discord.ApplicationFlagGatewayGuildMemberLimited},
+	{gateway.IntentMessageContent, "message_content", discord.ApplicationFlagGatewayMessageContent | discord.ApplicationFlagGatewayMessageContentLimited},
+}
+
+// gatewayIntents is the session's intents: the base and every module's, less a privileged intent
+// a module added that the application isn't allowed. The base is the host's choice and is not
+// checked. When the application can't be read, the intents are asked for as they are and Discord
+// decides.
+func (rt *Runtime) gatewayIntents(cfg Config, base gateway.Intents, modules []Module, restOpts []rest.ClientConfigOpt, missing *prometheus.GaugeVec) gateway.Intents {
+	intents := base
+	wanted := map[gateway.Intents][]string{}
+	for _, m := range modules {
+		if im, ok := m.(IntentsModule); ok {
+			add := im.Intents()
+			intents |= add
+			for _, p := range privileged {
+				if add.Has(p.intent) && !base.Has(p.intent) {
+					wanted[p.intent] = append(wanted[p.intent], m.Name())
+				}
+			}
+		}
+	}
+	if !cfg.Discord.Gateway || len(wanted) == 0 {
+		return intents
+	}
+	app, err := rest.New(rest.NewClient(cfg.Discord.Token, restOpts...)).GetCurrentApplication()
+	if err != nil {
+		rt.logger.Warn("cannot read the application's privileged intents; asking for them as configured", "error", err.Error())
+		return intents
+	}
+	for _, p := range privileged {
+		mods, ok := wanted[p.intent]
+		if !ok {
+			continue
+		}
+		if app.Flags&p.flags != 0 {
+			missing.WithLabelValues(p.name).Set(0)
+			continue
+		}
+		intents &^= p.intent
+		missing.WithLabelValues(p.name).Set(1)
+		rt.logger.Error("a privileged gateway intent is not enabled for the application, so it is left out and the modules that need it go without",
+			"intent", p.name, "modules", strings.Join(mods, ","), "application_id", cfg.Discord.ApplicationID,
+			"fix", "Discord Developer Portal → the application → Bot → Privileged Gateway Intents, then restart the bot")
+	}
+	return intents
 }
 
 // observe counts every routed interaction.
@@ -358,6 +440,10 @@ func (rt *Runtime) InternalHandler() http.Handler { return rt.internal }
 
 // Client is the disgo client, for a module that needs the REST API outside an interaction.
 func (rt *Runtime) Client() *disgobot.Client { return rt.client }
+
+// Intents are the gateway intents the session asks for: the base, the modules' (IntentsModule),
+// less any privileged one the application isn't allowed.
+func (rt *Runtime) Intents() gateway.Intents { return rt.intents }
 
 // Commands are the slash commands the modules registered, in registration order.
 func (rt *Runtime) Commands() []discord.ApplicationCommandCreate { return rt.commands }
