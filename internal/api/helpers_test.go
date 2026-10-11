@@ -89,7 +89,10 @@ func newRig(t *testing.T) *rig {
 	mux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(r.org, logger), member))
 	mux.Handle(hubv1connect.NewIdentityServiceHandler(api.NewIdentityServer(r.ids, r.sess, r.org, logger), member))
 	mux.Handle(hubv1connect.NewServerServiceHandler(api.NewServerServer(r.srvs, r.obs, r.ids, logger), member))
-	mux.Handle(hubv1connect.NewModerationServiceHandler(api.NewModerationServer(mod, r.org, r.ids, logger), member))
+	modServer := api.NewModerationServer(mod, r.org, r.ids, logger)
+	mux.Handle(hubv1connect.NewModerationServiceHandler(modServer, member))
+	// No cloud-VM manager: every host request that passes the caller checks is not_found.
+	mux.Handle(hubv1connect.NewServerHostServiceHandler(api.NewHostServer(servers.NewHosts(r.srvs, nil, r.audit, o.ID, logger), modServer, r.org, logger), member))
 	mux.Handle(hubv1connect.NewServerConfigServiceHandler(api.NewConfigServer(mod, r.org, logger), member))
 	mux.Handle(hubv1connect.NewStatsServiceHandler(api.NewStatsServer(boards, part, r.org, r.ids, logger), member))
 	mux.Handle(hubv1connect.NewAppServiceHandler(api.NewAppServer(r.apps, logger), member))

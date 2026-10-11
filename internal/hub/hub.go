@@ -62,6 +62,8 @@ type Options struct {
 	CloudProviders func(ctx context.Context, l cloudvm.Location) (cloud.Provider, error)
 	Remote         cloudvm.Remote
 	Egress         func(ctx context.Context) ([]string, error)
+	// Games replaces the cloud-VM driver's game controls, by Game spec id.
+	Games map[string]cloudvm.GameFactory
 }
 
 // Hub is a started-but-not-listening service: handlers are ready, Run serves them.
@@ -275,7 +277,11 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 	if cvm.Egress == nil {
 		cvm.Egress = h.egress
 	}
-	h.cloudvm = cloudvm.NewManager(h.hosts, h.hosts, games, cvm)
+	gameControls := opts.Games
+	if gameControls == nil {
+		gameControls = games
+	}
+	h.cloudvm = cloudvm.NewManager(h.hosts, h.hosts, gameControls, cvm)
 	h.hosts.Attach(h.cloudvm)
 	registry := Drivers(DriverDeps{CloudVM: h.cloudvm})
 	h.monitor = servers.NewMonitor(h.servers, registry, h.jobs, h.registry, "gravel-hub/"+h.version, logger)
@@ -415,7 +421,9 @@ func (h *Hub) buildAPI() *http.ServeMux {
 	mux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(h.org, h.logger), interceptors))
 	mux.Handle(hubv1connect.NewIdentityServiceHandler(api.NewIdentityServer(h.ids, h.sess, h.org, h.logger), interceptors))
 	mux.Handle(hubv1connect.NewServerServiceHandler(api.NewServerServer(h.servers, h.monitor, h.ids, h.logger), interceptors))
-	mux.Handle(hubv1connect.NewModerationServiceHandler(api.NewModerationServer(h.moderation, h.org, h.ids, h.logger), interceptors))
+	moderation := api.NewModerationServer(h.moderation, h.org, h.ids, h.logger)
+	mux.Handle(hubv1connect.NewModerationServiceHandler(moderation, interceptors))
+	mux.Handle(hubv1connect.NewServerHostServiceHandler(api.NewHostServer(h.hosts, moderation, h.org, h.logger), interceptors))
 	mux.Handle(hubv1connect.NewServerConfigServiceHandler(api.NewConfigServer(h.moderation, h.org, h.logger), interceptors))
 	mux.Handle(hubv1connect.NewStatsServiceHandler(api.NewStatsServer(h.stats, h.participation, h.org, h.ids, h.logger), interceptors))
 	mux.Handle(hubv1connect.NewAppServiceHandler(api.NewAppServer(h.apps, h.logger), interceptors))
@@ -428,7 +436,7 @@ func (h *Hub) buildPublic() http.Handler {
 	scopes := h.scopes()
 	mux := http.NewServeMux()
 	services := []string{hubv1connect.OrganizationServiceName, hubv1connect.IdentityServiceName, hubv1connect.ServerServiceName,
-		hubv1connect.ModerationServiceName, hubv1connect.ServerConfigServiceName, hubv1connect.StatsServiceName, hubv1connect.AppServiceName}
+		hubv1connect.ModerationServiceName, hubv1connect.ServerHostServiceName, hubv1connect.ServerConfigServiceName, hubv1connect.StatsServiceName, hubv1connect.AppServiceName}
 	for _, svc := range services {
 		mux.Handle("/"+svc+"/", h.api)
 	}

@@ -1,0 +1,158 @@
+syntax = "proto3";
+
+package gravel.hub.v1;
+
+import "google/protobuf/timestamp.proto";
+import "gravel/hub/v1/moderation.proto";
+
+option go_package = "github.com/gravel-project/gravel/gen/gravel/hub/v1;hubv1";
+
+// ServerHost is the VM a cloud-VM server runs on (ADR-0003): what the hub wants of it, where it is,
+// and what it costs.
+message ServerHost {
+  string server_id = 1;
+  // The manifest's location ("do-sfo3"), its cloud ("digitalocean") and region ("sfo3").
+  string location = 2;
+  string provider = 3;
+  string region = 4;
+  // "running", "parked" or "absent" (destroyed).
+  string desired = 5;
+  // "absent", "creating", "booting", "starting", "running", "parking", "parked", "resizing" or
+  // "destroying". running and parked are where a host rests; the others are transitions.
+  string state = 6;
+  // The step within a transition ("volume", "instance", "env", "game"); "" when settled.
+  string step = 7;
+  // A word while a step keeps failing ("cloud_failed", "boot_timeout", "install_timeout",
+  // "ssh_host_key_changed", …); "" otherwise. The cause is in the hub's log.
+  string error_code = 8;
+  int32 attempts = 9;
+  // When the host entered its state.
+  google.protobuf.Timestamp since = 10;
+  // The size it runs at ("c-2") and the one a resize is moving it to ("" for none).
+  string size = 11;
+  string target_size = 12;
+  int32 disk_gib = 13;
+  int32 volume_gib = 14;
+  // The address players join; "" while it has none.
+  string address = 15;
+  // The address is reserved: it survives a park and a resize.
+  bool address_reserved = 16;
+  // The price of the size, per hour, in US dollars; this month's running time and the instance's
+  // cost so far (the volume and the reserved address bill on top).
+  double hourly_price_usd = 17;
+  int64 running_seconds_month = 18;
+  double month_cost_usd = 19;
+  // From asking for the instance to its first boot, and to the game answering.
+  int32 boot_seconds = 20;
+  int32 ready_seconds = 21;
+  google.protobuf.Timestamp instance_created_at = 22;
+  // The sizes the host can be resized to now (running hosts only), with their prices.
+  repeated HostSize sizes = 23;
+  // A host is parked after the server has been empty this long; 0 never.
+  int64 park_after_seconds = 24;
+}
+
+// HostSize is a size a host may move to.
+message HostSize {
+  string slug = 1;
+  int32 vcpus = 2;
+  int32 memory_mib = 3;
+  int32 disk_gib = 4;
+  double price_hourly_usd = 5;
+  double price_monthly_usd = 6;
+  bool dedicated_cpu = 7;
+}
+
+// HostEvent is one transition of a host.
+message HostEvent {
+  int64 id = 1;
+  google.protobuf.Timestamp at = 2;
+  string from_state = 3;
+  string to_state = 4;
+  string step = 5;
+  // A word or a size ("idle", "unpark", "c-2 to c-4", "resize_failed"); never an address.
+  string detail = 6;
+  string size = 7;
+  // The audit-log row of the request behind the transition (ListAuditLog); 0 for the hub's own.
+  int64 audit_id = 8;
+}
+
+message GetServerHostRequest {
+  string server_id = 1;
+}
+
+message GetServerHostResponse {
+  ServerHost host = 1;
+}
+
+message ListServerHostEventsRequest {
+  string server_id = 1;
+  // At most 200; 0 is 200.
+  int32 page_size = 2;
+  string page_token = 3;
+}
+
+message ListServerHostEventsResponse {
+  repeated HostEvent events = 1;
+  string next_page_token = 2;
+}
+
+message SetServerHostDesiredRequest {
+  string server_id = 1;
+  // "running" (unpark) or "parked" (park).
+  string desired = 2;
+  string reason = 3;
+  // The moderator an app acts for (a bot command); unset for anyone acting in person.
+  Actor on_behalf_of = 4;
+}
+
+message SetServerHostDesiredResponse {
+  ServerHost host = 1;
+  int64 audit_id = 2;
+}
+
+message ResizeServerHostRequest {
+  string server_id = 1;
+  // A size from ServerHost.sizes.
+  string size = 2;
+  // Resize with players on (they are disconnected for the few minutes it takes).
+  bool force = 3;
+  string reason = 4;
+}
+
+message ResizeServerHostResponse {
+  ServerHost host = 1;
+  int64 audit_id = 2;
+}
+
+message DestroyServerHostRequest {
+  string server_id = 1;
+  // Delete the data volume (the game's install) and release the reserved address too; without
+  // them both stay, and a server put back in the manifest is made again on them.
+  bool delete_volume = 2;
+  bool release_address = 3;
+  string reason = 4;
+}
+
+message DestroyServerHostResponse {
+  ServerHost host = 1;
+  int64 audit_id = 2;
+}
+
+// ServerHostService looks after the VMs cloud-VM servers run on (ADR-0003). Every write is an
+// audit-log row; the host's state machine carries it out, and its transitions name the row.
+service ServerHostService {
+  // GetServerHost is a server's host. A member, the owner, or an app with servers:read;
+  // not_found for a server that is not a cloud-VM server.
+  rpc GetServerHost(GetServerHostRequest) returns (GetServerHostResponse);
+  // ListServerHostEvents is a host's transitions, newest first. Who may GetServerHost.
+  rpc ListServerHostEvents(ListServerHostEventsRequest) returns (ListServerHostEventsResponse);
+  // SetServerHostDesired parks or unparks a host. The owner, a moderator, or an app with
+  // servers:moderate (acting for itself or for a moderator).
+  rpc SetServerHostDesired(SetServerHostDesiredRequest) returns (SetServerHostDesiredResponse);
+  // ResizeServerHost moves a running host to another size now. The owner only;
+  // failed_precondition with players on unless force.
+  rpc ResizeServerHost(ResizeServerHostRequest) returns (ResizeServerHostResponse);
+  // DestroyServerHost removes a parked host's remains. The owner only.
+  rpc DestroyServerHost(DestroyServerHostRequest) returns (DestroyServerHostResponse);
+}

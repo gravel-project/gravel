@@ -1089,6 +1089,207 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.PlanServerConfigResponse'
+  /gravel.hub.v1.ServerHostService/DestroyServerHost:
+    post:
+      tags:
+        - gravel.hub.v1.ServerHostService
+      summary: DestroyServerHost
+      description: DestroyServerHost removes a parked host's remains. The owner only.
+      operationId: gravel.hub.v1.ServerHostService.DestroyServerHost
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.DestroyServerHostRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.DestroyServerHostResponse'
+  /gravel.hub.v1.ServerHostService/GetServerHost:
+    post:
+      tags:
+        - gravel.hub.v1.ServerHostService
+      summary: GetServerHost
+      description: |-
+        GetServerHost is a server's host. A member, the owner, or an app with servers:read;
+         not_found for a server that is not a cloud-VM server.
+      operationId: gravel.hub.v1.ServerHostService.GetServerHost
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.GetServerHostRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.GetServerHostResponse'
+  /gravel.hub.v1.ServerHostService/ListServerHostEvents:
+    post:
+      tags:
+        - gravel.hub.v1.ServerHostService
+      summary: ListServerHostEvents
+      description: ListServerHostEvents is a host's transitions, newest first. Who may GetServerHost.
+      operationId: gravel.hub.v1.ServerHostService.ListServerHostEvents
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.ListServerHostEventsRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.ListServerHostEventsResponse'
+  /gravel.hub.v1.ServerHostService/ResizeServerHost:
+    post:
+      tags:
+        - gravel.hub.v1.ServerHostService
+      summary: ResizeServerHost
+      description: |-
+        ResizeServerHost moves a running host to another size now. The owner only;
+         failed_precondition with players on unless force.
+      operationId: gravel.hub.v1.ServerHostService.ResizeServerHost
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.ResizeServerHostRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.ResizeServerHostResponse'
+  /gravel.hub.v1.ServerHostService/SetServerHostDesired:
+    post:
+      tags:
+        - gravel.hub.v1.ServerHostService
+      summary: SetServerHostDesired
+      description: |-
+        SetServerHostDesired parks or unparks a host. The owner, a moderator, or an app with
+         servers:moderate (acting for itself or for a moderator).
+      operationId: gravel.hub.v1.ServerHostService.SetServerHostDesired
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.SetServerHostDesiredRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.SetServerHostDesiredResponse'
   /gravel.hub.v1.ServerService/GetServerStatus:
     post:
       tags:
@@ -2217,6 +2418,39 @@ components:
       title: ConfigStripped
       additionalProperties: false
       description: ConfigStripped is a key, or a whole section with no key, the server drops.
+    gravel.hub.v1.DestroyServerHostRequest:
+      type: object
+      properties:
+        serverId:
+          type: string
+          title: server_id
+        deleteVolume:
+          type: boolean
+          title: delete_volume
+          description: |-
+            Delete the data volume (the game's install) and release the reserved address too; without
+             them both stay, and a server put back in the manifest is made again on them.
+        releaseAddress:
+          type: boolean
+          title: release_address
+        reason:
+          type: string
+          title: reason
+      title: DestroyServerHostRequest
+      additionalProperties: false
+    gravel.hub.v1.DestroyServerHostResponse:
+      type: object
+      properties:
+        host:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.ServerHost'
+          title: host
+        auditId:
+          type: string
+          title: audit_id
+          format: int64
+      title: DestroyServerHostResponse
+      additionalProperties: false
     gravel.hub.v1.DiscordPresence:
       type: object
       properties:
@@ -2869,6 +3103,23 @@ components:
           title: warnings
       title: GetServerConfigResponse
       additionalProperties: false
+    gravel.hub.v1.GetServerHostRequest:
+      type: object
+      properties:
+        serverId:
+          type: string
+          title: server_id
+      title: GetServerHostRequest
+      additionalProperties: false
+    gravel.hub.v1.GetServerHostResponse:
+      type: object
+      properties:
+        host:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.ServerHost'
+          title: host
+      title: GetServerHostResponse
+      additionalProperties: false
     gravel.hub.v1.GetServerStatusRequest:
       type: object
       properties:
@@ -2954,6 +3205,73 @@ components:
           description: The players with the most kills in those matches, at most five, each with a kill.
       title: GetSessionRecapResponse
       additionalProperties: false
+    gravel.hub.v1.HostEvent:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+          format: int64
+        at:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: at
+        fromState:
+          type: string
+          title: from_state
+        toState:
+          type: string
+          title: to_state
+        step:
+          type: string
+          title: step
+        detail:
+          type: string
+          title: detail
+          description: A word or a size ("idle", "unpark", "c-2 to c-4", "resize_failed"); never an address.
+        size:
+          type: string
+          title: size
+        auditId:
+          type: string
+          title: audit_id
+          format: int64
+          description: The audit-log row of the request behind the transition (ListAuditLog); 0 for the hub's own.
+      title: HostEvent
+      additionalProperties: false
+      description: HostEvent is one transition of a host.
+    gravel.hub.v1.HostSize:
+      type: object
+      properties:
+        slug:
+          type: string
+          title: slug
+        vcpus:
+          type: integer
+          title: vcpus
+          format: int32
+        memoryMib:
+          type: integer
+          title: memory_mib
+          format: int32
+        diskGib:
+          type: integer
+          title: disk_gib
+          format: int32
+        priceHourlyUsd:
+          type: number
+          title: price_hourly_usd
+          format: double
+        priceMonthlyUsd:
+          type: number
+          title: price_monthly_usd
+          format: double
+        dedicatedCpu:
+          type: boolean
+          title: dedicated_cpu
+      title: HostSize
+      additionalProperties: false
+      description: HostSize is a size a host may move to.
     gravel.hub.v1.Identity:
       type: object
       properties:
@@ -3198,6 +3516,35 @@ components:
             $ref: '#/components/schemas/gravel.hub.v1.Ban'
           title: bans
       title: ListServerBansResponse
+      additionalProperties: false
+    gravel.hub.v1.ListServerHostEventsRequest:
+      type: object
+      properties:
+        serverId:
+          type: string
+          title: server_id
+        pageSize:
+          type: integer
+          title: page_size
+          format: int32
+          description: At most 200; 0 is 200.
+        pageToken:
+          type: string
+          title: page_token
+      title: ListServerHostEventsRequest
+      additionalProperties: false
+    gravel.hub.v1.ListServerHostEventsResponse:
+      type: object
+      properties:
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.HostEvent'
+          title: events
+        nextPageToken:
+          type: string
+          title: next_page_token
+      title: ListServerHostEventsResponse
       additionalProperties: false
     gravel.hub.v1.ListServerPlayersRequest:
       type: object
@@ -3849,6 +4196,38 @@ components:
           description: One per event, in the request's order.
       title: RecordParticipationResponse
       additionalProperties: false
+    gravel.hub.v1.ResizeServerHostRequest:
+      type: object
+      properties:
+        serverId:
+          type: string
+          title: server_id
+        size:
+          type: string
+          title: size
+          description: A size from ServerHost.sizes.
+        force:
+          type: boolean
+          title: force
+          description: Resize with players on (they are disconnected for the few minutes it takes).
+        reason:
+          type: string
+          title: reason
+      title: ResizeServerHostRequest
+      additionalProperties: false
+    gravel.hub.v1.ResizeServerHostResponse:
+      type: object
+      properties:
+        host:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.ServerHost'
+          title: host
+        auditId:
+          type: string
+          title: audit_id
+          format: int64
+      title: ResizeServerHostResponse
+      additionalProperties: false
     gravel.hub.v1.RevokeAppGrantRequest:
       type: object
       properties:
@@ -3919,11 +4298,129 @@ components:
           allOf:
             - $ref: '#/components/schemas/gravel.hub.v1.ServerStatus'
           title: status
+        driver:
+          type: string
+          title: driver
+          description: |-
+            The driver that controls it: "wardogs" (a server the hub reaches), "cloudvm" (one on a VM the
+             hub makes, which has a ServerHost).
       title: Server
       additionalProperties: false
       description: |-
         Server is a server a driver controls (ManagedServer), as the public sees it: never its control
          address or where its credential is.
+    gravel.hub.v1.ServerHost:
+      type: object
+      properties:
+        serverId:
+          type: string
+          title: server_id
+        location:
+          type: string
+          title: location
+          description: The manifest's location ("do-sfo3"), its cloud ("digitalocean") and region ("sfo3").
+        provider:
+          type: string
+          title: provider
+        region:
+          type: string
+          title: region
+        desired:
+          type: string
+          title: desired
+          description: '"running", "parked" or "absent" (destroyed).'
+        state:
+          type: string
+          title: state
+          description: |-
+            "absent", "creating", "booting", "starting", "running", "parking", "parked", "resizing" or
+             "destroying". running and parked are where a host rests; the others are transitions.
+        step:
+          type: string
+          title: step
+          description: The step within a transition ("volume", "instance", "env", "game"); "" when settled.
+        errorCode:
+          type: string
+          title: error_code
+          description: |-
+            A word while a step keeps failing ("cloud_failed", "boot_timeout", "install_timeout",
+             "ssh_host_key_changed", …); "" otherwise. The cause is in the hub's log.
+        attempts:
+          type: integer
+          title: attempts
+          format: int32
+        since:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: since
+          description: When the host entered its state.
+        size:
+          type: string
+          title: size
+          description: The size it runs at ("c-2") and the one a resize is moving it to ("" for none).
+        targetSize:
+          type: string
+          title: target_size
+        diskGib:
+          type: integer
+          title: disk_gib
+          format: int32
+        volumeGib:
+          type: integer
+          title: volume_gib
+          format: int32
+        address:
+          type: string
+          title: address
+          description: The address players join; "" while it has none.
+        addressReserved:
+          type: boolean
+          title: address_reserved
+          description: 'The address is reserved: it survives a park and a resize.'
+        hourlyPriceUsd:
+          type: number
+          title: hourly_price_usd
+          format: double
+          description: |-
+            The price of the size, per hour, in US dollars; this month's running time and the instance's
+             cost so far (the volume and the reserved address bill on top).
+        runningSecondsMonth:
+          type: string
+          title: running_seconds_month
+          format: int64
+        monthCostUsd:
+          type: number
+          title: month_cost_usd
+          format: double
+        bootSeconds:
+          type: integer
+          title: boot_seconds
+          format: int32
+          description: From asking for the instance to its first boot, and to the game answering.
+        readySeconds:
+          type: integer
+          title: ready_seconds
+          format: int32
+        instanceCreatedAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: instance_created_at
+        sizes:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.HostSize'
+          title: sizes
+          description: The sizes the host can be resized to now (running hosts only), with their prices.
+        parkAfterSeconds:
+          type: string
+          title: park_after_seconds
+          format: int64
+          description: A host is parked after the server has been empty this long; 0 never.
+      title: ServerHost
+      additionalProperties: false
+      description: |-
+        ServerHost is the VM a cloud-VM server runs on (ADR-0003): what the hub wants of it, where it is,
+         and what it costs.
     gravel.hub.v1.ServerJoin:
       type: object
       properties:
@@ -3988,7 +4485,9 @@ components:
           title: state
           description: |-
             "unknown" (not polled yet), "ok", "unreachable", "credential_refused", "credential_missing",
-             "rate_limited" or "error". The cause of a failure is in the hub's log, never here.
+             "rate_limited" or "error"; for a cloud-VM server whose host is not running, "parked" or
+             "provisioning" (being made, started, resized or parked). The cause of a failure is in the
+             hub's log, never here.
         reachable:
           type: boolean
           title: reachable
@@ -4082,6 +4581,39 @@ components:
           type: boolean
           title: show_name
       title: SetBoardNameResponse
+      additionalProperties: false
+    gravel.hub.v1.SetServerHostDesiredRequest:
+      type: object
+      properties:
+        serverId:
+          type: string
+          title: server_id
+        desired:
+          type: string
+          title: desired
+          description: '"running" (unpark) or "parked" (park).'
+        reason:
+          type: string
+          title: reason
+        onBehalfOf:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.Actor'
+          title: on_behalf_of
+          description: The moderator an app acts for (a bot command); unset for anyone acting in person.
+      title: SetServerHostDesiredRequest
+      additionalProperties: false
+    gravel.hub.v1.SetServerHostDesiredResponse:
+      type: object
+      properties:
+        host:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.ServerHost'
+          title: host
+        auditId:
+          type: string
+          title: audit_id
+          format: int64
+      title: SetServerHostDesiredResponse
       additionalProperties: false
     gravel.hub.v1.SetUserRoleRequest:
       type: object
@@ -4367,6 +4899,10 @@ tags:
        The errors: invalid_argument for a document the hub refuses (the problems are in the message);
        aborted for a server whose configuration moved since the plan; failed_precondition for a server
        that does not let the hub read or write its configuration now; unavailable as for moderation.
+  - name: gravel.hub.v1.ServerHostService
+    description: |-
+      ServerHostService looks after the VMs cloud-VM servers run on (ADR-0003). Every write is an
+       audit-log row; the host's state machine carries it out, and its transitions name the row.
   - name: gravel.hub.v1.IdentityService
     description: |-
       IdentityService is the logged-in member's account and the lookups role sync needs. Every
