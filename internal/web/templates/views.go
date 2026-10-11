@@ -77,7 +77,12 @@ type Flash struct {
 type Org struct {
 	Name  string
 	Owned bool
+	// Demo is a demo hub's (gravel#112): every page says its data is made up.
+	Demo bool
 }
+
+// DemoNotice is what every page of a demo hub says, above everything else.
+const DemoNotice = "Demo data: these members, matches and stats are made up"
 
 // User is the logged-in member.
 type User struct {

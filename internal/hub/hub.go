@@ -129,7 +129,22 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 		}
 	}
 
-	h.org = org.New(st, cfg.Claim.TokenTTL, logger).WithGames(servers.GameIDs())
+	// A demo database is served only by a hub that says so on every page (gravel#112): made-up
+	// members and matches never pass for real ones.
+	seeded, err := st.HasDemoMembers(ctx)
+	if err != nil {
+		st.Close()
+		return nil, fmt.Errorf("hub: %w", err)
+	}
+	if seeded && !cfg.Demo {
+		st.Close()
+		return nil, errors.New("hub: the database holds demo members (gravel-hub demo seed); a hub serving it must set demo: true in hub.yaml, so every page says the data is made up")
+	}
+	if cfg.Demo {
+		logger.Warn("this is a demo hub: every page says its members, matches and stats are made up", "seeded", seeded)
+	}
+
+	h.org = org.New(st, cfg.Claim.TokenTTL, logger).WithGames(servers.GameIDs()).WithDemo(cfg.Demo)
 	o, token, err := h.org.EnsureBuiltin(ctx, cfg.Organization.Name)
 	if err != nil {
 		st.Close()

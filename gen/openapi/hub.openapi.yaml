@@ -3435,6 +3435,12 @@ components:
           type: string
           title: owner_user_id
           description: The user who claimed ownership; unset while unowned.
+        demo:
+          type: boolean
+          title: demo
+          description: |-
+            Whether this hub is a demo (hub.yaml demo: true): its members, matches and stats are made up,
+             and a client says so wherever it shows them.
       title: Organization
       additionalProperties: false
       description: |-

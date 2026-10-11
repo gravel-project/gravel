@@ -20,6 +20,11 @@ templ Layout(p Page) {
 		</head>
 		<body>
 			<a class="skip" href="#page">Skip to content</a>
+			if p.Org.Demo {
+				<section class="demo" aria-label="Demo hub">
+					<p>{ DemoNotice }</p>
+				</section>
+			}
 			<header class="top">
 				<a class="brand" href="/">
 					if p.Theme.LogoURL != "" {

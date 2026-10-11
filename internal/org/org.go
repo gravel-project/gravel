@@ -53,6 +53,8 @@ type Service struct {
 	// games are the game ids UpdateSettings accepts in the settings (Settings.CheckGames); nil
 	// skips the check.
 	games []string
+	// demo is a demo hub's (hub.yaml demo: true, gravel#112): its data is made up.
+	demo bool
 }
 
 // New builds a service whose claim tokens live for ttl.
@@ -66,6 +68,16 @@ func (s *Service) WithGames(ids []string) *Service {
 	s.games = slices.Sorted(slices.Values(ids))
 	return s
 }
+
+// WithDemo marks the organization as a demo hub's, whose members, matches and stats are made up
+// (gravel#112), and returns s.
+func (s *Service) WithDemo(demo bool) *Service {
+	s.demo = demo
+	return s
+}
+
+// Demo reports whether this is a demo hub.
+func (s *Service) Demo() bool { return s.demo }
 
 // EnsureBuiltin creates the built-in organization if it does not exist, keeps its name in step
 // with the configuration and, while it is unowned, mints a fresh owner-claim token. The token is
