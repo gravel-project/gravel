@@ -1,7 +1,8 @@
 // Package ingest receives the events a server pushes into the hub (ADR-0011): War Dogs'
-// [WDServerFeed] first, Counter-Strike 2's HTTP log and MatchZy with P4. One route authenticates
-// the server by its feed token, commits the batch as received to ingest_batches and only then
-// answers: the sources do not retry, so that insert is all the durability they get. Parsing reads
+// [WDServerFeed] first, then Counter-Strike 2's HTTP log (the log route, log.go: the token in the
+// path, because the game sends no header). Each route authenticates the server by its feed token,
+// commits the batch to ingest_batches (redacted of secrets, for a source that can carry them) and
+// only then answers: the sources do not retry, so that insert is all the durability they get. Parsing reads
 // the stored batches afterwards (an adapter's job), so a parser bug or a game update loses
 // nothing. Batches are a 30-day buffer, pruned by a hub job.
 package ingest
@@ -159,6 +160,8 @@ type Handler struct {
 
 	batches *prometheus.CounterVec
 	last    *prometheus.GaugeVec
+	// log is the log-push route's configuration (log.go).
+	log logConfig
 }
 
 // NewHandler builds the route and registers its metrics.
@@ -169,7 +172,7 @@ func NewHandler(keys *Keyring, st Store, orgID uuid.UUID, reg prometheus.Registe
 		failures: ratelimit.New(failuresPerMinute, failuresBurst),
 		batches: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Name: "gravel_ingest_batches_total",
-			Help: "Requests to the ingest route, by server, source and result (stored, unauthorized, rate_limited, too_large, bad_request, error).",
+			Help: "Requests to the ingest routes, by server, source and result (stored, unauthorized, address_mismatch, rate_limited, too_large, bad_request, error).",
 		}, []string{"server", "source", "result"}),
 		last: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "gravel_ingest_last_batch_timestamp_seconds",
@@ -193,6 +196,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	server, source, ok := "", "", false
 	if token = strings.TrimSpace(token); token != "" {
 		server, source, ok = h.keys.Match(token)
+	}
+	if ok {
+		// A log source's token is for the log route, which holds it to the server's address.
+		h.log.mu.RLock()
+		_, isLog := h.log.sources[source]
+		h.log.mu.RUnlock()
+		ok = !isLog
 	}
 	if !ok {
 		if allowed, retry := h.failures.Allow(ratelimit.ClientIP(r)); !allowed {

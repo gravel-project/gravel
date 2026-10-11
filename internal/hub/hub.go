@@ -27,6 +27,7 @@ import (
 	"github.com/gravel-project/gravel/drivers/cloudvm"
 	cs2game "github.com/gravel-project/gravel/drivers/cloudvm/cs2"
 	wardogsdriver "github.com/gravel-project/gravel/drivers/wardogs"
+	"github.com/gravel-project/gravel/games/cs2"
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
 	"github.com/gravel-project/gravel/internal/api"
 	"github.com/gravel-project/gravel/internal/apps"
@@ -303,6 +304,11 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 	// the credentials, and the stored batches are pruned after their retention.
 	h.feeds = ingest.NewKeyring()
 	h.ingest = ingest.NewHandler(h.feeds, st, o.ID, h.registry, logger)
+	// A cloud-VM server's log push (CS2's logaddress_add_http) comes from its own host, is kept
+	// redacted, and feeds the driver's roster, which is how its players are known.
+	h.ingest.SetLogSource("cs2", ingest.LogSource{Headers: cs2.LogHeaders, Redact: cs2.RedactLog})
+	h.ingest.SetLogTap(h.cloudvm)
+	h.ingest.SetAddressPin(h.cloudvm)
 	h.jobs.Start(jobs.Job{Name: "ingest_feeds", Every: servers.ReconcileEvery, Immediate: true, Run: h.refreshFeeds})
 	h.jobs.Start(jobs.Job{Name: "ingest_prune", Every: ingest.PruneEvery, Run: func(ctx context.Context) error {
 		return ingest.Prune(ctx, st, time.Now(), logger)
@@ -459,6 +465,7 @@ func (h *Hub) buildPublic() http.Handler {
 	// unknown app token. It limits itself (per server, and per address for bad tokens).
 	top := http.NewServeMux()
 	top.Handle("POST "+ingest.Path, h.metrics.HTTP("ingest", h.ingest))
+	top.Handle("POST "+ingest.LogPath, h.metrics.HTTP("ingest_log", http.HandlerFunc(h.ingest.ServeLog)))
 	top.Handle("/", httpx.Chain(mux, csrf.Handler, h.sess.Middleware, h.apps.Middleware))
 	return httpx.Chain(top,
 		httpx.RequestID,
