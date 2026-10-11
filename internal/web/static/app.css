@@ -63,3 +63,6 @@ button + a { margin-left: .75rem; }
 /* Apps a member allows (ADR-0015): the consent page and the account page's list. */
 .scopes { margin: .25rem 0; padding-left: 1.25rem; }
 form.consent { display: flex; gap: .75rem; flex-wrap: wrap; margin-top: 1rem; }
+/* A demo hub (gravel#112): every page says its data is made up, above everything else. */
+.demo { padding: .5rem 1rem; text-align: center; font-weight: 700; color: var(--fg); background: var(--bg); border-bottom: 3px solid var(--accent); }
+.demo p { margin: 0; }

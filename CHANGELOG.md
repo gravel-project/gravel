@@ -30,6 +30,19 @@ patch release is everything else.
     Mutation checks: no resume, no restart search, ignoring Retry-After and trusting another author's marker each fail a named test.
   - **Docs:** docs/bot.md (Streams), docs/hub.md (Organization settings), deploy/bot.yaml, CLAUDE.md.
 
+- A demo hub (#112): a separate hub that shows boards, match lists, profiles, moderation history and a live server card before a community exists. Production gets no fake rows.
+  - **`demo: true` in hub.yaml** (default false): every page shows "Demo data: these members, matches and stats are made up" above the header, in both themes and under the CSP. `Organization.demo` (additive) tells API clients, and `config check` says the hub is a demo. A hub without it refuses to start on a database that holds demo members.
+  - **`gravel-hub demo seed [--days 90] [--members 40] [--seed N] [--profile F]`** writes made-up history. It writes members with display names and linked Discord and Steam identities, three of them moderators and most showing their names. Each War Dogs server in `servers.yaml` gets past matches of 10 to 40 players: mostly unlinked passers-by under pseudonyms, some members. Each match has faction scores and per-minute occupancy. There are also audit-log moderation entries and bans, some lifted. It is deterministic for a seed.
+    - **What it refuses:** a hub without `demo: true` (before the database is opened), a hub with no War Dogs server, and any database that holds a user who is not a demo member or any history at all (matches, audit entries, bans, ingest batches, participation, rollups, occupancy, pseudonyms) or a registered app. It decides under a table lock in the one transaction that writes (`store.SeedDemo`), and writes nothing when it refuses.
+    - **The demo marker:** every identity it writes has verification method `demo`. Its Discord ids and SteamIDs are below any real account's.
+  - **`gravel-hub demo wardogs-server --listen ADDR --token-file F [--profile F] [--seed N]`** runs `games/wardogs/wardogsim`, a simulated War Dogs server. It answers the RCON API as the newest recorded build does, from the fixtures, now embedded in the binary (`wardogs.Recordings`, `NewestRecording`).
+    - **Players and matches:** made-up players join and leave on a daily curve and rejoin. Kills and deaths accumulate, matches end, the rotation moves and the counters reset.
+    - **The server's behaviour:** moderation, configuration get, validate and put with the revision and `If-Match`, apply times per section with a daily restart, the three-strike token lock, Retry-After and the request limits.
+    - **The feed:** it posts kill batches to `[WDServerFeed]` when set. The batch shape is a documented guess, isolated in `wardogsim/feed.go`, until a real batch is captured.
+  - **Calibration profile** (`--profile`): population by hour, match and session length, kill rate and spread, rejoin rate and restart hour. Distributions only, decoded strictly, with a built-in default.
+  - **Tests:** the simulator over the real client (every advertised route answered in the recorded shapes, counters, match ends, rejoins, moderation, the configuration round trip, the throttle, the feed); the profile; the seed's generation and every refusal against Postgres; the banner; and `TestDemoHub` end to end (a seeded database and a simulator give full boards, live status and new matches, and a hub without `demo: true` refuses the database).
+  - **Docs:** docs/hub.md (Demo hub), CLAUDE.md.
+
 ### Fixed
 
 - `discord/seedhours`'s package comment said a time the spring daylight-saving change skips "moves forward". Go's `time.Date`, which it uses, returns it an hour earlier: in America/Chicago on 2026-03-08, 02:30 is 01:30 CST. The comment now says so, and `TestSpringGap` holds the behaviour. Nothing changes at run time; Muster's anchors (hidden-token-gaming/htg) already match it.

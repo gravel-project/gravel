@@ -20,6 +20,9 @@ message Organization {
   google.protobuf.Timestamp claimed_at = 5;
   // The user who claimed ownership; unset while unowned.
   string owner_user_id = 6;
+  // Whether this hub is a demo (hub.yaml demo: true): its members, matches and stats are made up,
+  // and a client says so wherever it shows them.
+  bool demo = 7;
 }
 
 message GetOrganizationRequest {}

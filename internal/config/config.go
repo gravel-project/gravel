@@ -51,6 +51,10 @@ type Config struct {
 	Backup       Backup       `yaml:"backup"`
 	Apps         Apps         `yaml:"apps"`
 	Stats        Stats        `yaml:"stats"`
+	// Demo marks a demo hub (gravel#112): every page says its members, matches and stats are
+	// made up, and `gravel-hub demo seed` may write fake history into its database. A hub without
+	// it refuses to start on a database that holds demo members.
+	Demo bool `yaml:"demo"`
 }
 
 // Stats is the stats store's one secret (ADR-0012 §5): the key pseudonyms are chosen with, so a

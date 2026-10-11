@@ -336,3 +336,16 @@ func TestAppsValidation(t *testing.T) {
 		t.Errorf("validation: %v", err)
 	}
 }
+
+func TestDemo(t *testing.T) {
+	cfg, err := Parse(strings.NewReader(minimal), noEnv())
+	if err != nil || cfg.Demo {
+		t.Fatalf("a hub is not a demo by default: %v %v", cfg.Demo, err)
+	}
+	if cfg, err = Parse(strings.NewReader(minimal+"demo: true\n"), noEnv()); err != nil || !cfg.Demo {
+		t.Errorf("demo: true: %v %v", cfg.Demo, err)
+	}
+	if _, err := Parse(strings.NewReader(minimal+"demo: yes please\n"), noEnv()); err == nil {
+		t.Error("demo takes a boolean")
+	}
+}

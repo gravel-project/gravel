@@ -36,7 +36,7 @@ func (s *OrganizationServer) GetOrganization(ctx context.Context, _ *connect.Req
 	if err != nil {
 		return nil, mapError(ctx, s.logger, err)
 	}
-	return connect.NewResponse(&hubv1.GetOrganizationResponse{Organization: toProto(o)}), nil
+	return connect.NewResponse(&hubv1.GetOrganizationResponse{Organization: toProto(o, s.org.Demo())}), nil
 }
 
 // ClaimOwnership consumes the one-time owner-claim token and makes the caller the owner.
@@ -52,7 +52,7 @@ func (s *OrganizationServer) ClaimOwnership(ctx context.Context, req *connect.Re
 	if err != nil {
 		return nil, mapError(ctx, s.logger, err)
 	}
-	return connect.NewResponse(&hubv1.ClaimOwnershipResponse{Organization: toProto(o)}), nil
+	return connect.NewResponse(&hubv1.ClaimOwnershipResponse{Organization: toProto(o, s.org.Demo())}), nil
 }
 
 // GetOrganizationSettings returns the settings; public, the pages render the theme before login.
@@ -221,12 +221,13 @@ func settingsFromProto(p *hubv1.OrganizationSettings) org.Settings {
 	return set
 }
 
-func toProto(o store.Organization) *hubv1.Organization {
+func toProto(o store.Organization, demo bool) *hubv1.Organization {
 	p := &hubv1.Organization{
 		Id:        o.ID.String(),
 		Name:      o.Name,
 		Owned:     o.Owned(),
 		CreatedAt: timestamppb.New(o.CreatedAt),
+		Demo:      demo,
 	}
 	if o.ClaimedAt != nil {
 		p.ClaimedAt = timestamppb.New(*o.ClaimedAt)

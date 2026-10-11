@@ -91,6 +91,13 @@ func TestAccessibility(t *testing.T) {
 			p.Title = "Servers"
 			return templates.Servers(templates.ServersPage{Page: p, Servers: []templates.ServerRow{online, {ID: "friends-1", Name: "Friends' server", Game: "War Dogs", Location: "home", State: "unreachable", StateLabel: "Offline"}}})
 		},
+		// A demo hub's banner (gravel#112) above the header.
+		"/fixture/servers-demo": func() templ.Component {
+			p := base
+			p.Title = "Servers"
+			p.Org.Demo = true
+			return templates.Servers(templates.ServersPage{Page: p, Servers: []templates.ServerRow{online}})
+		},
 		"/fixture/server": func() templ.Component {
 			p := base
 			p.Title, p.User, p.CSRF = online.Name, jo, "csrf"
@@ -251,7 +258,7 @@ func TestAccessibility(t *testing.T) {
 	defer srv.Close()
 
 	paths := []string{"/login", "/fixture/account-unowned", "/fixture/account-owner", "/fixture/error",
-		"/fixture/servers", "/fixture/server", "/fixture/server-anonymous", "/fixture/server-game-overlay", "/fixture/boards", "/fixture/member-self", "/fixture/member", "/fixture/members",
+		"/fixture/servers", "/fixture/servers-demo", "/fixture/server", "/fixture/server-anonymous", "/fixture/server-game-overlay", "/fixture/boards", "/fixture/member-self", "/fixture/member", "/fixture/members",
 		"/fixture/participation", "/fixture/participation-empty", "/fixture/member-participation", "/fixture/recap", "/fixture/recap-nobody",
 		"/fixture/server-moderator", "/fixture/confirm", "/fixture/log", "/fixture/account-apps", "/fixture/consent"}
 	// A fixture left out of the list would never be scanned and the run would still pass.

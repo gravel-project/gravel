@@ -569,7 +569,7 @@ func (h *Handler) page(r *http.Request, title string) (pageData, *browser, error
 	if err != nil {
 		return p, b, fmt.Errorf("GetOrganization: %w", err)
 	}
-	p.Org = templates.Org{Name: org.Msg.GetOrganization().GetName(), Owned: org.Msg.GetOrganization().GetOwned()}
+	p.Org = templates.Org{Name: org.Msg.GetOrganization().GetName(), Owned: org.Msg.GetOrganization().GetOwned(), Demo: org.Msg.GetOrganization().GetDemo()}
 	if s, ok := session.FromContext(r.Context()); ok {
 		me, err := h.idAPI.GetMe(ctx, connect.NewRequest(&hubv1.GetMeRequest{}))
 		switch {

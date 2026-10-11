@@ -25,6 +25,8 @@ why, ADR-0004 the login design, ADR-0008 the app credentials; `deploy/README.md`
 | `gravel-hub ingest export --server ID [--after ID] [--limit N]` | Print a server's stored ingest batches, oldest first, one JSON object per line: a JSON body as JSON, anything else as base64 ([Ingestion](#ingestion-adr-0011)). They hold players' SteamIDs: redact before they leave the host. |
 | `gravel-hub stats erase --provider P --subject S` | Erase a player from the stats store ([Stats](#stats-adr-0012), Erasure): their identity becomes a random token in every stats table (participation included) and the stored ingest batches, their pseudonym is deleted, the numbers stay. For an operator acting on a request they have verified. Prints the counts, never the identity. |
 | `gravel-hub wardogs record --base-url URL [--token-file FILE] [--dir DIR]` | Record a War Dogs server's read-only answers as test fixtures in `<dir>/<build>/` (default `games/wardogs/testdata`), with people, addresses and secrets replaced (ADR-0010; `games/wardogs/README.md`). One token, never retried; without one, only the public routes. |
+| `gravel-hub demo wardogs-server --listen ADDR --token-file FILE [--profile FILE] [--seed N]` | Serve a simulated War Dogs server for a demo hub to poll ([Demo hub](#demo-hub-gravel112)). |
+| `gravel-hub demo seed [--days 90] [--members 40] [--seed N] [--profile FILE]` | Write made-up members, matches and moderation into a demo hub's database: only with `demo: true`, only into a database nobody signed in to and nothing was recorded in ([Demo hub](#demo-hub-gravel112)). |
 | `gravel-hub version` | Print the build version. |
 
 The config path is `--config`, else `$GRAVEL_CONFIG`, else `/etc/gravel/hub.yaml`.
@@ -75,6 +77,7 @@ apps:
   token_ttl: 1h                  # how long a bearer token from /oauth/token lives
 stats:
   pseudonym_key_file: /run/secrets/gravel-stats-pseudonym-key   # the key pseudonyms are chosen with ([Stats](#stats-adr-0012))
+demo: false                      # true marks a demo hub: every page says its data is made up ([Demo hub](#demo-hub-gravel112))
 ```
 
 **Secrets.** Four, each with the same precedence: the environment variable, then the `*_file`
@@ -812,6 +815,123 @@ Metric: `gravel_participation_events_total{kind,outcome}` (`recorded`, `duplicat
 event of a refused request is `invalid`, under kind `invalid` when its kind is malformed), on the hub
 dashboard's Stats row.
 
+## Demo hub (gravel#112)
+
+A demo hub shows what a hub looks like with a community on it, before there is one: full boards,
+match lists, members' profiles, moderation history, and a server card that changes. It is a
+**separate hub with its own database**. Production never gets fake rows: `audit_log` is append-only,
+and pseudonyms and matches are permanent.
+
+Two halves:
+
+- **History:** `gravel-hub demo seed` writes made-up members, past matches and moderation through
+  the store, once, into an empty database.
+- **Live:** `gravel-hub demo wardogs-server` is a simulated War Dogs server
+  (`games/wardogs/wardogsim`). The hub polls it like any server in `servers.yaml`. Its matches are
+  recorded beside the seeded ones, and its card and status move.
+
+**`demo: true` in hub.yaml** marks the hub. Every page then shows "Demo data: these members, matches
+and stats are made up" above the header, in both themes and under the CSP. `GetOrganization`
+returns `demo: true` so other clients can say it too, and `config check` prints that the hub is a
+demo. The flag works both ways: a hub **without** it refuses to start on a database that holds demo
+members, so made-up data is never served as real.
+
+**The seed's refusals.** Nothing is written in any of these cases:
+
+1. hub.yaml lacks `demo: true`. Checked before the database is opened.
+2. The hub has no War Dogs server. Apply `servers.yaml` first: a seed runs once.
+3. The database is not empty. In one transaction, the store locks the users, identities, history,
+   ban and pseudonym tables against every other writer. It counts them and refuses on any of:
+   - a user who is not a demo member;
+   - a demo member, meaning it was seeded already;
+   - a match, an audit entry, a ban, an ingest batch, a participation event, a monthly rollup row, a
+     minute of occupancy or a pseudonym;
+   - a registered app. A hub in use registers its bot before anyone signs in, so a demo hub
+     registers its apps after the seed.
+
+   The refusal sits beside the SQL (`store.SeedDemo`), so no caller can skip it. A production hub
+   with even one sign-in, one recorded poll or a registered bot is refused, whatever its hub.yaml
+   says.
+
+**The demo marker.** Every identity the seed writes has verification method `demo`
+(`store.DemoVerification`), and a demo member is a user all of whose identities carry it. A login
+always records its provider's method (`oauth2`, `openid`). So a person who signed in to the demo
+hub, to look around or to claim it, is a real user, and a later seed is refused. The made-up
+subjects can't be anyone's:
+
+- Discord ids are 1000001 and up, below the first id Discord's clock could issue.
+- SteamIDs are in the recorder's stand-in range `76561190000000001`–`…999`, below the first
+  individual account. The simulator's players use the same ids, so a seeded member who holds one
+  plays on the simulated server too.
+
+**What the seed writes.** `--members` (default 40) members with display names and linked Discord
+and Steam identities. They joined across the first half of the window, the first three are
+moderators, and about 60% show their names on boards. For each War Dogs server in `servers.yaml`
+there are `--days` (default 90) of matches: one whenever the profile's population for the hour
+reaches 10, with 10 to 40 players. The players come from the profile's regulars (default 400):
+mostly passers-by, shown under pseudonyms, with the members playing about twice as often. Each
+match has kills, deaths, time on, final faction scores, and every minute's occupancy for the session
+recaps. A second server fills less than the first. There are also about one and a half moderation
+entries a day per server (kicks, whispers, broadcasts, moves, bans, a third of the bans lifted on
+appeal). A banned player plays nowhere on that server while the ban stands. With a pseudonym key
+configured, the seed also stores every player's pseudonym; without one, the boards show "Unnamed
+player". The same `--seed` gives the same members and the same history, ending when the command
+runs.
+
+**The simulator.** `gravel-hub demo wardogs-server --listen ADDR --token-file FILE` answers the RCON
+API as the newest recorded build (`games/wardogs/testdata/`, embedded in the binary). The token file
+holds the RCON password it accepts; put the same one in `servers.yaml`'s `credential_file`.
+
+- **Players:** stand-in SteamIDs and invented names join and leave on the profile's daily curve.
+  Some leave and rejoin the same match with their counters restarted. A match starts once the
+  document's `MinimumRequiredPlayers` are on.
+- **Matches:** kills and deaths accumulate by skill, and the faction holding the hill scores each
+  score period. After the profile's match length the rotation moves and the counters reset.
+- **Moderation and configuration** work as on the live server: kick, kill, message, broadcast,
+  move, ban, unban, and get, validate and put with the revision and `If-Match`. A write takes effect
+  when its section says: at once, at the next match, or at the daily restart (`restart_hour`).
+- **The server's rules:** three requests with a missing or wrong token lock an address's protected
+  routes for a minute (429 with Retry-After); 600 requests a minute; 64 KiB bodies.
+- **Optional flags:** `--name` (default "Demo War Dogs server (made-up players)"; the recording's
+  name is a real community's), `--build` (an older recording), and `--feed-url` with
+  `--feed-token-file` (start with `[WDServerFeed]` set).
+- **State:** it keeps everything in memory, so a restart starts from the recording again.
+- **The feed:** with `[WDServerFeed] Url` and `Token` in force, it posts kill batches to
+  `<Url>/api/ingest/events` every 2 s. The batch's shape is a guess until a real one is captured
+  (hidden-token-gaming/deploy#49). It is a JSON array of `{eventId, timestampUtc, killerSteamId,
+  victimSteamId, distance}` and lives in `wardogsim/feed.go` alone. The hub stores batches without
+  parsing them, so the guess can't reach the stats.
+
+**The calibration profile** (`--profile`, both commands) holds distributions only, never a name or a
+SteamID. A fresh measurement changes the demo without code. Sources, best first: HTG's own
+`match_stats`, the CL-509546 lobby, and other servers' public counts. It is decoded strictly, and
+the built-in profile applies without the flag:
+
+```yaml
+version: 1
+timezone: America/Chicago           # the hours below are local
+population: [18, 12, 8, 5, 4, 3, 3, 4, 6, 8, 10, 12, 14, 16, 18, 22, 26, 32, 40, 48, 52, 46, 36, 26]  # players on, by hour, midnight first
+regulars: 400                       # distinct players (1–999)
+session_minutes: {min: 20, max: 120}
+match_minutes: {min: 20, max: 35}
+kills_per_minute: 0.6               # a typical player's, while a match is on
+skill_spread: 0.55                  # log-normal sigma of players' kill rates
+rejoin_rate: 0.08                   # share who leave and come back to the same match
+restart_hour: 9                     # the host's daily restart, local; leave it out for none
+```
+
+**Bringing one up**, in this order, because the seed runs once and only on an empty database:
+
+```sh
+gravel-hub demo wardogs-server --listen 127.0.0.1:7789 --token-file /run/secrets/demo-rcon &
+gravel-hub servers apply servers.yaml --config demo-hub.yaml   # a server with endpoint http://127.0.0.1:7789
+gravel-hub demo seed --config demo-hub.yaml                    # migrates and creates the organization if needed
+gravel-hub settings apply organization.yaml --config demo-hub.yaml   # stats: {public: true}, so visitors see the boards
+gravel-hub serve --config demo-hub.yaml
+```
+
+To seed again, drop the database and start over.
+
 ## Roles (ADR-0013)
 
 The owner grants members the **moderator** role on the Members page (`/members`, the owner only), or
@@ -1080,7 +1200,14 @@ participation board but not `GetBoard` (`internal/hub`, `TestParticipationFromAn
 
 The War Dogs client (`games/wardogs`) runs one contract against every recorded build in
 `games/wardogs/testdata/` through a fake server (`games/wardogs/wardogstest`); the same contract
-runs against a real server, reading only, with `-tags live` (`games/wardogs/README.md`).
+runs against a real server, reading only, with `-tags live` (`games/wardogs/README.md`). The demo
+simulator (`games/wardogs/wardogsim`) is held to the recordings over the same client: every route a
+recorded build advertises has a handler and answers in the recorded shapes. Its counters move,
+matches end, players rejoin, and its moderation, configuration writes, three-strike lock and feed
+work. The seed's refusals are tested against Postgres (`internal/store`, `cmd/gravel-hub`), and
+`internal/hub`'s `TestDemoHub` runs the done-when: a seeded database, a simulator in `servers.yaml`,
+banners on the pages, full boards, live status that changes, new matches from the polls, and a hub
+without `demo: true` refusing the database.
 
 `make a11y` runs axe (`@axe-core/cli`, pinned in the Makefile, through npx) over the login page
 and fixtures of the account and error pages, driving Chrome; CI runs it too. It needs node and

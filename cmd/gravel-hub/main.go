@@ -14,6 +14,8 @@
 //	gravel-hub servers apply <servers.yaml> [--dry-run]         apply a servers manifest (exit 3 on --dry-run with changes)
 //	gravel-hub servers check <servers.yaml>                     validate a servers manifest; no config, no database
 //	gravel-hub wardogs record --base-url URL [--token-file F]   record a War Dogs server's reads as fixtures
+//	gravel-hub demo wardogs-server --listen ADDR --token-file F [--profile F] [--seed N]   serve a simulated War Dogs server
+//	gravel-hub demo seed [--config hub.yaml] [--days 90] [--members 40] [--seed N]       write made-up history into a demo hub
 //	gravel-hub version
 //
 // The config path defaults to $GRAVEL_CONFIG, then /etc/gravel/hub.yaml.
@@ -76,6 +78,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		return statsCmd(ctx, args, stdout, stderr)
 	case "wardogs":
 		return wardogsCmd(ctx, args, stdout, stderr)
+	case "demo":
+		return demoCmd(ctx, args, stdout, stderr)
 	case "version":
 		fmt.Fprintln(stdout, "gravel-hub", buildVersion())
 		return 0
@@ -106,6 +110,8 @@ func usage(w io.Writer) {
   ingest        export the batches a server pushed to the ingest route, as stored (they hold SteamIDs)
   stats erase   erase a player from the stats store: their identity becomes a random token, the
                 numbers stay (ADR-0012)
+  demo          a demo hub (gravel#112): wardogs-server serves a simulated War Dogs server; seed writes
+                made-up members and matches, only into an empty database of a hub with demo: true
   version       print the version
 
 The config path comes from --config, then $GRAVEL_CONFIG, then `+defaultConfigPath+`.
@@ -213,6 +219,9 @@ func configCheck(args []string, stdout, stderr io.Writer) int {
 	}
 	fmt.Fprintf(stdout, "config OK: organization %q, listen %s, internal %s, database %s (from %s), migrate %s, login %s, pseudonyms %s\n",
 		cfg.Organization.Name, cfg.Server.Listen, cfg.Server.InternalListen, cfg.Database.RedactedURL(), cfg.Database.Source(), cfg.Database.Migrate, authSummary(cfg), pseudonyms)
+	if cfg.Demo {
+		fmt.Fprintln(stdout, "demo hub: every page says its members, matches and stats are made up, and `gravel-hub demo seed` may write made-up history into an empty database")
+	}
 	return 0
 }
 
