@@ -59,6 +59,7 @@ type Boards struct {
 	changes       *Changes
 	boards        answers[Query, Board]
 	participation answers[ParticipationQuery, ParticipationBoard]
+	recaps        answers[RecapQuery, Recap]
 }
 
 // answers is a cache of board answers by query, each kept while it is fresh.
@@ -333,5 +334,6 @@ func (b *Boards) SetShowName(ctx context.Context, userID uuid.UUID, show bool) e
 	}
 	b.boards.clear()
 	b.participation.clear()
+	b.recaps.clear()
 	return nil
 }

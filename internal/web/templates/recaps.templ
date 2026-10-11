@@ -1,0 +1,124 @@
+package templates
+
+import "fmt"
+
+// Recap is the whole session recap page (ADR-0018).
+templ Recap(p RecapPage) {
+	@Layout(p.Page) {
+		@RecapContent(p)
+	}
+}
+
+// RecapContent is a session recap inside its game's overlay.
+templ RecapContent(p RecapPage) {
+	@GameScope(p.Game) {
+		@recapBody(p)
+	}
+}
+
+// recapBody is one server's window: its occupancy, its matches and the top five by kills.
+templ recapBody(p RecapPage) {
+	@FlashView(p.Flash)
+	<h1>{ p.ServerName }</h1>
+	<p class="meta">
+		Session recap
+		if p.Window != "" {
+			· { p.Window }
+		}
+	</p>
+	<p><a href={ templ.SafeURL("/servers/" + p.ServerID) }>The server's page</a> · <a href={ templ.SafeURL(p.BoardURL) }>Its leaderboard</a></p>
+	if p.Note != "" {
+		<p class="muted">{ p.Note }</p>
+	} else if p.Nobody() {
+		<p class="muted">Nobody was on during this window.</p>
+	} else {
+		<dl class="facts">
+			<dt>Peak players</dt>
+			<dd>{ fmt.Sprint(p.PeakPlayers) }</dd>
+			<dt>Minutes with anyone on</dt>
+			<dd>{ fmt.Sprint(p.Minutes) }</dd>
+			if p.Floor > 0 {
+				<dt>{ fmt.Sprintf("Minutes at %d or more", p.Floor) }</dt>
+				<dd>{ fmt.Sprint(p.MinutesAtFloor) }</dd>
+			}
+			<dt>Players</dt>
+			<dd>{ fmt.Sprint(p.Players) }</dd>
+		</dl>
+		<section aria-labelledby="recap-matches-heading">
+			<h2 id="recap-matches-heading">Matches</h2>
+			if len(p.Matches) == 0 {
+				<p class="muted">No match was recorded in this window.</p>
+			} else {
+				<table>
+					<caption>Matches in this window</caption>
+					<thead>
+						<tr>
+							<th scope="col">Time</th>
+							<th scope="col">Map</th>
+							<th scope="col" class="num">Players</th>
+							<th scope="col">Score</th>
+						</tr>
+					</thead>
+					<tbody>
+						for _, m := range p.Matches {
+							<tr>
+								<td>
+									if m.Ended != "" {
+										{ m.Started + "–" + m.Ended }
+									} else {
+										{ m.Started } <span class="badge">live</span>
+									}
+								</td>
+								<td>{ m.Map }</td>
+								<td class="num">{ fmt.Sprint(m.Players) }</td>
+								<td>
+									for i, t := range m.Teams {
+										if i > 0 {
+											{ " · " }
+										}
+										<span class="team">{ t.Name }</span> <strong>{ fmt.Sprint(t.Score) }</strong>
+									}
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			}
+		</section>
+		<section aria-labelledby="recap-top-heading">
+			<h2 id="recap-top-heading">Top five by kills</h2>
+			if len(p.Top) == 0 {
+				<p class="muted">No kills to rank in this window.</p>
+			} else {
+				<table class="board">
+					<caption>The most kills in these matches</caption>
+					<thead>
+						<tr>
+							<th scope="col" class="num">#</th>
+							<th scope="col">Player</th>
+							<th scope="col" class="num" aria-sort="descending">Kills ▼</th>
+							<th scope="col" class="num">Deaths</th>
+							<th scope="col" class="num">K/D</th>
+							<th scope="col" class="num">Time on</th>
+							<th scope="col" class="num">Matches</th>
+						</tr>
+					</thead>
+					<tbody>
+						for _, r := range p.Top {
+							<tr>
+								<td class="num">{ fmt.Sprint(r.Rank) }</td>
+								<td>
+									@BoardPlayer(r)
+								</td>
+								for _, c := range r.Cells {
+									<td class="num">{ c }</td>
+								}
+							</tr>
+						}
+					</tbody>
+				</table>
+				<p class="muted">Players who haven't linked an account, or chose not to show their name, appear under a pseudonym.</p>
+			}
+		</section>
+	}
+}

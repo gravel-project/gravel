@@ -367,11 +367,7 @@ func (h *Handler) windowOptions(ctx context.Context, selected string) ([]templat
 	}
 	loc := time.UTC
 	if set, err := h.orgAPI.GetOrganizationSettings(ctx, connect.NewRequest(&hubv1.GetOrganizationSettingsRequest{})); err == nil {
-		if tz := set.Msg.GetSettings().GetStats().GetTimezone(); tz != "" {
-			if l, err := time.LoadLocation(tz); err == nil {
-				loc = l
-			}
-		}
+		loc = zoneOf(set.Msg.GetSettings())
 		for _, se := range set.Msg.GetSettings().GetStats().GetSeasons() {
 			v := "season:" + se.GetName()
 			out = append(out, templates.Option{Value: v, Label: se.GetName(), Selected: selected == v})

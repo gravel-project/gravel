@@ -77,6 +77,10 @@ var ErrInvalidManifest = errors.New("invalid servers manifest")
 
 var idPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,62}$`)
 
+// ValidID reports whether id is a server id: lower-case letters, digits and hyphens, at most 63,
+// not starting with a hyphen.
+func ValidID(id string) bool { return idPattern.MatchString(id) }
+
 // ParseManifest reads a manifest strictly (an unknown key is an error) and fills the defaults. A
 // key gravel removed is refused with where it went (removedKeys).
 func ParseManifest(b []byte) (Manifest, error) {

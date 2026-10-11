@@ -341,14 +341,7 @@ templ boardsBody(p BoardsPage) {
 					<tr>
 						<td class="num">{ fmt.Sprint(r.Rank) }</td>
 						<td>
-							if r.UserID != "" {
-								<a href={ templ.SafeURL("/members/" + r.UserID) }>{ r.Name }</a>
-							} else {
-								{ r.Name }
-							}
-							if !r.Pseudonymous {
-								<span class="badge">member</span>
-							}
+							@BoardPlayer(r)
 						</td>
 						for _, cell := range r.Cells {
 							<td class="num">{ cell }</td>
@@ -361,6 +354,19 @@ templ boardsBody(p BoardsPage) {
 		if p.NextURL != "" {
 			<p><a href={ templ.SafeURL(p.NextURL) } hx-get={ p.NextURL } hx-target="#page" hx-push-url="true">Next page</a></p>
 		}
+	}
+}
+
+// BoardPlayer is a ranked player as the boards show them: the name, linking to the member's
+// profile when they are a member shown by name, and marked when it is not a pseudonym.
+templ BoardPlayer(r BoardRow) {
+	if r.UserID != "" {
+		<a href={ templ.SafeURL("/members/" + r.UserID) }>{ r.Name }</a>
+	} else {
+		{ r.Name }
+	}
+	if !r.Pseudonymous {
+		<span class="badge">member</span>
 	}
 }
 

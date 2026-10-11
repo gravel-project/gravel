@@ -42,6 +42,8 @@ type rig struct {
 	sess    *session.Manager
 	apps    *apps.Service
 	appSt   *appstest.FakeStore
+	// org is the Organization settings the pages read through the API.
+	org *org.Service
 	// authz is how each request at the authorization endpoint ended (ObserveAuthorization).
 	authz []string
 }
@@ -84,7 +86,7 @@ func newRigWithTheme(t *testing.T, theme templates.Theme) *rig {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r.token = token
+	r.token, r.org = token, orgSvc
 	r.discord = &identitytest.FakePublisher{FakeProvider: identitytest.FakeProvider{ProviderName: "discord", Accounts: map[string]identity.Account{
 		"jo":  {Subject: "1", DisplayName: "Jo", AvatarURL: "https://cdn.example/jo.png", Method: identity.MethodOAuth2},
 		"sam": {Subject: "2", DisplayName: "Sam", Method: identity.MethodOAuth2},

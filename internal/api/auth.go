@@ -59,6 +59,7 @@ var memberProcedures = map[string]string{
 	hubv1connect.StatsServiceListMatchesProcedure:                    apps.ScopeStatsRead,
 	hubv1connect.StatsServiceGetMemberProfileProcedure:               apps.ScopeStatsRead,
 	hubv1connect.StatsServiceGetParticipationBoardProcedure:          apps.ScopeStatsRead,
+	hubv1connect.StatsServiceGetSessionRecapProcedure:                apps.ScopeStatsRead,
 	// RecordParticipation is an app's own (ADR-0014) and stays out: a member's token never
 	// stands in for the app.
 }

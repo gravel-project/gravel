@@ -99,6 +99,10 @@ type fakeStats struct {
 	partEntries []*hubv1.ParticipationEntry
 	partNext    string
 	partLast    *hubv1.GetParticipationBoardRequest
+	// The session recap: its answer, or recapErr; recapLast is the last request.
+	recapErr  connect.Code
+	recap     *hubv1.GetSessionRecapResponse
+	recapLast *hubv1.GetSessionRecapRequest
 }
 
 func (f *fakeStats) GetBoard(_ context.Context, req *connect.Request[hubv1.GetBoardRequest]) (*connect.Response[hubv1.GetBoardResponse], error) {

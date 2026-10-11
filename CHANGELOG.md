@@ -10,6 +10,18 @@ patch release is everything else.
 
 ### Added
 
+- ADR-0018 (proposed; accepted when merged): session recaps from the poll, a page and a post (hidden-token-gaming/htg#56).
+
+- Session recaps (hidden-token-gaming/htg#56, ADR-0018): what one server's window held, read from the hub, shown on a page and posted by the bot after each session.
+  - **What the recorder keeps:** `server_occupancy` (migration 16) holds, for each minute anyone was on, the fewest and the most players the polls saw, an empty poll included. No identity is in it, so it is kept like the matches. `matches.teams` holds the last team scores the polls saw, written when they change, so a match that ended holds its final ones.
+  - **`StatsService.GetSessionRecap {server_id, from, to, floor}`:** peak players, minutes with anyone on, minutes whose fewest reached `floor`, distinct players, the matches that overlap the window with their scores, and the top five by kills shown as the boards show players. The window is at most 24 h and must have ended. It has the boards' access, cache and member-token scope (`stats:read`). Nothing is stored for a recap.
+  - **The page:** `/servers/{id}/recap?from=…&to=…&floor=…` renders the same answer.
+  - **The bot module:** `discord/modules/recaps`, with the Organization settings' `discord.recaps[]` (`server`, `channel`, `title`, `hours` as seeding's windows, `floor` 0 to 1000, `note`), at most 10, one per server. A few minutes after a window ends it posts one message with the numbers, the matches, the top five and the page's link. It posts nothing when nobody came and pings no one. A marker (`` -# recap `<server>` · <window start> ``) in its own posts means a restart never posts twice and catches up on a window that ended within a day. bot.yaml `recaps {enabled, interval}` is off by default, every minute (at least 15 s). The bot's app needs `stats:read` unless stats are public. `DiscordSettings.recaps` (additive), and `settings check` counts the rules.
+  - **`discord/seedhours`:** `Hours.Last` is the most recent window that has ended.
+  - **Metrics:** `gravel_bot_recaps_total{server,result}` and `gravel_bot_recaps_last_success_timestamp_seconds`, on the bot dashboard's new Session recaps row.
+  - **Tests:** the recap query against Postgres (folding writes, minutes at the floor by the fewest, overlapping matches, players seen in the window, the top with ties and no-kill players left out, a quiet window, the open match); the recorder's minutes and scores; the end-to-end path from a fake War Dogs server's polls to `GetSessionRecap` with its access and its refusals; the settings; the last ended window across an overnight window and the daylight-saving change; and the module's passes on a fake clock (once, restarts, other authors' markers, nobody, no match started, retries, a forbidden channel, the catch-up limit, escaping). Mutation checks: posting without the duplicate check, posting when nobody came, and trusting another author's marker each fail a named test.
+  - **Docs:** docs/hub.md (Session recaps, the API, Organization settings), docs/bot.md (Recaps), deploy/bot.yaml, CLAUDE.md.
+
 - ADR-0017 (proposed; accepted when merged): "who's playing now", a presence card with counts only (hidden-token-gaming/htg#32, the presence half that ADR-0016 §7 deferred).
 
 - "Who's playing now", a stock bot module, `discord/modules/presence` (hidden-token-gaming/htg#32, ADR-0017).

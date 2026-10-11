@@ -51,6 +51,7 @@ type Config struct {
 	ModLog      ModLog      `yaml:"mod_log"`
 	Seeding     Seeding     `yaml:"seeding"`
 	Presence    Presence    `yaml:"presence"`
+	Recaps      Recaps      `yaml:"recaps"`
 	Server      Server      `yaml:"server"`
 	Log         Log         `yaml:"log"`
 }
@@ -134,6 +135,20 @@ type Presence struct {
 // when a count changed.
 const MinPresenceInterval = 15 * time.Second
 
+// Recaps posts a session recap after each of a rule's weekly windows (discord/modules/recaps,
+// ADR-0018). The rules are the Organization settings' discord.recaps. Off by default: the bot's
+// app needs stats:read unless the settings make stats public.
+type Recaps struct {
+	Enabled bool `yaml:"enabled"`
+	// Interval is how often the rules are checked; a recap posts within one interval of the
+	// window's end plus the grace.
+	Interval time.Duration `yaml:"interval"`
+}
+
+// MinRecapsInterval is the recaps module's floor: each pass is one hub call, and a channel read
+// per rule whose window ended and isn't recapped yet.
+const MinRecapsInterval = 15 * time.Second
+
 // Discord is the application the bot runs as.
 type Discord struct {
 	// ApplicationID and PublicKey come from the Developer Portal; the key verifies HTTP
@@ -206,6 +221,7 @@ func Default() Config {
 		ModLog:      ModLog{Interval: 15 * time.Second},
 		Seeding:     Seeding{Interval: 30 * time.Second},
 		Presence:    Presence{Interval: time.Minute},
+		Recaps:      Recaps{Interval: time.Minute},
 		Server:      Server{Listen: "127.0.0.1:8081", InternalListen: "127.0.0.1:9091", ShutdownTimeout: 15 * time.Second},
 		Log:         Log{Level: "info", Format: "json"},
 	}
@@ -348,6 +364,9 @@ func (c Config) Validate() error {
 	}
 	if c.Presence.Interval < MinPresenceInterval {
 		bad("presence.interval: %s is shorter than %s", c.Presence.Interval, MinPresenceInterval)
+	}
+	if c.Recaps.Interval < MinRecapsInterval {
+		bad("recaps.interval: %s is shorter than %s", c.Recaps.Interval, MinRecapsInterval)
 	}
 	if c.Presence.Enabled && !c.Discord.Gateway {
 		bad("presence.enabled: presence comes only over the gateway; set discord.gateway: true")

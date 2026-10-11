@@ -3,6 +3,7 @@ syntax = "proto3";
 package gravel.hub.v1;
 
 import "google/protobuf/timestamp.proto";
+import "gravel/hub/v1/servers.proto";
 
 option go_package = "github.com/gravel-project/gravel/gen/gravel/hub/v1;hubv1";
 
@@ -264,4 +265,45 @@ service StatsService {
   // GetParticipationBoard ranks the players who took part in one kind of thing over a window,
   // with the same access as GetBoard.
   rpc GetParticipationBoard(GetParticipationBoardRequest) returns (GetParticipationBoardResponse);
+  // GetSessionRecap is what one server's window held (ADR-0018): its occupancy, the matches that
+  // overlap it and the top five by kills. The window is at most 24 hours and must have ended.
+  // The same access as GetBoard.
+  rpc GetSessionRecap(GetSessionRecapRequest) returns (GetSessionRecapResponse);
+}
+
+message GetSessionRecapRequest {
+  string server_id = 1;
+  google.protobuf.Timestamp from = 2;
+  google.protobuf.Timestamp to = 3;
+  // The player count minutes_at_floor counts against, 0 to 1000; 0 counts none.
+  int32 floor = 4;
+}
+
+// RecapMatch is one match that overlaps a recap's window.
+message RecapMatch {
+  string id = 1;
+  google.protobuf.Timestamp started_at = 2;
+  // Unset while the match is on.
+  google.protobuf.Timestamp ended_at = 3;
+  string map = 4;
+  // The last team scores the polls saw: the final ones once the match ended.
+  repeated TeamScore teams = 5;
+  // The players seen in it during the window.
+  int32 players = 6;
+}
+
+message GetSessionRecapResponse {
+  google.protobuf.Timestamp from = 1;
+  google.protobuf.Timestamp to = 2;
+  int32 floor = 3;
+  // The most players on at once, by the minute.
+  int32 peak_players = 4;
+  // The minutes anyone was on, and those whose fewest players reached the floor.
+  int32 minutes = 5;
+  int32 minutes_at_floor = 6;
+  // The distinct players seen in the window.
+  int32 players = 7;
+  repeated RecapMatch matches = 8;
+  // The players with the most kills in those matches, at most five, each with a kill.
+  repeated BoardEntry top = 9;
 }

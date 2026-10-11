@@ -27,6 +27,37 @@ type memStore struct {
 	players    map[int64]map[store.PlayerKey]store.MatchPlayer
 	pseudonyms map[store.PlayerKey]string
 	fail       bool
+	occupancy  map[time.Time][2]int // minute → fewest, most
+	teams      map[int64][]store.TeamScore
+}
+
+func (m *memStore) RecordOccupancy(_ context.Context, _ uuid.UUID, _ string, minute time.Time, fewest, most int) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.fail {
+		return errors.New("store down")
+	}
+	if m.occupancy == nil {
+		m.occupancy = map[time.Time][2]int{}
+	}
+	if old, ok := m.occupancy[minute]; ok {
+		fewest, most = min(old[0], fewest), max(old[1], most)
+	}
+	m.occupancy[minute] = [2]int{fewest, most}
+	return nil
+}
+
+func (m *memStore) SetMatchTeams(_ context.Context, matchID int64, teams []store.TeamScore) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.fail {
+		return errors.New("store down")
+	}
+	if m.teams == nil {
+		m.teams = map[int64][]store.TeamScore{}
+	}
+	m.teams[matchID] = teams
+	return nil
 }
 
 func newMemStore() *memStore {

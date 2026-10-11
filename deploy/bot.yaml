@@ -42,6 +42,10 @@ seeding:                         # seeding calls and minutes for the Organizatio
   enabled: false
   interval: 30s                  # at least 10s
 
+recaps:                          # session recaps after the Organization settings' discord.recaps windows; needs stats:read unless stats are public
+  enabled: false
+  interval: 1m                   # at least 15s
+
 presence:                        # the "who's playing now" card for the Organization settings' discord.presence; needs the gateway and the application's Presence Intent
   enabled: false
   interval: 1m                   # at least 15s
