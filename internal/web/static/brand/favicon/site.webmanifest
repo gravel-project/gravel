@@ -1,7 +1,7 @@
 {
  "name": "gravel",
  "short_name": "gravel",
- "description": "Host many game servers across many games with one control plane and cross-game stats.",
+ "description": "Track every game server your community runs, with cross-game stats and one control plane.",
  "icons": [
   {
    "src": "/static/brand/favicon/icon-192.png",

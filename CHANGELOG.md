@@ -8,6 +8,10 @@ patch release is everything else.
 
 ## [Unreleased]
 
+### Changed
+
+- The brand kit under `internal/web/static/brand/` is re-vendored with gravel's new one-liner, "Track every game server your community runs, with cross-game stats and one control plane.": the README banners, the link-preview card and the web manifest description carry it, and the README's banner alt text matches.
+
 ### Added
 
 - The gravel brand kit, vendored under `internal/web/static/brand/` from mkzsystems/brand (never edited here; `VENDORED` records the source commit): the mark, favicons, the link-preview card, README banners and the colour tokens. The hub's **default look is now gravel's own**: the amber accent on graphite with the verified light scheme, Overpass where the viewer has it (the hub still serves no webfont), the mark beside the organization name and the scheme-aware favicon. A host's Organization settings override it as before; `static/brand/product/theme.yaml` is the same look as a settings document.
