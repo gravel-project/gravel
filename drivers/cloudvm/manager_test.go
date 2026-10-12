@@ -715,7 +715,7 @@ func TestHostKeyMismatchIsAnError(t *testing.T) {
 func TestDocumentHoldsNoSecret(t *testing.T) {
 	r := newRig(t)
 	s := r.src.specs[0]
-	doc, err := cloudvm.Document(s, s.GameName, "/dev/disk/by-id/scsi-0FAKE_Volume_cs2-1-data", []string{"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGravelTestKeyGravelTestKeyGravelTestKey000 hub"})
+	doc, err := cloudvm.Document(s, s.GameName, "/dev/disk/by-id/scsi-0FAKE_Volume_cs2-1-data", []string{"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGravelTestKeyGravelTestKeyGravelTestKey000 hub"}, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -737,7 +737,7 @@ var update = flag.Bool("update", false, "rewrite the golden files in testdata/")
 func TestDocumentGolden(t *testing.T) {
 	r := newRig(t)
 	s := r.src.specs[0]
-	doc, err := cloudvm.Document(s, s.GameName, "/dev/disk/by-id/scsi-0DO_Volume_cs2-1-data", []string{"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGravelTestKeyGravelTestKeyGravelTestKey000 gravel-hub"})
+	doc, err := cloudvm.Document(s, s.GameName, "/dev/disk/by-id/scsi-0DO_Volume_cs2-1-data", []string{"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGravelTestKeyGravelTestKeyGravelTestKey000 gravel-hub"}, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -764,7 +764,7 @@ func TestUnitDryRun(t *testing.T) {
 	}
 	r := newRig(t)
 	s := r.src.specs[0]
-	doc, err := cloudvm.Document(s, s.GameName, "/dev/x", []string{"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGravelTestKeyGravelTestKeyGravelTestKey000 x"})
+	doc, err := cloudvm.Document(s, s.GameName, "/dev/x", []string{"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGravelTestKeyGravelTestKeyGravelTestKey000 x"}, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -864,5 +864,76 @@ func TestBootMarkerIsOnTheRootDisk(t *testing.T) {
 	}
 	if !checked {
 		t.Error("the hub never checked the marker on the root disk")
+	}
+}
+
+// TestReservedEgressInTheDocument holds the fix for HTG's first live run: a DigitalOcean reserved
+// IP answered nothing, because the game replied from the instance's own address. A server with a
+// reserved address gets the provider's egress script as a boot service and a NetworkManager hook;
+// one without, or on a provider that needs none, gets neither.
+func TestReservedEgressInTheDocument(t *testing.T) {
+	r := newRig(t)
+	s := r.src.specs[0]
+	const script = "#!/bin/sh\n# provider egress\nip route replace default via 10.0.0.1\n"
+	keys := []string{"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGravelTestKeyGravelTestKeyGravelTestKey000 gravel-hub"}
+	doc, err := cloudvm.Document(s, s.GameName, "/dev/disk/by-id/scsi-0DO_Volume_cs2-1-data", keys, script)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"path: /usr/local/libexec/gravel-reserved-egress", "# provider egress",
+		"path: /etc/systemd/system/gravel-reserved-egress.service", "ExecStart=/usr/local/libexec/gravel-reserved-egress",
+		"path: /etc/NetworkManager/dispatcher.d/90-gravel-reserved-egress",
+		"systemctl enable --now --no-block gravel-reserved-egress.service",
+	} {
+		if !strings.Contains(doc, want) {
+			t.Errorf("the document lacks %q", want)
+		}
+	}
+	path := filepath.Join("testdata", "cs2-reserved-egress.golden.yaml")
+	if *update {
+		if err := os.WriteFile(path, []byte(doc), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if want, err := os.ReadFile(path); err != nil || doc != string(want) {
+		t.Errorf("the document differs from %s (go test -update after a deliberate change): %v", path, err)
+	}
+	for name, spec := range map[string]func(){
+		"no reserved address": func() { s.AddressReserved = false },
+		"no provider script":  func() { script2 = "" },
+	} {
+		s, script2 = r.src.specs[0], script
+		spec()
+		doc, err := cloudvm.Document(s, s.GameName, "/dev/x", keys, script2)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(doc, "gravel-reserved-egress") {
+			t.Errorf("%s: the document installs the egress script", name)
+		}
+	}
+}
+
+var script2 string
+
+// TestSourceAddressesIncludeTheReservedAddress: once the egress script runs, the log push comes
+// from the reserved address, so the log route's pin admits it beside the instance's own.
+func TestSourceAddressesIncludeTheReservedAddress(t *testing.T) {
+	r := newRig(t)
+	r.remote.BootAll()
+	for i := 0; i < 6; i++ {
+		_ = r.tick()
+	}
+	h := r.host()
+	if !h.AddressReserved || h.Address == "" || h.InstanceAddress == "" || h.Address == h.InstanceAddress {
+		t.Fatalf("the rig's host has no separate reserved address: %+v", h)
+	}
+	got, ok := r.m.SourceAddresses(serverID)
+	if !ok || len(got) != 2 || got[0].String() != h.InstanceAddress || got[1].String() != h.Address {
+		t.Errorf("SourceAddresses = %v %v, want [%s %s]", got, ok, h.InstanceAddress, h.Address)
+	}
+	if _, ok := r.m.SourceAddresses("nope"); ok {
+		t.Error("a server with no host has source addresses")
 	}
 }

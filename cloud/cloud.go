@@ -82,6 +82,11 @@ type Provider interface {
 	DetachVolume(ctx context.Context, volumeID, instanceID string) (Operation, error)
 	// VolumeDevice is the stable path the instance's OS sees the volume at, for cloud-init.
 	VolumeDevice(v Volume) string
+	// ReservedEgressScript is a shell script an instance runs as root at every boot, and when its
+	// network comes up again, so that its outbound traffic leaves from the reserved address assigned
+	// to it; "" where the provider does that by itself. It changes nothing until an address is
+	// assigned.
+	ReservedEgressScript() string
 
 	// Addresses lists the reserved (movable, inbound) addresses matching the filter.
 	Addresses(ctx context.Context, f Filter) ([]Address, error)

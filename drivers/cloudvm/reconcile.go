@@ -359,7 +359,7 @@ func (t *tick) create(ctx context.Context, h *Host) (bool, error) {
 		if err != nil {
 			return false, cloudErr(err)
 		}
-		doc, err := Document(s, s.GameName, p.VolumeDevice(cloud.Volume{ID: h.VolumeID, Name: VolumeName(s.ID), Region: s.Location.Region}), append([]string{pub + " gravel-hub"}, s.Location.ExtraSSHKeys...))
+		doc, err := Document(s, s.GameName, p.VolumeDevice(cloud.Volume{ID: h.VolumeID, Name: VolumeName(s.ID), Region: s.Location.Region}), append([]string{pub + " gravel-hub"}, s.Location.ExtraSSHKeys...), p.ReservedEgressScript())
 		if err != nil {
 			return false, err
 		}

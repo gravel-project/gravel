@@ -656,7 +656,13 @@ the hub asks a public service every ten minutes. Set it on a hub with a fixed ad
 `gravel-server:<id>`; the instance is named `<id>`, the volume `<id>-data`, the firewall
 `gravel-server-<id>`, and the hub's key is registered as `gravel-hub-<location>`. The firewall
 admits the game's public ports (CS2: UDP 27015) from everyone, RCON (TCP 27015) and SSH only from
-the hub (and `ssh_from`), and re-pins them when the hub's address changes. A `server_hosts` row
+the hub (and `ssh_from`), and re-pins them when the hub's address changes. On DigitalOcean a
+reserved IP reaches the instance on its anchor address and carries outbound traffic only through
+the anchor gateway, so for a server with a reserved address the document installs the provider's
+egress script as a boot service (`gravel-reserved-egress`, with a NetworkManager hook): once the
+address is assigned, outbound traffic leaves from it, and the game answers players from the address
+they dialled and registers with its publisher under it. The hub still reaches the instance's own
+address for SSH and RCON, and takes the game's log from either address. A `server_hosts` row
 records what the hub wants and where it got to; the cloud is the truth, so a hub that stops in the
 middle of anything finds what exists by its tags and names and carries on without making it
 twice.

@@ -1,0 +1,16 @@
+# Written by the gravel hub (the cloud-VM driver, ADR-0003) for server {{ .ServerID }}: outbound
+# traffic leaves from the server's reserved address, where the cloud needs the instance to route it
+# (the script is the provider's own). It waits for the address to be assigned.
+[Unit]
+Description=gravel: outbound traffic from the reserved address
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/gravel-reserved-egress
+RemainAfterExit=yes
+TimeoutStartSec=15min
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,5 @@
+# Outbound traffic from the reserved address (the provider's script), at every boot from now on;
+# --no-block, since it waits for the hub to assign the address.
+restorecon /usr/local/libexec/gravel-reserved-egress /etc/systemd/system/gravel-reserved-egress.service /etc/NetworkManager/dispatcher.d/90-gravel-reserved-egress || true
+systemctl daemon-reload
+systemctl enable --now --no-block gravel-reserved-egress.service

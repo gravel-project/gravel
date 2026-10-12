@@ -90,7 +90,7 @@ func document(args []string) error {
 	if err != nil {
 		return err
 	}
-	doc, err := cloudvm.Document(s, s.GameName, *device, []string{strings.TrimSpace(string(pub))})
+	doc, err := cloudvm.Document(s, s.GameName, *device, []string{strings.TrimSpace(string(pub))}, "")
 	if err != nil {
 		return err
 	}

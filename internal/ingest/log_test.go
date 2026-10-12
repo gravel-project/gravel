@@ -16,9 +16,9 @@ import (
 	"github.com/gravel-project/gravel/internal/httpx"
 )
 
-type pin map[string]netip.Addr
+type pin map[string][]netip.Addr
 
-func (p pin) SourceAddress(server string) (netip.Addr, bool) {
+func (p pin) SourceAddresses(server string) ([]netip.Addr, bool) {
 	a, ok := p[server]
 	return a, ok
 }
@@ -42,7 +42,7 @@ func newLogRig(t *testing.T) (*rig, *tap) {
 	r.keys.Update([]Feed{{Server: "wd-1", Source: "wardogs", Token: "token-one"}, {Server: "cs2-1", Source: "cs2", Token: "log-token"}})
 	tp := &tap{}
 	r.h.SetLogTap(tp)
-	r.h.SetAddressPin(pin{"cs2-1": netip.MustParseAddr("203.0.113.7")})
+	r.h.SetAddressPin(pin{"cs2-1": {netip.MustParseAddr("203.0.113.7"), netip.MustParseAddr("198.51.100.40")}})
 	r.h.SetLogSource("cs2", LogSource{
 		Headers: []string{"X-Server-Instance-Token", "X-LogBytes-BeginOffset"},
 		Redact: func(body []byte, secrets ...string) []byte {
@@ -119,7 +119,7 @@ func TestLogRouteRefusals(t *testing.T) {
 	if rec := postLog(r, "log-token", "x\n", "203.0.113.7:1", logs); rec.Code != http.StatusUnauthorized {
 		t.Errorf("no host: %d", rec.Code)
 	}
-	r.h.SetAddressPin(pin{"cs2-1": netip.MustParseAddr("203.0.113.7")})
+	r.h.SetAddressPin(pin{"cs2-1": {netip.MustParseAddr("203.0.113.7"), netip.MustParseAddr("198.51.100.40")}})
 	if rec := postLog(r, "log-token", strings.Repeat("x", MaxLogBody+1), "203.0.113.7:1", logs); rec.Code != http.StatusRequestEntityTooLarge {
 		t.Errorf("too large: %d", rec.Code)
 	}
@@ -140,5 +140,20 @@ func TestLogRouteRefusals(t *testing.T) {
 	}
 	if rec := r.post("log-token", "x", "203.0.113.7:1"); rec.Code != http.StatusUnauthorized {
 		t.Errorf("a log token as a bearer: %d, want 401 (it would skip the address pin)", rec.Code)
+	}
+}
+
+// TestLogRouteTakesTheReservedAddress: with the provider's egress script, a cloud-VM server's log
+// push leaves from its reserved address; the route takes it from there as from the instance's own.
+func TestLogRouteTakesTheReservedAddress(t *testing.T) {
+	r, _ := newLogRig(t)
+	logs := &strings.Builder{}
+	for _, addr := range []string{"203.0.113.7:40000", "198.51.100.40:40001"} {
+		if rec := postLog(r, "log-token", "x\n", addr, logs); rec.Code != http.StatusOK {
+			t.Errorf("from %s: answer %d", addr, rec.Code)
+		}
+	}
+	if rec := postLog(r, "log-token", "x\n", "192.0.2.9:40002", logs); rec.Code != http.StatusUnauthorized {
+		t.Errorf("from another address: answer %d", rec.Code)
 	}
 }
