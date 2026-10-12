@@ -315,6 +315,33 @@ cloudvm:
         )
         gravel_plugins || true
         unset -f gravel_plugins
+  # How a lease takes a match (#20, #176): MatchZy, on Metamod:Source and CounterStrikeSharp,
+  # installed by pre.sh from these pins when a lease asks for it, with a vanilla server if it
+  # doesn't load (MatchZy's with-cssharp zip carries CounterStrikeSharp and its .NET runtime;
+  # Metamod comes on its own). A lease's match config is MatchZy's JSON, written into the install
+  # and loaded over RCON once the plugins answer.
+  lease:
+    match_file: game/csgo/gravel-match.json
+    match_format: matchzy
+    load_command: matchzy_loadmatch gravel-match.json
+    connect: "connect <address>; password <password>"
+    plugins:
+      matchzy:
+        files:
+          - url: https://github.com/alliedmodders/metamod-source/releases/download/2.0.0.1476/mmsource-2.0.0-git1476-linux.tar.gz
+            sha256: fc8b4dce5b72ee8d3222cecba2c0efab6cd4e46bbfc381aec58f834ed9842f8e
+            kind: tar.gz
+            dest: .
+          - url: https://github.com/shobhit-pathak/MatchZy/releases/download/0.9.1/MatchZy-0.9.1-with-cssharp-linux.zip
+            sha256: 5f1045c2ceb628b7223c8b41b788841b64b603e0129f6638dc0f9e7ca83d4fdd
+            kind: zip
+            dest: .
+        check: css_plugins list
+        expect: MatchZy
+        env:
+          GRAVEL_MATCHZY_EVENTS_URL: "{hub}/api/ingest/matchzy"
+          GRAVEL_MATCHZY_DEMO_URL: "{hub}/api/ingest/matchzy/demo"
+          GRAVEL_MATCHZY_TOKEN: "{token}"
   # The teams a server's card counts players on (#159); a player's team is the side the log gives
   # them, and spectators are on neither. The log carries no running score.
   teams:

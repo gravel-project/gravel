@@ -56,6 +56,9 @@ type Profile struct {
 	// environment file and checked with it (#170): a script the image runs at start, say. They hold
 	// no secret; the environment does.
 	Hooks []Hook `yaml:"hooks,omitempty"`
+	// Lease is how the game takes a lease's match and plugins (#20, #176); nil when a lease can
+	// set only its password and settings.
+	Lease *LeaseProfile `yaml:"lease,omitempty"`
 	// Teams are the game's teams as its status shows them, each with the value its players' team
 	// carries (#159): the hub counts the players on each. Empty when the game has none.
 	Teams []Team `yaml:"teams,omitempty"`
@@ -68,12 +71,56 @@ type Hook struct {
 	Content string `yaml:"content"`
 }
 
+// sha256RE is a SHA-256 in hex.
+var sha256RE = regexp.MustCompile(`^[0-9a-f]{64}$`)
+
+// validHookPath is a plain path inside the install.
+func validHookPath(p string) bool {
+	clean := path.Clean(p)
+	return p != "" && !path.IsAbs(p) && clean == p && clean != "." && !strings.HasPrefix(clean, "../") && hookPath.MatchString(p)
+}
+
 // hookPath is the characters a hook's path may hold: it is written into a shell script unquoted.
 var hookPath = regexp.MustCompile(`^[A-Za-z0-9._/-]+$`)
 
 // MaxHookBytes bounds a game's hooks together: they travel inside the command the hub runs over
 // SSH, which is one argument on the host (Linux caps one at 128 KiB).
 const MaxHookBytes = 32 << 10
+
+// LeaseProfile is how a game takes a lease's match config and plugin set: where the config file
+// goes, the format the hub checks it against, the console command that loads it once the game is up,
+// what players are told to type, and the plugin sets a lease may ask for.
+type LeaseProfile struct {
+	// MatchFile is where a lease's match config is written, relative to the install
+	// ("game/csgo/gravel-match.json"); "" takes none.
+	MatchFile string `yaml:"match_file,omitempty"`
+	// MatchFormat names the check a config must pass ("matchzy"); the hub registers the checks.
+	MatchFormat string `yaml:"match_format,omitempty"`
+	// LoadCommand loads the config once the game answers ("matchzy_loadmatch gravel-match.json").
+	LoadCommand string `yaml:"load_command,omitempty"`
+	// Connect is what a player types to join, with <address> and <password> filled in.
+	Connect string `yaml:"connect,omitempty"`
+	// Plugins are the plugin sets a lease may ask for, by name.
+	Plugins map[string]PluginSet `yaml:"plugins,omitempty"`
+}
+
+// PluginSet is a pinned set of plugins a game's hook installs (#176): the files, the console command
+// that says they loaded, and environment lines for them, where {hub} is the hub's ingest origin
+// and {token} the server's feed token.
+type PluginSet struct {
+	Files  []PluginFile      `yaml:"files"`
+	Check  string            `yaml:"check"`
+	Expect string            `yaml:"expect"`
+	Env    map[string]string `yaml:"env,omitempty"`
+}
+
+// PluginFile is one pinned download: unpacked into Dest under the game's directory.
+type PluginFile struct {
+	URL    string `yaml:"url"`
+	SHA256 string `yaml:"sha256"`
+	Kind   string `yaml:"kind"` // tar.gz or zip
+	Dest   string `yaml:"dest"`
+}
 
 // Team is one of a game's teams: the name players see, and the key its players' team carries
 // ("TERRORIST" for "T"); an empty key is the name.
@@ -306,6 +353,39 @@ func (p Profile) Validate() error {
 	if size > MaxHookBytes {
 		bad("hooks: %d bytes together, at most %d", size, MaxHookBytes)
 	}
+	if l := p.Lease; l != nil {
+		if l.MatchFile != "" && !validHookPath(l.MatchFile) {
+			bad("lease.match_file: %q is not a plain path inside the install", l.MatchFile)
+		}
+		if (l.MatchFile == "") != (l.LoadCommand == "") {
+			bad("lease: match_file and load_command go together")
+		}
+		for name, set := range l.Plugins {
+			if !keyRE.MatchString(name) {
+				bad("lease.plugins: %q is not a plugin set's name", name)
+			}
+			if len(set.Files) == 0 || set.Check == "" || set.Expect == "" {
+				bad("lease.plugins.%s: files, check and expect are required", name)
+			}
+			for i, f := range set.Files {
+				switch {
+				case !strings.HasPrefix(f.URL, "https://"):
+					bad("lease.plugins.%s.files[%d]: the url must be https", name, i)
+				case !sha256RE.MatchString(f.SHA256):
+					bad("lease.plugins.%s.files[%d]: sha256 is 64 hex digits", name, i)
+				case f.Kind != "tar.gz" && f.Kind != "zip":
+					bad("lease.plugins.%s.files[%d]: kind is tar.gz or zip", name, i)
+				case f.Dest == "" || strings.ContainsAny(f.URL+f.Dest, " |\n"):
+					bad("lease.plugins.%s.files[%d]: dest is required, and no field holds a space or |", name, i)
+				}
+			}
+			for k := range set.Env {
+				if !envRE.MatchString(k) {
+					bad("lease.plugins.%s.env: %q is not an environment variable name", name, k)
+				}
+			}
+		}
+	}
 	teams := map[string]bool{}
 	for i, t := range p.Teams {
 		switch {
@@ -345,6 +425,12 @@ func (p Profile) ValidateLadder(ladder []Tier) error {
 		}
 	}
 	return errors.Join(errs...)
+}
+
+// HasSetting reports whether the game has a setting by that key.
+func (p Profile) HasSetting(key string) bool {
+	_, ok := p.setting(key)
+	return ok
 }
 
 func (p Profile) setting(key string) (Setting, bool) {

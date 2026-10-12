@@ -234,3 +234,58 @@ func TestHostExpectation(t *testing.T) {
 		t.Errorf("cleared: %v", got)
 	}
 }
+
+// fakeLeases is ServerLeaseService with one live lease on htg-cs2-1; it records releases.
+type fakeLeases struct {
+	hubv1connect.UnimplementedServerLeaseServiceHandler
+	mu       sync.Mutex
+	released []string
+}
+
+func (f *fakeLeases) ListServerLeases(_ context.Context, req *connect.Request[hubv1.ListServerLeasesRequest]) (*connect.Response[hubv1.ListServerLeasesResponse], error) {
+	if req.Msg.GetServerId() != "htg-cs2-1" {
+		return connect.NewResponse(&hubv1.ListServerLeasesResponse{}), nil
+	}
+	return connect.NewResponse(&hubv1.ListServerLeasesResponse{Leases: []*hubv1.ServerLease{
+		{Id: "l2", ServerId: "htg-cs2-1", HolderKind: "app", HolderRef: "PUG <3>", State: "ready", Plugins: []string{"matchzy"}, PluginState: "loaded",
+			CreatedAt: timestamppb.New(time.Date(2026, 10, 14, 1, 0, 0, 0, time.UTC))},
+		{Id: "l1", ServerId: "htg-cs2-1", HolderKind: "user", HolderRef: "test", State: "released", Reason: "nobody on for 15m0s",
+			CreatedAt: timestamppb.New(time.Date(2026, 10, 13, 1, 0, 0, 0, time.UTC))},
+	}}), nil
+}
+
+func (f *fakeLeases) ReleaseServerLease(_ context.Context, req *connect.Request[hubv1.ReleaseServerLeaseRequest]) (*connect.Response[hubv1.ReleaseServerLeaseResponse], error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.released = append(f.released, req.Msg.GetLeaseId())
+	return connect.NewResponse(&hubv1.ReleaseServerLeaseResponse{Lease: &hubv1.ServerLease{Id: req.Msg.GetLeaseId(), State: "released"}}), nil
+}
+
+// The server's leases (#20) on its machine panel, and giving a live one back through the
+// confirmation.
+func TestHostLeases(t *testing.T) {
+	r := newRig(t)
+	withCS2(r)
+	c := moderator(t, r)
+	_, page := get(t, c, r.srv.URL+"/servers/htg-cs2-1")
+	for _, want := range []string{"<strong>ready</strong>: PUG &lt;3&gt;, taken by an app", "matchzy loaded", "nobody on for 15m0s", "taken by a moderator",
+		"Give back the lease for PUG &lt;3&gt;"} {
+		if !strings.Contains(page, want) {
+			t.Errorf("the panel lacks %q", want)
+		}
+	}
+	if strings.Count(page, "Give back the lease") != 1 {
+		t.Error("a release offered for a lease that is over")
+	}
+	csrf := csrfOf(t, page)
+	resp, body := post(t, c, r.srv.URL+"/servers/htg-cs2-1/host", url.Values{"_csrf": {csrf}, "action": {"release"}, "lease": {"l2"}}, nil)
+	if resp.StatusCode != http.StatusOK || !strings.Contains(body, "Give back HTG CS2&#39;s lease?") || !strings.Contains(body, `name="lease" value="l2"`) {
+		t.Fatalf("confirmation: %d %s", resp.StatusCode, body)
+	}
+	post(t, c, r.srv.URL+"/servers/htg-cs2-1/host", url.Values{"_csrf": {csrf}, "action": {"release"}, "lease": {"l2"}, "confirm": {"1"}}, nil)
+	r.leases.mu.Lock()
+	defer r.leases.mu.Unlock()
+	if !slices.Equal(r.leases.released, []string{"l2"}) {
+		t.Errorf("released %v", r.leases.released)
+	}
+}

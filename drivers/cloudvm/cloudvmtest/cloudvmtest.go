@@ -313,11 +313,12 @@ type Game struct {
 	commands []string
 	addrs    []string
 	password string
+	answers  map[string]string // what Exec answers, by command
 }
 
 // NewGame is a game that answers once Up is called.
 func NewGame() *Game {
-	return &Game{logs: map[string]cloudvm.LogResult{}, status: cloudvm.GameStatus{Build: "1.0", Map: "de_test", MaxPlayers: 10}}
+	return &Game{logs: map[string]cloudvm.LogResult{}, answers: map[string]string{}, status: cloudvm.GameStatus{Build: "1.0", Map: "de_test", MaxPlayers: 10}}
 }
 
 // Factory is the game's GameFactory.
@@ -433,6 +434,23 @@ func (g *Game) Say(_ context.Context, m string) error { return g.record("say " +
 
 // Quit implements cloudvm.Game.
 func (g *Game) Quit(context.Context) error { return g.record("quit") }
+
+// Exec implements cloudvm.Game: it records the command and answers what Answer set.
+func (g *Game) Exec(_ context.Context, command string) (string, error) {
+	if err := g.record(command); err != nil {
+		return "", err
+	}
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.answers[command], nil
+}
+
+// Answer sets what a console command answers.
+func (g *Game) Answer(command, out string) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.answers[command] = out
+}
 
 // SetPassword implements cloudvm.Game.
 func (g *Game) SetPassword(p string) {

@@ -32,6 +32,7 @@ const (
 	EnvDiscordClientSecret = "GRAVEL_DISCORD_CLIENT_SECRET"
 	EnvSteamAPIKey         = "GRAVEL_STEAM_API_KEY"
 	EnvStatsPseudonymKey   = "GRAVEL_STATS_PSEUDONYM_KEY"
+	EnvLeaseKey            = "GRAVEL_LEASE_KEY"
 )
 
 // Migration policies.
@@ -54,6 +55,7 @@ type Config struct {
 	Apps         Apps         `yaml:"apps"`
 	Stats        Stats        `yaml:"stats"`
 	Cloud        Cloud        `yaml:"cloud"`
+	Leases       Leases       `yaml:"leases"`
 	// Demo marks a demo hub (gravel#112): every page says its members, matches and stats are
 	// made up, and `gravel-hub demo seed` may write fake history into its database. A hub without
 	// it refuses to start on a database that holds demo members.
@@ -68,6 +70,23 @@ type Cloud struct {
 	// lies cannot lock the hub out.
 	EgressCIDRs []string `yaml:"egress_cidrs"`
 }
+
+// Leases is server leases' one secret (#20): the key a lease's join password is derived from, so
+// the password is never stored and comes out the same after a restart. Unset, the hub leases no
+// server.
+type Leases struct {
+	// Key is development only: production sets GRAVEL_LEASE_KEY or KeyFile.
+	Key     string `yaml:"key"`
+	KeyFile string `yaml:"key_file"`
+
+	keySource string
+}
+
+// KeySource says where the lease key came from, never the key; empty when there is none.
+func (l Leases) KeySource() string { return l.keySource }
+
+// MinLeaseKey is the shortest lease key accepted.
+const MinLeaseKey = 32
 
 // Stats is the stats store's one secret (ADR-0012 §5): the key pseudonyms are chosen with, so a
 // pseudonym cannot be computed from a SteamID without it. Unset, unlinked players show as
@@ -292,6 +311,9 @@ func (c *Config) resolveSecrets(env Env) error {
 	if c.Stats.PseudonymKey, c.Stats.keySource, err = resolveSecret(env, EnvStatsPseudonymKey, c.Stats.PseudonymKeyFile, c.Stats.PseudonymKey, "stats.pseudonym_key"); err != nil {
 		return err
 	}
+	if c.Leases.Key, c.Leases.keySource, err = resolveSecret(env, EnvLeaseKey, c.Leases.KeyFile, c.Leases.Key, "leases.key"); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -321,6 +343,9 @@ func (c Config) Validate() error {
 
 	if c.Version != CurrentVersion {
 		bad("version: got %d, this hub reads version %d", c.Version, CurrentVersion)
+	}
+	if k := c.Leases.Key; k != "" && len(k) < MinLeaseKey {
+		bad("leases.key: %d characters, at least %d (openssl rand -hex 32)", len(k), MinLeaseKey)
 	}
 	if k := c.Stats.PseudonymKey; k != "" && len(k) < MinPseudonymKey {
 		bad("stats.pseudonym_key: %d characters, at least %d (openssl rand -hex 32)", len(k), MinPseudonymKey)

@@ -217,8 +217,12 @@ func configCheck(args []string, stdout, stderr io.Writer) int {
 	if src := cfg.Stats.KeySource(); src != "" {
 		pseudonyms = "key from " + src
 	}
-	fmt.Fprintf(stdout, "config OK: organization %q, listen %s, internal %s, database %s (from %s), migrate %s, login %s, pseudonyms %s\n",
-		cfg.Organization.Name, cfg.Server.Listen, cfg.Server.InternalListen, cfg.Database.RedactedURL(), cfg.Database.Source(), cfg.Database.Migrate, authSummary(cfg), pseudonyms)
+	leases := "off (no key)"
+	if src := cfg.Leases.KeySource(); src != "" {
+		leases = "key from " + src
+	}
+	fmt.Fprintf(stdout, "config OK: organization %q, listen %s, internal %s, database %s (from %s), migrate %s, login %s, pseudonyms %s, leases %s\n",
+		cfg.Organization.Name, cfg.Server.Listen, cfg.Server.InternalListen, cfg.Database.RedactedURL(), cfg.Database.Source(), cfg.Database.Migrate, authSummary(cfg), pseudonyms, leases)
 	if cfg.Demo {
 		fmt.Fprintln(stdout, "demo hub: every page says its members, matches and stats are made up, and `gravel-hub demo seed` may write made-up history into an empty database")
 	}

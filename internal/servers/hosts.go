@@ -62,6 +62,13 @@ type Hosts struct {
 	now      func() time.Time
 	readFile func(string) ([]byte, error)
 	mgr      *cloudvm.Manager
+	// overlay is what a live lease changes about a server (#20); nil without leases.
+	overlay func(s *cloudvm.ServerSpec, feedOrigin, feedToken string)
+}
+
+// SetOverlay sets what changes a server's spec while it is leased.
+func (h *Hosts) SetOverlay(f func(s *cloudvm.ServerSpec, feedOrigin, feedToken string)) {
+	h.overlay = f
 }
 
 // NewHosts builds the glue; Attach gives it the Manager.
@@ -180,14 +187,17 @@ func (h *Hosts) spec(srv Server, locs map[string]Location, removed bool) (cloudv
 	if s.PublisherToken, err = read(srv.VM.PublisherTokenFile); err != nil {
 		return cloudvm.ServerSpec{}, fmt.Errorf("publisher token: %w", err)
 	}
+	var feed string
 	if srv.Feed != nil {
-		feed, err := read(srv.Feed.TokenFile)
-		if err != nil {
+		if feed, err = read(srv.Feed.TokenFile); err != nil {
 			return cloudvm.ServerSpec{}, fmt.Errorf("feed token: %w", err)
 		}
 		if feed != "" {
 			s.FeedURL = cloudvm.FeedURL(srv.Feed.URL, feed)
 		}
+	}
+	if h.overlay != nil && !removed && srv.Feed != nil {
+		h.overlay(&s, srv.Feed.URL, feed)
 	}
 	return s, nil
 }

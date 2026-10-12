@@ -1499,6 +1499,166 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.UnpinServerHostSizeResponse'
+  /gravel.hub.v1.ServerLeaseService/GetServerLease:
+    post:
+      tags:
+        - gravel.hub.v1.ServerLeaseService
+      summary: GetServerLease
+      description: GetServerLease is a lease, without its password.
+      operationId: gravel.hub.v1.ServerLeaseService.GetServerLease
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.GetServerLeaseRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.GetServerLeaseResponse'
+  /gravel.hub.v1.ServerLeaseService/ListServerLeases:
+    post:
+      tags:
+        - gravel.hub.v1.ServerLeaseService
+      summary: ListServerLeases
+      description: ListServerLeases is the leases, newest first.
+      operationId: gravel.hub.v1.ServerLeaseService.ListServerLeases
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.ListServerLeasesRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.ListServerLeasesResponse'
+  /gravel.hub.v1.ServerLeaseService/ReleaseServerLease:
+    post:
+      tags:
+        - gravel.hub.v1.ServerLeaseService
+      summary: ReleaseServerLease
+      description: ReleaseServerLease gives a live lease back; the server is parked.
+      operationId: gravel.hub.v1.ServerLeaseService.ReleaseServerLease
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.ReleaseServerLeaseRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.ReleaseServerLeaseResponse'
+  /gravel.hub.v1.ServerLeaseService/RequestServerLease:
+    post:
+      tags:
+        - gravel.hub.v1.ServerLeaseService
+      summary: RequestServerLease
+      description: |-
+        RequestServerLease takes the named server, or the first free one in the pool (a running empty
+         one first), and starts it. failed_precondition when it has players on or no server in the pool
+         is free; asking again with the same holder_ref answers the same lease.
+      operationId: gravel.hub.v1.ServerLeaseService.RequestServerLease
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.RequestServerLeaseRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.RequestServerLeaseResponse'
+  /gravel.hub.v1.ServerLeaseService/WatchServerLease: {}
   /gravel.hub.v1.ServerService/GetServerStatus:
     post:
       tags:
@@ -3411,6 +3571,23 @@ components:
           title: host
       title: GetServerHostResponse
       additionalProperties: false
+    gravel.hub.v1.GetServerLeaseRequest:
+      type: object
+      properties:
+        leaseId:
+          type: string
+          title: lease_id
+      title: GetServerLeaseRequest
+      additionalProperties: false
+    gravel.hub.v1.GetServerLeaseResponse:
+      type: object
+      properties:
+        lease:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.ServerLease'
+          title: lease
+      title: GetServerLeaseResponse
+      additionalProperties: false
     gravel.hub.v1.GetServerStatusRequest:
       type: object
       properties:
@@ -3684,6 +3861,22 @@ components:
           format: int64
       title: KickPlayerResponse
       additionalProperties: false
+    gravel.hub.v1.LeaseJoin:
+      type: object
+      properties:
+        address:
+          type: string
+          title: address
+        password:
+          type: string
+          title: password
+        connect:
+          type: string
+          title: connect
+          description: What a player types to join ("connect 203.0.113.50:27015; password …").
+      title: LeaseJoin
+      additionalProperties: false
+      description: 'LeaseJoin is how players join a leased server: only in the answer to the request that holds it.'
     gravel.hub.v1.ListAppGrantsRequest:
       type: object
       title: ListAppGrantsRequest
@@ -3858,6 +4051,33 @@ components:
           type: string
           title: next_page_token
       title: ListServerHostEventsResponse
+      additionalProperties: false
+    gravel.hub.v1.ListServerLeasesRequest:
+      type: object
+      properties:
+        serverId:
+          type: string
+          title: server_id
+          description: A server's leases; empty for every server.
+        liveOnly:
+          type: boolean
+          title: live_only
+        limit:
+          type: integer
+          title: limit
+          format: int32
+          description: At most this many, newest first (50 when 0, at most 200).
+      title: ListServerLeasesRequest
+      additionalProperties: false
+    gravel.hub.v1.ListServerLeasesResponse:
+      type: object
+      properties:
+        leases:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.ServerLease'
+          title: leases
+      title: ListServerLeasesResponse
       additionalProperties: false
     gravel.hub.v1.ListServerPlayersRequest:
       type: object
@@ -4509,6 +4729,92 @@ components:
           description: One per event, in the request's order.
       title: RecordParticipationResponse
       additionalProperties: false
+    gravel.hub.v1.ReleaseServerLeaseRequest:
+      type: object
+      properties:
+        leaseId:
+          type: string
+          title: lease_id
+        reason:
+          type: string
+          title: reason
+        onBehalfOf:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.Actor'
+          title: on_behalf_of
+      title: ReleaseServerLeaseRequest
+      additionalProperties: false
+    gravel.hub.v1.ReleaseServerLeaseResponse:
+      type: object
+      properties:
+        lease:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.ServerLease'
+          title: lease
+      title: ReleaseServerLeaseResponse
+      additionalProperties: false
+    gravel.hub.v1.RequestServerLeaseRequest:
+      type: object
+      properties:
+        serverId:
+          type: string
+          title: server_id
+          description: 'A server, or a pool of servers: one of them.'
+        pool:
+          type: string
+          title: pool
+        holderRef:
+          type: string
+          title: holder_ref
+          description: |-
+            The holder's reference (a session id), printable, at most 128 bytes: asking again with it
+             answers the live lease, password included.
+        expectedPlayers:
+          type: integer
+          title: expected_players
+          format: int32
+          description: 'Players to expect: the server is sized for them until the lease ends (#172).'
+        settings:
+          type: object
+          title: settings
+          additionalProperties:
+            type: string
+            title: value
+          description: Settings the server's vm.lease.settings allow.
+        plugins:
+          type: array
+          items:
+            type: string
+          title: plugins
+          description: A plugin set the server's game offers ("matchzy"); at most one.
+        matchConfig:
+          type: string
+          title: match_config
+          format: byte
+          description: A match config in the game's format (MatchZy's JSON), loaded once the plugins are up.
+        reason:
+          type: string
+          title: reason
+        onBehalfOf:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.Actor'
+          title: on_behalf_of
+          description: The moderator an app acts for; unset for an app acting for itself or anyone in person.
+      title: RequestServerLeaseRequest
+      additionalProperties: false
+    gravel.hub.v1.RequestServerLeaseResponse:
+      type: object
+      properties:
+        lease:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.ServerLease'
+          title: lease
+        join:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.LeaseJoin'
+          title: join
+      title: RequestServerLeaseResponse
+      additionalProperties: false
     gravel.hub.v1.ResizeServerHostRequest:
       type: object
       properties:
@@ -4816,6 +5122,94 @@ components:
       description: |-
         ServerJoin is how a player reaches a server from the game. It is public: what a community
          shares to bring players in.
+    gravel.hub.v1.ServerLease:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+        serverId:
+          type: string
+          title: server_id
+        pool:
+          type: string
+          title: pool
+          description: The pool it was asked from; empty when the server was named.
+        holderKind:
+          type: string
+          title: holder_kind
+          description: 'Who holds it: "app" (an app''s client id) or "user".'
+        holder:
+          type: string
+          title: holder
+        holderRef:
+          type: string
+          title: holder_ref
+          description: 'The holder''s own reference (a session id): one live lease per holder and reference.'
+        state:
+          type: string
+          title: state
+          description: |-
+            "starting", "ready", "ending" (its match is over, it lasts a few minutes more), "released" or
+             "failed".
+        reason:
+          type: string
+          title: reason
+          description: Why it ended, or the request's reason while it lasts.
+        settings:
+          type: object
+          title: settings
+          additionalProperties:
+            type: string
+            title: value
+        plugins:
+          type: array
+          items:
+            type: string
+          title: plugins
+        pluginState:
+          type: string
+          title: plugin_state
+          description: '"" while unknown or none was asked, "loaded", or "vanilla" after the set failed to load.'
+        pluginReason:
+          type: string
+          title: plugin_reason
+        matchLoaded:
+          type: boolean
+          title: match_loaded
+          description: The match config was loaded on the server.
+        expectedPlayers:
+          type: integer
+          title: expected_players
+          format: int32
+        createdAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: created_at
+        readyAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: ready_at
+        endedAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: ended_at
+        releasedAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: released_at
+        maxUntil:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: max_until
+          description: When it ends at the latest.
+        address:
+          type: string
+          title: address
+          description: Where players join (host:port); empty until the server has an address.
+      title: ServerLease
+      additionalProperties: false
+      description: ServerLease is a server taken for a match (gravel#20, ADR-0023).
     gravel.hub.v1.ServerPlayer:
       type: object
       properties:
@@ -5417,6 +5811,24 @@ components:
       title: VolumeSnapshot
       additionalProperties: false
       description: VolumeSnapshot is a copy of a host's data volume a new server's volume can be made from.
+    gravel.hub.v1.WatchServerLeaseRequest:
+      type: object
+      properties:
+        leaseId:
+          type: string
+          title: lease_id
+      title: WatchServerLeaseRequest
+      additionalProperties: false
+    gravel.hub.v1.WatchServerLeaseResponse:
+      type: object
+      properties:
+        lease:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.ServerLease'
+          title: lease
+          description: The lease now; unset on a heartbeat.
+      title: WatchServerLeaseResponse
+      additionalProperties: false
 security: []
 tags:
   - name: gravel.hub.v1.AppService
@@ -5456,6 +5868,12 @@ tags:
     description: |-
       IdentityService is the logged-in member's account and the lookups role sync needs. Every
        procedure needs a session cookie; login itself is the browser flow under /auth/.
+  - name: gravel.hub.v1.ServerLeaseService
+    description: |-
+      ServerLeaseService takes a leasable server (servers.yaml vm.lease) for a match: with its own
+       password, settings, plugin set and match config, started and sized for the players expected, and
+       parked and given back after (ADR-0023). An app with servers:lease, the owner or a moderator; an
+       app sees and releases only its own leases. Every request and release is an audit-log row.
   - name: gravel.hub.v1.OrganizationService
     description: OrganizationService reads the built-in organization and claims its ownership once.
   - name: gravel.hub.v1.ServerService

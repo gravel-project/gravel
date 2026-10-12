@@ -40,6 +40,7 @@ func TestHubCloudVMLifecycle(t *testing.T) {
 	// The test polls the host's state; rate limits are not what it is about.
 	cfg.RateLimit.PerIP.RequestsPerMinute, cfg.RateLimit.PerIP.Burst = 100000, 100000
 	cfg.RateLimit.PerUser.RequestsPerMinute, cfg.RateLimit.PerUser.Burst = 100000, 100000
+	cfg.Leases.Key = "0123456789abcdef0123456789abcdef"
 	st := storetest.Open(t)
 	storetest.Reset(t, st)
 	t.Cleanup(func() { storetest.Reset(t, st) })
@@ -83,7 +84,8 @@ func TestHubCloudVMLifecycle(t *testing.T) {
 		Servers: []servers.Server{{ID: "cs2-1", Name: "HTG CS2", Game: "cs2", Driver: "cloudvm", Location: "do-sfo3",
 			CredentialFile: file("rcon", "rcon-pw"), PollInterval: servers.Duration(5 * time.Second), Trust: servers.TrustOfficial,
 			Feed: &servers.Feed{URL: "https://ingest.example.com", TokenFile: file("feed", "feed-token")},
-			VM:   &servers.VMSpec{Size: "dedicated-2", VolumeGiB: 100, Address: servers.AddressReserved}}},
+			VM: &servers.VMSpec{Size: "dedicated-2", VolumeGiB: 100, Address: servers.AddressReserved,
+				Lease: &servers.LeaseSpec{Pool: "pug", Settings: []string{"start_map"}}}}},
 	}
 	if _, err := servers.New(st, o.ID, hub.DriverNames(), quiet()).WithProviders(hub.CloudProviders()...).Apply(ctx, m, servers.ApplyOptions{CheckCredentials: true}); err != nil {
 		t.Fatal(err)
@@ -343,6 +345,60 @@ func TestHubCloudVMLifecycle(t *testing.T) {
 		t.Errorf("audit %v", actions)
 	}
 
+	// A lease (#20): the owner takes the pool's server for a match, watches it get ready over the
+	// stream, and gives it back; the server is parked, and its own password is its own again.
+	if _, err := hosts.SetServerHostDesired(ctx, connect.NewRequest(&hubv1.SetServerHostDesiredRequest{ServerId: "cs2-1", Desired: "parked"})); err != nil {
+		t.Fatal(err)
+	}
+	waitHost(cloudvm.StateParked)
+	leases := hubv1connect.NewServerLeaseServiceClient(owned, base)
+	got, err := leases.RequestServerLease(ctx, connect.NewRequest(&hubv1.RequestServerLeaseRequest{Pool: "pug", HolderRef: "pug-1",
+		ExpectedPlayers: 10, Settings: map[string]string{"start_map": "de_nuke"}, Reason: "PUG 1"}))
+	if err != nil || got.Msg.GetLease().GetState() != "starting" || len(got.Msg.GetJoin().GetPassword()) != 10 {
+		t.Fatalf("request: %v %v", got, err)
+	}
+	leaseID := got.Msg.GetLease().GetId()
+	watchCtx, stopWatch := context.WithTimeout(ctx, 60*time.Second)
+	defer stopWatch()
+	stream, err := leases.WatchServerLease(watchCtx, connect.NewRequest(&hubv1.WatchServerLeaseRequest{LeaseId: leaseID}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var states []string
+	for stream.Receive() {
+		if l := stream.Msg().GetLease(); l != nil {
+			states = append(states, l.GetState())
+			if l.GetState() == "ready" {
+				break
+			}
+		}
+	}
+	_ = stream.Close()
+	if len(states) == 0 || states[len(states)-1] != "ready" {
+		t.Fatalf("watched states %v (%v)", states, stream.Err())
+	}
+	waitHost(cloudvm.StateRunning)
+	running, _ := p.Instances(ctx, cloud.Filter{Tag: cloudvm.Tag("cs2-1")})
+	if len(running) != 1 {
+		t.Fatalf("instances %v", running)
+	}
+	if env, _ := remote.EnvOn(running[0].PublicIPv4); !strings.Contains(env, "CS2_PW="+got.Msg.GetJoin().GetPassword()+"\n") ||
+		!strings.Contains(env, "CS2_STARTMAP=de_nuke\n") {
+		t.Errorf("the leased server's env:\n%s", env)
+	}
+	if again, err := leases.RequestServerLease(ctx, connect.NewRequest(&hubv1.RequestServerLeaseRequest{Pool: "pug", HolderRef: "pug-2"})); connect.CodeOf(err) != connect.CodeFailedPrecondition {
+		t.Errorf("a second lease of a pool of one: %v %v", again, err)
+	}
+	released, err := leases.ReleaseServerLease(ctx, connect.NewRequest(&hubv1.ReleaseServerLeaseRequest{LeaseId: leaseID, Reason: "match over"}))
+	if err != nil || released.Msg.GetLease().GetState() != "released" {
+		t.Fatalf("release: %v %v", released, err)
+	}
+	waitHost(cloudvm.StateParked)
+	list, err := leases.ListServerLeases(ctx, connect.NewRequest(&hubv1.ListServerLeasesRequest{ServerId: "cs2-1"}))
+	if err != nil || len(list.Msg.GetLeases()) != 1 || list.Msg.GetLeases()[0].GetReason() != "released by its holder: match over" {
+		t.Errorf("list: %v %v", list, err)
+	}
+
 	resp, err := http.Get("http://" + h.InternalAddr().String() + "/metrics") //nolint:noctx // a test
 	if err != nil {
 		t.Fatal(err)
@@ -350,8 +406,10 @@ func TestHubCloudVMLifecycle(t *testing.T) {
 	body, _ := io.ReadAll(resp.Body)
 	_ = resp.Body.Close()
 	for _, want := range []string{
-		`gravel_cloudvm_host_state{server="cs2-1",state="running"} 1`,
-		`gravel_cloudvm_operations_total{op="park",result="ok",server="cs2-1"} 1`,
+		`gravel_cloudvm_host_state{server="cs2-1",state="parked"} 1`, // a lease's release parks it
+		`gravel_cloudvm_operations_total{op="park",result="ok",server="cs2-1"}`,
+		`gravel_leases_total{pool="pug",result="requested"} 1`,
+		`gravel_leases_total{pool="pug",result="released"} 1`,
 		`gravel_ingest_batches_total{result="stored",server="cs2-1",source="cs2"} 4`, // a round start and three chat lines
 		`gravel_identity_proofs_total{channel="game-chat",result="started"} 1`,
 		`gravel_identity_proofs_total{channel="game-chat",result="linked"} 1`,

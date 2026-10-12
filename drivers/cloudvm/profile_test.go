@@ -65,6 +65,22 @@ func TestProfileValidate(t *testing.T) {
 		{"hook twice", func(p *Profile) { p.Hooks = append(p.Hooks, p.Hooks[0]) }, `"pre.sh" is listed twice`},
 		{"hook empty", func(p *Profile) { p.Hooks[0].Content = " \n" }, "pre.sh has no content"},
 		{"hooks too big", func(p *Profile) { p.Hooks[0].Content = strings.Repeat("x", MaxHookBytes+1) }, "at most 32768"},
+		{"lease: a match file and no load command", func(p *Profile) { p.Lease = &LeaseProfile{MatchFile: "game/csgo/m.json"} }, "go together"},
+		{"lease: a match file outside", func(p *Profile) { p.Lease = &LeaseProfile{MatchFile: "../m.json", LoadCommand: "x"} }, "not a plain path"},
+		{"lease: a plugin set without a check", func(p *Profile) { p.Lease = &LeaseProfile{Plugins: map[string]PluginSet{"mz": {}}} }, "files, check and expect"},
+		{"lease: a plugin over http", func(p *Profile) {
+			p.Lease = &LeaseProfile{Plugins: map[string]PluginSet{"mz": plugin(func(f *PluginFile) { f.URL = "http://x/y.zip" })}}
+		}, "must be https"},
+		{"lease: a bad sha", func(p *Profile) {
+			p.Lease = &LeaseProfile{Plugins: map[string]PluginSet{"mz": plugin(func(f *PluginFile) { f.SHA256 = "abc" })}}
+		}, "64 hex digits"},
+		{"lease: a bad kind", func(p *Profile) {
+			p.Lease = &LeaseProfile{Plugins: map[string]PluginSet{"mz": plugin(func(f *PluginFile) { f.Kind = "rar" })}}
+		}, "tar.gz or zip"},
+		{"lease: a dest with a bar", func(p *Profile) {
+			p.Lease = &LeaseProfile{Plugins: map[string]PluginSet{"mz": plugin(func(f *PluginFile) { f.Dest = "a|b" })}}
+		}, "no field holds"},
+		{"lease: a bad plugin name", func(p *Profile) { p.Lease = &LeaseProfile{Plugins: map[string]PluginSet{"Mz Z": plugin(nil)}} }, "not a plugin set's name"},
 		{"team without a name", func(p *Profile) { p.Teams = append(p.Teams, Team{Key: "X"}) }, "a name is required"},
 		{"team twice", func(p *Profile) { p.Teams = append(p.Teams, Team{Name: "ct"}) }, `"ct" is listed twice`},
 	} {
@@ -98,4 +114,13 @@ func TestProfileValues(t *testing.T) {
 	if tv.Open(map[string]string{"tv": "false"}) || !tv.Open(map[string]string{"tv": "true"}) || !p.Ports[0].Open(nil) {
 		t.Error("Port.Open")
 	}
+}
+
+// plugin is a valid plugin set with its one file edited.
+func plugin(edit func(*PluginFile)) PluginSet {
+	f := PluginFile{URL: "https://example.com/mz.zip", SHA256: strings.Repeat("a", 64), Kind: "zip", Dest: "."}
+	if edit != nil {
+		edit(&f)
+	}
+	return PluginSet{Files: []PluginFile{f}, Check: "css_plugins list", Expect: "MatchZy"}
 }

@@ -60,6 +60,7 @@ type Handler struct {
 	statsAPI  hubv1connect.StatsServiceClient
 	modAPI    hubv1connect.ModerationServiceClient
 	hostAPI   hubv1connect.ServerHostServiceClient
+	leaseAPI  hubv1connect.ServerLeaseServiceClient
 	appAPI    hubv1connect.AppServiceClient
 
 	// Observe, when set, is told how every callback ended: result is "ok", "denied", "failed",
@@ -96,6 +97,7 @@ func New(ids *identity.Service, sess *session.Manager, api http.Handler, theme T
 		statsAPI:  hubv1connect.NewStatsServiceClient(client, "http://hub", connect.WithProtoJSON()),
 		modAPI:    hubv1connect.NewModerationServiceClient(client, "http://hub", connect.WithProtoJSON()),
 		hostAPI:   hubv1connect.NewServerHostServiceClient(client, "http://hub", connect.WithProtoJSON()),
+		leaseAPI:  hubv1connect.NewServerLeaseServiceClient(client, "http://hub", connect.WithProtoJSON()),
 		appAPI:    hubv1connect.NewAppServiceClient(client, "http://hub", connect.WithProtoJSON()),
 	}, nil
 }

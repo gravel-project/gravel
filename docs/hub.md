@@ -80,9 +80,11 @@ stats:
 demo: false                      # true marks a demo hub: every page says its data is made up ([Demo hub](#demo-hub-gravel112))
 cloud:
   egress_cidrs: []               # the hub's own address, which cloud-VM servers' firewalls admit RCON and SSH from; empty asks a public service ([Cloud-VM servers](#cloud-vm-servers-adr-0003))
+leases:
+  key_file: /run/secrets/gravel-lease-key   # the key a lease's join password is derived from; without it the hub leases nothing ([Server leases](#server-leases-adr-0023))
 ```
 
-**Secrets.** Four, each with the same precedence: the environment variable, then the `*_file`
+**Secrets.** Five, each with the same precedence: the environment variable, then the `*_file`
 key (a podman secret mount), then the inline key, which is for development only.
 
 | Secret | Environment | File key | Inline key |
@@ -91,6 +93,7 @@ key (a podman secret mount), then the inline key, which is for development only.
 | Discord OAuth2 client secret | `GRAVEL_DISCORD_CLIENT_SECRET` | `auth.discord.client_secret_file` | `auth.discord.client_secret` |
 | Steam Web API key (optional) | `GRAVEL_STEAM_API_KEY` | `auth.steam.api_key_file` | `auth.steam.api_key` |
 | Stats pseudonym key (optional; at least 32 characters, `openssl rand -hex 32`) | `GRAVEL_STATS_PSEUDONYM_KEY` | `stats.pseudonym_key_file` | `stats.pseudonym_key` |
+| Lease key (optional; at least 32 characters, `openssl rand -hex 32`) | `GRAVEL_LEASE_KEY` | `leases.key_file` | `leases.key` |
 
 Production uses podman secrets (`Secret=gravel-db-url` in the quadlet unit lands at
 `/run/secrets/gravel-db-url`, and so on). The hub logs the database URL with the password
@@ -111,6 +114,8 @@ Public listener (`server.listen`), HTTP/1.1 and unencrypted HTTP/2 so gRPC works
 | `/gravel.hub.v1.IdentityService/UnlinkIdentity` | `{"provider": "steam", "subject": "…"}`; the last identity is refused (`failed_precondition`) |
 | `/gravel.hub.v1.IdentityService/StartProof` | `{"server_id": "…", "subject": "…"}` → a one-time code to type in that server's chat, with its id, expiry and instructions ([Proof in game](#proof-in-game-adr-0022)); `subject` (optional) is an account of the caller's to prove again; a session only, five an hour |
 | `/gravel.hub.v1.IdentityService/GetProof` | `{"proof_id": "…"}` → `open`, `proven`, `taken`, `replaced` or `expired`, and the account once proven; a session only, the caller's own |
+| `/gravel.hub.v1.ServerLeaseService/RequestServerLease` | `{"pool": "pug", "holder_ref": "…", "expected_players": 10, "settings": {"start_map": "de_nuke"}, "plugins": ["matchzy"], "match_config": "<base64 JSON>"}` → the lease and how to join, password included ([Server leases](#server-leases-adr-0023)); an app with `servers:lease`, the owner or a moderator |
+| `/gravel.hub.v1.ServerLeaseService/WatchServerLease` | `{"lease_id": "…"}` → the lease at once and at every change, a heartbeat every 30 s, until it is over (server streaming); the lease's app, the owner or a moderator |
 | `/gravel.hub.v1.IdentityService/Logout` | end the calling session and clear its cookie |
 | `/gravel.hub.v1.IdentityService/RevokeSessions` | log out everywhere; answers how many sessions ended and clears the cookie |
 | `/gravel.hub.v1.IdentityService/LookupUser` | `{"provider": "discord", "subject": "…"}` → the user and their identities, for role sync; an app with `identity:read`, or the owner |
@@ -809,6 +814,50 @@ container runs as the runtime user; `drill-full` also lets the game download, an
 pushes its log to a local listener, then proves a new instance on the same disk plays again with no
 push and no download.
 
+### Server leases (ADR-0023)
+
+A server the manifest marks leasable is taken for a match on request (#20): an app with
+`servers:lease` (Muster's `/pug`), or the owner or a moderator. The lease gives it its own
+password, settings, plugin set and match config. The hub starts it, says when it is ready, and
+parks it and gives it back after.
+
+```yaml
+servers:
+  - id: htg-cs2-1
+    vm:
+      lease:
+        pool: pug              # leases may ask for the pool instead of the server
+        release_after: 5m      # after the match's series ends
+        idle_after: 15m        # empty this long once ready
+        max: 4h
+        ready_within: 15m      # not ready by then fails the lease
+        settings: [start_map, tv]   # what a lease may set
+```
+
+- **Requesting:** `RequestServerLease` names the server or the pool, the holder's reference (one
+  live lease per reference; asking again answers it), the players to expect (the server is sized
+  for them, #172), settings, at most one plugin set and a match config. The hub takes a running
+  empty server first, then a parked one, never one with players on (`failed_precondition`). The
+  answer holds the join password and the connect line, the only place they appear; the password is
+  derived from `leases.key_file` and the lease's id and never stored.
+- **Ready:** once the host runs the lease's environment, the game answers, the plugin set answers
+  its check, and the match config is loaded. `WatchServerLease` streams each change (a heartbeat
+  every 30 s) until the lease is over; `GetServerLease` and `ListServerLeases` read them. An app
+  sees its own leases only.
+- **Plugins (#176):** a Game spec's `cloudvm.lease.plugins` are pinned sets: Counter-Strike 2's
+  `matchzy` is Metamod:Source and MatchZy with CounterStrikeSharp, by URL and SHA-256. The game's
+  `pre.sh` fetches them into a cache on the volume, checks and unpacks them, patches
+  `gameinfo.gi` at every start, and writes MatchZy's config (the hub's event and demo routes, the
+  feed token as its header); with no set asked for, it strips Metamod and the server is vanilla. It
+  records the outcome in `~/cs2/.gravel/plugins.status` on the VM. A set that doesn't answer
+  within three minutes is dropped: the server restarts vanilla and the lease says why
+  (`plugin_state` `vanilla`).
+- **Ending:** `release_after` after the match's series ends, `idle_after` empty, `max`, a park,
+  or `ReleaseServerLease` (the holder, the owner or a moderator; also "Give back the lease" on the
+  server page). The expectation is cleared and the server parks, warning anyone on; its own
+  password and settings come back at its next start. Every request and release is in the audit
+  log.
+
 ### Configuration and the hub's ban list
 
 `ServerConfigService` reads and writes a server's configuration through its driver, for the owner
@@ -1448,6 +1497,10 @@ and the digest-pin procedure.
 | `gravel_cloudvm_tier_players` | gauge | `server` | the players the rung of its scaling ladder a running host is on is sized for (#37) | without a policy, or off the ladder |
 | `gravel_cloudvm_scale_pending` | gauge | `server`, `direction` (`up`, `down`) | 1 while a scaling decision waits for a boundary | until the first decision |
 | `gravel_cloudvm_expected_players` | gauge | `server` | the players a host expects until the time it was given (#172); 0 when none | until the first expectation |
+| `gravel_leases_total` | counter | `pool`, `result` (`requested`, `released`, `failed`, `never_ready`) | server leases and what became of them (#20) | until the first lease |
+| `gravel_lease_plugins_total` | counter | `set`, `result` (`loaded`, `vanilla`) | plugin sets leases asked for, loaded or fallen back to vanilla (#176) | until a lease asks for one |
+| `gravel_lease_ready_seconds` | histogram | | a lease's request to ready | until a lease is ready |
+| `gravel_leases_live` | gauge | | leases holding a server now | always |
 | `gravel_cloudvm_scale_decisions_total` | counter | `server`, `direction`, `outcome` (`decided`, `executed`, `cancelled`) | the scaling policy's decisions and what became of them | until the first |
 | `gravel_cloudvm_resizes_total` | counter | `server`, `direction`, `result` (`ok`, `refused`, `failed`) | resizes, the policy's and the owner's; a failed one started again at the old size | until the first |
 | `gravel_cloudvm_volume_snapshots_total` | counter | `server`, `result` (`ok`, `error`) | snapshots of a parked host's volume the owner asked for (#166) | until the first |

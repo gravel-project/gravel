@@ -69,6 +69,24 @@ templ HostSection(p ServerPage) {
 					<p class="muted">Until then it is sized for them, and it doesn't park itself for being empty.</p>
 				</dd>
 			}
+			if len(p.Host.Leases) > 0 {
+				<dt>Leases</dt>
+				<dd>
+					<ul>
+						for _, l := range p.Host.Leases {
+							<li>
+								<strong>{ l.State }</strong>: { l.Ref }, taken by { l.Holder } { at(l.Created) }
+								if l.Plugins != "" {
+									<span class="muted">{ l.Plugins }</span>
+								}
+								if l.Reason != "" {
+									<span class="muted">: { l.Reason }</span>
+								}
+							</li>
+						}
+					</ul>
+				</dd>
+			}
 			if p.Host.Address != "" {
 				<dt>Address</dt>
 				<dd>
@@ -126,6 +144,16 @@ templ HostSection(p ServerPage) {
 		if p.Host.CanUnpin {
 			@hostForm(p, "unpin", "Let the policy decide the size")
 		}
+		for _, l := range p.Host.Leases {
+			if l.Live {
+				<form method="post" action={ templ.SafeURL("/servers/" + p.Server.ID + "/host") } class="inline">
+					<input type="hidden" name="_csrf" value={ p.CSRF }/>
+					<input type="hidden" name="action" value="release"/>
+					<input type="hidden" name="lease" value={ l.ID }/>
+					<button type="submit">Give back the lease for { l.Ref }</button>
+				</form>
+			}
+		}
 		if p.Host.CanExpect {
 			<form method="post" action={ templ.SafeURL("/servers/" + p.Server.ID + "/host") }>
 				<input type="hidden" name="_csrf" value={ p.CSRF }/>
@@ -182,6 +210,9 @@ templ HostConfirmContent(p HostConfirmPage) {
 			<input type="hidden" name="_csrf" value={ p.CSRF }/>
 			<input type="hidden" name="action" value={ p.Action }/>
 			<input type="hidden" name="size" value={ p.Size }/>
+			if p.Action == "release" {
+				<input type="hidden" name="lease" value={ p.Lease }/>
+			}
 			if p.Action == "expect" {
 				<input type="hidden" name="players" value={ p.Players }/>
 				<input type="hidden" name="for" value={ p.For }/>

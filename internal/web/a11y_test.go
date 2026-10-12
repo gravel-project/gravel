@@ -216,6 +216,8 @@ func TestAccessibility(t *testing.T) {
 				Host: &templates.HostPanel{State: "running", StateLabel: "Running", Since: now, Size: "c-2", Address: "203.0.113.50", Reserved: true,
 					HourlyUSD: 0.0625, MonthUSD: 3.5, HoursMonth: 56, BootSeconds: 70, ReadySeconds: 1500, ParkAfter: 30 * time.Minute,
 					ExpectedPlayers: 10, ExpectedUntil: now.Add(3 * time.Hour), ExpectedReason: "PUG 3 filled", ExpectMax: 20, CanExpect: true,
+					Leases: []templates.LeaseRow{{ID: "l2", State: "ready", Ref: "PUG 3", Holder: "an app", Plugins: "matchzy loaded", Created: now, Live: true},
+						{ID: "l1", State: "released", Ref: "test", Holder: "a moderator", Reason: "nobody on for 15m0s", Created: now}},
 					CanPark: true, CanResize: true, Sizes: []templates.HostSizeOption{{Slug: "c-4", Label: "c-4 · 4 vCPU · 8 GB · $0.125/h"}}}})
 		},
 		"/fixture/server-host-parked": func() templ.Component {

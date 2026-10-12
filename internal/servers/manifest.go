@@ -77,6 +77,49 @@ type VMSpec struct {
 	// made from when it is first made, so the game's install is there (#166); by id or by name.
 	// It never replaces a volume that exists.
 	SeedSnapshot *SeedSnapshot `yaml:"seed_snapshot,omitempty" json:"seed_snapshot,omitempty"`
+	// Lease lets the server be leased (#20, ADR-0023): an app or a moderator takes it for a match
+	// (a PUG), with its own password and settings, and it is parked and given back after. Absent,
+	// it is never leased.
+	Lease *LeaseSpec `yaml:"lease,omitempty" json:"lease,omitempty"`
+}
+
+// LeaseSpec is how a server is leased; every field but the settings has a default.
+type LeaseSpec struct {
+	// Pool is a name leases ask for instead of a server: the first free server in it is taken.
+	Pool string `yaml:"pool,omitempty" json:"pool,omitempty"`
+	// ReleaseAfter is how long a lease lasts after its match's series ends (5m), so players see
+	// the result.
+	ReleaseAfter Duration `yaml:"release_after,omitempty" json:"release_after,omitempty"`
+	// IdleAfter gives a ready lease back after the server has been empty this long (15m).
+	IdleAfter Duration `yaml:"idle_after,omitempty" json:"idle_after,omitempty"`
+	// Max is the longest a lease lasts (4h).
+	Max Duration `yaml:"max,omitempty" json:"max,omitempty"`
+	// ReadyWithin fails a lease whose server isn't ready by then (15m): it must have its install
+	// on its volume, since a first download takes half an hour.
+	ReadyWithin Duration `yaml:"ready_within,omitempty" json:"ready_within,omitempty"`
+	// Settings are the settings a lease may set (start_map, tv); none when empty.
+	Settings []string `yaml:"settings,omitempty" json:"settings,omitempty"`
+}
+
+// Lease defaults and bounds.
+const (
+	DefaultLeaseReleaseAfter = 5 * time.Minute
+	DefaultLeaseIdleAfter    = 15 * time.Minute
+	DefaultLeaseMax          = 4 * time.Hour
+	DefaultLeaseReadyWithin  = 15 * time.Minute
+)
+
+// WithDefaults fills the durations left out.
+func (l LeaseSpec) WithDefaults() LeaseSpec {
+	for _, d := range []struct {
+		f   *Duration
+		def time.Duration
+	}{{&l.ReleaseAfter, DefaultLeaseReleaseAfter}, {&l.IdleAfter, DefaultLeaseIdleAfter}, {&l.Max, DefaultLeaseMax}, {&l.ReadyWithin, DefaultLeaseReadyWithin}} {
+		if *d.f == 0 {
+			*d.f = Duration(d.def)
+		}
+	}
+	return l
 }
 
 // SeedSnapshot names a volume snapshot: by its id, or by its name in the location's region.
@@ -490,6 +533,9 @@ func validateVM(at string, s Server, spec Spec, gameOK bool, locations map[strin
 			validateScaling(at+".vm.scaling", *vm.Scaling, vm.Size, s.Settings, *spec.CloudVM, bad)
 		}
 	}
+	if l := vm.Lease; l != nil {
+		validateLease(at+".vm.lease", *l, spec, gameOK, bad)
+	}
 	if seed := vm.SeedSnapshot; seed != nil {
 		switch {
 		case (seed.ID == "") == (seed.Name == ""):
@@ -501,6 +547,42 @@ func validateVM(at string, s Server, spec Spec, gameOK bool, locations map[strin
 		}
 	}
 }
+
+// validateLease is a lease section: a pool name, durations in bounds, and settings the game has
+// that a lease may set (never the players setting, which the ladder or the manifest owns).
+func validateLease(at string, l LeaseSpec, spec Spec, gameOK bool, bad func(string, ...any)) {
+	if l.Pool != "" && !leasePool.MatchString(l.Pool) {
+		bad("%s.pool: %q is not a pool name (a letter first, then letters, digits and hyphens, at most 40)", at, l.Pool)
+	}
+	l = l.WithDefaults()
+	for _, d := range []struct {
+		name     string
+		v        Duration
+		min, max time.Duration
+	}{{"release_after", l.ReleaseAfter, time.Minute, time.Hour}, {"idle_after", l.IdleAfter, 5 * time.Minute, 2 * time.Hour},
+		{"max", l.Max, 30 * time.Minute, 12 * time.Hour}, {"ready_within", l.ReadyWithin, 5 * time.Minute, 2 * time.Hour}} {
+		if v := time.Duration(d.v); v < d.min || v > d.max {
+			bad("%s.%s: %s is outside %s–%s", at, d.name, v, d.min, d.max)
+		}
+	}
+	if !gameOK || spec.CloudVM == nil {
+		return
+	}
+	seen := map[string]bool{}
+	for _, k := range l.Settings {
+		switch {
+		case seen[k]:
+			bad("%s.settings: %s is listed twice", at, k)
+		case !spec.CloudVM.HasSetting(k):
+			bad("%s.settings: %s is not one of %s's settings", at, k, spec.Name)
+		case k == spec.CloudVM.PlayersSetting:
+			bad("%s.settings: %s is the server's to set, not a lease's", at, k)
+		}
+		seen[k] = true
+	}
+}
+
+var leasePool = regexp.MustCompile(`^[a-z][a-z0-9-]{0,39}$`)
 
 // validateScaling is a scaling policy on its own (the provider's sizes are apply's to check): a
 // ladder of at least two rungs the game accepts, the server's size one of them, the thresholds in

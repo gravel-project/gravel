@@ -40,6 +40,10 @@ const ScopeServersRead = "servers:read"
 // audit log (ADR-0010 §5).
 const ScopeServersModerate = "servers:moderate"
 
+// ScopeServersLease admits ServerLeaseService: taking a server for a match and giving it back (#20,
+// ADR-0023). It is an app's own: a member never grants it.
+const ScopeServersLease = "servers:lease"
+
 // ScopeServersConfigure admits ServerConfigService: reading, planning and applying a server's
 // configuration (ADR-0010 §6).
 const ScopeServersConfigure = "servers:configure"
@@ -77,6 +81,7 @@ var Scopes = map[string]string{
 	ScopeServersConfigure:   "read, plan and apply a server's configuration (ServerConfigService)",
 	ScopeStatsRead:          "read the stats and participation boards and match lists while stats are not public (StatsService GetBoard, GetParticipationBoard, ListMatches)",
 	ScopeParticipationWrite: "record participation events from a first-party app (StatsService RecordParticipation)",
+	ScopeServersLease:       "take a leasable server for a match and give it back (ServerLeaseService)",
 }
 
 // MemberScopes says what each scope lets an app do as a member, in the member's words: the

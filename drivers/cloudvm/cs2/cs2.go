@@ -70,6 +70,11 @@ func (g *Game) Kick(ctx context.Context, userID int, reason string) error {
 // Say implements cloudvm.Game.
 func (g *Game) Say(ctx context.Context, m string) error { return g.c.Say(ctx, m) }
 
+// Exec implements cloudvm.Game.
+func (g *Game) Exec(ctx context.Context, command string) (string, error) {
+	return g.c.Exec(ctx, command)
+}
+
 // Quit implements cloudvm.Game.
 func (g *Game) Quit(ctx context.Context) error { return g.c.Quit(ctx) }
 

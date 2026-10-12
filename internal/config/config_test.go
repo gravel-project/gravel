@@ -114,6 +114,29 @@ func TestSecretPrecedence(t *testing.T) {
 	}
 }
 
+// The lease key (#20) reads like every secret, and a short one is refused.
+func TestLeaseKey(t *testing.T) {
+	key := strings.Repeat("k", MinLeaseKey)
+	env := Env{
+		LookupEnv: func(k string) (string, bool) { return "", false },
+		ReadFile:  func(p string) ([]byte, error) { return []byte(key + "\n"), nil },
+	}
+	cfg, err := Parse(strings.NewReader(minimal+"leases:\n  key_file: /run/secrets/lease\n"), env)
+	if err != nil || cfg.Leases.Key != key || cfg.Leases.KeySource() != "file /run/secrets/lease" {
+		t.Fatalf("from a file: %q %q %v", cfg.Leases.Key, cfg.Leases.KeySource(), err)
+	}
+	env.LookupEnv = func(k string) (string, bool) { return key + "e", k == EnvLeaseKey }
+	if cfg, err := Parse(strings.NewReader(minimal), env); err != nil || cfg.Leases.Key != key+"e" || cfg.Leases.KeySource() != "env "+EnvLeaseKey {
+		t.Errorf("from the environment: %q %v", cfg.Leases.KeySource(), err)
+	}
+	if cfg, err := Parse(strings.NewReader(minimal), noEnv()); err != nil || cfg.Leases.Key != "" || cfg.Leases.KeySource() != "" {
+		t.Errorf("none: %v", err)
+	}
+	if _, err := Parse(strings.NewReader(minimal+"leases:\n  key: short\n"), noEnv()); err == nil || !strings.Contains(err.Error(), "leases.key: 5 characters") {
+		t.Errorf("a short key: %v", err)
+	}
+}
+
 func TestValidateCollectsEverything(t *testing.T) {
 	doc := `
 version: 2

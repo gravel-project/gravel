@@ -28,6 +28,7 @@ import (
 	cs2game "github.com/gravel-project/gravel/drivers/cloudvm/cs2"
 	wardogsdriver "github.com/gravel-project/gravel/drivers/wardogs"
 	"github.com/gravel-project/gravel/games/cs2"
+	"github.com/gravel-project/gravel/games/cs2/matchzy"
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
 	"github.com/gravel-project/gravel/internal/api"
 	"github.com/gravel-project/gravel/internal/apps"
@@ -80,6 +81,7 @@ type Hub struct {
 	apps       *apps.Service
 	servers    *servers.Service
 	hosts      *servers.Hosts
+	leases     *servers.Leases
 	cloudvm    *cloudvm.Manager
 	monitor    *servers.Monitor
 	moderation *servers.Moderation
@@ -293,6 +295,20 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 	}
 	h.cloudvm = cloudvm.NewManager(h.hosts, h.hosts, gameControls, cvm)
 	h.hosts.Attach(h.cloudvm)
+	// Server leases (#20, ADR-0023): a lease's password and plugins reach its server through the
+	// spec the Manager reads, so the leases are loaded before it starts.
+	h.leases = servers.NewLeases(h.servers, h.hosts, st, st, o.ID, []byte(cfg.Leases.Key), h.registry, logger)
+	if err := h.leases.Load(ctx); err != nil {
+		return nil, fmt.Errorf("hub: leases: %w", err)
+	}
+	// A CS2 lease's match config is MatchZy's JSON (games/cs2/matchzy): checked before it is taken.
+	h.leases.SetMatchCheck("matchzy", func(b []byte) error {
+		var c matchzy.Config
+		if err := json.Unmarshal(b, &c); err != nil {
+			return err
+		}
+		return c.Validate()
+	})
 	// Proof of control (gravel#5): a code typed in a cloud-VM server's chat proves the account the
 	// log says typed it. Counter-Strike 2, the one game whose chat the hub reads, knows players by
 	// their Steam account.
@@ -305,6 +321,7 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 	h.monitor.SetPrimer(h.moderation.Prime)
 	h.monitor.Start()
 	h.cloudvm.Start()
+	h.jobs.Start(jobs.Job{Name: "leases", Every: servers.LeaseEvery, Run: h.leases.Run})
 	// The stats store (ADR-0012): every good poll becomes matches and player totals; boards read
 	// them with the Organization settings' stats section.
 	// The recorder and the rollup count their writes, so the boards serve from memory while
@@ -442,6 +459,7 @@ func (h *Hub) buildAPI() *http.ServeMux {
 	moderation := api.NewModerationServer(h.moderation, h.org, h.ids, h.logger)
 	mux.Handle(hubv1connect.NewModerationServiceHandler(moderation, interceptors))
 	mux.Handle(hubv1connect.NewServerHostServiceHandler(api.NewHostServer(h.hosts, moderation, h.org, h.logger), interceptors))
+	mux.Handle(hubv1connect.NewServerLeaseServiceHandler(api.NewLeaseServer(h.leases, moderation, h.logger), interceptors))
 	mux.Handle(hubv1connect.NewServerConfigServiceHandler(api.NewConfigServer(h.moderation, h.org, h.logger), interceptors))
 	mux.Handle(hubv1connect.NewStatsServiceHandler(api.NewStatsServer(h.stats, h.participation, h.org, h.ids, h.logger), interceptors))
 	mux.Handle(hubv1connect.NewAppServiceHandler(api.NewAppServer(h.apps, h.logger), interceptors))
@@ -454,7 +472,8 @@ func (h *Hub) buildPublic() http.Handler {
 	scopes := h.scopes()
 	mux := http.NewServeMux()
 	services := []string{hubv1connect.OrganizationServiceName, hubv1connect.IdentityServiceName, hubv1connect.ServerServiceName,
-		hubv1connect.ModerationServiceName, hubv1connect.ServerHostServiceName, hubv1connect.ServerConfigServiceName, hubv1connect.StatsServiceName, hubv1connect.AppServiceName}
+		hubv1connect.ModerationServiceName, hubv1connect.ServerHostServiceName, hubv1connect.ServerLeaseServiceName, hubv1connect.ServerConfigServiceName,
+		hubv1connect.StatsServiceName, hubv1connect.AppServiceName}
 	for _, svc := range services {
 		mux.Handle("/"+svc+"/", h.api)
 	}

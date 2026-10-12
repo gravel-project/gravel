@@ -528,7 +528,7 @@ func wrap76(s string) string {
 // pushEnv writes the game's environment file and hooks and restarts its unit (or, with restart
 // false, only writes them).
 func (t *tick) pushEnv(ctx context.Context, h *Host, env []byte, restart bool) error {
-	if _, err := t.remote(ctx, h, env, EnvScript(t.s.Game, t.s.Profile.Hooks, restart)); err != nil {
+	if _, err := t.remote(ctx, h, env, EnvScript(t.s.Game, t.s.files(), restart)); err != nil {
 		var se *stepError
 		if errors.As(err, &se) {
 			return err
@@ -551,12 +551,12 @@ func EnvHashScript(game string, hooks []Hook) string {
 
 // hostEnvHash reads the files' hash on the host, as filesHash makes it: nil when one is missing.
 func (t *tick) hostEnvHash(ctx context.Context, h *Host) ([]byte, error) {
-	out, err := t.remote(ctx, h, nil, EnvHashScript(t.s.Game, t.s.Profile.Hooks))
+	out, err := t.remote(ctx, h, nil, EnvHashScript(t.s.Game, t.s.files()))
 	if err != nil {
 		return nil, err
 	}
 	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
-	if want := 1 + len(t.s.Profile.Hooks); len(lines) != want {
+	if want := 1 + len(t.s.files()); len(lines) != want {
 		return nil, fmt.Errorf("cloudvm: %d lines from the files' hashes, want %d", len(lines), want)
 	}
 	all := sha256.New()
@@ -594,7 +594,7 @@ func (t *tick) start(ctx context.Context, h *Host) (bool, error) {
 			return false, err
 		}
 		// The recorded hash says what the hub pushed, not what the host has: read the host's.
-		sum := filesHash(env, t.s.Profile.Hooks)
+		sum := filesHash(env, t.s.files())
 		onHost, err := t.hostEnvHash(ctx, h)
 		if err != nil {
 			var se *stepError
@@ -685,7 +685,7 @@ func (t *tick) running(ctx context.Context, h *Host, want string) (bool, error) 
 	if err != nil {
 		return false, err
 	}
-	sum := filesHash(env, t.s.Profile.Hooks)
+	sum := filesHash(env, t.s.files())
 	if drift && bytes.Equal(sum, h.EnvSHA256) {
 		// The same pass looks at the file on the host; a difference takes the settings-changed path
 		// below, so a game with players on keeps running until it is empty.

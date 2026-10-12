@@ -97,18 +97,23 @@ func writeKey(t *testing.T, path string) {
 }
 
 type hostsRig struct {
-	svc   *Service
-	rows  *hostRows
-	hosts *Hosts
-	audit *serverstest.AuditStore
-	m     Manifest
-	dir   string
-	mgr   *cloudvm.Manager
-	game  *cloudvmtest.Game
-	owner uuid.UUID
+	svc    *Service
+	rows   *hostRows
+	hosts  *Hosts
+	audit  *serverstest.AuditStore
+	m      Manifest
+	dir    string
+	mgr    *cloudvm.Manager
+	game   *cloudvmtest.Game
+	remote *cloudvmtest.Remote
+	owner  uuid.UUID
 }
 
-func newHostsRig(t *testing.T) *hostsRig {
+func newHostsRig(t *testing.T) *hostsRig { return newHostsRigWith(t, nil, nil) }
+
+// newHostsRigWith is the rig with the manifest edited before it is applied, and a clock the
+// Manager reads (nil: the wall clock).
+func newHostsRigWith(t *testing.T, edit func(*Manifest), now func() time.Time) *hostsRig {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	r := &hostsRig{rows: &hostRows{FakeStore: serverstest.NewFakeStore(), hosts: map[string]store.ServerHost{}}, audit: serverstest.NewAuditStore(),
@@ -130,12 +135,16 @@ func newHostsRig(t *testing.T) *hostsRig {
 	s := &r.m.Servers[0]
 	s.CredentialFile, s.Feed.TokenFile, s.VM.PasswordFile = file("rcon", "rcon-pw\n"), file("feed", "feed-now\nfeed-before\n"), file("pw", "join-pw\n")
 	s.VM.Size = "dedicated-2"
+	if edit != nil {
+		edit(&r.m)
+	}
 	if _, err := r.svc.Apply(context.Background(), r.m, ApplyOptions{CheckCredentials: true}); err != nil {
 		t.Fatal(err)
 	}
 	r.hosts = NewHosts(r.svc, r.rows, r.audit, r.svc.orgID, logger)
 	remote := cloudvmtest.NewRemote()
 	remote.BootAll()
+	r.remote = remote
 	r.game.Up(true)
 	reg := prometheus.NewRegistry()
 	p := fake.New()
@@ -143,7 +152,7 @@ func newHostsRig(t *testing.T) *hostsRig {
 		Providers: func(context.Context, cloudvm.Location) (cloud.Provider, error) { return p, nil },
 		Remote:    remote, Egress: func(context.Context) ([]string, error) { return []string{"203.0.113.4"}, nil },
 		DefaultImages: map[string]string{"fake": "fedora"}, Runner: jobs.New(logger, reg), Logger: logger, Registerer: reg,
-		Sleep: func(context.Context, time.Duration) {}, Wake: func(string) {},
+		Sleep: func(context.Context, time.Duration) {}, Wake: func(string) {}, Now: now,
 	})
 	r.hosts.Attach(r.mgr)
 	return r
