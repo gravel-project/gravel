@@ -107,14 +107,19 @@ write_files:
       fi
 
       # The user's systemd instance outlives logins (linger lives on the root disk, so every instance
-      # sets it); wait for it before talking to it.
+      # sets it); wait until it answers before talking to it. Its bus socket appears before the manager
+      # is ready, so waiting for the socket alone is a race: Fedora 44's systemd 259 widened it, and the
+      # first `systemctl --user` was refused ("Failed to connect to user scope bus"), first-boot failed
+      # and no host booted (2026-10-12, HTG's htg-cs2-1 and the hub-vm drill).
       loginctl enable-linger "$user"
       uid=$(id -u "$user")
-      for _ in $(seq 1 60); do
-        [[ -S /run/user/$uid/bus ]] && break
+      as_user() { runuser -u "$user" -- env HOME="$home" XDG_RUNTIME_DIR="/run/user/$uid" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus" "$@"; }
+      for _ in $(seq 1 120); do
+        as_user systemctl --user show-environment >/dev/null 2>&1 && break
         sleep 1
       done
-      as_user() { runuser -u "$user" -- env HOME="$home" XDG_RUNTIME_DIR="/run/user/$uid" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus" "$@"; }
+      as_user systemctl --user show-environment >/dev/null ||
+        { echo "first-boot: $user's systemd instance did not answer in 2 minutes (systemctl status user@$uid)" >&2; exit 1; }
 
       echo "first-boot: done"
 
