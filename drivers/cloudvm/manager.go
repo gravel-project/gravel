@@ -10,8 +10,10 @@ import (
 	"net"
 	"net/netip"
 	"reflect"
+	"regexp"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -99,8 +101,12 @@ type ServerSpec struct {
 	// ParkAfter parks the host after the server has been empty this long; zero never does.
 	ParkAfter time.Duration
 	// Scaling is the server's vertical scaling policy; nil keeps the host at Size (#37).
-	Scaling  *Scaling
-	Settings map[string]string
+	Scaling *Scaling
+	// SeedSnapshot is the volume snapshot a new data volume is made from, so the game's install
+	// is there already (#166); nil makes it empty. It is used only when the volume is made, never
+	// for a volume that exists.
+	SeedSnapshot *cloud.SnapshotRef
+	Settings     map[string]string
 	// The secrets: RCON, the join password and publisher token ("" for none), the feed URL with
 	// its token.
 	RCONPassword, JoinPassword, PublisherToken, FeedURL string
@@ -606,6 +612,76 @@ func (m *Manager) Resize(ctx context.Context, id, size string, force, pin bool, 
 		h.RequestAuditID = auditID
 		return nil
 	})
+}
+
+// SnapshotVolume copies a parked host's data volume into a snapshot a new server's volume can be
+// made from (#166). Parked only: the volume is detached, so the copy is consistent, and the
+// state machine waits for it (an unpark asked meanwhile runs after). name "" is
+// <server>-data-<game>-<build>-<date>, the game's build as the last status read had it.
+func (m *Manager) SnapshotVolume(ctx context.Context, id, name string, auditID int64) (cloud.Snapshot, error) {
+	rt, s, ok := m.host(id)
+	if !ok {
+		return cloud.Snapshot{}, ErrNoSuchHost
+	}
+	rt.tickMu.Lock()
+	defer rt.tickMu.Unlock()
+	h := rt.snapshot()
+	if h.State != StateParked || h.VolumeID == "" {
+		return cloud.Snapshot{}, ErrNotParked
+	}
+	rt.mu.Lock()
+	build := rt.lastStatus.Build
+	rt.mu.Unlock()
+	if name == "" {
+		name = SnapshotName(s.ID, s.Game, build, m.opt.Now())
+	}
+	if !snapshotNameRE.MatchString(name) {
+		return cloud.Snapshot{}, fmt.Errorf("%w: snapshot name %q: letters, digits, dots and hyphens, at most 64", ErrInvalid, name)
+	}
+	p, err := m.provider(ctx, s.Location)
+	if err != nil {
+		return cloud.Snapshot{}, err
+	}
+	snap, err := p.CreateVolumeSnapshot(ctx, h.VolumeID, name, []string{BaseTag, Tag(s.ID)})
+	result := "ok"
+	if err != nil {
+		result = "error"
+	}
+	m.met.snapshots.WithLabelValues(id, result).Inc()
+	if err != nil {
+		return cloud.Snapshot{}, cloudErr(err)
+	}
+	e := Event{ServerID: id, At: m.opt.Now(), From: h.State, To: h.State, Step: DetailSnapshot, Detail: snap.Name, Size: h.Size, AuditID: auditID}
+	if err := m.store.AppendEvent(ctx, e); err != nil {
+		m.log.Error("a volume snapshot was not recorded", "server", id, "snapshot", snap.Name, "error", err.Error())
+	}
+	m.log.Info("snapshotted the parked host's volume", "server", id, "snapshot", snap.Name, "size_gib", snap.SizeGiB)
+	return snap, nil
+}
+
+// DetailSnapshot is the event a volume snapshot records; its detail is the snapshot's name.
+const DetailSnapshot = "snapshot"
+
+// ValidSnapshotName is a snapshot name the hub makes or accepts: letters, digits, dots and hyphens,
+// a letter or digit first, at most 64.
+func ValidSnapshotName(name string) bool { return snapshotNameRE.MatchString(name) }
+
+var (
+	snapshotNameRE = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9.-]{0,63}$`)
+	notNameRE      = regexp.MustCompile(`[^A-Za-z0-9.]+`)
+)
+
+// SnapshotName is a snapshot's default name: what it is a copy of, the game's build and the day.
+func SnapshotName(server, game, build string, at time.Time) string {
+	name := VolumeName(server) + "-" + game
+	if b := strings.Trim(notNameRE.ReplaceAllString(build, "-"), "-"); b != "" {
+		name += "-" + b
+	}
+	name += "-" + at.UTC().Format("2006-01-02")
+	if len(name) > 64 {
+		name = name[:64]
+	}
+	return strings.TrimRight(name, "-.")
 }
 
 // Unpin lets the scaling policy (or, without one, the server's size at the next unpark) decide

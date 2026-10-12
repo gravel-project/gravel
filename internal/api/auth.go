@@ -55,7 +55,7 @@ var memberProcedures = map[string]string{
 	hubv1connect.ServerHostServiceGetServerHostProcedure:             apps.ScopeServersRead,
 	hubv1connect.ServerHostServiceListServerHostEventsProcedure:      apps.ScopeServersRead,
 	hubv1connect.ServerHostServiceSetServerHostDesiredProcedure:      apps.ScopeServersModerate,
-	// ResizeServerHost, UnpinServerHostSize and DestroyServerHost are the owner's, in person, and stay out.
+	// ResizeServerHost, UnpinServerHostSize, SnapshotServerHostVolume and DestroyServerHost are the owner's, in person, and stay out.
 	hubv1connect.ServerConfigServiceGetServerConfigProcedure:   apps.ScopeServersConfigure,
 	hubv1connect.ServerConfigServicePlanServerConfigProcedure:  apps.ScopeServersConfigure,
 	hubv1connect.ServerConfigServiceApplyServerConfigProcedure: apps.ScopeServersConfigure,

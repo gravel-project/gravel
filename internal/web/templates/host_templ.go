@@ -598,6 +598,12 @@ func HostSection(p ServerPage) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
+		if p.Host.CanSnapshot {
+			templ_7745c5c3_Err = hostForm(p, "snapshot", "Snapshot the disk").Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
 		if p.Host.CanDestroy {
 			templ_7745c5c3_Err = hostForm(p, "destroy", "Destroy the machine").Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
@@ -640,7 +646,7 @@ func hostForm(p ServerPage, action, label string) templ.Component {
 		var templ_7745c5c3_Var32 templ.SafeURL
 		templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/servers/" + p.Server.ID + "/host"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `host.templ`, Line: 126, Col: 80}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `host.templ`, Line: 129, Col: 80}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
 		if templ_7745c5c3_Err != nil {
@@ -653,7 +659,7 @@ func hostForm(p ServerPage, action, label string) templ.Component {
 		var templ_7745c5c3_Var33 string
 		templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.CSRF)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `host.templ`, Line: 127, Col: 50}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `host.templ`, Line: 130, Col: 50}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var33)
 		if templ_7745c5c3_Err != nil {
@@ -666,7 +672,7 @@ func hostForm(p ServerPage, action, label string) templ.Component {
 		var templ_7745c5c3_Var34 string
 		templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.ResolveAttributeValue(action)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `host.templ`, Line: 128, Col: 51}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `host.templ`, Line: 131, Col: 51}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var34)
 		if templ_7745c5c3_Err != nil {
@@ -679,7 +685,7 @@ func hostForm(p ServerPage, action, label string) templ.Component {
 		var templ_7745c5c3_Var35 string
 		templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinStringErrs(label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `host.templ`, Line: 129, Col: 31}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `host.templ`, Line: 132, Col: 31}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
 		if templ_7745c5c3_Err != nil {
@@ -782,7 +788,7 @@ func HostConfirmContent(p HostConfirmPage) templ.Component {
 			var templ_7745c5c3_Var40 string
 			templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs(p.Question)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `host.templ`, Line: 143, Col: 18}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `host.templ`, Line: 146, Col: 18}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
 			if templ_7745c5c3_Err != nil {
@@ -800,7 +806,7 @@ func HostConfirmContent(p HostConfirmPage) templ.Component {
 				var templ_7745c5c3_Var41 string
 				templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinStringErrs(p.Warning)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `host.templ`, Line: 145, Col: 17}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `host.templ`, Line: 148, Col: 17}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var41))
 				if templ_7745c5c3_Err != nil {
@@ -818,7 +824,7 @@ func HostConfirmContent(p HostConfirmPage) templ.Component {
 			var templ_7745c5c3_Var42 templ.SafeURL
 			templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/servers/" + p.ServerID + "/host"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `host.templ`, Line: 148, Col: 80}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `host.templ`, Line: 151, Col: 80}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
 			if templ_7745c5c3_Err != nil {
@@ -831,7 +837,7 @@ func HostConfirmContent(p HostConfirmPage) templ.Component {
 			var templ_7745c5c3_Var43 string
 			templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.CSRF)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `host.templ`, Line: 149, Col: 51}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `host.templ`, Line: 152, Col: 51}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var43)
 			if templ_7745c5c3_Err != nil {
@@ -844,7 +850,7 @@ func HostConfirmContent(p HostConfirmPage) templ.Component {
 			var templ_7745c5c3_Var44 string
 			templ_7745c5c3_Var44, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.Action)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `host.templ`, Line: 150, Col: 54}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `host.templ`, Line: 153, Col: 54}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var44)
 			if templ_7745c5c3_Err != nil {
@@ -857,7 +863,7 @@ func HostConfirmContent(p HostConfirmPage) templ.Component {
 			var templ_7745c5c3_Var45 string
 			templ_7745c5c3_Var45, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.Size)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `host.templ`, Line: 151, Col: 50}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `host.templ`, Line: 154, Col: 50}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var45)
 			if templ_7745c5c3_Err != nil {
@@ -892,7 +898,7 @@ func HostConfirmContent(p HostConfirmPage) templ.Component {
 			var templ_7745c5c3_Var46 string
 			templ_7745c5c3_Var46, templ_7745c5c3_Err = templ.JoinStringErrs(p.Action)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `host.templ`, Line: 171, Col: 40}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `host.templ`, Line: 174, Col: 40}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var46))
 			if templ_7745c5c3_Err != nil {
@@ -905,7 +911,7 @@ func HostConfirmContent(p HostConfirmPage) templ.Component {
 			var templ_7745c5c3_Var47 templ.SafeURL
 			templ_7745c5c3_Var47, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/servers/" + p.ServerID))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `host.templ`, Line: 172, Col: 52}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `host.templ`, Line: 175, Col: 52}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var47))
 			if templ_7745c5c3_Err != nil {

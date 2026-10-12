@@ -19,11 +19,12 @@ import (
 
 // Host audit actions: what an owner or moderator asked of a cloud-VM server's host.
 const (
-	ActionHostPark    = "host_park"
-	ActionHostUnpark  = "host_unpark"
-	ActionHostResize  = "host_resize"
-	ActionHostUnpin   = "host_unpin"
-	ActionHostDestroy = "host_destroy"
+	ActionHostPark     = "host_park"
+	ActionHostUnpark   = "host_unpark"
+	ActionHostResize   = "host_resize"
+	ActionHostUnpin    = "host_unpin"
+	ActionHostSnapshot = "host_snapshot"
+	ActionHostDestroy  = "host_destroy"
 )
 
 // Outcomes of a host request: accepted (the host's state machine carries it out, and its
@@ -155,6 +156,9 @@ func (h *Hosts) spec(srv Server, locs map[string]Location, removed bool) (cloudv
 	if sc := srv.VM.Scaling; sc != nil {
 		policy := sc.Policy(game.CloudVM.Ladder)
 		s.Scaling = &policy
+	}
+	if seed := srv.VM.SeedSnapshot; seed != nil {
+		s.SeedSnapshot = &cloud.SnapshotRef{ID: seed.ID, Name: seed.Name}
 	}
 	read := func(path string) (string, error) {
 		if path == "" {
@@ -466,6 +470,18 @@ func (h *Hosts) Resize(ctx context.Context, actor Actor, serverID, size string, 
 		_, err := h.mgr.Resize(ctx, serverID, size, force, pin, id)
 		return err
 	})
+}
+
+// SnapshotVolume copies a parked host's data volume into a snapshot (#166); name "" takes the
+// default.
+func (h *Hosts) SnapshotVolume(ctx context.Context, actor Actor, serverID, name, reason string) (int64, cloud.Snapshot, error) {
+	var snap cloud.Snapshot
+	id, err := h.request(ctx, actor, serverID, ActionHostSnapshot, reason, map[string]any{"name": name}, func(id int64) error {
+		var err error
+		snap, err = h.mgr.SnapshotVolume(ctx, serverID, name, id)
+		return err
+	})
+	return id, snap, err
 }
 
 // Unpin lets the scaling policy decide the host's size again.

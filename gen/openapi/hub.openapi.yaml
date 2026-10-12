@@ -1290,6 +1290,49 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.SetServerHostDesiredResponse'
+  /gravel.hub.v1.ServerHostService/SnapshotServerHostVolume:
+    post:
+      tags:
+        - gravel.hub.v1.ServerHostService
+      summary: SnapshotServerHostVolume
+      description: |-
+        SnapshotServerHostVolume copies a parked host's data volume into a snapshot that a new
+         server's volume can be made from (servers.yaml vm.seed_snapshot), so it starts with the
+         game's install. The owner only; failed_precondition unless the host is parked. The snapshot
+         holds what the volume does, the game's environment file with its secrets included.
+      operationId: gravel.hub.v1.ServerHostService.SnapshotServerHostVolume
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.SnapshotServerHostVolumeRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.SnapshotServerHostVolumeResponse'
   /gravel.hub.v1.ServerHostService/UnpinServerHostSize:
     post:
       tags:
@@ -4747,6 +4790,40 @@ components:
           title: user
       title: SetUserRoleResponse
       additionalProperties: false
+    gravel.hub.v1.SnapshotServerHostVolumeRequest:
+      type: object
+      properties:
+        serverId:
+          type: string
+          title: server_id
+        name:
+          type: string
+          title: name
+          description: |-
+            The snapshot's name; "" is <server>-data-<game>-<build>-<date>. Letters, digits, dots and
+             hyphens, at most 64.
+        reason:
+          type: string
+          title: reason
+      title: SnapshotServerHostVolumeRequest
+      additionalProperties: false
+    gravel.hub.v1.SnapshotServerHostVolumeResponse:
+      type: object
+      properties:
+        host:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.ServerHost'
+          title: host
+        auditId:
+          type: string
+          title: audit_id
+          format: int64
+        snapshot:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.VolumeSnapshot'
+          title: snapshot
+      title: SnapshotServerHostVolumeResponse
+      additionalProperties: false
     gravel.hub.v1.StatsSeason:
       type: object
       properties:
@@ -4999,6 +5076,34 @@ components:
       description: |-
         User is a member: what their linked identities resolve to. Stats are keyed by identity, never
          by this id.
+    gravel.hub.v1.VolumeSnapshot:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+        name:
+          type: string
+          title: name
+        region:
+          type: string
+          title: region
+        sizeGib:
+          type: number
+          title: size_gib
+          format: double
+          description: The data it holds (what it bills by), and the smallest volume made from it.
+        minVolumeGib:
+          type: integer
+          title: min_volume_gib
+          format: int32
+        createdAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: created_at
+      title: VolumeSnapshot
+      additionalProperties: false
+      description: VolumeSnapshot is a copy of a host's data volume a new server's volume can be made from.
 security: []
 tags:
   - name: gravel.hub.v1.AppService

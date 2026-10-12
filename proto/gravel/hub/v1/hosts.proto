@@ -163,6 +163,31 @@ message UnpinServerHostSizeResponse {
   int64 audit_id = 2;
 }
 
+message SnapshotServerHostVolumeRequest {
+  string server_id = 1;
+  // The snapshot's name; "" is <server>-data-<game>-<build>-<date>. Letters, digits, dots and
+  // hyphens, at most 64.
+  string name = 2;
+  string reason = 3;
+}
+
+// VolumeSnapshot is a copy of a host's data volume a new server's volume can be made from.
+message VolumeSnapshot {
+  string id = 1;
+  string name = 2;
+  string region = 3;
+  // The data it holds (what it bills by), and the smallest volume made from it.
+  double size_gib = 4;
+  int32 min_volume_gib = 5;
+  google.protobuf.Timestamp created_at = 6;
+}
+
+message SnapshotServerHostVolumeResponse {
+  ServerHost host = 1;
+  int64 audit_id = 2;
+  VolumeSnapshot snapshot = 3;
+}
+
 message DestroyServerHostRequest {
   string server_id = 1;
   // Delete the data volume (the game's install) and release the reserved address too; without
@@ -194,6 +219,11 @@ service ServerHostService {
   // UnpinServerHostSize lets the scaling policy decide the host's size again. The owner only;
   // invalid_argument when nothing is pinned.
   rpc UnpinServerHostSize(UnpinServerHostSizeRequest) returns (UnpinServerHostSizeResponse);
+  // SnapshotServerHostVolume copies a parked host's data volume into a snapshot that a new
+  // server's volume can be made from (servers.yaml vm.seed_snapshot), so it starts with the
+  // game's install. The owner only; failed_precondition unless the host is parked. The snapshot
+  // holds what the volume does, the game's environment file with its secrets included.
+  rpc SnapshotServerHostVolume(SnapshotServerHostVolumeRequest) returns (SnapshotServerHostVolumeResponse);
   // DestroyServerHost removes a parked host's remains. The owner only.
   rpc DestroyServerHost(DestroyServerHostRequest) returns (DestroyServerHostResponse);
 }

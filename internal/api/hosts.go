@@ -147,6 +147,28 @@ func (s *HostServer) UnpinServerHostSize(ctx context.Context, req *connect.Reque
 	return connect.NewResponse(&hubv1.UnpinServerHostSizeResponse{Host: h, AuditId: id}), nil
 }
 
+// SnapshotServerHostVolume copies a parked host's data volume into a snapshot.
+func (s *HostServer) SnapshotServerHostVolume(ctx context.Context, req *connect.Request[hubv1.SnapshotServerHostVolumeRequest]) (*connect.Response[hubv1.SnapshotServerHostVolumeResponse], error) {
+	m := req.Msg
+	who, err := s.owner(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, snap, err := s.hosts.SnapshotVolume(ctx, who, m.GetServerId(), strings.TrimSpace(m.GetName()), m.GetReason())
+	if err != nil {
+		return nil, s.mapError(ctx, err)
+	}
+	h, err := s.host(ctx, m.GetServerId())
+	if err != nil {
+		return nil, err
+	}
+	out := &hubv1.VolumeSnapshot{Id: snap.ID, Name: snap.Name, Region: snap.Region, SizeGib: snap.SizeGiB, MinVolumeGib: int32(snap.MinVolumeGiB)}
+	if !snap.CreatedAt.IsZero() {
+		out.CreatedAt = timestamppb.New(snap.CreatedAt)
+	}
+	return connect.NewResponse(&hubv1.SnapshotServerHostVolumeResponse{Host: h, AuditId: id, Snapshot: out}), nil
+}
+
 // DestroyServerHost removes a parked host's remains.
 func (s *HostServer) DestroyServerHost(ctx context.Context, req *connect.Request[hubv1.DestroyServerHostRequest]) (*connect.Response[hubv1.DestroyServerHostResponse], error) {
 	m := req.Msg

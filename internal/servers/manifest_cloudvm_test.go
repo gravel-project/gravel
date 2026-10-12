@@ -164,6 +164,9 @@ func TestCloudManifestValidation(t *testing.T) {
 			delete(m.Servers[0].Settings, "max_players")
 			m.Servers[0].VM.Scaling = &ScalingSpec{Cooldown: Duration(time.Minute)}
 		}, "cooldown: 1m0s is outside"},
+		{"seed: both id and name", func(m *Manifest) { m.Servers[0].VM.SeedSnapshot = &SeedSnapshot{ID: "1", Name: "x"} }, "an id or a name, one of them"},
+		{"seed: neither", func(m *Manifest) { m.Servers[0].VM.SeedSnapshot = &SeedSnapshot{} }, "an id or a name, one of them"},
+		{"seed: bad name", func(m *Manifest) { m.Servers[0].VM.SeedSnapshot = &SeedSnapshot{Name: "my install!"} }, "is not a snapshot name"},
 		{"vm on a wardogs server", func(m *Manifest) {
 			m.Games = append(m.Games, GameRef{ID: "wardogs"})
 			m.Servers = append(m.Servers, Server{ID: "wd-1", Name: "W", Game: "wardogs", Driver: "wardogs", Location: "x",
@@ -306,5 +309,59 @@ func TestCloudManifestApplyWalksTheLadder(t *testing.T) {
 	// Without Clouds (servers check, in CI) nothing asks the cloud.
 	if _, err := svc.Apply(ctx, m, ApplyOptions{DryRun: true, CheckCredentials: true}); err != nil {
 		t.Errorf("no clouds: %v", err)
+	}
+}
+
+// A seed snapshot is looked up at apply (#166): one in the location's region no bigger than the
+// volume is taken; a missing one, one in another region and one too big for the volume are not.
+func TestCloudManifestApplyChecksTheSeed(t *testing.T) {
+	ctx := context.Background()
+	svc := New(serverstest.NewFakeStore(), uuid.New(), cloudDrivers, slog.New(slog.NewTextHandler(io.Discard, nil))).WithProviders("digitalocean")
+	m := parseCloud(t)
+	dir := t.TempDir()
+	write := func(name, v string) string {
+		p := filepath.Join(dir, name)
+		if err := os.WriteFile(p, []byte(v), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	m.Locations[0].TokenFile, m.Locations[0].SSHKeyFile = write("token", "t\n"), write("key", "k\n")
+	m.Servers[0].CredentialFile, m.Servers[0].Feed.TokenFile = write("rcon", "r\n"), write("feed", "f\n")
+	m.Servers[0].VM.PasswordFile = write("pw", "pw\n")
+	p := fake.New(fake.WithRegions(cloud.Region{Slug: "sfo3", Available: true}, cloud.Region{Slug: "nyc3", Available: true}))
+	mk := func(region, name string, gib int) string {
+		v, err := p.CreateVolume(ctx, cloud.VolumeSpec{Name: name + "-src", Region: region, SizeGiB: gib})
+		if err != nil {
+			t.Fatal(err)
+		}
+		snap, err := p.CreateVolumeSnapshot(ctx, v.ID, name, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return snap.ID
+	}
+	mk("sfo3", "install", 100)
+	elsewhere := mk("nyc3", "elsewhere", 100)
+	mk("sfo3", "big", 200)
+	clouds := func(context.Context, Location, string) (cloud.Provider, error) { return p, nil }
+	for _, c := range []struct {
+		seed SeedSnapshot
+		want string
+	}{
+		{SeedSnapshot{Name: "install"}, ""},
+		{SeedSnapshot{Name: "missing"}, "not found"},
+		{SeedSnapshot{Name: "elsewhere"}, "not found"}, // by name, in the location's region only
+		{SeedSnapshot{ID: elsewhere}, "in its own region"},
+		{SeedSnapshot{Name: "big"}, "needs at least 200"},
+	} {
+		m.Servers[0].VM.SeedSnapshot = &c.seed
+		_, err := svc.Apply(ctx, m, ApplyOptions{DryRun: true, CheckCredentials: true, Clouds: clouds})
+		switch {
+		case c.want == "" && err != nil:
+			t.Errorf("%+v: %v", c.seed, err)
+		case c.want != "" && (err == nil || !errors.Is(err, ErrInvalidManifest) || !strings.Contains(err.Error(), c.want)):
+			t.Errorf("%+v: %v, want it to say %q", c.seed, err, c.want)
+		}
 	}
 }

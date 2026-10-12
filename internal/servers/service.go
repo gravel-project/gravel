@@ -238,7 +238,7 @@ func (s *Service) Apply(ctx context.Context, m Manifest, opt ApplyOptions) ([]Ch
 			return nil, errors.Join(errs...)
 		}
 		if opt.Clouds != nil {
-			if err := s.checkLadders(ctx, m, opt.Clouds); err != nil {
+			if err := s.checkClouds(ctx, m, opt.Clouds); err != nil {
 				return nil, err
 			}
 		}
@@ -404,17 +404,18 @@ func nonNil(b []Band) []Band {
 	return b
 }
 
-// checkLadders walks every scaling ladder against its location's cloud: each rung offered in the
-// region, and every step allowed both ways from the root disk a host made at vm.size has
-// (cloudvm.CheckLadder). A ladder that can't be walked is refused here, not at a boundary.
-func (s *Service) checkLadders(ctx context.Context, m Manifest, clouds func(context.Context, Location, string) (cloud.Provider, error)) error {
+// checkClouds asks each cloud-VM server's location what only the cloud knows, so a manifest it
+// would refuse is refused when saved: every scaling ladder walked both ways from the root disk a
+// host made at vm.size has (cloudvm.CheckLadder, #37), and a seed snapshot found in the region and
+// no bigger than the volume (#166).
+func (s *Service) checkClouds(ctx context.Context, m Manifest, clouds func(context.Context, Location, string) (cloud.Provider, error)) error {
 	locs := map[string]Location{}
 	for _, l := range m.Locations {
 		locs[l.ID] = l
 	}
 	var errs []error
 	for _, srv := range m.Servers {
-		if srv.VM == nil || srv.VM.Scaling == nil {
+		if srv.VM == nil || (srv.VM.Scaling == nil && srv.VM.SeedSnapshot == nil) {
 			continue
 		}
 		spec, ok := s.specs[srv.Game]
@@ -433,6 +434,14 @@ func (s *Service) checkLadders(ctx context.Context, m Manifest, clouds func(cont
 			errs = append(errs, fmt.Errorf("server %s: location %s: %w", srv.ID, loc.ID, err))
 			continue
 		}
+		if seed := srv.VM.SeedSnapshot; seed != nil {
+			if err := checkSeed(ctx, p, *seed, loc.Region, srv.VM.VolumeGiB); err != nil {
+				errs = append(errs, fmt.Errorf("%w: servers[%s].vm.seed_snapshot: %w", ErrInvalidManifest, srv.ID, err))
+			}
+		}
+		if srv.VM.Scaling == nil {
+			continue
+		}
 		sizes, err := p.Sizes(ctx)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("server %s: location %s: the cloud's sizes: %w", srv.ID, loc.ID, err))
@@ -446,4 +455,19 @@ func (s *Service) checkLadders(ctx context.Context, m Manifest, clouds func(cont
 		}
 	}
 	return errors.Join(errs...)
+}
+
+// checkSeed finds a seed snapshot and checks a volume of volumeGiB in region can be made from it.
+func checkSeed(ctx context.Context, p cloud.Provider, seed SeedSnapshot, region string, volumeGiB int) error {
+	var snap cloud.Snapshot
+	var err error
+	if seed.ID != "" {
+		snap, err = p.GetVolumeSnapshot(ctx, seed.ID)
+	} else {
+		snap, err = p.FindVolumeSnapshot(ctx, seed.Name, region)
+	}
+	if err != nil {
+		return err
+	}
+	return snap.Fits(cloud.VolumeSpec{Region: region, SizeGiB: volumeGiB, FromSnapshot: &cloud.SnapshotRef{ID: snap.ID}})
 }

@@ -116,6 +116,9 @@ templ HostSection(p ServerPage) {
 		if p.Host.CanUnpin {
 			@hostForm(p, "unpin", "Let the policy decide the size")
 		}
+		if p.Host.CanSnapshot {
+			@hostForm(p, "snapshot", "Snapshot the disk")
+		}
 		if p.Host.CanDestroy {
 			@hostForm(p, "destroy", "Destroy the machine")
 		}

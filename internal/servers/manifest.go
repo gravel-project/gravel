@@ -73,6 +73,16 @@ type VMSpec struct {
 	// population changes, one rung at a time, at a map change or a match's end. Absent, the host
 	// stays at Size; present ({} for the defaults), Size is the rung it is made at.
 	Scaling *ScalingSpec `yaml:"scaling,omitempty" json:"scaling,omitempty"`
+	// SeedSnapshot is a volume snapshot (in the location's region) the server's data volume is
+	// made from when it is first made, so the game's install is there (#166); by id or by name.
+	// It never replaces a volume that exists.
+	SeedSnapshot *SeedSnapshot `yaml:"seed_snapshot,omitempty" json:"seed_snapshot,omitempty"`
+}
+
+// SeedSnapshot names a volume snapshot: by its id, or by its name in the location's region.
+type SeedSnapshot struct {
+	ID   string `yaml:"id,omitempty" json:"id,omitempty"`
+	Name string `yaml:"name,omitempty" json:"name,omitempty"`
 }
 
 // ScalingSpec is a server's scaling policy as the manifest gives it; every field is optional.
@@ -478,6 +488,16 @@ func validateVM(at string, s Server, spec Spec, gameOK bool, locations map[strin
 		}
 		if vm.Scaling != nil {
 			validateScaling(at+".vm.scaling", *vm.Scaling, vm.Size, s.Settings, *spec.CloudVM, bad)
+		}
+	}
+	if seed := vm.SeedSnapshot; seed != nil {
+		switch {
+		case (seed.ID == "") == (seed.Name == ""):
+			bad("%s.vm.seed_snapshot: an id or a name, one of them", at)
+		case seed.Name != "" && !cloudvm.ValidSnapshotName(seed.Name):
+			bad("%s.vm.seed_snapshot.name: %q is not a snapshot name (letters, digits, dots and hyphens, at most 64)", at, seed.Name)
+		case seed.ID != "" && !slugPattern.MatchString(seed.ID):
+			bad("%s.vm.seed_snapshot.id: %q is not an id", at, seed.ID)
 		}
 	}
 }

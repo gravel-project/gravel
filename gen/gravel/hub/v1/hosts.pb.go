@@ -1158,6 +1158,214 @@ func (x *UnpinServerHostSizeResponse) GetAuditId() int64 {
 	return 0
 }
 
+type SnapshotServerHostVolumeRequest struct {
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	ServerId string                 `protobuf:"bytes,1,opt,name=server_id,json=serverId,proto3" json:"server_id,omitempty"`
+	// The snapshot's name; "" is <server>-data-<game>-<build>-<date>. Letters, digits, dots and
+	// hyphens, at most 64.
+	Name          string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Reason        string `protobuf:"bytes,3,opt,name=reason,proto3" json:"reason,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SnapshotServerHostVolumeRequest) Reset() {
+	*x = SnapshotServerHostVolumeRequest{}
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SnapshotServerHostVolumeRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SnapshotServerHostVolumeRequest) ProtoMessage() {}
+
+func (x *SnapshotServerHostVolumeRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SnapshotServerHostVolumeRequest.ProtoReflect.Descriptor instead.
+func (*SnapshotServerHostVolumeRequest) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_hosts_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *SnapshotServerHostVolumeRequest) GetServerId() string {
+	if x != nil {
+		return x.ServerId
+	}
+	return ""
+}
+
+func (x *SnapshotServerHostVolumeRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *SnapshotServerHostVolumeRequest) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+// VolumeSnapshot is a copy of a host's data volume a new server's volume can be made from.
+type VolumeSnapshot struct {
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Id     string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name   string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Region string                 `protobuf:"bytes,3,opt,name=region,proto3" json:"region,omitempty"`
+	// The data it holds (what it bills by), and the smallest volume made from it.
+	SizeGib       float64                `protobuf:"fixed64,4,opt,name=size_gib,json=sizeGib,proto3" json:"size_gib,omitempty"`
+	MinVolumeGib  int32                  `protobuf:"varint,5,opt,name=min_volume_gib,json=minVolumeGib,proto3" json:"min_volume_gib,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *VolumeSnapshot) Reset() {
+	*x = VolumeSnapshot{}
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *VolumeSnapshot) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*VolumeSnapshot) ProtoMessage() {}
+
+func (x *VolumeSnapshot) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use VolumeSnapshot.ProtoReflect.Descriptor instead.
+func (*VolumeSnapshot) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_hosts_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *VolumeSnapshot) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *VolumeSnapshot) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *VolumeSnapshot) GetRegion() string {
+	if x != nil {
+		return x.Region
+	}
+	return ""
+}
+
+func (x *VolumeSnapshot) GetSizeGib() float64 {
+	if x != nil {
+		return x.SizeGib
+	}
+	return 0
+}
+
+func (x *VolumeSnapshot) GetMinVolumeGib() int32 {
+	if x != nil {
+		return x.MinVolumeGib
+	}
+	return 0
+}
+
+func (x *VolumeSnapshot) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+type SnapshotServerHostVolumeResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Host          *ServerHost            `protobuf:"bytes,1,opt,name=host,proto3" json:"host,omitempty"`
+	AuditId       int64                  `protobuf:"varint,2,opt,name=audit_id,json=auditId,proto3" json:"audit_id,omitempty"`
+	Snapshot      *VolumeSnapshot        `protobuf:"bytes,3,opt,name=snapshot,proto3" json:"snapshot,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SnapshotServerHostVolumeResponse) Reset() {
+	*x = SnapshotServerHostVolumeResponse{}
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SnapshotServerHostVolumeResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SnapshotServerHostVolumeResponse) ProtoMessage() {}
+
+func (x *SnapshotServerHostVolumeResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SnapshotServerHostVolumeResponse.ProtoReflect.Descriptor instead.
+func (*SnapshotServerHostVolumeResponse) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_hosts_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *SnapshotServerHostVolumeResponse) GetHost() *ServerHost {
+	if x != nil {
+		return x.Host
+	}
+	return nil
+}
+
+func (x *SnapshotServerHostVolumeResponse) GetAuditId() int64 {
+	if x != nil {
+		return x.AuditId
+	}
+	return 0
+}
+
+func (x *SnapshotServerHostVolumeResponse) GetSnapshot() *VolumeSnapshot {
+	if x != nil {
+		return x.Snapshot
+	}
+	return nil
+}
+
 type DestroyServerHostRequest struct {
 	state    protoimpl.MessageState `protogen:"open.v1"`
 	ServerId string                 `protobuf:"bytes,1,opt,name=server_id,json=serverId,proto3" json:"server_id,omitempty"`
@@ -1172,7 +1380,7 @@ type DestroyServerHostRequest struct {
 
 func (x *DestroyServerHostRequest) Reset() {
 	*x = DestroyServerHostRequest{}
-	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[14]
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1184,7 +1392,7 @@ func (x *DestroyServerHostRequest) String() string {
 func (*DestroyServerHostRequest) ProtoMessage() {}
 
 func (x *DestroyServerHostRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[14]
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1197,7 +1405,7 @@ func (x *DestroyServerHostRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DestroyServerHostRequest.ProtoReflect.Descriptor instead.
 func (*DestroyServerHostRequest) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_hosts_proto_rawDescGZIP(), []int{14}
+	return file_gravel_hub_v1_hosts_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *DestroyServerHostRequest) GetServerId() string {
@@ -1238,7 +1446,7 @@ type DestroyServerHostResponse struct {
 
 func (x *DestroyServerHostResponse) Reset() {
 	*x = DestroyServerHostResponse{}
-	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[15]
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1250,7 +1458,7 @@ func (x *DestroyServerHostResponse) String() string {
 func (*DestroyServerHostResponse) ProtoMessage() {}
 
 func (x *DestroyServerHostResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[15]
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1263,7 +1471,7 @@ func (x *DestroyServerHostResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DestroyServerHostResponse.ProtoReflect.Descriptor instead.
 func (*DestroyServerHostResponse) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_hosts_proto_rawDescGZIP(), []int{15}
+	return file_gravel_hub_v1_hosts_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *DestroyServerHostResponse) GetHost() *ServerHost {
@@ -1382,7 +1590,23 @@ const file_gravel_hub_v1_hosts_proto_rawDesc = "" +
 	"\x06reason\x18\x02 \x01(\tR\x06reason\"g\n" +
 	"\x1bUnpinServerHostSizeResponse\x12-\n" +
 	"\x04host\x18\x01 \x01(\v2\x19.gravel.hub.v1.ServerHostR\x04host\x12\x19\n" +
-	"\baudit_id\x18\x02 \x01(\x03R\aauditId\"\x9d\x01\n" +
+	"\baudit_id\x18\x02 \x01(\x03R\aauditId\"j\n" +
+	"\x1fSnapshotServerHostVolumeRequest\x12\x1b\n" +
+	"\tserver_id\x18\x01 \x01(\tR\bserverId\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x16\n" +
+	"\x06reason\x18\x03 \x01(\tR\x06reason\"\xc8\x01\n" +
+	"\x0eVolumeSnapshot\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x16\n" +
+	"\x06region\x18\x03 \x01(\tR\x06region\x12\x19\n" +
+	"\bsize_gib\x18\x04 \x01(\x01R\asizeGib\x12$\n" +
+	"\x0emin_volume_gib\x18\x05 \x01(\x05R\fminVolumeGib\x129\n" +
+	"\n" +
+	"created_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xa7\x01\n" +
+	" SnapshotServerHostVolumeResponse\x12-\n" +
+	"\x04host\x18\x01 \x01(\v2\x19.gravel.hub.v1.ServerHostR\x04host\x12\x19\n" +
+	"\baudit_id\x18\x02 \x01(\x03R\aauditId\x129\n" +
+	"\bsnapshot\x18\x03 \x01(\v2\x1d.gravel.hub.v1.VolumeSnapshotR\bsnapshot\"\x9d\x01\n" +
 	"\x18DestroyServerHostRequest\x12\x1b\n" +
 	"\tserver_id\x18\x01 \x01(\tR\bserverId\x12#\n" +
 	"\rdelete_volume\x18\x02 \x01(\bR\fdeleteVolume\x12'\n" +
@@ -1390,13 +1614,14 @@ const file_gravel_hub_v1_hosts_proto_rawDesc = "" +
 	"\x06reason\x18\x04 \x01(\tR\x06reason\"e\n" +
 	"\x19DestroyServerHostResponse\x12-\n" +
 	"\x04host\x18\x01 \x01(\v2\x19.gravel.hub.v1.ServerHostR\x04host\x12\x19\n" +
-	"\baudit_id\x18\x02 \x01(\x03R\aauditId2\x8c\x05\n" +
+	"\baudit_id\x18\x02 \x01(\x03R\aauditId2\x89\x06\n" +
 	"\x11ServerHostService\x12Z\n" +
 	"\rGetServerHost\x12#.gravel.hub.v1.GetServerHostRequest\x1a$.gravel.hub.v1.GetServerHostResponse\x12o\n" +
 	"\x14ListServerHostEvents\x12*.gravel.hub.v1.ListServerHostEventsRequest\x1a+.gravel.hub.v1.ListServerHostEventsResponse\x12o\n" +
 	"\x14SetServerHostDesired\x12*.gravel.hub.v1.SetServerHostDesiredRequest\x1a+.gravel.hub.v1.SetServerHostDesiredResponse\x12c\n" +
 	"\x10ResizeServerHost\x12&.gravel.hub.v1.ResizeServerHostRequest\x1a'.gravel.hub.v1.ResizeServerHostResponse\x12l\n" +
-	"\x13UnpinServerHostSize\x12).gravel.hub.v1.UnpinServerHostSizeRequest\x1a*.gravel.hub.v1.UnpinServerHostSizeResponse\x12f\n" +
+	"\x13UnpinServerHostSize\x12).gravel.hub.v1.UnpinServerHostSizeRequest\x1a*.gravel.hub.v1.UnpinServerHostSizeResponse\x12{\n" +
+	"\x18SnapshotServerHostVolume\x12..gravel.hub.v1.SnapshotServerHostVolumeRequest\x1a/.gravel.hub.v1.SnapshotServerHostVolumeResponse\x12f\n" +
 	"\x11DestroyServerHost\x12'.gravel.hub.v1.DestroyServerHostRequest\x1a(.gravel.hub.v1.DestroyServerHostResponseB:Z8github.com/gravel-project/gravel/gen/gravel/hub/v1;hubv1b\x06proto3"
 
 var (
@@ -1411,59 +1636,67 @@ func file_gravel_hub_v1_hosts_proto_rawDescGZIP() []byte {
 	return file_gravel_hub_v1_hosts_proto_rawDescData
 }
 
-var file_gravel_hub_v1_hosts_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
+var file_gravel_hub_v1_hosts_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
 var file_gravel_hub_v1_hosts_proto_goTypes = []any{
-	(*ServerHost)(nil),                   // 0: gravel.hub.v1.ServerHost
-	(*HostTier)(nil),                     // 1: gravel.hub.v1.HostTier
-	(*HostSize)(nil),                     // 2: gravel.hub.v1.HostSize
-	(*HostEvent)(nil),                    // 3: gravel.hub.v1.HostEvent
-	(*GetServerHostRequest)(nil),         // 4: gravel.hub.v1.GetServerHostRequest
-	(*GetServerHostResponse)(nil),        // 5: gravel.hub.v1.GetServerHostResponse
-	(*ListServerHostEventsRequest)(nil),  // 6: gravel.hub.v1.ListServerHostEventsRequest
-	(*ListServerHostEventsResponse)(nil), // 7: gravel.hub.v1.ListServerHostEventsResponse
-	(*SetServerHostDesiredRequest)(nil),  // 8: gravel.hub.v1.SetServerHostDesiredRequest
-	(*SetServerHostDesiredResponse)(nil), // 9: gravel.hub.v1.SetServerHostDesiredResponse
-	(*ResizeServerHostRequest)(nil),      // 10: gravel.hub.v1.ResizeServerHostRequest
-	(*ResizeServerHostResponse)(nil),     // 11: gravel.hub.v1.ResizeServerHostResponse
-	(*UnpinServerHostSizeRequest)(nil),   // 12: gravel.hub.v1.UnpinServerHostSizeRequest
-	(*UnpinServerHostSizeResponse)(nil),  // 13: gravel.hub.v1.UnpinServerHostSizeResponse
-	(*DestroyServerHostRequest)(nil),     // 14: gravel.hub.v1.DestroyServerHostRequest
-	(*DestroyServerHostResponse)(nil),    // 15: gravel.hub.v1.DestroyServerHostResponse
-	(*timestamppb.Timestamp)(nil),        // 16: google.protobuf.Timestamp
-	(*Actor)(nil),                        // 17: gravel.hub.v1.Actor
+	(*ServerHost)(nil),                       // 0: gravel.hub.v1.ServerHost
+	(*HostTier)(nil),                         // 1: gravel.hub.v1.HostTier
+	(*HostSize)(nil),                         // 2: gravel.hub.v1.HostSize
+	(*HostEvent)(nil),                        // 3: gravel.hub.v1.HostEvent
+	(*GetServerHostRequest)(nil),             // 4: gravel.hub.v1.GetServerHostRequest
+	(*GetServerHostResponse)(nil),            // 5: gravel.hub.v1.GetServerHostResponse
+	(*ListServerHostEventsRequest)(nil),      // 6: gravel.hub.v1.ListServerHostEventsRequest
+	(*ListServerHostEventsResponse)(nil),     // 7: gravel.hub.v1.ListServerHostEventsResponse
+	(*SetServerHostDesiredRequest)(nil),      // 8: gravel.hub.v1.SetServerHostDesiredRequest
+	(*SetServerHostDesiredResponse)(nil),     // 9: gravel.hub.v1.SetServerHostDesiredResponse
+	(*ResizeServerHostRequest)(nil),          // 10: gravel.hub.v1.ResizeServerHostRequest
+	(*ResizeServerHostResponse)(nil),         // 11: gravel.hub.v1.ResizeServerHostResponse
+	(*UnpinServerHostSizeRequest)(nil),       // 12: gravel.hub.v1.UnpinServerHostSizeRequest
+	(*UnpinServerHostSizeResponse)(nil),      // 13: gravel.hub.v1.UnpinServerHostSizeResponse
+	(*SnapshotServerHostVolumeRequest)(nil),  // 14: gravel.hub.v1.SnapshotServerHostVolumeRequest
+	(*VolumeSnapshot)(nil),                   // 15: gravel.hub.v1.VolumeSnapshot
+	(*SnapshotServerHostVolumeResponse)(nil), // 16: gravel.hub.v1.SnapshotServerHostVolumeResponse
+	(*DestroyServerHostRequest)(nil),         // 17: gravel.hub.v1.DestroyServerHostRequest
+	(*DestroyServerHostResponse)(nil),        // 18: gravel.hub.v1.DestroyServerHostResponse
+	(*timestamppb.Timestamp)(nil),            // 19: google.protobuf.Timestamp
+	(*Actor)(nil),                            // 20: gravel.hub.v1.Actor
 }
 var file_gravel_hub_v1_hosts_proto_depIdxs = []int32{
-	16, // 0: gravel.hub.v1.ServerHost.since:type_name -> google.protobuf.Timestamp
-	16, // 1: gravel.hub.v1.ServerHost.instance_created_at:type_name -> google.protobuf.Timestamp
+	19, // 0: gravel.hub.v1.ServerHost.since:type_name -> google.protobuf.Timestamp
+	19, // 1: gravel.hub.v1.ServerHost.instance_created_at:type_name -> google.protobuf.Timestamp
 	2,  // 2: gravel.hub.v1.ServerHost.sizes:type_name -> gravel.hub.v1.HostSize
 	1,  // 3: gravel.hub.v1.ServerHost.ladder:type_name -> gravel.hub.v1.HostTier
-	16, // 4: gravel.hub.v1.ServerHost.pending_since:type_name -> google.protobuf.Timestamp
-	16, // 5: gravel.hub.v1.ServerHost.last_resize_at:type_name -> google.protobuf.Timestamp
-	16, // 6: gravel.hub.v1.HostEvent.at:type_name -> google.protobuf.Timestamp
+	19, // 4: gravel.hub.v1.ServerHost.pending_since:type_name -> google.protobuf.Timestamp
+	19, // 5: gravel.hub.v1.ServerHost.last_resize_at:type_name -> google.protobuf.Timestamp
+	19, // 6: gravel.hub.v1.HostEvent.at:type_name -> google.protobuf.Timestamp
 	0,  // 7: gravel.hub.v1.GetServerHostResponse.host:type_name -> gravel.hub.v1.ServerHost
 	3,  // 8: gravel.hub.v1.ListServerHostEventsResponse.events:type_name -> gravel.hub.v1.HostEvent
-	17, // 9: gravel.hub.v1.SetServerHostDesiredRequest.on_behalf_of:type_name -> gravel.hub.v1.Actor
+	20, // 9: gravel.hub.v1.SetServerHostDesiredRequest.on_behalf_of:type_name -> gravel.hub.v1.Actor
 	0,  // 10: gravel.hub.v1.SetServerHostDesiredResponse.host:type_name -> gravel.hub.v1.ServerHost
 	0,  // 11: gravel.hub.v1.ResizeServerHostResponse.host:type_name -> gravel.hub.v1.ServerHost
 	0,  // 12: gravel.hub.v1.UnpinServerHostSizeResponse.host:type_name -> gravel.hub.v1.ServerHost
-	0,  // 13: gravel.hub.v1.DestroyServerHostResponse.host:type_name -> gravel.hub.v1.ServerHost
-	4,  // 14: gravel.hub.v1.ServerHostService.GetServerHost:input_type -> gravel.hub.v1.GetServerHostRequest
-	6,  // 15: gravel.hub.v1.ServerHostService.ListServerHostEvents:input_type -> gravel.hub.v1.ListServerHostEventsRequest
-	8,  // 16: gravel.hub.v1.ServerHostService.SetServerHostDesired:input_type -> gravel.hub.v1.SetServerHostDesiredRequest
-	10, // 17: gravel.hub.v1.ServerHostService.ResizeServerHost:input_type -> gravel.hub.v1.ResizeServerHostRequest
-	12, // 18: gravel.hub.v1.ServerHostService.UnpinServerHostSize:input_type -> gravel.hub.v1.UnpinServerHostSizeRequest
-	14, // 19: gravel.hub.v1.ServerHostService.DestroyServerHost:input_type -> gravel.hub.v1.DestroyServerHostRequest
-	5,  // 20: gravel.hub.v1.ServerHostService.GetServerHost:output_type -> gravel.hub.v1.GetServerHostResponse
-	7,  // 21: gravel.hub.v1.ServerHostService.ListServerHostEvents:output_type -> gravel.hub.v1.ListServerHostEventsResponse
-	9,  // 22: gravel.hub.v1.ServerHostService.SetServerHostDesired:output_type -> gravel.hub.v1.SetServerHostDesiredResponse
-	11, // 23: gravel.hub.v1.ServerHostService.ResizeServerHost:output_type -> gravel.hub.v1.ResizeServerHostResponse
-	13, // 24: gravel.hub.v1.ServerHostService.UnpinServerHostSize:output_type -> gravel.hub.v1.UnpinServerHostSizeResponse
-	15, // 25: gravel.hub.v1.ServerHostService.DestroyServerHost:output_type -> gravel.hub.v1.DestroyServerHostResponse
-	20, // [20:26] is the sub-list for method output_type
-	14, // [14:20] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	19, // 13: gravel.hub.v1.VolumeSnapshot.created_at:type_name -> google.protobuf.Timestamp
+	0,  // 14: gravel.hub.v1.SnapshotServerHostVolumeResponse.host:type_name -> gravel.hub.v1.ServerHost
+	15, // 15: gravel.hub.v1.SnapshotServerHostVolumeResponse.snapshot:type_name -> gravel.hub.v1.VolumeSnapshot
+	0,  // 16: gravel.hub.v1.DestroyServerHostResponse.host:type_name -> gravel.hub.v1.ServerHost
+	4,  // 17: gravel.hub.v1.ServerHostService.GetServerHost:input_type -> gravel.hub.v1.GetServerHostRequest
+	6,  // 18: gravel.hub.v1.ServerHostService.ListServerHostEvents:input_type -> gravel.hub.v1.ListServerHostEventsRequest
+	8,  // 19: gravel.hub.v1.ServerHostService.SetServerHostDesired:input_type -> gravel.hub.v1.SetServerHostDesiredRequest
+	10, // 20: gravel.hub.v1.ServerHostService.ResizeServerHost:input_type -> gravel.hub.v1.ResizeServerHostRequest
+	12, // 21: gravel.hub.v1.ServerHostService.UnpinServerHostSize:input_type -> gravel.hub.v1.UnpinServerHostSizeRequest
+	14, // 22: gravel.hub.v1.ServerHostService.SnapshotServerHostVolume:input_type -> gravel.hub.v1.SnapshotServerHostVolumeRequest
+	17, // 23: gravel.hub.v1.ServerHostService.DestroyServerHost:input_type -> gravel.hub.v1.DestroyServerHostRequest
+	5,  // 24: gravel.hub.v1.ServerHostService.GetServerHost:output_type -> gravel.hub.v1.GetServerHostResponse
+	7,  // 25: gravel.hub.v1.ServerHostService.ListServerHostEvents:output_type -> gravel.hub.v1.ListServerHostEventsResponse
+	9,  // 26: gravel.hub.v1.ServerHostService.SetServerHostDesired:output_type -> gravel.hub.v1.SetServerHostDesiredResponse
+	11, // 27: gravel.hub.v1.ServerHostService.ResizeServerHost:output_type -> gravel.hub.v1.ResizeServerHostResponse
+	13, // 28: gravel.hub.v1.ServerHostService.UnpinServerHostSize:output_type -> gravel.hub.v1.UnpinServerHostSizeResponse
+	16, // 29: gravel.hub.v1.ServerHostService.SnapshotServerHostVolume:output_type -> gravel.hub.v1.SnapshotServerHostVolumeResponse
+	18, // 30: gravel.hub.v1.ServerHostService.DestroyServerHost:output_type -> gravel.hub.v1.DestroyServerHostResponse
+	24, // [24:31] is the sub-list for method output_type
+	17, // [17:24] is the sub-list for method input_type
+	17, // [17:17] is the sub-list for extension type_name
+	17, // [17:17] is the sub-list for extension extendee
+	0,  // [0:17] is the sub-list for field type_name
 }
 
 func init() { file_gravel_hub_v1_hosts_proto_init() }
@@ -1478,7 +1711,7 @@ func file_gravel_hub_v1_hosts_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gravel_hub_v1_hosts_proto_rawDesc), len(file_gravel_hub_v1_hosts_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   16,
+			NumMessages:   19,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -304,8 +304,8 @@ type HostPanel struct {
 	PendingReason string
 	PendingSince  time.Time
 	// What the reader may do now.
-	CanPark, CanUnpark, CanResize, CanDestroy, CanPin, CanUnpin bool
-	Sizes                                                       []HostSizeOption
+	CanPark, CanUnpark, CanResize, CanDestroy, CanPin, CanUnpin, CanSnapshot bool
+	Sizes                                                                    []HostSizeOption
 }
 
 // HostRung is one rung of a host's scaling ladder.

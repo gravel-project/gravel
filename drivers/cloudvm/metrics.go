@@ -24,6 +24,7 @@ type metrics struct {
 	pending      *prometheus.GaugeVec
 	decisions    *prometheus.CounterVec
 	resizes      *prometheus.CounterVec
+	snapshots    *prometheus.CounterVec
 }
 
 func newMetrics(reg prometheus.Registerer) *metrics {
@@ -72,8 +73,11 @@ func newMetrics(reg prometheus.Registerer) *metrics {
 	m.resizes = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "gravel_cloudvm_resizes_total", Help: "Resizes of a host (the policy's and the owner's) by direction and result: ok, refused by the provider, or failed and started at the old size.",
 	}, []string{"server", "direction", "result"})
+	m.snapshots = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "gravel_cloudvm_volume_snapshots_total", Help: "Snapshots of a parked host's data volume an owner asked for, by result.",
+	}, []string{"server", "result"})
 	reg.MustRegister(m.state, m.since, m.failing, m.ops, m.duration, m.running, m.price, m.logBatches, m.bansEnforced, m.envDrift,
-		m.tier, m.pending, m.decisions, m.resizes)
+		m.tier, m.pending, m.decisions, m.resizes, m.snapshots)
 	return m
 }
 

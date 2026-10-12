@@ -642,6 +642,7 @@ servers:
       password_file: /run/secrets/cs2-join-password   # optional: the password players join with
       publisher_token_file: /run/secrets/cs2-gslt     # optional: a Game Server Login Token
       scaling: {}                            # optional: walk the game's ladder as the room fills (below)
+      seed_snapshot: {name: cs2-install}     # optional: make a NEW volume from this snapshot (or {id: …})
     settings:                                # what the spec's cloudvm.settings declares, checked by type
       game_alias: competitive                # competitive · wingman · casual · deathmatch · custom
       map_group: mg_active
@@ -702,6 +703,23 @@ current one (`ResizeServerHost`; refused with players on unless `force`) and des
 for a few minutes (DigitalOcean's `c-2` to `c-4` and back: 2½ minutes each way, measured on HTG's
 server), and an owner's resize lasts until the host is parked: an unpark makes the instance at
 `vm.size` again.
+
+**Snapshots (#166).** A server's install lives on its data volume, so the full download comes
+back only for a new volume: a second server in a location, or a rebuild after a volume is lost
+(Counter-Strike 2: 73.4 GB, about half an hour inside DigitalOcean). The owner copies a parked
+host's volume into a snapshot (`SnapshotServerHostVolume`, or "Snapshot the disk" on the server
+page; parked only, so the volume is detached and the copy consistent), named
+`<server>-data-<game>-<build>-<date>` unless given a name and tagged with the server's tags; an
+event on the host records it. A server whose manifest has `vm.seed_snapshot` (by `name` in the
+location's region, or by `id`) has its volume made from it **when the volume is first made**,
+never for a volume that exists, so an unpark or a recreate always uses the server's own volume;
+then the game needs only the update since the snapshot. `servers apply` asks the cloud and refuses
+a seed it doesn't find, one in another region, and a `volume_gib` smaller than the snapshot's
+source. A snapshot holds whatever the volume does, the server's environment file with its secrets
+included: keep it like the secrets, and delete it in the cloud when it is no longer wanted (it
+bills by the gigabyte every month). A seeded server's start finds that file is not its own and
+pushes its own (the environment check above). The provider's token needs DigitalOcean's
+`block_storage_snapshot` scope (create, read, delete).
 
 **Scaling (#37).** With `vm.scaling` the hub sizes the host to its room, walking a **ladder**
 one rung at a time: the Game spec's `cloudvm.ladder` (CS2: `c-2` for 10 players, `c-4` for 20),
@@ -1357,6 +1375,7 @@ and the digest-pin procedure.
 | `gravel_cloudvm_scale_pending` | gauge | `server`, `direction` (`up`, `down`) | 1 while a scaling decision waits for a boundary | until the first decision |
 | `gravel_cloudvm_scale_decisions_total` | counter | `server`, `direction`, `outcome` (`decided`, `executed`, `cancelled`) | the scaling policy's decisions and what became of them | until the first |
 | `gravel_cloudvm_resizes_total` | counter | `server`, `direction`, `result` (`ok`, `refused`, `failed`) | resizes, the policy's and the owner's; a failed one started again at the old size | until the first |
+| `gravel_cloudvm_volume_snapshots_total` | counter | `server`, `result` (`ok`, `error`) | snapshots of a parked host's volume the owner asked for (#166) | until the first |
 | `gravel_stats_matches_total` | counter | `server`, `game` | matches the stats store started (ADR-0012) | until the first match |
 | `gravel_stats_rows_written_total` | counter | `server` | player rows written from polls | until someone is on |
 | `gravel_stats_record_errors_total` | counter | `server` | polls the stats store could not write | until one fails |

@@ -310,11 +310,27 @@ func (t *tick) create(ctx context.Context, h *Host) (bool, error) {
 			}
 			h.VolumeID = v.ID
 		default:
-			v, err := p.CreateVolume(ctx, cloud.VolumeSpec{Name: VolumeName(s.ID), Region: s.Location.Region, SizeGiB: s.VolumeGiB, Tags: []string{BaseTag, Tag(s.ID)}})
+			// A new volume: from the seed snapshot when the manifest names one, so the game's
+			// install is there (#166). The environment file in it is another server's; the start
+			// reads the host's hash and pushes this server's (#169).
+			spec := cloud.VolumeSpec{Name: VolumeName(s.ID), Region: s.Location.Region, SizeGiB: s.VolumeGiB, Tags: []string{BaseTag, Tag(s.ID)}}
+			if s.SeedSnapshot != nil {
+				ref := *s.SeedSnapshot
+				spec.FromSnapshot = &ref
+			}
+			v, err := p.CreateVolume(ctx, spec)
 			if err != nil {
 				return false, cloudErr(err)
 			}
 			h.VolumeID, h.EnvSHA256 = v.ID, nil
+			if s.SeedSnapshot != nil {
+				seed := s.SeedSnapshot.Name
+				if seed == "" {
+					seed = s.SeedSnapshot.ID
+				}
+				t.events = append(t.events, Event{ServerID: h.ServerID, At: t.now, From: h.State, To: h.State, Step: stepVolume, Detail: "from snapshot " + seed, Size: h.Size})
+				t.m.log.Info("made the data volume from a snapshot", "server", s.ID, "snapshot", seed)
+			}
 		}
 		h.Step = stepInstance
 		if s.AddressReserved {
