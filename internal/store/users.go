@@ -51,6 +51,9 @@ const (
 	IdentityEventLogin      = "login"
 	IdentityEventLinked     = "linked"
 	IdentityEventUnlinked   = "unlinked"
+	// IdentityEventProven is an identity the member proved again on a channel (gravel#5): its
+	// verification method and time changed.
+	IdentityEventProven = "proven"
 )
 
 // Errors of the identity tables.

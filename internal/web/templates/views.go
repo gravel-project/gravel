@@ -149,6 +149,34 @@ type AccountPage struct {
 	RoleProviders []Provider
 	// Apps are the first-party apps the member allowed (ADR-0015), each with a revoke button.
 	Apps []AppGrant
+	// ProofServers are the running servers whose chat takes a one-time code (gravel#5), and
+	// ProofAccounts the member's linked accounts a code there can prove again.
+	ProofServers  []ProofServer
+	ProofAccounts []Identity
+}
+
+// ProofServer is a server a member can prove an account on by typing a code in its chat.
+type ProofServer struct {
+	ID, Name string
+}
+
+// ProofPage is a code the member just got, shown once, with where to type it.
+type ProofPage struct {
+	Page
+	Code         string
+	Instructions string
+	ServerName   string
+	Join         *Join
+	ExpiresAt    time.Time
+	Status       ProofStatus
+}
+
+// ProofStatus is what became of a code, refreshed while it is open.
+type ProofStatus struct {
+	ID              string
+	State           string // open, expired, proven, taken, replaced
+	ProviderDisplay string
+	Subject         string
 }
 
 // Scope is a scope an app holds or asks for, with what it lets the app do, in words.
@@ -225,10 +253,11 @@ type ServersPage struct {
 	Servers []ServerRow
 }
 
-// Team is a team's score on a server.
+// Team is a team on a server: its score, and its players when the hub counts them (#159).
 type Team struct {
-	Name  string
-	Score int64
+	Name    string
+	Score   int64
+	Players *int32
 }
 
 // PlayerRow is one player on a server, as members see them. Subject is their id at the game's
@@ -259,6 +288,8 @@ type ServerPage struct {
 	ObservedAt *time.Time
 	Build      string
 	Teams      []Team
+	// Scored is true once a team has a score: a match is on, and the scores show beside the counts.
+	Scored bool
 	// Players is set for members; PlayersNote says why it is not, when it is not.
 	Players     []PlayerRow
 	PlayersNote string
@@ -303,10 +334,19 @@ type HostPanel struct {
 	PendingSize   string
 	PendingReason string
 	PendingSince  time.Time
+	// The expected population (#172): players, until when and why; 0 for none. ExpectMax is the
+	// most the form offers (the ladder's top, or 64).
+	ExpectedPlayers int
+	ExpectedUntil   time.Time
+	ExpectedReason  string
+	ExpectMax       int
 	// What the reader may do now.
-	CanPark, CanUnpark, CanResize, CanDestroy, CanPin, CanUnpin, CanSnapshot bool
-	Sizes                                                                    []HostSizeOption
+	CanPark, CanUnpark, CanResize, CanDestroy, CanPin, CanUnpin, CanSnapshot, CanExpect bool
+	Sizes                                                                               []HostSizeOption
 }
+
+// ExpectFor are the spans the expected-population form offers.
+var ExpectFor = []string{"1h", "2h", "3h", "4h", "6h", "12h", "24h"}
 
 // HostRung is one rung of a host's scaling ladder.
 type HostRung struct {
@@ -334,6 +374,8 @@ type HostConfirmPage struct {
 	Warning string
 	// Force, Pin and DeleteVolume are the switches the confirmation offers.
 	OfferForce, OfferPin, OfferDeleteVolume bool
+	// An expected population's players, span and reason, carried through the confirmation.
+	Players, For, Reason string
 }
 
 // ModControls are the moderation controls a server page shows a moderator; each is shown only

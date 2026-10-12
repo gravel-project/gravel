@@ -40,6 +40,9 @@ const (
 	// host when nobody plays and resize it between sizes.
 	CapPark   = "park"
 	CapResize = "resize"
+	// CapChat is a server whose chat the hub reads with who typed each line, so a code typed
+	// there proves an account (gravel#5).
+	CapChat = "chat"
 )
 
 // Errors a driver returns, wrapping the game client's own.
@@ -133,6 +136,17 @@ type TeamScore struct {
 	Name  string
 	Color string
 	Score int64
+	// Key is the value a Player's Team carries for this team when it differs from Name (CS2's
+	// "TERRORIST" for the team shown as "T"); empty means Name.
+	Key string
+}
+
+// TeamKey is the value a Player's Team carries for the team.
+func (t TeamScore) TeamKey() string {
+	if t.Key != "" {
+		return t.Key
+	}
+	return t.Name
 }
 
 // Player is one connected player.

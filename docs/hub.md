@@ -109,6 +109,8 @@ Public listener (`server.listen`), HTTP/1.1 and unencrypted HTTP/2 so gRPC works
 | `/gravel.hub.v1.OrganizationService/UpdateOrganizationSettings` | replace them; the owner only; `invalid_argument` names every invalid field |
 | `/gravel.hub.v1.IdentityService/GetMe` | the caller and their linked identities; needs a session, or a member's token from an app (no scope needed: how an app learns who signed in, ADR-0015) |
 | `/gravel.hub.v1.IdentityService/UnlinkIdentity` | `{"provider": "steam", "subject": "…"}`; the last identity is refused (`failed_precondition`) |
+| `/gravel.hub.v1.IdentityService/StartProof` | `{"server_id": "…", "subject": "…"}` → a one-time code to type in that server's chat, with its id, expiry and instructions ([Proof in game](#proof-in-game-adr-0022)); `subject` (optional) is an account of the caller's to prove again; a session only, five an hour |
+| `/gravel.hub.v1.IdentityService/GetProof` | `{"proof_id": "…"}` → `open`, `proven`, `taken`, `replaced` or `expired`, and the account once proven; a session only, the caller's own |
 | `/gravel.hub.v1.IdentityService/Logout` | end the calling session and clear its cookie |
 | `/gravel.hub.v1.IdentityService/RevokeSessions` | log out everywhere; answers how many sessions ended and clears the cookie |
 | `/gravel.hub.v1.IdentityService/LookupUser` | `{"provider": "discord", "subject": "…"}` → the user and their identities, for role sync; an app with `identity:read`, or the owner |
@@ -116,7 +118,7 @@ Public listener (`server.listen`), HTTP/1.1 and unencrypted HTTP/2 so gRPC works
 | `/gravel.hub.v1.IdentityService/SetUserRole` | `{"user_id": "…", "role": "moderator", "granted": true}` → the member with their roles ([Roles](#roles-adr-0013)); every change recorded; the owner only |
 | `/gravel.hub.v1.IdentityService/ListIdentityEvents` | `{"after_id": 0, "limit": 100}` → the identity log after a position, oldest first, the id to continue from, and the log's newest id (`head_id`, where a reader that just made a full pass starts); role sync's incremental pass; `identity:read` or the owner |
 | `/gravel.hub.v1.ServerService/ListGames` | the enabled games, their identity provider, bands, layout and `no_paid_perks`; public |
-| `/gravel.hub.v1.ServerService/ListServers` | every server with its last observation (state, reachable, players and max, map, teams, capabilities, build, `observed_at`); public, no personal data, never a control address |
+| `/gravel.hub.v1.ServerService/ListServers` | every server with its last observation (state, reachable, players and max, map, teams with their scores and, when the hub can count them, their players, capabilities, build, `observed_at`); public, no personal data, never a control address |
 | `/gravel.hub.v1.ServerService/GetServerStatus` | `{"server_id": "…"}` → one server; public; `not_found` for an unknown id |
 | `/gravel.hub.v1.StatsService/GetMemberProfile` | `{"user_id": "…"}` (empty: the caller) → a member's totals by window, their participation per kind over the same windows, and recent matches ([Pages](#pages-gravel18)); the member, the owner, `stats:read`, or anyone when they show their name and stats are public; else `not_found` |
 | `/gravel.hub.v1.StatsService/GetBoard` | `{"server_id"/"game_id", "window": "week", "metric": "kd"}` → a ranked page of players under pseudonyms or opted-in names ([Stats](#stats-adr-0012)); public when the settings make stats public, else the owner or `stats:read` |
@@ -698,16 +700,27 @@ A step that fails keeps its state, shows a word (`error_code`: `cloud_failed`,
 host key that changes, or two instances with the server's tag, stop the host until a human looks.
 Removing a server from the manifest parks its host; destroying it is a separate request.
 
-**The VM's journal holds the publisher token.** The `joedwards32/cs2` image prints the game's
-command line when it starts, `+sv_setsteamaccount <token>` included, so the `gravel` user's
-journal on the VM (`journalctl --user -u cs2`) carries the Game Server Login Token (#170). Only
-someone with SSH to the VM can read it, and the hub's copy of the game's log never has it (CS2's
-log push doesn't carry the command line, and the log route redacts it anyway). Don't paste that
-journal anywhere; a quieter image is #170.
+**The game's hooks.** A Game spec's `cloudvm.hooks` are files the hub keeps in the game's install
+on the volume (`~/<game>/<path>` on the host). They are written with the environment file, in the
+same push, and checked with it, so a hook edited or deleted on the host is put back like the
+environment file (below). A hook holds no secret: it travels in the command the hub runs over SSH,
+and all of them together are at most 32 KiB.
 
-**The environment file.** The hub pushes the game's environment file when what it renders changes
-(a setting, a rotated secret), and it reads the file's SHA-256 on the host before trusting its own
-record: at every start (a create, an unpark, a recreated instance) and on the five-minute drift
+**The VM's journal doesn't hold the secrets** (#170). The `joedwards32/cs2` image puts the Game
+Server Login Token, the RCON password and the join password on the server's command line
+(`+sv_setsteamaccount`, `+rcon_password`, `+sv_password`), and the server prints its command line
+when it starts. The image's `entry.sh` sources `pre.sh` from the install just before it starts the
+server, so Counter-Strike 2's Game spec makes `pre.sh` a hook that sends everything the container
+prints from then on through a filter that writes `[redacted]` for the three values. The filter is a
+process substitution, not a wrapper: `entry.sh` stays the container's first process, and stop
+signals, the RCON `quit` and the unit's restarts are unchanged. A server that started before its
+hook was written keeps the values in its journal until the journal rotates. The hub's copy of the
+game's log never had them (CS2's log push doesn't carry the command line, and the log route
+redacts it anyway).
+
+**The environment file.** The hub pushes the game's environment file, and its hooks, when what it
+renders changes (a setting, a rotated secret, a new hook), and it reads the files' SHA-256 on the
+host before trusting its own record: at every start (a create, an unpark, a recreated instance) and on the five-minute drift
 pass while the server runs (#169). The file lives in the runtime user's home, which is the data
 volume, so a hand edit on the host outlives a park; a file that differs, or is missing, is pushed
 again and the game restarts on it, at once while starting and when the server is empty while it
@@ -763,6 +776,22 @@ disk and could never come back to `c-2`'s 25. `gravel-hub servers apply` asks th
 refuses a ladder a host made at `vm.size` can't walk both ways; `servers check` (no cloud) checks
 the rest. The server page shows the rung, the ladder with its prices, a decision waiting and why,
 and the month's cost with each run at its own size's price.
+
+**Expected population (#172).** The live players are what the policy sees, so a PUG that has just
+filled would get its bigger machine at the first boundary after it arrives. The owner, a moderator
+or an app with `servers:moderate` (a PUG bot, Muster) can say how many players to expect until when:
+`SetServerHostExpectation` (`players`, `until` at most 24 hours ahead, a one-line `reason`;
+`players` 0 clears it), or "Expect this many players" on the page. Until then the room is the
+larger of the live and the expected players. An expected crowd the rung can't hold is decided at
+once, not after `up_for`, and not held by the cooldown: it is an announcement, not noise. It is
+carried out at once while the server is empty, else at the next boundary, and the decision says
+where it came from ("up: expected 10 until 2026-10-14 23:00 UTC: PUG 3 filled, 0 of 10 players on,
+to c-4 (20 players) at the next boundary"). Meanwhile the server isn't parked for being empty (the
+crowd hasn't come yet), and it isn't moved down. `players` is clamped to the ladder's top. A pin
+beats it. An expectation doesn't unpark a server: start it as well. An unparked host is made at
+`vm.size` and moved up as soon as it runs, since it is empty. Once `until` passes the hub clears it
+(an `expect` event, as setting and clearing are); each change is also an audit row
+(`host_expect`).
 
 ```sh
 curl -s -X POST -H 'Content-Type: application/json' -b "gravel_session=…" \
@@ -1206,6 +1235,31 @@ so is unlinking the last one (a provider-only account would be unreachable).
   reach the listener: the header is trusted as given.
 - Expired sessions and attempts are pruned every ten minutes.
 
+### Proof in game (ADR-0022)
+
+Where a provider has no sign-in the hub can use, or a member wants to prove an account again, a
+one-time code typed in a game server's chat proves it (#5). The account page lists the running
+servers whose chat the hub reads (a status with the `chat` capability: Counter-Strike 2 on the
+cloud-VM driver), and "Get a code" shows a code like `7K3M-9QXA` once, on its own page, with the
+server's address. The member joins and types `!link 7K3M-9QXA` (or `.link`, in any case, with or
+without the hyphen) in all chat or team chat, from any team or none. The server's log carries the
+line with the player's SteamID, from the server's own address. The hub links that Steam account to
+the member, or proves it again when it is theirs already (`verification_method` becomes
+`game-chat`), and says so in chat. The page notices within five seconds.
+
+- **One code, ten minutes, once,** bound to the member, the server and (when proving an account
+  again) that account; a new code replaces the open one. Only its SHA-256 is stored.
+- **Another member's account stays theirs:** the code is spent, nothing moves, and the chat says
+  the account belongs to someone else. The member asks the hub's owner.
+- **Limits:** five codes a member an hour; ten codes presented per account and server, and sixty
+  per server, every ten minutes. A wrong code gets one answer: unknown or expired. Failures are
+  answered in chat at most once a minute per server.
+- **What is kept:** proof rows for 30 days after they expire (pruned with the sessions); the log
+  batch as the ingest route keeps it, with the code redacted in the copy a person reads.
+- `gravel_identity_proofs_total{channel, result}` counts codes started, linked, proven, taken,
+  bad and limited, on the hub dashboard's Login row; many bad codes on one server is someone
+  guessing.
+
 ## Discord Linked Roles (ADR-0008)
 
 A guild can make a role require "Steam linked" (Server Settings, Roles, the role's Links), and
@@ -1393,6 +1447,7 @@ and the digest-pin procedure.
 | `gravel_cloudvm_env_drift_total` | counter | `server` | times the game's environment file on the host was not the one the hub pushed, and was pushed again (#169) | until the first |
 | `gravel_cloudvm_tier_players` | gauge | `server` | the players the rung of its scaling ladder a running host is on is sized for (#37) | without a policy, or off the ladder |
 | `gravel_cloudvm_scale_pending` | gauge | `server`, `direction` (`up`, `down`) | 1 while a scaling decision waits for a boundary | until the first decision |
+| `gravel_cloudvm_expected_players` | gauge | `server` | the players a host expects until the time it was given (#172); 0 when none | until the first expectation |
 | `gravel_cloudvm_scale_decisions_total` | counter | `server`, `direction`, `outcome` (`decided`, `executed`, `cancelled`) | the scaling policy's decisions and what became of them | until the first |
 | `gravel_cloudvm_resizes_total` | counter | `server`, `direction`, `result` (`ok`, `refused`, `failed`) | resizes, the policy's and the owner's; a failed one started again at the old size | until the first |
 | `gravel_cloudvm_volume_snapshots_total` | counter | `server`, `result` (`ok`, `error`) | snapshots of a parked host's volume the owner asked for (#166) | until the first |

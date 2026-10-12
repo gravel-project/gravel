@@ -20,6 +20,7 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/disgoorg/disgo/discord"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/gravel-project/gravel/discord/bot"
@@ -72,7 +73,7 @@ func accent(cs []discord.LayoutComponent) int { return cs[0].(discord.ContainerC
 func TestRender(t *testing.T) {
 	card := servercards.Render(live(23), matchNote)
 	got := text(card)
-	for _, want := range []string{"## HTG War Dogs", "**23/64** players · Ozeti (Day)", "Alpha **1200** · Bravo **900**", matchNote,
+	for _, want := range []string{"## HTG War Dogs", "**23/64** players · Ozeti (Day)", "Alpha **1200** pts · Bravo **900** pts", matchNote,
 		"-# `htg-wardogs-1` · Live · updated <t:" + strconv.FormatInt(observed.Unix()-15, 10) + ":R>"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("live card should contain %q:\n%s", want, got)
@@ -113,6 +114,51 @@ func TestRender(t *testing.T) {
 	got = text(servercards.Render(odd, ""))
 	if !strings.Contains(got, "## @\u200beveryone \\*bold\\* \\`x\\` \\# big") || !strings.Contains(got, "<@\u200b&1\\>") {
 		t.Errorf("escaped names:\n%s", got)
+	}
+}
+
+// The team line counts players on each team, and adds each team's score once a match has one
+// (#159); a game that doesn't say who is on which team shows its scores alone.
+func TestRenderTeamLine(t *testing.T) {
+	n := proto.Int32
+	cases := []struct {
+		name  string
+		teams []*hubv1.TeamScore
+		want  string
+		not   string
+	}{
+		{"one player before a match",
+			[]*hubv1.TeamScore{{Name: "Lonestar", Players: n(1)}, {Name: "Valkyra", Players: n(0)}, {Name: "Manticore", Players: n(0)}},
+			"Lonestar **1** · Valkyra **0** · Manticore **0** players", "pts"},
+		{"a live match",
+			[]*hubv1.TeamScore{{Name: "Lonestar", Players: n(8), Score: 1240}, {Name: "Valkyra", Players: n(7), Score: 0}},
+			"Lonestar **8** players, **1240** pts · Valkyra **7** players, **0** pts", ""},
+		{"no counts falls back to scores",
+			[]*hubv1.TeamScore{{Name: "Lonestar", Score: 3}, {Name: "Valkyra"}},
+			"Lonestar **3** pts · Valkyra **0** pts", "players,"},
+		{"one team without a count is no counts",
+			[]*hubv1.TeamScore{{Name: "CT", Players: n(5)}, {Name: "T"}},
+			"CT **0** pts · T **0** pts", "**5**"},
+		{"a nameless team is left out",
+			[]*hubv1.TeamScore{{Name: " ", Players: n(4)}, {Name: "CT", Players: n(1)}},
+			"CT **1** players", "**4**"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			s := live(10)
+			s.Status.Teams = c.teams
+			got := text(servercards.Render(s, ""))
+			if !strings.Contains(got, c.want) || (c.not != "" && strings.Contains(got, c.not)) {
+				t.Errorf("want %q (and not %q):\n%s", c.want, c.not, got)
+			}
+		})
+	}
+
+	// Escaping holds for counted teams too.
+	s := live(1)
+	s.Status.Teams = []*hubv1.TeamScore{{Name: "<@&1>", Players: n(1)}}
+	if got := text(servercards.Render(s, "")); !strings.Contains(got, "<@\u200b&1\\> **1** players") {
+		t.Errorf("escaped counted team:\n%s", got)
 	}
 }
 
@@ -601,7 +647,7 @@ func TestRenderMapImage(t *testing.T) {
 	if _, ok := box.Components[1].(discord.MediaGalleryComponent); !ok {
 		t.Errorf("the image comes right after the name: %T", box.Components[1])
 	}
-	if got := text(card); !strings.Contains(got, "Alpha **1200** · Bravo **900**\nNext: NorthAmerica\n"+matchNote) {
+	if got := text(card); !strings.Contains(got, "Alpha **1200** pts · Bravo **900** pts\nNext: NorthAmerica\n"+matchNote) {
 		t.Errorf("the next map follows the score:\n%s", got)
 	}
 

@@ -58,6 +58,15 @@ func TestProfileValidate(t *testing.T) {
 		{"bad default", func(p *Profile) { p.Settings[6].Default = "200" }, "the default"},
 		{"conflict with nothing", func(p *Profile) { p.Settings[0].Conflicts = []string{"nope"} }, `"nope" is not a setting`},
 		{"port when not a bool", func(p *Profile) { p.Ports[2].When = "server_name" }, "not a bool setting"},
+		{"hook outside the install", func(p *Profile) { p.Hooks[0].Path = "../pre.sh" }, "not a plain path inside the install"},
+		{"hook absolute", func(p *Profile) { p.Hooks[0].Path = "/etc/pre.sh" }, "not a plain path inside the install"},
+		{"hook unclean", func(p *Profile) { p.Hooks[0].Path = "a//pre.sh" }, "not a plain path inside the install"},
+		{"hook with a space", func(p *Profile) { p.Hooks[0].Path = "pre hook.sh" }, "may hold only"},
+		{"hook twice", func(p *Profile) { p.Hooks = append(p.Hooks, p.Hooks[0]) }, `"pre.sh" is listed twice`},
+		{"hook empty", func(p *Profile) { p.Hooks[0].Content = " \n" }, "pre.sh has no content"},
+		{"hooks too big", func(p *Profile) { p.Hooks[0].Content = strings.Repeat("x", MaxHookBytes+1) }, "at most 32768"},
+		{"team without a name", func(p *Profile) { p.Teams = append(p.Teams, Team{Key: "X"}) }, "a name is required"},
+		{"team twice", func(p *Profile) { p.Teams = append(p.Teams, Team{Name: "ct"}) }, `"ct" is listed twice`},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			p := cs2Profile(t)

@@ -3,14 +3,17 @@ package web_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"slices"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	hubv1 "github.com/gravel-project/gravel/gen/gravel/hub/v1"
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
@@ -73,6 +76,18 @@ func (f *fakeHosts) DestroyServerHost(_ context.Context, req *connect.Request[hu
 		return nil, err
 	}
 	return connect.NewResponse(&hubv1.DestroyServerHostResponse{AuditId: 3}), nil
+}
+
+func (f *fakeHosts) SetServerHostExpectation(_ context.Context, req *connect.Request[hubv1.SetServerHostExpectationRequest]) (*connect.Response[hubv1.SetServerHostExpectationResponse], error) {
+	m := req.Msg
+	c := fmt.Sprintf("expect %d", m.GetPlayers())
+	if m.GetPlayers() > 0 {
+		c += fmt.Sprintf(" for %s %q", time.Until(m.GetUntil().AsTime()).Round(time.Hour), m.GetReason())
+	}
+	if err := f.record(c); err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&hubv1.SetServerHostExpectationResponse{AuditId: 4}), nil
 }
 
 func (f *fakeHosts) recorded() []string {
@@ -169,5 +184,53 @@ func TestHostActionsConfirmThenSend(t *testing.T) {
 	r.hosts.mu.Unlock()
 	if resp, _ := post1(url.Values{"action": {"park"}, "confirm": {"1"}}); resp.StatusCode != http.StatusForbidden {
 		t.Errorf("refused by the API: %d", resp.StatusCode)
+	}
+}
+
+// #172: the owner and moderators see what a host expects, and set and clear it through the
+// confirmation like every host request.
+func TestHostExpectation(t *testing.T) {
+	r := newRig(t)
+	withCS2(r)
+	c := moderator(t, r)
+	_, page := get(t, c, r.srv.URL+"/servers/htg-cs2-1")
+	if !strings.Contains(page, `id="host-expect-players"`) || !strings.Contains(page, `max="64"`) || strings.Contains(page, "Expect nobody") {
+		t.Fatalf("the form: %s", page)
+	}
+	csrf := csrfOf(t, page)
+	post1 := func(v url.Values) (reply, string) {
+		v.Set("_csrf", csrf)
+		return post(t, c, r.srv.URL+"/servers/htg-cs2-1/host", v, nil)
+	}
+	resp, body := post1(url.Values{"action": {"expect"}, "players": {"10"}, "for": {"3h"}, "reason": {"PUG <3> filled"}})
+	if resp.StatusCode != http.StatusOK || !strings.Contains(body, "Expect 10 players on HTG CS2 for the next 3h?") ||
+		!strings.Contains(body, `name="reason" value="PUG &lt;3&gt; filled"`) || len(r.hosts.recorded()) != 0 {
+		t.Fatalf("confirmation: %d %v %s", resp.StatusCode, r.hosts.recorded(), body)
+	}
+	resp, _ = post1(url.Values{"action": {"expect"}, "players": {"10"}, "for": {"3h"}, "reason": {"PUG <3> filled"}, "confirm": {"1"}})
+	if resp.StatusCode != http.StatusSeeOther || !slices.Equal(r.hosts.recorded(), []string{`expect 10 for 3h0m0s "PUG <3> filled"`}) {
+		t.Fatalf("sent: %d %v", resp.StatusCode, r.hosts.recorded())
+	}
+	for _, bad := range []url.Values{{"players": {"0"}, "for": {"3h"}}, {"players": {"x"}, "for": {"3h"}}, {"players": {"10"}, "for": {"5m"}}} {
+		bad.Set("action", "expect")
+		if resp, _ := post1(bad); resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("%v: %d", bad, resp.StatusCode)
+		}
+	}
+
+	// Set: shown, with a way to clear it; the form's top is the ladder's.
+	r.hosts.mu.Lock()
+	r.hosts.host.ExpectedPlayers, r.hosts.host.ExpectedUntil, r.hosts.host.ExpectedReason = 10, timestamppb.New(time.Date(2026, 10, 14, 23, 0, 0, 0, time.UTC)), "PUG 3 filled"
+	r.hosts.host.Scaling, r.hosts.host.Ladder = true, []*hubv1.HostTier{{Size: "c-2", Players: 10}, {Size: "c-4", Players: 20}}
+	r.hosts.mu.Unlock()
+	_, page = get(t, c, r.srv.URL+"/servers/htg-cs2-1")
+	for _, want := range []string{"10 players until Oct 14, 23:00 UTC", "(PUG 3 filled)", "Expect nobody", `max="20"`} {
+		if !strings.Contains(page, want) {
+			t.Errorf("the page lacks %q", want)
+		}
+	}
+	post1(url.Values{"action": {"unexpect"}, "confirm": {"1"}})
+	if got := r.hosts.recorded(); len(got) != 2 || got[1] != "expect 0" {
+		t.Errorf("cleared: %v", got)
 	}
 }

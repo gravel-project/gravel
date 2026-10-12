@@ -126,6 +126,8 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /account/unlink", h.unlink)
 	mux.HandleFunc("POST /account/claim", h.claim)
 	mux.HandleFunc("POST /account/apps/revoke", h.revokeApp)
+	mux.HandleFunc("POST /account/prove", h.startProof)
+	mux.HandleFunc("GET /account/prove/{id}", h.proofStatus)
 	mux.HandleFunc("GET /oauth/authorize", h.authorize)
 	mux.HandleFunc("POST /oauth/authorize", h.authorizeDecision)
 	mux.HandleFunc("GET /theme.css", h.themeStylesheet)
@@ -242,6 +244,9 @@ func (h *Handler) accountPage(r *http.Request, flash *templates.Flash) (template
 		if _, ok := reg.Provider.(identity.Publisher); ok && reg.Login && linked[pr.Name] {
 			ap.RoleProviders = append(ap.RoleProviders, pr)
 		}
+	}
+	if err := h.proofOffer(r, b, &ap); err != nil {
+		return ap, b, fmt.Errorf("proof servers: %w", err)
 	}
 	return ap, b, nil
 }

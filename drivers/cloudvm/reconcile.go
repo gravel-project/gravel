@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
+	"path"
 	"slices"
 	"strings"
 	"time"
@@ -487,25 +489,46 @@ func (t *tick) boot(ctx context.Context, h *Host) (bool, error) {
 }
 
 // EnvScript is the command the hub runs on a host over SSH, the environment file on its stdin:
-// the file is written 0600 in one move, and with restart the game's unit restarts on it.
+// the file is written 0600 in one move, each of the game's hooks after it the same way (from
+// base64 in the script itself: a hook holds no secret), and with restart the game's unit restarts
+// on them.
 //
 // The restart is queued, not waited for (--no-block). A unit's start can take minutes on a host's
 // first start or after a new image (the pull, then podman's copy of the image for the user
 // namespace), longer than remoteRunTimeout; a blocking restart was cut there, failed the step,
 // and its retry queued another restart that began the copy again (HTG's first live run,
 // 2026-10-12). Readiness is the starting state's RCON wait, under the Game spec's ReadyTimeout.
-func EnvScript(game string, restart bool) string {
+func EnvScript(game string, hooks []Hook, restart bool) string {
 	script := "set -eu\numask 077\nmkdir -p ~/.config/" + game + "\ncat > ~/.config/" + game + "/env.tmp\nmv -f ~/.config/" + game + "/env.tmp ~/.config/" + game + "/env\n"
+	for _, h := range hooks {
+		f := hookFile(game, h)
+		script += "mkdir -p " + path.Dir(f) + "\nbase64 -d > " + f + ".tmp <<'GRAVEL_HOOK'\n" + wrap76(base64.StdEncoding.EncodeToString([]byte(h.Content))) + "GRAVEL_HOOK\nmv -f " + f + ".tmp " + f + "\n"
+	}
 	if restart {
 		script += "systemctl --user daemon-reload\nsystemctl --user restart --no-block " + game + ".service\n"
 	}
 	return script
 }
 
-// pushEnv writes the game's environment file and restarts its unit (or, with restart false, only
-// writes it).
+// hookFile is where a hook lives on the host: in the game's directory on the data volume, which
+// the game's unit mounts at its install directory.
+func hookFile(game string, h Hook) string { return "~/" + game + "/" + h.Path }
+
+// wrap76 breaks base64 into lines of 76, each ending in a newline.
+func wrap76(s string) string {
+	var b strings.Builder
+	for len(s) > 76 {
+		b.WriteString(s[:76] + "\n")
+		s = s[76:]
+	}
+	b.WriteString(s + "\n")
+	return b.String()
+}
+
+// pushEnv writes the game's environment file and hooks and restarts its unit (or, with restart
+// false, only writes them).
 func (t *tick) pushEnv(ctx context.Context, h *Host, env []byte, restart bool) error {
-	if _, err := t.remote(ctx, h, env, EnvScript(t.s.Game, restart)); err != nil {
+	if _, err := t.remote(ctx, h, env, EnvScript(t.s.Game, t.s.Profile.Hooks, restart)); err != nil {
 		var se *stepError
 		if errors.As(err, &se) {
 			return err
@@ -515,30 +538,43 @@ func (t *tick) pushEnv(ctx context.Context, h *Host, env []byte, restart bool) e
 	return nil
 }
 
-// EnvHashScript is the command that prints the SHA-256 of the game's environment file on the
-// host, or "missing" when there is none. Only the hash leaves the host, never the file.
-func EnvHashScript(game string) string {
-	return "f=~/.config/" + game + "/env; if [ -f \"$f\" ]; then sha256sum \"$f\"; else echo missing; fi"
+// EnvHashScript is the command that prints the SHA-256 of the game's environment file and of each
+// of its hooks on the host, one line each in that order, "missing" for a file that isn't there.
+// Only the hashes leave the host, never the files.
+func EnvHashScript(game string, hooks []Hook) string {
+	files := "~/.config/" + game + "/env"
+	for _, h := range hooks {
+		files += " " + hookFile(game, h)
+	}
+	return "for f in " + files + "; do if [ -f \"$f\" ]; then sha256sum \"$f\"; else echo missing \"$f\"; fi; done"
 }
 
-// hostEnvHash reads the hash of the environment file on the host: nil when there is none.
+// hostEnvHash reads the files' hash on the host, as filesHash makes it: nil when one is missing.
 func (t *tick) hostEnvHash(ctx context.Context, h *Host) ([]byte, error) {
-	out, err := t.remote(ctx, h, nil, EnvHashScript(t.s.Game))
+	out, err := t.remote(ctx, h, nil, EnvHashScript(t.s.Game, t.s.Profile.Hooks))
 	if err != nil {
 		return nil, err
 	}
-	fields := strings.Fields(string(out))
-	if len(fields) == 0 {
-		return nil, fmt.Errorf("cloudvm: no answer from the environment file's hash")
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	if want := 1 + len(t.s.Profile.Hooks); len(lines) != want {
+		return nil, fmt.Errorf("cloudvm: %d lines from the files' hashes, want %d", len(lines), want)
 	}
-	if fields[0] == "missing" {
-		return nil, nil
+	all := sha256.New()
+	for _, line := range lines {
+		fields := strings.Fields(line)
+		if len(fields) == 0 {
+			return nil, fmt.Errorf("cloudvm: an empty line from the files' hashes")
+		}
+		if fields[0] == "missing" {
+			return nil, nil
+		}
+		sum, err := hex.DecodeString(fields[0])
+		if err != nil || len(sum) != sha256.Size {
+			return nil, fmt.Errorf("cloudvm: a file's hash is not a SHA-256: %q", fields[0])
+		}
+		all.Write(sum)
 	}
-	sum, err := hex.DecodeString(fields[0])
-	if err != nil || len(sum) != sha256.Size {
-		return nil, fmt.Errorf("cloudvm: the environment file's hash is not a SHA-256: %q", fields[0])
-	}
-	return sum, nil
+	return all.Sum(nil), nil
 }
 
 // envDrift records that the environment file on the host is not the one the hub pushed: by hand,
@@ -558,7 +594,7 @@ func (t *tick) start(ctx context.Context, h *Host) (bool, error) {
 			return false, err
 		}
 		// The recorded hash says what the hub pushed, not what the host has: read the host's.
-		sum := envHash(env)
+		sum := filesHash(env, t.s.Profile.Hooks)
 		onHost, err := t.hostEnvHash(ctx, h)
 		if err != nil {
 			var se *stepError
@@ -649,7 +685,7 @@ func (t *tick) running(ctx context.Context, h *Host, want string) (bool, error) 
 	if err != nil {
 		return false, err
 	}
-	sum := envHash(env)
+	sum := filesHash(env, t.s.Profile.Hooks)
 	if drift && bytes.Equal(sum, h.EnvSHA256) {
 		// The same pass looks at the file on the host; a difference takes the settings-changed path
 		// below, so a game with players on keeps running until it is empty.
@@ -687,7 +723,15 @@ func (t *tick) running(ctx context.Context, h *Host, want string) (bool, error) 
 		h.TargetSize = h.PinnedSize
 		return true, nil
 	}
-	if t.s.ParkAfter > 0 && known && players == 0 && !emptySince.IsZero() && t.now.Sub(emptySince) >= t.s.ParkAfter {
+	// An expected population that has passed is cleared; one still ahead holds off the idle park:
+	// the crowd hasn't come yet (#172).
+	if h.ExpectedPlayers > 0 && expected(*h, t.now) == 0 {
+		t.events = append(t.events, Event{ServerID: h.ServerID, At: t.now, From: h.State, To: h.State, Step: DetailExpect, Detail: "passed: " + expectation(*h), Size: h.Size})
+		t.m.log.Info("the expected population has passed", "server", h.ServerID, "expected", h.ExpectedPlayers)
+		h.ExpectedPlayers, h.ExpectedUntil, h.ExpectedReason = 0, time.Time{}, ""
+		t.m.met.expected.WithLabelValues(h.ServerID).Set(0)
+	}
+	if t.s.ParkAfter > 0 && known && players == 0 && !emptySince.IsZero() && t.now.Sub(emptySince) >= t.s.ParkAfter && expected(*h, t.now) == 0 {
 		h.Desired = DesiredParked
 		t.m.log.Info("the server has been empty; parking its host", "server", h.ServerID, "empty_for", t.now.Sub(emptySince).Round(time.Second).String())
 		if h.PendingSize != "" {

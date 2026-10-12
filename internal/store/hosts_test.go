@@ -113,6 +113,17 @@ func TestServerHosts(t *testing.T) {
 		got.PendingSince == nil || !got.PendingSince.Equal(pendingSince) || got.LastResizeAt == nil || !got.LastResizeAt.Equal(resized) {
 		t.Fatalf("scaling columns read back %+v %v", got, err)
 	}
+	// The expected population (migration 00019).
+	expectedUntil := t0.Add(3 * time.Hour)
+	h.ExpectedPlayers, h.ExpectedUntil, h.ExpectedReason = 10, &expectedUntil, "PUG 3 filled"
+	if err := st.SaveServerHost(ctx, h, t0); err != nil {
+		t.Fatal(err)
+	}
+	got, err = st.GetServerHost(ctx, o.ID, "cs2-1")
+	if err != nil || got.ExpectedPlayers != 10 || got.ExpectedUntil == nil || !got.ExpectedUntil.Equal(expectedUntil) || got.ExpectedReason != "PUG 3 filled" {
+		t.Fatalf("expectation columns read back %+v %v", got, err)
+	}
+	h.ExpectedPlayers, h.ExpectedUntil, h.ExpectedReason = 0, nil, ""
 	h.State, h.Step, h.Operation, h.Egress = "running", "", nil, nil
 	if err := st.SaveServerHost(ctx, h, t0.Add(time.Hour)); err != nil {
 		t.Fatal(err)

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -59,6 +60,10 @@ func TestDriverWhileRunning(t *testing.T) {
 	if st.Players != 2 || st.MaxPlayers != 10 || st.Map != "de_test" || st.Join.Method != drivers.JoinByAddress ||
 		st.Join.Value != h.Address+":27015" || !strings.Contains(st.Join.Hint, "connect "+h.Address+":27015") {
 		t.Errorf("status %+v", st)
+	}
+	// The game's teams, with the key its players' team carries; the hub counts the players (#159).
+	if want := []drivers.TeamScore{{Name: "CT"}, {Name: "T", Key: "TERRORIST"}}; !slices.Equal(st.Teams, want) || st.Teams[1].TeamKey() != "TERRORIST" || st.Teams[0].TeamKey() != "CT" {
+		t.Errorf("teams %+v", st.Teams)
 	}
 	players, err := d.Players(ctx)
 	if err != nil || len(players) != 2 || players[0].Identity != steam || players[0].Team != "CT" || players[1].Identity.Subject != "" {
@@ -117,4 +122,38 @@ func TestBansAreKickedOnConnect(t *testing.T) {
 	if !slices.ContainsFunc(got, func(c string) bool { return strings.HasPrefix(c, "kick 5 ") }) || slices.ContainsFunc(got, func(c string) bool { return strings.HasPrefix(c, "kick 6 ") }) {
 		t.Errorf("commands %v: kick the banned player only", got)
 	}
+}
+
+// The chat lines a server's log carries go to the hub's sink, with the server (gravel#5); the hub
+// answers through Say.
+func TestChatReachesTheSinkAndSayAnswers(t *testing.T) {
+	r := newRig(t)
+	r.up()
+	var mu sync.Mutex
+	var got []string
+	r.m.SetChatSink(func(server string, lines []cloudvm.ChatLine) {
+		mu.Lock()
+		defer mu.Unlock()
+		for _, l := range lines {
+			got = append(got, server+" "+l.Player.Identity.Subject+" "+l.Text)
+		}
+	})
+	steam := drivers.Identity{Provider: "steam", Subject: "76561197960287930"}
+	r.game.OnChat("said", cloudvm.ChatLine{Player: cloudvm.GamePlayer{UserID: 2, Identity: steam}, Text: "!link 7K3M-9QXA"})
+	r.m.Lines(serverID, []byte("said"))
+	r.m.Lines(serverID, []byte("nothing said"))
+	mu.Lock()
+	if !slices.Equal(got, []string{serverID + " 76561197960287930 !link 7K3M-9QXA"}) {
+		t.Errorf("sink got %v", got)
+	}
+	mu.Unlock()
+	ctx := context.Background()
+	if err := r.m.Say(ctx, serverID, "code accepted"); err != nil || !slices.Contains(r.game.Commands(), "say code accepted") {
+		t.Errorf("say: %v %v", err, r.game.Commands())
+	}
+	if err := r.m.Say(ctx, "nope", "x"); !errors.Is(err, cloudvm.ErrNoSuchHost) {
+		t.Errorf("an unknown server: %v", err)
+	}
+	r.m.SetChatSink(nil)
+	r.m.Lines(serverID, []byte("said")) // dropped, no panic
 }

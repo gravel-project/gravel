@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/crypto/ssh"
@@ -131,6 +132,11 @@ type Intent struct {
 	// is resized to it once running (it is still made at the server's size, whose root disk
 	// keeps every rung of the ladder reachable). "" for none.
 	PinnedSize string
+	// The expected population (#172): until ExpectedUntil the scaling policy reads the larger of the
+	// live and the expected players as the room, and an empty host isn't parked. 0 for none.
+	ExpectedPlayers int
+	ExpectedUntil   time.Time
+	ExpectedReason  string
 	// RequestAuditID is the audit row of the request the next transition carries out; 0 for none.
 	RequestAuditID int64
 }
@@ -242,6 +248,7 @@ type Manager struct {
 	mu        sync.Mutex
 	loaded    bool
 	hosts     map[string]*hostRT
+	chat      ChatSink
 	specs     map[string]ServerSpec
 	providers map[string]providerEntry
 	egress    []string
@@ -684,6 +691,80 @@ func SnapshotName(server, game, build string, at time.Time) string {
 	return strings.TrimRight(name, "-.")
 }
 
+// DetailExpect is the event an expected population records when it is set, cleared or passes.
+const DetailExpect = "expect"
+
+// MaxExpectation is how far ahead an expected population may reach.
+const MaxExpectation = 24 * time.Hour
+
+// MaxExpectationReason bounds the reason an expected population carries, in characters.
+const MaxExpectationReason = 200
+
+// SetExpectation tells the host how many players to expect until when (#172): until then the
+// scaling policy reads the larger of the live and the expected players as the room (a move up for
+// an expected crowd is decided at once, and carried out at once while the server is empty), and an
+// empty host isn't parked. players is clamped to the ladder's top; 0 clears it. reason is shown
+// with the decision it causes ("PUG 3 filled").
+func (m *Manager) SetExpectation(ctx context.Context, id string, players int, until time.Time, reason string, auditID int64) (Host, error) {
+	now := m.opt.Now()
+	reason = strings.TrimSpace(reason)
+	switch {
+	case players < 0:
+		return Host{}, fmt.Errorf("%w: players %d is negative", ErrInvalid, players)
+	case players > 0 && !until.After(now):
+		return Host{}, fmt.Errorf("%w: until %s has passed", ErrInvalid, until.UTC().Format(time.RFC3339))
+	case players > 0 && until.Sub(now) > MaxExpectation:
+		return Host{}, fmt.Errorf("%w: until is more than %s away", ErrInvalid, MaxExpectation)
+	case utf8.RuneCountInString(reason) > MaxExpectationReason || strings.ContainsAny(reason, "\n\r"):
+		return Host{}, fmt.Errorf("%w: the reason is one line of at most %d characters", ErrInvalid, MaxExpectationReason)
+	}
+	var detail string
+	h, err := m.request(ctx, id, func(h *Host, s ServerSpec) error {
+		if players > 0 && s.Removed {
+			return ErrRemoved
+		}
+		if players == 0 {
+			if h.ExpectedPlayers == 0 {
+				return fmt.Errorf("%w: the host expects nobody", ErrInvalid)
+			}
+			h.ExpectedPlayers, h.ExpectedUntil, h.ExpectedReason = 0, time.Time{}, ""
+			detail = "cleared"
+			return nil
+		}
+		if sc := s.Scaling; sc != nil && len(sc.Ladder) > 0 {
+			players = min(players, sc.Ladder[len(sc.Ladder)-1].Players)
+		}
+		h.ExpectedPlayers, h.ExpectedUntil, h.ExpectedReason = players, until.UTC(), reason
+		detail = expectation(*h)
+		return nil
+	})
+	if err != nil {
+		return Host{}, err
+	}
+	if err := m.store.AppendEvent(ctx, Event{ServerID: id, At: now, From: h.State, To: h.State, Step: DetailExpect, Detail: detail, Size: h.Size, AuditID: auditID}); err != nil {
+		m.log.Warn("the expected population's event was not recorded", "server", id, "error", err.Error())
+	}
+	m.met.expected.WithLabelValues(id).Set(float64(h.ExpectedPlayers))
+	return h, nil
+}
+
+// expectation says what a host expects: "expected 10 until 20:00 UTC: PUG 3 filled".
+func expectation(h Host) string {
+	out := fmt.Sprintf("expected %d until %s", h.ExpectedPlayers, h.ExpectedUntil.UTC().Format("2006-01-02 15:04 UTC"))
+	if h.ExpectedReason != "" {
+		out += ": " + h.ExpectedReason
+	}
+	return out
+}
+
+// expected is the players a host expects at now, 0 when it expects nobody or the time has passed.
+func expected(h Host, now time.Time) int {
+	if h.ExpectedPlayers > 0 && now.Before(h.ExpectedUntil) {
+		return h.ExpectedPlayers
+	}
+	return 0
+}
+
 // Unpin lets the scaling policy (or, without one, the server's size at the next unpark) decide
 // the host's size again.
 func (m *Manager) Unpin(ctx context.Context, id string, auditID int64) (Host, error) {
@@ -785,6 +866,14 @@ func (m *Manager) Lines(serverID string, body []byte) {
 	}
 	m.met.logBatches.WithLabelValues(serverID).Inc()
 	res := g.Log(body)
+	if len(res.Chat) > 0 {
+		m.mu.Lock()
+		sink := m.chat
+		m.mu.Unlock()
+		if sink != nil {
+			sink(serverID, res.Chat)
+		}
+	}
 	if res.Boundary != "" {
 		rt.mu.Lock()
 		rt.boundary, rt.boundaryAt = res.Boundary, m.opt.Now()
@@ -809,6 +898,36 @@ func (m *Manager) Lines(serverID string, body []byte) {
 			m.log.Info("kicked a banned player as they connected", "server", serverID, "player", p.Identity.Subject)
 		}(p)
 	}
+}
+
+// ChatSink takes the chat lines a server's log carried (a code typed to prove an account, gravel#5).
+// It is called on the log route's goroutine after the batch is stored: return quickly.
+type ChatSink func(serverID string, lines []ChatLine)
+
+// SetChatSink sets where chat lines go; nil drops them.
+func (m *Manager) SetChatSink(f ChatSink) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.chat = f
+}
+
+// Say sends a chat line to everyone on a running server; ErrNotRunning when its game isn't up.
+func (m *Manager) Say(ctx context.Context, serverID, message string) error {
+	m.mu.Lock()
+	rt, ok := m.hosts[serverID]
+	m.mu.Unlock()
+	if !ok {
+		return ErrNoSuchHost
+	}
+	rt.mu.Lock()
+	g := rt.game
+	rt.mu.Unlock()
+	if g == nil {
+		return ErrNotRunning
+	}
+	ctx, cancel := context.WithTimeout(ctx, gameCallTimeout)
+	defer cancel()
+	return g.Say(ctx, message)
 }
 
 // SourceAddresses are the addresses a server's log push may come from: its instance's own, and its
@@ -911,6 +1030,9 @@ func phaseOf(state string) string {
 
 // observe records a status read of a running host: the players, since when it is empty, and,
 // with a scaling policy, since when its rung has been full or empty enough to move.
+//
+// The room is the larger of the live and the expected players (#172), so an expected crowd keeps
+// the host from looking empty enough to move down, and counts toward moving it up.
 func (m *Manager) observe(rt *hostRT, sc *Scaling, st GameStatus, now time.Time) {
 	rt.mu.Lock()
 	defer rt.mu.Unlock()
@@ -921,12 +1043,13 @@ func (m *Manager) observe(rt *hostRT, sc *Scaling, st GameStatus, now time.Time)
 	case rt.h.EmptySince.IsZero():
 		rt.h.EmptySince = now
 	}
+	room := max(st.Players, expected(rt.h, now))
 	high, low := false, false
 	if sc != nil {
 		if rung := Rung(sc.Ladder, rt.h.Size); rung >= 0 {
 			capacity := sc.Ladder[rung].Players
-			occupancy := float64(st.Players) / float64(capacity)
-			high = rung+1 < len(sc.Ladder) && (occupancy >= sc.UpAt || st.Players >= capacity)
+			occupancy := float64(room) / float64(capacity)
+			high = rung+1 < len(sc.Ladder) && (occupancy >= sc.UpAt || room >= capacity)
 			low = rung > 0 && occupancy <= sc.DownAt
 		}
 	}

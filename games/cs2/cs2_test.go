@@ -217,15 +217,46 @@ func TestSteamID64(t *testing.T) {
 	}
 }
 
+// Chat lines come with the SteamID that typed them, from a player on any side or none: a code is
+// typed as often from the team-select screen (gravel#5). Bots and the console are no one.
+func TestRosterChat(t *testing.T) {
+	r, err := cs2.NewRoster("Etc/UTC")
+	if err != nil {
+		t.Fatal(err)
+	}
+	const one, five = 76561197960287930, 76561197960287933 // [U:1:22202], [U:1:22205]
+	lines := `10/12/2026 - 19:05:00.000 - "Player One<2><[U:1:22202]><CT>" say "!link 7K3M-9QXA"
+10/12/2026 - 19:05:01.000 - "New <one>"<5><[U:1:22205]><Unassigned>" say_team ".link abcd-efgh"
+10/12/2026 - 19:05:02.000 - "Watcher<6><[U:1:22205]><Spectator>" say "gg"
+10/12/2026 - 19:05:03.000 - "Console<0><Console><Console>" say "server says hi"
+10/12/2026 - 19:05:04.000 - "Bot Kev<4><BOT><TERRORIST>" say "beep"
+`
+	var said []cs2.Chat
+	for _, c := range r.PushBatch([]byte(lines)) {
+		if c.Said != nil {
+			said = append(said, *c.Said)
+		}
+	}
+	want := []cs2.Chat{
+		{UserID: 2, Name: "Player One", SteamID64: one, Text: "!link 7K3M-9QXA"},
+		{UserID: 5, Name: `New <one>"`, SteamID64: five, Text: ".link abcd-efgh", Team: true},
+		{UserID: 6, Name: "Watcher", SteamID64: five, Text: "gg"},
+	}
+	if !slices.Equal(said, want) {
+		t.Errorf("said %+v\nwant %+v", said, want)
+	}
+}
+
 func TestRedactLog(t *testing.T) {
-	in := read(t, "testdata/log/session.log") + `10/12/2026 - 19:06:00.000 - rcon from "203.0.113.1:5000": command "echo tok-123"` + "\n"
+	in := read(t, "testdata/log/session.log") + `10/12/2026 - 19:06:00.000 - rcon from "203.0.113.1:5000": command "echo tok-123"` + "\n" +
+		`10/12/2026 - 19:06:01.000 - "Player One<2><[U:1:22202]><CT>" say "!link 7K3M-9QXA"` + "\n"
 	out := string(cs2.RedactLog([]byte(in), "tok-123", ""))
-	for _, leaked := range []string{"hunter2-join", "tok-123"} {
+	for _, leaked := range []string{"hunter2-join", "tok-123", "7K3M"} {
 		if strings.Contains(out, leaked) {
 			t.Errorf("%q survived redaction", leaked)
 		}
 	}
-	if !strings.Contains(out, `"sv_password" = "[REDACTED]"`) || !strings.Contains(out, `"tv_relaypassword" = ""`) || !strings.Contains(out, `"mp_friendlyfire" = "false"`) {
+	if !strings.Contains(out, `say "!link [REDACTED]"`) || !strings.Contains(out, `"sv_password" = "[REDACTED]"`) || !strings.Contains(out, `"tv_relaypassword" = ""`) || !strings.Contains(out, `"mp_friendlyfire" = "false"`) {
 		t.Errorf("redaction changed the wrong lines:\n%s", out)
 	}
 	if strings.Count(out, "\n") != strings.Count(in, "\n") {

@@ -166,8 +166,12 @@ Metric: `gravel_bot_linked_roles_schema_registered`.
 Keeps a live status card for each server the Organization settings place
 (`discord.server_cards`, docs/hub.md "Organization settings"): one Components V2 message per
 server in its channel, edited in place. A card shows the server's name, players / max, map and
-lighting, the team scores and the host's note, with a footer naming the server and when the hub
-last looked at it. A server the hub cannot read shows a degraded state instead of old numbers:
+lighting, the teams and the host's note, with a footer naming the server and when the hub
+last looked at it. The teams line counts the players on each team ("Lonestar **1** · Valkyra **0**
+players") and adds each team's score once a match has one ("Lonestar **8** players, **1240** pts");
+a game that doesn't say who is on which team shows its scores alone ("Lonestar **1240** pts", #159).
+War Dogs reports no match phase, so "a match has a score" is the signal; Counter-Strike 2's log
+carries no running score, so its card counts CT and T. A server the hub cannot read shows a degraded state instead of old numbers:
 "Unreachable since …" after two missed polls, "Status unavailable" for the other state words,
 and "Waiting for the first look" before the first poll. The card never carries error text
 (`ListServers` has none). A field the game does not report is left out.
@@ -181,7 +185,7 @@ footer). It edits that card and posts a new one only when none is there. A card'
 no one, whatever a name or the note says.
 
 **The map.** While the server is live, a card shows the current map's picture, full width under
-the name, a "Next: <map>" line after the score when the game reports its rotation, and how to join
+the name, a "Next: <map>" line after the teams when the game reports its rotation, and how to join
 when the driver knows it ("**Join by ID:** `<id>`" as code, so a phone copies it in one tap, with the
 driver's hint in small text; docs/hub.md "How to join"). The picture
 comes from the Organization settings' `games.<id>.maps` (docs/hub.md): the image for the level in

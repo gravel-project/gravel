@@ -17,6 +17,7 @@ import (
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
 	"github.com/gravel-project/gravel/internal/apps"
 	"github.com/gravel-project/gravel/internal/identity"
+	"github.com/gravel-project/gravel/internal/identity/proof"
 	"github.com/gravel-project/gravel/internal/org"
 	"github.com/gravel-project/gravel/internal/session"
 	"github.com/gravel-project/gravel/internal/store"
@@ -31,6 +32,11 @@ type IdentityServer struct {
 	sess   *session.Manager
 	org    *org.Service
 	logger *slog.Logger
+
+	// Proof of control (SetProofs); nil when the hub takes none.
+	proofs       *proof.Service
+	proofServers ServerReader
+	proofObs     Observer
 }
 
 // NewIdentityServer wires the services.

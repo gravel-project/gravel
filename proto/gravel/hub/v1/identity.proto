@@ -33,7 +33,8 @@ message Identity {
   // Display attributes refreshed at every login; may be empty.
   string display_name = 3;
   string avatar_url = 4;
-  // How control was proven: "oauth2" or "openid".
+  // How control was proven: "oauth2", "openid", or "game-chat" (a one-time code typed in a game
+  // server's chat, gravel#5).
   string verification_method = 5;
   google.protobuf.Timestamp verified_at = 6;
   google.protobuf.Timestamp linked_at = 7;
@@ -132,6 +133,41 @@ message SetUserRoleResponse {
   User user = 1;
 }
 
+message StartProofRequest {
+  // The server whose chat the code is typed in: one whose status has the "chat" capability.
+  string server_id = 1;
+  // An account the caller has linked at the server's game's provider, to prove again; empty to
+  // link a new one.
+  string subject = 2;
+}
+
+message StartProofResponse {
+  string proof_id = 1;
+  // The code, shown once ("7K3M-9QXA"); only its hash is kept.
+  string code = 2;
+  google.protobuf.Timestamp expires_at = 3;
+  // What to do with it: "Join the server, then type in chat: !link 7K3M-9QXA".
+  string instructions = 4;
+  // The provider the account it proves is at: "steam".
+  string provider = 5;
+}
+
+message GetProofRequest {
+  string proof_id = 1;
+}
+
+message GetProofResponse {
+  string proof_id = 1;
+  string server_id = 2;
+  string provider = 3;
+  google.protobuf.Timestamp expires_at = 4;
+  // "open", "expired", "proven" (linked, or proven again), "taken" (another member's account;
+  // nothing moved), "replaced" (a newer code took its place).
+  string state = 5;
+  // The account that proved it, once proven or taken.
+  string subject = 6;
+}
+
 // IdentityService is the logged-in member's account and the lookups role sync needs. Every
 // procedure needs a session cookie; login itself is the browser flow under /auth/.
 service IdentityService {
@@ -156,4 +192,12 @@ service IdentityService {
   // SetUserRole grants or revokes a member's role (ADR-0013); every change is recorded with who
   // made it. The owner only; the owner holds every power already and needs no role.
   rpc SetUserRole(SetUserRoleRequest) returns (SetUserRoleResponse);
+  // StartProof draws a one-time code the caller types in a game server's chat to prove the account
+  // they play as (gravel#5): the server's log names the account, and the hub links it to the
+  // caller (or proves an existing link again; another member's account stays theirs). Good for ten
+  // minutes and once; a new code replaces the open one. In person only; five codes an hour
+  // (resource_exhausted past that).
+  rpc StartProof(StartProofRequest) returns (StartProofResponse);
+  // GetProof is one of the caller's proofs: open, proven, taken, replaced or expired. In person only.
+  rpc GetProof(GetProofRequest) returns (GetProofResponse);
 }

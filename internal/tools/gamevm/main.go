@@ -105,6 +105,7 @@ func push(ctx context.Context, args []string) error {
 	rcon := fs.String("rcon-password", "", "the RCON password to give the game")
 	feed := fs.String("feed", "", "the URL the game pushes its log to (the hub's log route with the token)")
 	maxPlayers := fs.Int("max-players", 10, "max_players")
+	token := fs.String("publisher-token", "", "a game server login token to give the game (to check it stays out of the journal, #170)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -128,12 +129,12 @@ func push(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	s.RCONPassword, s.FeedURL = *rcon, *feed
+	s.RCONPassword, s.FeedURL, s.PublisherToken = *rcon, *feed, *token
 	env, err := cloudvm.RenderEnv(s, s.Size)
 	if err != nil {
 		return err
 	}
-	out, hostKey, err := cloudvm.SSH{}.Run(ctx, cloudvm.RemoteTarget{Address: host, Port: p, User: "gravel", Signer: signer}, bytes.NewReader(env), cloudvm.EnvScript("cs2", true))
+	out, hostKey, err := cloudvm.SSH{}.Run(ctx, cloudvm.RemoteTarget{Address: host, Port: p, User: "gravel", Signer: signer}, bytes.NewReader(env), cloudvm.EnvScript("cs2", s.Profile.Hooks, true))
 	if err != nil {
 		return fmt.Errorf("push: %w: %s", err, out)
 	}

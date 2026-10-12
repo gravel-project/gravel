@@ -212,6 +212,45 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.GetMeResponse'
+  /gravel.hub.v1.IdentityService/GetProof:
+    post:
+      tags:
+        - gravel.hub.v1.IdentityService
+      summary: GetProof
+      description: 'GetProof is one of the caller''s proofs: open, proven, taken, replaced or expired. In person only.'
+      operationId: gravel.hub.v1.IdentityService.GetProof
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.GetProofRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.GetProofResponse'
   /gravel.hub.v1.IdentityService/ListIdentityEvents:
     post:
       tags:
@@ -454,6 +493,50 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.SetUserRoleResponse'
+  /gravel.hub.v1.IdentityService/StartProof:
+    post:
+      tags:
+        - gravel.hub.v1.IdentityService
+      summary: StartProof
+      description: |-
+        StartProof draws a one-time code the caller types in a game server's chat to prove the account
+         they play as (gravel#5): the server's log names the account, and the hub links it to the
+         caller (or proves an existing link again; another member's account stays theirs). Good for ten
+         minutes and once; a new code replaces the open one. In person only; five codes an hour
+         (resource_exhausted past that).
+      operationId: gravel.hub.v1.IdentityService.StartProof
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.StartProofRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.StartProofResponse'
   /gravel.hub.v1.IdentityService/UnlinkIdentity:
     post:
       tags:
@@ -1290,6 +1373,48 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.SetServerHostDesiredResponse'
+  /gravel.hub.v1.ServerHostService/SetServerHostExpectation:
+    post:
+      tags:
+        - gravel.hub.v1.ServerHostService
+      summary: SetServerHostExpectation
+      description: |-
+        SetServerHostExpectation says how many players a host should expect until when (#172): a
+         move up for them is decided at once and carried out at once while the server is empty, and
+         the server isn't parked for being empty meanwhile. Who may SetServerHostDesired.
+      operationId: gravel.hub.v1.ServerHostService.SetServerHostExpectation
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.SetServerHostExpectationRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.SetServerHostExpectationResponse'
   /gravel.hub.v1.ServerHostService/SnapshotServerHostVolume:
     post:
       tags:
@@ -3200,6 +3325,42 @@ components:
           description: Every kind recorded in the organization, sorted, for a picker.
       title: GetParticipationBoardResponse
       additionalProperties: false
+    gravel.hub.v1.GetProofRequest:
+      type: object
+      properties:
+        proofId:
+          type: string
+          title: proof_id
+      title: GetProofRequest
+      additionalProperties: false
+    gravel.hub.v1.GetProofResponse:
+      type: object
+      properties:
+        proofId:
+          type: string
+          title: proof_id
+        serverId:
+          type: string
+          title: server_id
+        provider:
+          type: string
+          title: provider
+        expiresAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: expires_at
+        state:
+          type: string
+          title: state
+          description: |-
+            "open", "expired", "proven" (linked, or proven again), "taken" (another member's account;
+             nothing moved), "replaced" (a newer code took its place).
+        subject:
+          type: string
+          title: subject
+          description: The account that proved it, once proven or taken.
+      title: GetProofResponse
+      additionalProperties: false
     gravel.hub.v1.GetServerConfigRequest:
       type: object
       properties:
@@ -3443,7 +3604,9 @@ components:
         verificationMethod:
           type: string
           title: verification_method
-          description: 'How control was proven: "oauth2" or "openid".'
+          description: |-
+            How control was proven: "oauth2", "openid", or "game-chat" (a one-time code typed in a game
+             server's chat, gravel#5).
         verifiedAt:
           allOf:
             - $ref: '#/components/schemas/google.protobuf.Timestamp'
@@ -4612,6 +4775,21 @@ components:
             - $ref: '#/components/schemas/google.protobuf.Timestamp'
           title: last_resize_at
           description: When the last resize began; the policy's cooldown counts from it.
+        expectedPlayers:
+          type: integer
+          title: expected_players
+          format: int32
+          description: |-
+            The players the host expects until expected_until, and why (#172): the policy reads the larger
+             of the live and the expected players as the room, and an empty host isn't parked. 0 and unset
+             when it expects nobody, or the time has passed.
+        expectedUntil:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: expected_until
+        expectedReason:
+          type: string
+          title: expected_reason
       title: ServerHost
       additionalProperties: false
       description: |-
@@ -4811,6 +4989,46 @@ components:
           format: int64
       title: SetServerHostDesiredResponse
       additionalProperties: false
+    gravel.hub.v1.SetServerHostExpectationRequest:
+      type: object
+      properties:
+        serverId:
+          type: string
+          title: server_id
+        players:
+          type: integer
+          title: players
+          format: int32
+          description: How many players to expect; clamped to the scaling ladder's top. 0 clears the expectation.
+        until:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: until
+          description: Until when, at most 24 hours ahead; required unless players is 0.
+        reason:
+          type: string
+          title: reason
+          description: Why, shown with the decision it causes ("PUG 3 filled"); one line, at most 200 characters.
+        onBehalfOf:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.Actor'
+          title: on_behalf_of
+          description: The moderator an app acts for; unset for an app acting for itself or anyone in person.
+      title: SetServerHostExpectationRequest
+      additionalProperties: false
+    gravel.hub.v1.SetServerHostExpectationResponse:
+      type: object
+      properties:
+        host:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.ServerHost'
+          title: host
+        auditId:
+          type: string
+          title: audit_id
+          format: int64
+      title: SetServerHostExpectationResponse
+      additionalProperties: false
     gravel.hub.v1.SetUserRoleRequest:
       type: object
       properties:
@@ -4869,6 +5087,45 @@ components:
             - $ref: '#/components/schemas/gravel.hub.v1.VolumeSnapshot'
           title: snapshot
       title: SnapshotServerHostVolumeResponse
+      additionalProperties: false
+    gravel.hub.v1.StartProofRequest:
+      type: object
+      properties:
+        serverId:
+          type: string
+          title: server_id
+          description: 'The server whose chat the code is typed in: one whose status has the "chat" capability.'
+        subject:
+          type: string
+          title: subject
+          description: |-
+            An account the caller has linked at the server's game's provider, to prove again; empty to
+             link a new one.
+      title: StartProofRequest
+      additionalProperties: false
+    gravel.hub.v1.StartProofResponse:
+      type: object
+      properties:
+        proofId:
+          type: string
+          title: proof_id
+        code:
+          type: string
+          title: code
+          description: The code, shown once ("7K3M-9QXA"); only its hash is kept.
+        expiresAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: expires_at
+        instructions:
+          type: string
+          title: instructions
+          description: 'What to do with it: "Join the server, then type in chat: !link 7K3M-9QXA".'
+        provider:
+          type: string
+          title: provider
+          description: 'The provider the account it proves is at: "steam".'
+      title: StartProofResponse
       additionalProperties: false
     gravel.hub.v1.StatsSeason:
       type: object
@@ -4935,9 +5192,19 @@ components:
           type: string
           title: score
           format: int64
+        players:
+          type:
+            - integer
+            - "null"
+          title: players
+          format: int32
+          description: |-
+            The players on the team at the last poll, counted from the server's players. Unset when the
+             hub doesn't know: the server's players aren't read, or the game doesn't say who is on which
+             team (#159).
       title: TeamScore
       additionalProperties: false
-      description: TeamScore is one team's (faction's) score.
+      description: TeamScore is one team's (faction's) score and, when the hub knows it, how many players it has.
     gravel.hub.v1.Theme:
       type: object
       properties:

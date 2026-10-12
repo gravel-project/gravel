@@ -530,14 +530,38 @@ func liveLine(st *hubv1.ServerStatus) string {
 	return strings.Join(out, " · ")
 }
 
+// teamLine is the teams on the server (#159): the players on each, and each team's score once a
+// match has one. "Lonestar **1** · Valkyra **0** players" before a match, "Lonestar **8** players,
+// **1240** pts · …" during one. A game that doesn't say who is on which team shows its scores alone.
 func teamLine(teams []*hubv1.TeamScore) string {
+	counted, scored := len(teams) > 0, false
+	for _, t := range teams {
+		counted = counted && t.Players != nil
+		scored = scored || t.GetScore() > 0
+	}
 	var out []string
 	for _, t := range teams {
-		if name := plain(t.GetName()); name != "" {
-			out = append(out, fmt.Sprintf("%s **%d**", name, t.GetScore()))
+		name := plain(t.GetName())
+		if name == "" {
+			continue
+		}
+		switch {
+		case counted && scored:
+			out = append(out, fmt.Sprintf("%s **%d** players, **%d** pts", name, t.GetPlayers(), t.GetScore()))
+		case counted:
+			out = append(out, fmt.Sprintf("%s **%d**", name, t.GetPlayers()))
+		default:
+			out = append(out, fmt.Sprintf("%s **%d** pts", name, t.GetScore()))
 		}
 	}
-	return strings.Join(out, " · ")
+	if len(out) == 0 {
+		return ""
+	}
+	line := strings.Join(out, " · ")
+	if counted && !scored {
+		line += " players"
+	}
+	return line
 }
 
 // plain keeps a value the game or the host names from being read as Discord markdown or a

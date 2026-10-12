@@ -132,7 +132,8 @@ type Identity struct {
 	// Display attributes refreshed at every login; may be empty.
 	DisplayName string `protobuf:"bytes,3,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
 	AvatarUrl   string `protobuf:"bytes,4,opt,name=avatar_url,json=avatarUrl,proto3" json:"avatar_url,omitempty"`
-	// How control was proven: "oauth2" or "openid".
+	// How control was proven: "oauth2", "openid", or "game-chat" (a one-time code typed in a game
+	// server's chat, gravel#5).
 	VerificationMethod string                 `protobuf:"bytes,5,opt,name=verification_method,json=verificationMethod,proto3" json:"verification_method,omitempty"`
 	VerifiedAt         *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=verified_at,json=verifiedAt,proto3" json:"verified_at,omitempty"`
 	LinkedAt           *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=linked_at,json=linkedAt,proto3" json:"linked_at,omitempty"`
@@ -1073,6 +1074,271 @@ func (x *SetUserRoleResponse) GetUser() *User {
 	return nil
 }
 
+type StartProofRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The server whose chat the code is typed in: one whose status has the "chat" capability.
+	ServerId string `protobuf:"bytes,1,opt,name=server_id,json=serverId,proto3" json:"server_id,omitempty"`
+	// An account the caller has linked at the server's game's provider, to prove again; empty to
+	// link a new one.
+	Subject       string `protobuf:"bytes,2,opt,name=subject,proto3" json:"subject,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StartProofRequest) Reset() {
+	*x = StartProofRequest{}
+	mi := &file_gravel_hub_v1_identity_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StartProofRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StartProofRequest) ProtoMessage() {}
+
+func (x *StartProofRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_identity_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StartProofRequest.ProtoReflect.Descriptor instead.
+func (*StartProofRequest) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_identity_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *StartProofRequest) GetServerId() string {
+	if x != nil {
+		return x.ServerId
+	}
+	return ""
+}
+
+func (x *StartProofRequest) GetSubject() string {
+	if x != nil {
+		return x.Subject
+	}
+	return ""
+}
+
+type StartProofResponse struct {
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	ProofId string                 `protobuf:"bytes,1,opt,name=proof_id,json=proofId,proto3" json:"proof_id,omitempty"`
+	// The code, shown once ("7K3M-9QXA"); only its hash is kept.
+	Code      string                 `protobuf:"bytes,2,opt,name=code,proto3" json:"code,omitempty"`
+	ExpiresAt *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	// What to do with it: "Join the server, then type in chat: !link 7K3M-9QXA".
+	Instructions string `protobuf:"bytes,4,opt,name=instructions,proto3" json:"instructions,omitempty"`
+	// The provider the account it proves is at: "steam".
+	Provider      string `protobuf:"bytes,5,opt,name=provider,proto3" json:"provider,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StartProofResponse) Reset() {
+	*x = StartProofResponse{}
+	mi := &file_gravel_hub_v1_identity_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StartProofResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StartProofResponse) ProtoMessage() {}
+
+func (x *StartProofResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_identity_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StartProofResponse.ProtoReflect.Descriptor instead.
+func (*StartProofResponse) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_identity_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *StartProofResponse) GetProofId() string {
+	if x != nil {
+		return x.ProofId
+	}
+	return ""
+}
+
+func (x *StartProofResponse) GetCode() string {
+	if x != nil {
+		return x.Code
+	}
+	return ""
+}
+
+func (x *StartProofResponse) GetExpiresAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ExpiresAt
+	}
+	return nil
+}
+
+func (x *StartProofResponse) GetInstructions() string {
+	if x != nil {
+		return x.Instructions
+	}
+	return ""
+}
+
+func (x *StartProofResponse) GetProvider() string {
+	if x != nil {
+		return x.Provider
+	}
+	return ""
+}
+
+type GetProofRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ProofId       string                 `protobuf:"bytes,1,opt,name=proof_id,json=proofId,proto3" json:"proof_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetProofRequest) Reset() {
+	*x = GetProofRequest{}
+	mi := &file_gravel_hub_v1_identity_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetProofRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetProofRequest) ProtoMessage() {}
+
+func (x *GetProofRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_identity_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetProofRequest.ProtoReflect.Descriptor instead.
+func (*GetProofRequest) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_identity_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *GetProofRequest) GetProofId() string {
+	if x != nil {
+		return x.ProofId
+	}
+	return ""
+}
+
+type GetProofResponse struct {
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	ProofId   string                 `protobuf:"bytes,1,opt,name=proof_id,json=proofId,proto3" json:"proof_id,omitempty"`
+	ServerId  string                 `protobuf:"bytes,2,opt,name=server_id,json=serverId,proto3" json:"server_id,omitempty"`
+	Provider  string                 `protobuf:"bytes,3,opt,name=provider,proto3" json:"provider,omitempty"`
+	ExpiresAt *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	// "open", "expired", "proven" (linked, or proven again), "taken" (another member's account;
+	// nothing moved), "replaced" (a newer code took its place).
+	State string `protobuf:"bytes,5,opt,name=state,proto3" json:"state,omitempty"`
+	// The account that proved it, once proven or taken.
+	Subject       string `protobuf:"bytes,6,opt,name=subject,proto3" json:"subject,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetProofResponse) Reset() {
+	*x = GetProofResponse{}
+	mi := &file_gravel_hub_v1_identity_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetProofResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetProofResponse) ProtoMessage() {}
+
+func (x *GetProofResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_identity_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetProofResponse.ProtoReflect.Descriptor instead.
+func (*GetProofResponse) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_identity_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *GetProofResponse) GetProofId() string {
+	if x != nil {
+		return x.ProofId
+	}
+	return ""
+}
+
+func (x *GetProofResponse) GetServerId() string {
+	if x != nil {
+		return x.ServerId
+	}
+	return ""
+}
+
+func (x *GetProofResponse) GetProvider() string {
+	if x != nil {
+		return x.Provider
+	}
+	return ""
+}
+
+func (x *GetProofResponse) GetExpiresAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ExpiresAt
+	}
+	return nil
+}
+
+func (x *GetProofResponse) GetState() string {
+	if x != nil {
+		return x.State
+	}
+	return ""
+}
+
+func (x *GetProofResponse) GetSubject() string {
+	if x != nil {
+		return x.Subject
+	}
+	return ""
+}
+
 var File_gravel_hub_v1_identity_proto protoreflect.FileDescriptor
 
 const file_gravel_hub_v1_identity_proto_rawDesc = "" +
@@ -1144,7 +1410,27 @@ const file_gravel_hub_v1_identity_proto_rawDesc = "" +
 	"\x04role\x18\x02 \x01(\tR\x04role\x12\x18\n" +
 	"\agranted\x18\x03 \x01(\bR\agranted\">\n" +
 	"\x13SetUserRoleResponse\x12'\n" +
-	"\x04user\x18\x01 \x01(\v2\x13.gravel.hub.v1.UserR\x04user2\xbe\x05\n" +
+	"\x04user\x18\x01 \x01(\v2\x13.gravel.hub.v1.UserR\x04user\"J\n" +
+	"\x11StartProofRequest\x12\x1b\n" +
+	"\tserver_id\x18\x01 \x01(\tR\bserverId\x12\x18\n" +
+	"\asubject\x18\x02 \x01(\tR\asubject\"\xbe\x01\n" +
+	"\x12StartProofResponse\x12\x19\n" +
+	"\bproof_id\x18\x01 \x01(\tR\aproofId\x12\x12\n" +
+	"\x04code\x18\x02 \x01(\tR\x04code\x129\n" +
+	"\n" +
+	"expires_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12\"\n" +
+	"\finstructions\x18\x04 \x01(\tR\finstructions\x12\x1a\n" +
+	"\bprovider\x18\x05 \x01(\tR\bprovider\",\n" +
+	"\x0fGetProofRequest\x12\x19\n" +
+	"\bproof_id\x18\x01 \x01(\tR\aproofId\"\xd1\x01\n" +
+	"\x10GetProofResponse\x12\x19\n" +
+	"\bproof_id\x18\x01 \x01(\tR\aproofId\x12\x1b\n" +
+	"\tserver_id\x18\x02 \x01(\tR\bserverId\x12\x1a\n" +
+	"\bprovider\x18\x03 \x01(\tR\bprovider\x129\n" +
+	"\n" +
+	"expires_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12\x14\n" +
+	"\x05state\x18\x05 \x01(\tR\x05state\x12\x18\n" +
+	"\asubject\x18\x06 \x01(\tR\asubject2\xde\x06\n" +
 	"\x0fIdentityService\x12B\n" +
 	"\x05GetMe\x12\x1b.gravel.hub.v1.GetMeRequest\x1a\x1c.gravel.hub.v1.GetMeResponse\x12]\n" +
 	"\x0eUnlinkIdentity\x12$.gravel.hub.v1.UnlinkIdentityRequest\x1a%.gravel.hub.v1.UnlinkIdentityResponse\x12E\n" +
@@ -1154,7 +1440,10 @@ const file_gravel_hub_v1_identity_proto_rawDesc = "" +
 	"LookupUser\x12 .gravel.hub.v1.LookupUserRequest\x1a!.gravel.hub.v1.LookupUserResponse\x12N\n" +
 	"\tListUsers\x12\x1f.gravel.hub.v1.ListUsersRequest\x1a .gravel.hub.v1.ListUsersResponse\x12i\n" +
 	"\x12ListIdentityEvents\x12(.gravel.hub.v1.ListIdentityEventsRequest\x1a).gravel.hub.v1.ListIdentityEventsResponse\x12T\n" +
-	"\vSetUserRole\x12!.gravel.hub.v1.SetUserRoleRequest\x1a\".gravel.hub.v1.SetUserRoleResponseB:Z8github.com/gravel-project/gravel/gen/gravel/hub/v1;hubv1b\x06proto3"
+	"\vSetUserRole\x12!.gravel.hub.v1.SetUserRoleRequest\x1a\".gravel.hub.v1.SetUserRoleResponse\x12Q\n" +
+	"\n" +
+	"StartProof\x12 .gravel.hub.v1.StartProofRequest\x1a!.gravel.hub.v1.StartProofResponse\x12K\n" +
+	"\bGetProof\x12\x1e.gravel.hub.v1.GetProofRequest\x1a\x1f.gravel.hub.v1.GetProofResponseB:Z8github.com/gravel-project/gravel/gen/gravel/hub/v1;hubv1b\x06proto3"
 
 var (
 	file_gravel_hub_v1_identity_proto_rawDescOnce sync.Once
@@ -1168,7 +1457,7 @@ func file_gravel_hub_v1_identity_proto_rawDescGZIP() []byte {
 	return file_gravel_hub_v1_identity_proto_rawDescData
 }
 
-var file_gravel_hub_v1_identity_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
+var file_gravel_hub_v1_identity_proto_msgTypes = make([]protoimpl.MessageInfo, 23)
 var file_gravel_hub_v1_identity_proto_goTypes = []any{
 	(*User)(nil),                       // 0: gravel.hub.v1.User
 	(*Identity)(nil),                   // 1: gravel.hub.v1.Identity
@@ -1189,43 +1478,53 @@ var file_gravel_hub_v1_identity_proto_goTypes = []any{
 	(*ListIdentityEventsResponse)(nil), // 16: gravel.hub.v1.ListIdentityEventsResponse
 	(*SetUserRoleRequest)(nil),         // 17: gravel.hub.v1.SetUserRoleRequest
 	(*SetUserRoleResponse)(nil),        // 18: gravel.hub.v1.SetUserRoleResponse
-	(*timestamppb.Timestamp)(nil),      // 19: google.protobuf.Timestamp
+	(*StartProofRequest)(nil),          // 19: gravel.hub.v1.StartProofRequest
+	(*StartProofResponse)(nil),         // 20: gravel.hub.v1.StartProofResponse
+	(*GetProofRequest)(nil),            // 21: gravel.hub.v1.GetProofRequest
+	(*GetProofResponse)(nil),           // 22: gravel.hub.v1.GetProofResponse
+	(*timestamppb.Timestamp)(nil),      // 23: google.protobuf.Timestamp
 }
 var file_gravel_hub_v1_identity_proto_depIdxs = []int32{
-	19, // 0: gravel.hub.v1.User.created_at:type_name -> google.protobuf.Timestamp
-	19, // 1: gravel.hub.v1.User.last_login_at:type_name -> google.protobuf.Timestamp
+	23, // 0: gravel.hub.v1.User.created_at:type_name -> google.protobuf.Timestamp
+	23, // 1: gravel.hub.v1.User.last_login_at:type_name -> google.protobuf.Timestamp
 	1,  // 2: gravel.hub.v1.User.identities:type_name -> gravel.hub.v1.Identity
-	19, // 3: gravel.hub.v1.Identity.verified_at:type_name -> google.protobuf.Timestamp
-	19, // 4: gravel.hub.v1.Identity.linked_at:type_name -> google.protobuf.Timestamp
-	19, // 5: gravel.hub.v1.Identity.last_login_at:type_name -> google.protobuf.Timestamp
+	23, // 3: gravel.hub.v1.Identity.verified_at:type_name -> google.protobuf.Timestamp
+	23, // 4: gravel.hub.v1.Identity.linked_at:type_name -> google.protobuf.Timestamp
+	23, // 5: gravel.hub.v1.Identity.last_login_at:type_name -> google.protobuf.Timestamp
 	0,  // 6: gravel.hub.v1.GetMeResponse.user:type_name -> gravel.hub.v1.User
 	0,  // 7: gravel.hub.v1.UnlinkIdentityResponse.user:type_name -> gravel.hub.v1.User
 	0,  // 8: gravel.hub.v1.LookupUserResponse.user:type_name -> gravel.hub.v1.User
 	0,  // 9: gravel.hub.v1.ListUsersResponse.users:type_name -> gravel.hub.v1.User
-	19, // 10: gravel.hub.v1.IdentityEvent.at:type_name -> google.protobuf.Timestamp
+	23, // 10: gravel.hub.v1.IdentityEvent.at:type_name -> google.protobuf.Timestamp
 	14, // 11: gravel.hub.v1.ListIdentityEventsResponse.events:type_name -> gravel.hub.v1.IdentityEvent
 	0,  // 12: gravel.hub.v1.SetUserRoleResponse.user:type_name -> gravel.hub.v1.User
-	2,  // 13: gravel.hub.v1.IdentityService.GetMe:input_type -> gravel.hub.v1.GetMeRequest
-	4,  // 14: gravel.hub.v1.IdentityService.UnlinkIdentity:input_type -> gravel.hub.v1.UnlinkIdentityRequest
-	6,  // 15: gravel.hub.v1.IdentityService.Logout:input_type -> gravel.hub.v1.LogoutRequest
-	8,  // 16: gravel.hub.v1.IdentityService.RevokeSessions:input_type -> gravel.hub.v1.RevokeSessionsRequest
-	10, // 17: gravel.hub.v1.IdentityService.LookupUser:input_type -> gravel.hub.v1.LookupUserRequest
-	12, // 18: gravel.hub.v1.IdentityService.ListUsers:input_type -> gravel.hub.v1.ListUsersRequest
-	15, // 19: gravel.hub.v1.IdentityService.ListIdentityEvents:input_type -> gravel.hub.v1.ListIdentityEventsRequest
-	17, // 20: gravel.hub.v1.IdentityService.SetUserRole:input_type -> gravel.hub.v1.SetUserRoleRequest
-	3,  // 21: gravel.hub.v1.IdentityService.GetMe:output_type -> gravel.hub.v1.GetMeResponse
-	5,  // 22: gravel.hub.v1.IdentityService.UnlinkIdentity:output_type -> gravel.hub.v1.UnlinkIdentityResponse
-	7,  // 23: gravel.hub.v1.IdentityService.Logout:output_type -> gravel.hub.v1.LogoutResponse
-	9,  // 24: gravel.hub.v1.IdentityService.RevokeSessions:output_type -> gravel.hub.v1.RevokeSessionsResponse
-	11, // 25: gravel.hub.v1.IdentityService.LookupUser:output_type -> gravel.hub.v1.LookupUserResponse
-	13, // 26: gravel.hub.v1.IdentityService.ListUsers:output_type -> gravel.hub.v1.ListUsersResponse
-	16, // 27: gravel.hub.v1.IdentityService.ListIdentityEvents:output_type -> gravel.hub.v1.ListIdentityEventsResponse
-	18, // 28: gravel.hub.v1.IdentityService.SetUserRole:output_type -> gravel.hub.v1.SetUserRoleResponse
-	21, // [21:29] is the sub-list for method output_type
-	13, // [13:21] is the sub-list for method input_type
-	13, // [13:13] is the sub-list for extension type_name
-	13, // [13:13] is the sub-list for extension extendee
-	0,  // [0:13] is the sub-list for field type_name
+	23, // 13: gravel.hub.v1.StartProofResponse.expires_at:type_name -> google.protobuf.Timestamp
+	23, // 14: gravel.hub.v1.GetProofResponse.expires_at:type_name -> google.protobuf.Timestamp
+	2,  // 15: gravel.hub.v1.IdentityService.GetMe:input_type -> gravel.hub.v1.GetMeRequest
+	4,  // 16: gravel.hub.v1.IdentityService.UnlinkIdentity:input_type -> gravel.hub.v1.UnlinkIdentityRequest
+	6,  // 17: gravel.hub.v1.IdentityService.Logout:input_type -> gravel.hub.v1.LogoutRequest
+	8,  // 18: gravel.hub.v1.IdentityService.RevokeSessions:input_type -> gravel.hub.v1.RevokeSessionsRequest
+	10, // 19: gravel.hub.v1.IdentityService.LookupUser:input_type -> gravel.hub.v1.LookupUserRequest
+	12, // 20: gravel.hub.v1.IdentityService.ListUsers:input_type -> gravel.hub.v1.ListUsersRequest
+	15, // 21: gravel.hub.v1.IdentityService.ListIdentityEvents:input_type -> gravel.hub.v1.ListIdentityEventsRequest
+	17, // 22: gravel.hub.v1.IdentityService.SetUserRole:input_type -> gravel.hub.v1.SetUserRoleRequest
+	19, // 23: gravel.hub.v1.IdentityService.StartProof:input_type -> gravel.hub.v1.StartProofRequest
+	21, // 24: gravel.hub.v1.IdentityService.GetProof:input_type -> gravel.hub.v1.GetProofRequest
+	3,  // 25: gravel.hub.v1.IdentityService.GetMe:output_type -> gravel.hub.v1.GetMeResponse
+	5,  // 26: gravel.hub.v1.IdentityService.UnlinkIdentity:output_type -> gravel.hub.v1.UnlinkIdentityResponse
+	7,  // 27: gravel.hub.v1.IdentityService.Logout:output_type -> gravel.hub.v1.LogoutResponse
+	9,  // 28: gravel.hub.v1.IdentityService.RevokeSessions:output_type -> gravel.hub.v1.RevokeSessionsResponse
+	11, // 29: gravel.hub.v1.IdentityService.LookupUser:output_type -> gravel.hub.v1.LookupUserResponse
+	13, // 30: gravel.hub.v1.IdentityService.ListUsers:output_type -> gravel.hub.v1.ListUsersResponse
+	16, // 31: gravel.hub.v1.IdentityService.ListIdentityEvents:output_type -> gravel.hub.v1.ListIdentityEventsResponse
+	18, // 32: gravel.hub.v1.IdentityService.SetUserRole:output_type -> gravel.hub.v1.SetUserRoleResponse
+	20, // 33: gravel.hub.v1.IdentityService.StartProof:output_type -> gravel.hub.v1.StartProofResponse
+	22, // 34: gravel.hub.v1.IdentityService.GetProof:output_type -> gravel.hub.v1.GetProofResponse
+	25, // [25:35] is the sub-list for method output_type
+	15, // [15:25] is the sub-list for method input_type
+	15, // [15:15] is the sub-list for extension type_name
+	15, // [15:15] is the sub-list for extension extendee
+	0,  // [0:15] is the sub-list for field type_name
 }
 
 func init() { file_gravel_hub_v1_identity_proto_init() }
@@ -1239,7 +1538,7 @@ func file_gravel_hub_v1_identity_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gravel_hub_v1_identity_proto_rawDesc), len(file_gravel_hub_v1_identity_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   19,
+			NumMessages:   23,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

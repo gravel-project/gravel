@@ -35,6 +35,7 @@ import (
 	"github.com/gravel-project/gravel/internal/config"
 	"github.com/gravel-project/gravel/internal/httpx"
 	"github.com/gravel-project/gravel/internal/identity"
+	"github.com/gravel-project/gravel/internal/identity/proof"
 	"github.com/gravel-project/gravel/internal/identity/providers"
 	"github.com/gravel-project/gravel/internal/ingest"
 	"github.com/gravel-project/gravel/internal/jobs"
@@ -87,12 +88,15 @@ type Hub struct {
 	participation *stats.Participation
 	feeds         *ingest.Keyring
 	ingest        *ingest.Handler
-	jobs          *jobs.Runner
-	web           *web.Handler
-	perIP         *ratelimit.Limiter
-	perUser       *ratelimit.Limiter
-	perApp        *ratelimit.Limiter
-	claimToken    string
+	// Proof of control (gravel#5) and the limit on its failure answers in chat.
+	proofs       *proof.Service
+	proofReplies *ratelimit.Limiter
+	jobs         *jobs.Runner
+	web          *web.Handler
+	perIP        *ratelimit.Limiter
+	perUser      *ratelimit.Limiter
+	perApp       *ratelimit.Limiter
+	claimToken   string
 
 	registry     *metricnames.Registry
 	metrics      *httpx.Metrics
@@ -289,6 +293,12 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 	}
 	h.cloudvm = cloudvm.NewManager(h.hosts, h.hosts, gameControls, cvm)
 	h.hosts.Attach(h.cloudvm)
+	// Proof of control (gravel#5): a code typed in a cloud-VM server's chat proves the account the
+	// log says typed it. Counter-Strike 2, the one game whose chat the hub reads, knows players by
+	// their Steam account.
+	h.proofs = proof.New(st, logger, []proof.Channel{proof.GameChat{ProviderName: cs2game.Provider}}, proof.WithMetrics(h.registry))
+	h.proofReplies = newProofReplies()
+	h.cloudvm.SetChatSink(h.chatProofs)
 	registry := Drivers(DriverDeps{CloudVM: h.cloudvm})
 	h.monitor = servers.NewMonitor(h.servers, registry, h.jobs, h.registry, "gravel-hub/"+h.version, logger)
 	h.moderation = servers.NewModeration(h.servers, h.monitor, st, st, o.ID, h.registry, logger)
@@ -425,7 +435,9 @@ func (h *Hub) buildAPI() *http.ServeMux {
 	// A member's token (ADR-0015) is held to its scopes before any procedure runs.
 	interceptors := connect.WithInterceptors(h.metrics.Interceptor(), ratelimit.Interceptor(h.scopes(), h.rejected), api.MemberTokens())
 	mux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(h.org, h.logger), interceptors))
-	mux.Handle(hubv1connect.NewIdentityServiceHandler(api.NewIdentityServer(h.ids, h.sess, h.org, h.logger), interceptors))
+	identityAPI := api.NewIdentityServer(h.ids, h.sess, h.org, h.logger)
+	identityAPI.SetProofs(h.proofs, h.servers, h.monitor)
+	mux.Handle(hubv1connect.NewIdentityServiceHandler(identityAPI, interceptors))
 	mux.Handle(hubv1connect.NewServerServiceHandler(api.NewServerServer(h.servers, h.monitor, h.ids, h.logger), interceptors))
 	moderation := api.NewModerationServer(h.moderation, h.org, h.ids, h.logger)
 	mux.Handle(hubv1connect.NewModerationServiceHandler(moderation, interceptors))
@@ -555,9 +567,16 @@ func (h *Hub) Prune(ctx context.Context) {
 	if err != nil {
 		h.logger.Warn("could not prune app tokens", "error", err.Error())
 	}
+	var proofs int64
+	if h.proofs != nil {
+		if proofs, err = h.proofs.Prune(ctx); err != nil {
+			h.logger.Warn("could not prune identity proofs", "error", err.Error())
+		}
+		h.proofReplies.Sweep()
+	}
 	ips, users, appsSwept := h.perIP.Sweep(), h.perUser.Sweep(), h.perApp.Sweep()
 	h.ingest.Sweep()
-	h.logger.Debug("pruned", "sessions", sessions, "attempts", attempts, "app_tokens", tokens, "ip_buckets", ips, "user_buckets", users, "app_buckets", appsSwept)
+	h.logger.Debug("pruned", "sessions", sessions, "attempts", attempts, "app_tokens", tokens, "proofs", proofs, "ip_buckets", ips, "user_buckets", users, "app_buckets", appsSwept)
 }
 
 func writeJSON(w http.ResponseWriter, code int, v any) {

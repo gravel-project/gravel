@@ -59,6 +59,16 @@ templ HostSection(p ServerPage) {
 					}
 				</dd>
 			}
+			if p.Host.ExpectedPlayers > 0 {
+				<dt>Expected</dt>
+				<dd>
+					{ fmt.Sprint(p.Host.ExpectedPlayers) } players until { at(p.Host.ExpectedUntil) }
+					if p.Host.ExpectedReason != "" {
+						<span class="muted">({ p.Host.ExpectedReason })</span>
+					}
+					<p class="muted">Until then it is sized for them, and it doesn't park itself for being empty.</p>
+				</dd>
+			}
 			if p.Host.Address != "" {
 				<dt>Address</dt>
 				<dd>
@@ -116,6 +126,26 @@ templ HostSection(p ServerPage) {
 		if p.Host.CanUnpin {
 			@hostForm(p, "unpin", "Let the policy decide the size")
 		}
+		if p.Host.CanExpect {
+			<form method="post" action={ templ.SafeURL("/servers/" + p.Server.ID + "/host") }>
+				<input type="hidden" name="_csrf" value={ p.CSRF }/>
+				<input type="hidden" name="action" value="expect"/>
+				<label for="host-expect-players">Expect this many players</label>
+				<input id="host-expect-players" type="number" name="players" min="1" max={ fmt.Sprint(p.Host.ExpectMax) } required/>
+				<label for="host-expect-for">How long</label>
+				<select id="host-expect-for" name="for">
+					for _, d := range ExpectFor {
+						<option value={ d }>{ d }</option>
+					}
+				</select>
+				<label for="host-expect-reason">Why (optional)</label>
+				<input id="host-expect-reason" type="text" name="reason" maxlength="200"/>
+				<button type="submit">Review</button>
+			</form>
+			if p.Host.ExpectedPlayers > 0 {
+				@hostForm(p, "unexpect", "Expect nobody")
+			}
+		}
 		if p.Host.CanSnapshot {
 			@hostForm(p, "snapshot", "Snapshot the disk")
 		}
@@ -152,6 +182,11 @@ templ HostConfirmContent(p HostConfirmPage) {
 			<input type="hidden" name="_csrf" value={ p.CSRF }/>
 			<input type="hidden" name="action" value={ p.Action }/>
 			<input type="hidden" name="size" value={ p.Size }/>
+			if p.Action == "expect" {
+				<input type="hidden" name="players" value={ p.Players }/>
+				<input type="hidden" name="for" value={ p.For }/>
+				<input type="hidden" name="reason" value={ p.Reason }/>
+			}
 			<input type="hidden" name="confirm" value="1"/>
 			if p.OfferForce {
 				<p>

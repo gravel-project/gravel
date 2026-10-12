@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"path"
 	"regexp"
 	"slices"
 	"strconv"
@@ -51,6 +52,34 @@ type Profile struct {
 	// PlayersSetting is the int setting a rung's players are written to, so the game takes as
 	// many players as the machine it runs on is sized for ("max_players"); "" writes none.
 	PlayersSetting string `yaml:"players_setting,omitempty"`
+	// Hooks are files the hub keeps in the game's install on the volume, written with the
+	// environment file and checked with it (#170): a script the image runs at start, say. They hold
+	// no secret; the environment does.
+	Hooks []Hook `yaml:"hooks,omitempty"`
+	// Teams are the game's teams as its status shows them, each with the value its players' team
+	// carries (#159): the hub counts the players on each. Empty when the game has none.
+	Teams []Team `yaml:"teams,omitempty"`
+}
+
+// Hook is one file the hub keeps in a game's install: Path is relative to the install directory
+// (the data volume's game directory on the host), Content is the whole file.
+type Hook struct {
+	Path    string `yaml:"path"`
+	Content string `yaml:"content"`
+}
+
+// hookPath is the characters a hook's path may hold: it is written into a shell script unquoted.
+var hookPath = regexp.MustCompile(`^[A-Za-z0-9._/-]+$`)
+
+// MaxHookBytes bounds a game's hooks together: they travel inside the command the hub runs over
+// SSH, which is one argument on the host (Linux caps one at 128 KiB).
+const MaxHookBytes = 32 << 10
+
+// Team is one of a game's teams: the name players see, and the key its players' team carries
+// ("TERRORIST" for "T"); an empty key is the name.
+type Team struct {
+	Name string `yaml:"name"`
+	Key  string `yaml:"key,omitempty"`
 }
 
 // Port is one port the game listens on.
@@ -258,6 +287,34 @@ func (p Profile) Validate() error {
 		if s, ok := p.setting(p.PlayersSetting); !ok || s.Type != TypeInt {
 			bad("players_setting %q is not an int setting", p.PlayersSetting)
 		}
+	}
+	paths, size := map[string]bool{}, 0
+	for i, h := range p.Hooks {
+		size += len(h.Content)
+		switch clean := path.Clean(h.Path); {
+		case h.Path == "" || path.IsAbs(h.Path) || clean != h.Path || clean == "." || strings.HasPrefix(clean, "../"):
+			bad("hooks[%d]: path %q is not a plain path inside the install", i, h.Path)
+		case !hookPath.MatchString(h.Path):
+			bad("hooks[%d]: path %q may hold only letters, digits, '.', '_', '-' and '/'", i, h.Path)
+		case paths[h.Path]:
+			bad("hooks[%d]: %q is listed twice", i, h.Path)
+		case strings.TrimSpace(h.Content) == "":
+			bad("hooks[%d]: %s has no content", i, h.Path)
+		}
+		paths[h.Path] = true
+	}
+	if size > MaxHookBytes {
+		bad("hooks: %d bytes together, at most %d", size, MaxHookBytes)
+	}
+	teams := map[string]bool{}
+	for i, t := range p.Teams {
+		switch {
+		case strings.TrimSpace(t.Name) == "":
+			bad("teams[%d]: a name is required", i)
+		case teams[strings.ToLower(t.Name)]:
+			bad("teams[%d]: %q is listed twice", i, t.Name)
+		}
+		teams[strings.ToLower(t.Name)] = true
 	}
 	return errors.Join(errs...)
 }

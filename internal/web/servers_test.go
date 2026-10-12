@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	hubv1 "github.com/gravel-project/gravel/gen/gravel/hub/v1"
@@ -245,6 +246,36 @@ func TestServerPage(t *testing.T) {
 
 	if resp, _ := get(t, browser(t), r.srv.URL+"/servers/nope"); resp.StatusCode != http.StatusNotFound {
 		t.Errorf("an unknown server: %d", resp.StatusCode)
+	}
+}
+
+// The Teams section counts each team's players, and shows the scores beside them once a match has
+// one; a game that doesn't say who is on which team shows its scores alone (#159).
+func TestServerPageTeams(t *testing.T) {
+	r := newRig(t)
+	n := proto.Int32
+	teams := func(ts ...*hubv1.TeamScore) string {
+		r.servers.mu.Lock()
+		r.servers.servers[0].Status.Teams = ts
+		r.servers.mu.Unlock()
+		_, body := get(t, browser(t), r.srv.URL+"/servers/htg-wardogs-1")
+		i := strings.Index(body, `id="teams-heading"`)
+		if i < 0 {
+			t.Fatalf("no Teams section: %s", body)
+		}
+		return strings.Join(strings.Fields(body[i:i+strings.Index(body[i:], "</section>")]), " ")
+	}
+	got := teams(&hubv1.TeamScore{Name: "Lonestar", Players: n(1)}, &hubv1.TeamScore{Name: "Valkyra", Players: n(0)})
+	if !strings.Contains(got, "Lonestar</span> <strong>1</strong> players") || strings.Contains(got, "pts") {
+		t.Errorf("before a match: %s", got)
+	}
+	got = teams(&hubv1.TeamScore{Name: "Lonestar", Players: n(8), Score: 1240}, &hubv1.TeamScore{Name: "Valkyra", Players: n(7)})
+	if !strings.Contains(got, "<strong>8</strong> players · <strong>1240</strong> pts") || !strings.Contains(got, "<strong>7</strong> players · <strong>0</strong> pts") {
+		t.Errorf("during a match: %s", got)
+	}
+	got = teams(&hubv1.TeamScore{Name: "Lonestar", Score: 412})
+	if !strings.Contains(got, "Lonestar</span> <strong>412</strong> pts") || strings.Contains(got, "players") {
+		t.Errorf("without counts: %s", got)
 	}
 }
 

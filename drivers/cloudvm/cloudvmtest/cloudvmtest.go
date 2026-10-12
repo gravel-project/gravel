@@ -7,10 +7,13 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -57,6 +60,9 @@ type Remote struct {
 	// Env is the environment file on each address: the last one pushed, or one SetEnv put there.
 	// A command that hashes it (cloudvm.EnvHashScript) answers from here.
 	Env map[string]string
+	// Files are the game's hooks on each address's disk, by their path on the host
+	// ("~/cs2/pre.sh"): the last ones pushed, or ones SetFile put there.
+	Files map[string]map[string]string
 	// HashFail makes hashing the environment file fail on an address ("*": on every one).
 	HashFail map[string]error
 	// DiskOf, when set, names the disk an address's home is on, so the environment file follows
@@ -90,7 +96,7 @@ func (r *Remote) home(address string) string {
 
 // NewRemote is a remote whose hosts are booted when they are first reached.
 func NewRemote() *Remote {
-	return &Remote{booted: map[string]bool{}, HostKey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFakeHostKeyFakeHostKeyFakeHostKey000", HostKeys: map[string]string{}, Env: map[string]string{}, HashFail: map[string]error{}}
+	return &Remote{booted: map[string]bool{}, HostKey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFakeHostKeyFakeHostKeyFakeHostKey000", HostKeys: map[string]string{}, Env: map[string]string{}, Files: map[string]map[string]string{}, HashFail: map[string]error{}}
 }
 
 // Boot marks a host booted.
@@ -135,6 +141,16 @@ func (r *Remote) Run(_ context.Context, t cloudvm.RemoteTarget, stdin io.Reader,
 	}
 	if strings.Contains(command, "/env.tmp") {
 		r.Env[home] = string(in)
+		for _, m := range pushedHook.FindAllStringSubmatch(command, -1) {
+			b, err := base64.StdEncoding.DecodeString(strings.ReplaceAll(m[2], "\n", ""))
+			if err != nil {
+				return nil, key, fmt.Errorf("base64: %w", err)
+			}
+			if r.Files[home] == nil {
+				r.Files[home] = map[string]string{}
+			}
+			r.Files[home][m[1]] = string(b)
+		}
 	}
 	if strings.Contains(command, "sha256sum") {
 		if fail, ok := r.HashFail[t.Address]; ok {
@@ -143,14 +159,57 @@ func (r *Remote) Run(_ context.Context, t cloudvm.RemoteTarget, stdin io.Reader,
 		if fail, ok := r.HashFail["*"]; ok {
 			return nil, key, fail
 		}
-		env, ok := r.Env[home]
-		if !ok {
-			return []byte("missing\n"), key, nil
+		m := hashedFiles.FindStringSubmatch(command)
+		if m == nil {
+			return nil, key, errors.New("cloudvmtest: a hash command without its files")
 		}
-		sum := sha256.Sum256([]byte(env))
-		return []byte(hex.EncodeToString(sum[:]) + "  /home/gravel/.config/game/env\n"), key, nil
+		var out strings.Builder
+		for _, f := range strings.Fields(m[1]) {
+			content, ok := r.Files[home][f]
+			if strings.HasSuffix(f, "/env") {
+				content, ok = r.Env[home]
+			}
+			if !ok {
+				out.WriteString("missing " + f + "\n")
+				continue
+			}
+			sum := sha256.Sum256([]byte(content))
+			out.WriteString(hex.EncodeToString(sum[:]) + "  " + f + "\n")
+		}
+		return []byte(out.String()), key, nil
 	}
 	return nil, key, nil
+}
+
+var (
+	// pushedHook is one hook in cloudvm.EnvScript: its path on the host and its base64.
+	pushedHook = regexp.MustCompile(`base64 -d > (\S+)\.tmp <<'GRAVEL_HOOK'\n([A-Za-z0-9+/=\n]*)GRAVEL_HOOK\n`)
+	// hashedFiles is the files cloudvm.EnvHashScript hashes.
+	hashedFiles = regexp.MustCompile(`for f in (.+?); do`)
+)
+
+// SetFile changes a hook on a host behind the hub's back ("~/cs2/pre.sh"); a nil content deletes it.
+func (r *Remote) SetFile(address, path string, content *string) {
+	home := r.home(address)
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if content == nil {
+		delete(r.Files[home], path)
+		return
+	}
+	if r.Files[home] == nil {
+		r.Files[home] = map[string]string{}
+	}
+	r.Files[home][path] = *content
+}
+
+// FileOn is a hook on a host ("~/cs2/pre.sh"), and whether it is there.
+func (r *Remote) FileOn(address, path string) (string, bool) {
+	home := r.home(address)
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	f, ok := r.Files[home][path]
+	return f, ok
 }
 
 // SetEnv changes the environment file on a host behind the hub's back, as a hand edit would.
@@ -305,6 +364,15 @@ func (g *Game) OnBoundary(body, boundary string) {
 	g.logs[body] = r
 }
 
+// OnChat makes a log body carry chat lines.
+func (g *Game) OnChat(body string, lines ...cloudvm.ChatLine) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	r := g.logs[body]
+	r.Chat = lines
+	g.logs[body] = r
+}
+
 // Commands are the commands sent (say, kick, quit).
 func (g *Game) Commands() []string {
 	g.mu.Lock()
@@ -378,7 +446,7 @@ func (g *Game) Log(body []byte) cloudvm.LogResult {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	r := g.logs[string(body)]
-	r.Connected = slices.Clone(r.Connected)
+	r.Connected, r.Chat = slices.Clone(r.Connected), slices.Clone(r.Chat)
 	return r
 }
 

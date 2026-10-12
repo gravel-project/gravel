@@ -89,6 +89,10 @@ func (g *Game) Log(body []byte) cloudvm.LogResult {
 			out.Boundary = cloudvm.BoundaryMatchEnd
 		case c.MapChange != "":
 			out.Boundary = cloudvm.BoundaryMapChange
+		case c.Said != nil:
+			s := c.Said
+			out.Chat = append(out.Chat, cloudvm.ChatLine{Player: cloudvm.GamePlayer{UserID: s.UserID, Name: s.Name, Identity: identity(s.SteamID64)},
+				Text: s.Text, Team: s.Team})
 		}
 	}
 	return out

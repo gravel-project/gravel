@@ -22,6 +22,8 @@ import (
 	"github.com/gravel-project/gravel/internal/apps/appstest"
 	"github.com/gravel-project/gravel/internal/identity"
 	"github.com/gravel-project/gravel/internal/identity/identitytest"
+	"github.com/gravel-project/gravel/internal/identity/proof"
+	"github.com/gravel-project/gravel/internal/identity/proof/prooftest"
 	"github.com/gravel-project/gravel/internal/org"
 	"github.com/gravel-project/gravel/internal/org/orgtest"
 	"github.com/gravel-project/gravel/internal/session"
@@ -47,6 +49,9 @@ type rig struct {
 	org *org.Service
 	// authz is how each request at the authorization endpoint ended (ObserveAuthorization).
 	authz []string
+	// proofs are codes typed in game chat (gravel#5), over their own fake store.
+	proofs  *proof.Service
+	proofSt *prooftest.FakeStore
 }
 
 // testTheme has a logo, a favicon, header and footer links, an owner-only link and one bad
@@ -115,7 +120,11 @@ func newRigWith(t *testing.T, theme templates.Theme, login bool) *rig {
 	member := connect.WithInterceptors(api.MemberTokens())
 	apiMux := http.NewServeMux()
 	apiMux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(orgSvc, logger), member))
-	apiMux.Handle(hubv1connect.NewIdentityServiceHandler(api.NewIdentityServer(ids, sess, orgSvc, logger), member))
+	idAPI := api.NewIdentityServer(ids, sess, orgSvc, logger)
+	r.proofSt = prooftest.NewFakeStore()
+	r.proofs = proof.New(r.proofSt, logger, []proof.Channel{proof.GameChat{ProviderName: "steam"}})
+	idAPI.SetProofs(r.proofs, proofServers{}, proofServers{})
+	apiMux.Handle(hubv1connect.NewIdentityServiceHandler(idAPI, member))
 	apiMux.Handle(hubv1connect.NewServerServiceHandler(r.servers, member))
 	apiMux.Handle(hubv1connect.NewStatsServiceHandler(r.stats, member))
 	apiMux.Handle(hubv1connect.NewModerationServiceHandler(r.mod, member))

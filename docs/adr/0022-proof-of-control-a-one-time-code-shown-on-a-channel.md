@@ -1,0 +1,27 @@
+# ADR-0022: Proof of control, a one-time code shown on a channel
+
+**Status:** proposed (2026-10-12; accepted when John merges it) · **Changes:** how a member proves an account where no OAuth or OpenID exists, or proves one again; the README's "RCON code handshake" · **Tracked by:** #5; hidden-token-gaming/htg#40 and #41 (the RSI and PUBG channels, P5)
+
+## Context
+
+A linked identity is a `(provider, subject)` pair, proven by the provider's own sign-in (Discord's OAuth, Steam's OpenID; ADR-0004). Some accounts have no such sign-in: an RSI handle, a PUBG account id, and, on a hub that doesn't register Steam's OpenID, a Steam account too. The README planned an "RCON code handshake": the player types a one-time code in game, and the server's log ties it to the account. #5 asked for that as an interface every such channel implements, with the evidence recorded on the link.
+
+The first channel that exists is Counter-Strike 2's chat. A cloud-VM server pushes its log to the hub (ADR-0011, #36), each `say` line names the player's SteamID, and the hub accepts a batch only from the server's own address, which is the provenance. War Dogs' RCON can't read chat, so its players keep Steam's OpenID.
+
+## Decision
+
+1. **A code, not a token.** Eight symbols of Crockford's base 32 from `crypto/rand` (40 bits), shown as `7K3M-9QXA`, so a player can type it in a game's chat. Only its SHA-256 is stored (`identity_proofs`). It is good for ten minutes and once, and a code typed in another case, without its hyphen, or with I, L or O for 1 or 0 is the same code.
+2. **Bound to who asked and where.** A proof belongs to the member who asked, a channel, the channel's scope (the server), and, when the member is proving an account they have linked already, that account. A code presented anywhere else, by another account, or after it was used does nothing, and the answer is the same in every case ("unknown, used, expired, or not for here"), so a guess learns nothing. Asking for a new code replaces the open one.
+3. **Two rate limits.** A member gets five codes an hour. Codes presented are limited per account and scope (ten every ten minutes) and per scope (sixty), so a server's chat can't be used to guess: 40 bits at sixty tries every ten minutes is far beyond a code's ten-minute life. A server's chat answers a failure at most once a minute.
+4. **The link rules don't change.** Redeeming a code is one transaction: the proof row is locked, the account looked up and locked, and then the account is linked to the member (event `linked`), proven again when it is the member's already (its verification method and time change; event `proven`), or, when it is another member's, left alone with the code spent and the member told so. Nothing is merged, moved or absorbed; a member who believes an account is theirs goes to the hub's owner. The verification method records the channel: `game-chat`.
+5. **Two shapes of channel.** A `proof.Channel` says its name, the provider it proves, the method it records, how a code appears in what it carries, and what to tell the member. A channel the server pushes to the hub (game chat) presents evidence: the account and the text. A `proof.Checker` is one the hub asks: the member names the account and brings the code back, and the checker looks for it where only that account can put it (a profile's bio); the proof must be that member's. RSI's bio and PUBG's custom-match history are checkers, built with their adapters in P5.
+6. **Game chat is generic.** The channel is `game-chat` at the game's identity provider; a game's adapter supplies chat lines with the account that typed them. Counter-Strike 2's adapter reads `say` and `say_team` from players on any side, a spectator or one still on the team-select screen included, and drops lines with no SteamID (bots, the console). A server whose chat the hub reads reports the capability `chat`.
+7. **In person only.** `IdentityService.StartProof` and `GetProof` take a session, never an app's or a member's token: an app never proves an account for a member. The account page offers the running servers with `chat`, and shows a code once, on its own page, which asks every five seconds what became of it.
+8. **What is kept.** A proof row stays 30 days after it expires, for the member's page and the logs. The log batch the code arrived in is stored as ADR-0011 says, with `!link <code>` redacted in the copy a person reads. A code is spent by then.
+
+## Consequences
+
+- New: `internal/identity/proof` (the service, the game-chat channel, `prooftest` with the in-memory store and the conformance suite that the fake and Postgres both pass), migration 00020, `cloudvm.LogResult.Chat` and `Manager.SetChatSink`/`Say`, `cs2.Change.Said`, `drivers.CapChat`, the account page's section and the code's page, and `gravel_identity_proofs_total{channel, result}` on the hub dashboard's Login row. `ratelimit.NewEvery` serves rates slower than one a minute, and the sweep keeps a slow bucket until it is full again.
+- The merge on a shared verified email (the README's "absorb, don't delete") still has no input: Discord's `identify` scope carries no email. Its test stays skipped.
+- Pseudonyms already work for every provider: a player's pseudonym is an HMAC over `(provider, subject)`.
+- Accepted costs: a member must join a server and type in chat, so a hub with no running server whose chat it reads can't take a proof in game; and a player's chat line is how the code arrives, so whoever is in the server sees the code typed (it is spent the moment it arrives).

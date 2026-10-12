@@ -42,6 +42,35 @@ func TestAllowAndRefill(t *testing.T) {
 	}
 }
 
+// A slow limit (five an hour) refills over the hour, and a sweep keeps its key until it would be
+// full again, so going quiet for ten minutes forgives nothing.
+func TestNewEveryAndASlowSweep(t *testing.T) {
+	now := time.Date(2026, 10, 12, 0, 0, 0, 0, time.UTC)
+	l := NewEvery(5, time.Hour, 5).WithClock(func() time.Time { return now })
+	for i := range 5 {
+		if ok, _ := l.Allow("u"); !ok {
+			t.Fatalf("request %d refused", i)
+		}
+	}
+	if ok, retry := l.Allow("u"); ok || retry < 11*time.Minute || retry > 12*time.Minute {
+		t.Fatalf("the sixth: ok=%v retry=%s, want about 12 minutes", ok, retry)
+	}
+	now = now.Add(idleFor + 2*time.Minute)
+	if n := l.Sweep(); n != 1 {
+		t.Errorf("a slow bucket swept after %s: %d keys", idleFor+2*time.Minute, n)
+	}
+	if ok, _ := l.Allow("u"); !ok {
+		t.Error("one token after 12 minutes")
+	}
+	if ok, _ := l.Allow("u"); ok {
+		t.Error("and only one")
+	}
+	now = now.Add(time.Hour + time.Second)
+	if n := l.Sweep(); n != 0 {
+		t.Errorf("a full bucket is dropped: %d keys", n)
+	}
+}
+
 func TestZeroBurstRefusesEverything(t *testing.T) {
 	l := New(60, 0)
 	if ok, retry := l.Allow("a"); ok || retry <= 0 {

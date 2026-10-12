@@ -4,11 +4,14 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"slices"
 	"strings"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/gravel-project/gravel/drivers"
 	hubv1 "github.com/gravel-project/gravel/gen/gravel/hub/v1"
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
 	"github.com/gravel-project/gravel/internal/apps"
@@ -151,13 +154,35 @@ func (s *ServerServer) server(srv servers.Server) *hubv1.Server {
 			if j := x.Join; j.Method != "" && j.Value != "" {
 				st.Join = &hubv1.ServerJoin{Method: j.Method, Value: j.Value, Hint: j.Hint}
 			}
+			counts, known := teamCounts(o)
 			for _, t := range x.Teams {
-				st.Teams = append(st.Teams, &hubv1.TeamScore{Name: t.Name, Color: t.Color, Score: t.Score})
+				ts := &hubv1.TeamScore{Name: t.Name, Color: t.Color, Score: t.Score}
+				if known {
+					ts.Players = proto.Int32(counts[strings.ToLower(t.TeamKey())])
+				}
+				st.Teams = append(st.Teams, ts)
 			}
 		}
 	}
 	p.Status = st
 	return p
+}
+
+// teamCounts are the players on each team at the last poll, by the team's key in lower case; known
+// is false when the hub can't tell: the server's players aren't read, or players are on but none
+// carries a team (a game that doesn't say).
+func teamCounts(o servers.Observation) (counts map[string]int32, known bool) {
+	if !slices.Contains(o.Capabilities, drivers.CapPlayers) {
+		return nil, false
+	}
+	counts = map[string]int32{}
+	for _, p := range o.Players {
+		if p.Team != "" {
+			known = true
+			counts[strings.ToLower(p.Team)]++
+		}
+	}
+	return counts, known || len(o.Players) == 0
 }
 
 // requireMemberOrScope admits a logged-in member (the owner is one) or an app whose token carries

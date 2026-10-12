@@ -23,6 +23,10 @@
 # (2223), the game's port 27015 (TCP for RCON, UDP to play) on 127.0.0.1:$GAME_VM_GAME_PORT (27115),
 # and the VM reaches the log route on the host at 10.0.2.2:$GAME_VM_LOG_PORT (18091). The data disk
 # is a 100 GiB sparse file; a full install fills about 60 GiB of it.
+#
+# With $GAME_VM_PUBLISHER_TOKEN set (a real Game Server Login Token; the server refuses a made-up
+# one), push gives it to the game, and drill-full checks that neither it nor the RCON password
+# reaches the game's journal once the game answers (#170).
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
@@ -156,7 +160,20 @@ check() {
 push() {
   secrets
   tool push --ssh "127.0.0.1:$port" --key "$key" --rcon-password "$(cat "$dir/rcon")" \
-    --feed "http://10.0.2.2:$log_port/api/ingest/log/$(cat "$dir/token")"
+    --feed "http://10.0.2.2:$log_port/api/ingest/log/$(cat "$dir/token")" \
+    --publisher-token "${GAME_VM_PUBLISHER_TOKEN:-}"
+}
+
+# quiet checks the game's journal holds neither the login token nor the RCON password (#170):
+# the hub's pre.sh masks them before the server prints its command line.
+quiet() {
+  local journal
+  journal="$(vm_ssh gravel 'XDG_RUNTIME_DIR=/run/user/1100 journalctl --user -u cs2 --no-pager')"
+  grep -q 'sv_setsteamaccount \[redacted\]' <<<"$journal" || die "the journal shows no masked login token"
+  if grep -qF -e "$(cat "$dir/rcon")" -e "${GAME_VM_PUBLISHER_TOKEN:-unset-token}" <<<"$journal"; then
+    die "the game's journal holds the login token or the RCON password"
+  fi
+  log "the game's journal holds neither the login token nor the RCON password"
 }
 
 # started waits for the container (the image pull is a few hundred MB) and SteamCMD's first lines,
@@ -229,6 +246,7 @@ case "$cmd" in
     t=$SECONDS
     watch
     log "the game answered and pushed its log: $((SECONDS - t)) s after it started"
+    if [[ -n "${GAME_VM_PUBLISHER_TOKEN:-}" ]]; then quiet; fi
     t=$SECONDS
     stop; boot; check
     # The environment file and the install are on the volume: the new instance starts the game

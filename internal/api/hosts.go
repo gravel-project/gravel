@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"strconv"
 	"strings"
+	"time"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -106,6 +107,40 @@ func (s *HostServer) SetServerHostDesired(ctx context.Context, req *connect.Requ
 		return nil, err
 	}
 	return connect.NewResponse(&hubv1.SetServerHostDesiredResponse{Host: h, AuditId: id}), nil
+}
+
+// SetServerHostExpectation says how many players a host should expect until when (#172).
+func (s *HostServer) SetServerHostExpectation(ctx context.Context, req *connect.Request[hubv1.SetServerHostExpectationRequest]) (*connect.Response[hubv1.SetServerHostExpectationResponse], error) {
+	m := req.Msg
+	if err := s.mod.requireModerator(ctx, m.GetOnBehalfOf()); err != nil {
+		return nil, err
+	}
+	var until time.Time
+	switch {
+	case m.GetPlayers() < 0:
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("players is 0 (clear) or more"))
+	case m.GetPlayers() > 0 && !m.GetUntil().IsValid():
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("until is required with players"))
+	case m.GetPlayers() > 0:
+		until = m.GetUntil().AsTime()
+	}
+	var ob *drivers.Identity
+	if o := m.GetOnBehalfOf(); o != nil {
+		ob = &drivers.Identity{Provider: o.GetProvider(), Subject: o.GetSubject()}
+	}
+	who, err := actor(ctx, ob)
+	if err != nil {
+		return nil, err
+	}
+	id, _, err := s.hosts.SetExpectation(ctx, who, m.GetServerId(), int(m.GetPlayers()), until, m.GetReason())
+	if err != nil {
+		return nil, s.mapError(ctx, err)
+	}
+	h, err := s.host(ctx, m.GetServerId())
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&hubv1.SetServerHostExpectationResponse{Host: h, AuditId: id}), nil
 }
 
 // ResizeServerHost moves a running host to another size.
@@ -227,6 +262,9 @@ func hostMessage(v servers.HostView) *hubv1.ServerHost {
 	}
 	if !v.LastResizeAt.IsZero() {
 		h.LastResizeAt = timestamppb.New(v.LastResizeAt)
+	}
+	if v.ExpectedPlayers > 0 {
+		h.ExpectedPlayers, h.ExpectedUntil, h.ExpectedReason = int32(v.ExpectedPlayers), timestamppb.New(v.ExpectedUntil), v.ExpectedReason //nolint:gosec // a player count
 	}
 	if !v.StateSince.IsZero() {
 		h.Since = timestamppb.New(v.StateSince)

@@ -301,7 +301,8 @@ func TestMemberTokenWithoutTheInterceptorFailsClosed(t *testing.T) {
 func TestEveryProcedureIsClassifiedForMemberTokens(t *testing.T) {
 	refused := []string{
 		hubv1connect.IdentityServiceUnlinkIdentityProcedure, hubv1connect.IdentityServiceLogoutProcedure, hubv1connect.IdentityServiceRevokeSessionsProcedure,
-		hubv1connect.IdentityServiceSetUserRoleProcedure, hubv1connect.OrganizationServiceClaimOwnershipProcedure,
+		hubv1connect.IdentityServiceSetUserRoleProcedure, hubv1connect.IdentityServiceStartProofProcedure, hubv1connect.IdentityServiceGetProofProcedure,
+		hubv1connect.OrganizationServiceClaimOwnershipProcedure,
 		hubv1connect.OrganizationServiceUpdateOrganizationSettingsProcedure, hubv1connect.StatsServiceGetBoardNameProcedure, hubv1connect.StatsServiceSetBoardNameProcedure,
 		hubv1connect.AppServicePrepareAuthorizationProcedure, hubv1connect.AppServiceAuthorizeProcedure, hubv1connect.AppServiceListAppGrantsProcedure,
 		hubv1connect.AppServiceRevokeAppGrantProcedure, hubv1connect.StatsServiceRecordParticipationProcedure,
