@@ -685,6 +685,13 @@ A step that fails keeps its state, shows a word (`error_code`: `cloud_failed`,
 host key that changes, or two instances with the server's tag, stop the host until a human looks.
 Removing a server from the manifest parks its host; destroying it is a separate request.
 
+**The VM's journal holds the publisher token.** The `joedwards32/cs2` image prints the game's
+command line when it starts, `+sv_setsteamaccount <token>` included, so the `gravel` user's
+journal on the VM (`journalctl --user -u cs2`) carries the Game Server Login Token (#170). Only
+someone with SSH to the VM can read it, and the hub's copy of the game's log never has it (CS2's
+log push doesn't carry the command line, and the log route redacts it anyway). Don't paste that
+journal anywhere; a quieter image is #170.
+
 **The environment file.** The hub pushes the game's environment file when what it renders changes
 (a setting, a rotated secret), and it reads the file's SHA-256 on the host before trusting its own
 record: at every start (a create, an unpark, a recreated instance) and on the five-minute drift
