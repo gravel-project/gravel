@@ -64,10 +64,17 @@ func RenderEnv(s ServerSpec, size string) ([]byte, error) {
 	return []byte(b.String()), nil
 }
 
-// envHash is what the hub keeps of a pushed env file.
-func envHash(b []byte) []byte {
-	h := sha256.Sum256(b)
-	return h[:]
+// filesHash is what the hub keeps of what it pushed: the SHA-256 of the environment file's and
+// each hook's SHA-256 in turn, so the host can answer it with sha256sum and never send a file.
+func filesHash(env []byte, hooks []Hook) []byte {
+	all := sha256.New()
+	sum := sha256.Sum256(env)
+	all.Write(sum[:])
+	for _, h := range hooks {
+		sum = sha256.Sum256([]byte(h.Content))
+		all.Write(sum[:])
+	}
+	return all.Sum(nil)
 }
 
 // FeedURL is the URL a server pushes its log to: the feed's origin, the path, the token.

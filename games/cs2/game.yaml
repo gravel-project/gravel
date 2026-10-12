@@ -83,6 +83,24 @@ cloudvm:
     - {size: c-2, players: 10}
     - {size: c-4, players: 20}
   players_setting: max_players
+  # Files the hub keeps in the install on the volume, rewritten with the environment and put back
+  # when edited (#170). The image's entry.sh sources pre.sh in its own shell right before it
+  # starts the server, and copies its own no-op only when the file is absent.
+  hooks:
+    - path: pre.sh
+      content: |
+        #!/bin/bash
+        # gravel's pre-start hook for Counter-Strike 2. The hub writes this file and puts it back
+        # when it changes; edit games/cs2/game.yaml instead.
+        #
+        # The server prints its command line, and the image passes the game server login token, the
+        # RCON password and the join password on it (+sv_setsteamaccount, +rcon_password,
+        # +sv_password). From here on everything the container prints reaches the journal through a
+        # filter that masks those three values (gravel#170). The filter is a process substitution,
+        # not a wrapper, so the image's entry.sh stays the container's first process: stop signals,
+        # the RCON quit and the unit's restarts are unchanged.
+        exec > >(exec sed -u -E 's/((sv_setsteamaccount|rcon_password|sv_password)"?[[:space:]=]+"?)[^"[:space:]]+/\1[redacted]/g') 2>&1
+        echo "gravel pre-hook: the login token and passwords are masked from here on"
   # The teams a server's card counts players on (#159); a player's team is the side the log gives
   # them, and spectators are on neither. The log carries no running score.
   teams:

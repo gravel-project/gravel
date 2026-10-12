@@ -84,6 +84,7 @@ Matchmaking · player-facing allocation · billing / payment processing · anti-
 - Login: every provider is an `identity.Provider`; Goth sits behind it. Sessions and attempts are Postgres rows with hashed tokens, no signing key. State-changing routes are POSTs with the session's CSRF token behind `http.CrossOriginProtection` (ADR-0004).
 - Secrets never in plaintext config or DB.
 - A cloud-VM server's secrets (RCON and join passwords, the feed token, a publisher token) reach its VM over SSH from the hub, never in user-data, which the cloud keeps and anything on the instance can read (ADR-0003 as built, ADR-0020 §4).
+- A file the hub puts in a game's install is a hook in the Game spec (`cloudvm.hooks`, data, no secret), pushed with the environment file and put back when it drifts; never a hand edit on the volume. CS2's `pre.sh` masks the secrets the image prints (#170).
 
 ## Open threads (don't guess at these — ask John)
 

@@ -698,16 +698,27 @@ A step that fails keeps its state, shows a word (`error_code`: `cloud_failed`,
 host key that changes, or two instances with the server's tag, stop the host until a human looks.
 Removing a server from the manifest parks its host; destroying it is a separate request.
 
-**The VM's journal holds the publisher token.** The `joedwards32/cs2` image prints the game's
-command line when it starts, `+sv_setsteamaccount <token>` included, so the `gravel` user's
-journal on the VM (`journalctl --user -u cs2`) carries the Game Server Login Token (#170). Only
-someone with SSH to the VM can read it, and the hub's copy of the game's log never has it (CS2's
-log push doesn't carry the command line, and the log route redacts it anyway). Don't paste that
-journal anywhere; a quieter image is #170.
+**The game's hooks.** A Game spec's `cloudvm.hooks` are files the hub keeps in the game's install
+on the volume (`~/<game>/<path>` on the host). They are written with the environment file, in the
+same push, and checked with it, so a hook edited or deleted on the host is put back like the
+environment file (below). A hook holds no secret: it travels in the command the hub runs over SSH,
+and all of them together are at most 32 KiB.
 
-**The environment file.** The hub pushes the game's environment file when what it renders changes
-(a setting, a rotated secret), and it reads the file's SHA-256 on the host before trusting its own
-record: at every start (a create, an unpark, a recreated instance) and on the five-minute drift
+**The VM's journal doesn't hold the secrets** (#170). The `joedwards32/cs2` image puts the Game
+Server Login Token, the RCON password and the join password on the server's command line
+(`+sv_setsteamaccount`, `+rcon_password`, `+sv_password`), and the server prints its command line
+when it starts. The image's `entry.sh` sources `pre.sh` from the install just before it starts the
+server, so Counter-Strike 2's Game spec makes `pre.sh` a hook that sends everything the container
+prints from then on through a filter that writes `[redacted]` for the three values. The filter is a
+process substitution, not a wrapper: `entry.sh` stays the container's first process, and stop
+signals, the RCON `quit` and the unit's restarts are unchanged. A server that started before its
+hook was written keeps the values in its journal until the journal rotates. The hub's copy of the
+game's log never had them (CS2's log push doesn't carry the command line, and the log route
+redacts it anyway).
+
+**The environment file.** The hub pushes the game's environment file, and its hooks, when what it
+renders changes (a setting, a rotated secret, a new hook), and it reads the files' SHA-256 on the
+host before trusting its own record: at every start (a create, an unpark, a recreated instance) and on the five-minute drift
 pass while the server runs (#169). The file lives in the runtime user's home, which is the data
 volume, so a hand edit on the host outlives a park; a file that differs, or is missing, is pushed
 again and the game restarts on it, at once while starting and when the server is empty while it

@@ -868,7 +868,7 @@ func TestRenderEnv(t *testing.T) {
 // on the image pull and podman's copy for the user namespace, was cut at remoteRunTimeout, and
 // each retry restarted the copy.
 func TestEnvScriptQueuesTheRestart(t *testing.T) {
-	script := cloudvm.EnvScript("cs2", true)
+	script := cloudvm.EnvScript("cs2", nil, true)
 	if !strings.Contains(script, "systemctl --user restart --no-block cs2.service\n") {
 		t.Errorf("the restart is not queued with --no-block:\n%s", script)
 	}
@@ -880,7 +880,7 @@ func TestEnvScriptQueuesTheRestart(t *testing.T) {
 	if !strings.Contains(script, "mv -f ~/.config/cs2/env.tmp ~/.config/cs2/env\n") {
 		t.Errorf("the file is not written in one move:\n%s", script)
 	}
-	if strings.Contains(cloudvm.EnvScript("cs2", false), "systemctl") {
+	if strings.Contains(cloudvm.EnvScript("cs2", nil, false), "systemctl") {
 		t.Error("without restart the script touches the unit")
 	}
 }
@@ -1141,8 +1141,88 @@ func TestEnvHashUnreadableWhileRunningKeepsTheGame(t *testing.T) {
 }
 
 func TestEnvHashScriptPrintsOnlyTheHash(t *testing.T) {
-	s := cloudvm.EnvHashScript("cs2")
-	if !strings.Contains(s, "sha256sum") || !strings.Contains(s, "~/.config/cs2/env") || !strings.Contains(s, "echo missing") || strings.Contains(s, "cat ") {
-		t.Errorf("script %q: the hash or \"missing\", never the file", s)
+	s := cloudvm.EnvHashScript("cs2", profile(t).Hooks)
+	if !strings.Contains(s, "sha256sum") || !strings.Contains(s, "for f in ~/.config/cs2/env ~/cs2/pre.sh; do") || !strings.Contains(s, "echo missing") || strings.Contains(s, "cat ") {
+		t.Errorf("script %q: the hashes or \"missing\", never the files", s)
+	}
+}
+
+// #170: the game's hooks travel with the environment file, in the script itself (they hold no
+// secret), each written in one move into the game's directory on the volume.
+func TestEnvScriptWritesTheHooks(t *testing.T) {
+	hooks := []cloudvm.Hook{{Path: "pre.sh", Content: "echo one\n"}, {Path: "cfg/x.cfg", Content: strings.Repeat("y", 200)}}
+	script := cloudvm.EnvScript("cs2", hooks, true)
+	for _, want := range []string{"mkdir -p ~/cs2\nbase64 -d > ~/cs2/pre.sh.tmp <<'GRAVEL_HOOK'\n", "mv -f ~/cs2/pre.sh.tmp ~/cs2/pre.sh\n",
+		"mkdir -p ~/cs2/cfg\n", "mv -f ~/cs2/cfg/x.cfg.tmp ~/cs2/cfg/x.cfg\n"} {
+		if !strings.Contains(script, want) {
+			t.Errorf("the script lacks %q:\n%s", want, script)
+		}
+	}
+	if i, j := strings.Index(script, "/env\n"), strings.Index(script, "pre.sh.tmp"); i < 0 || j < i || strings.Index(script, "systemctl") < j {
+		t.Errorf("the hooks are written after the environment and before the restart:\n%s", script)
+	}
+	for _, line := range strings.Split(script, "\n") {
+		if len(line) > 76 {
+			t.Errorf("a line over 76 characters: %q", line)
+		}
+	}
+	// The script decodes on a real shell to the hooks' exact bytes.
+	if _, err := exec.LookPath("bash"); err != nil {
+		t.Skip("no bash")
+	}
+	home := t.TempDir()
+	cmd := exec.CommandContext(t.Context(), "bash", "-c", strings.ReplaceAll(script, "systemctl", "true")) // no user manager here
+	cmd.Env = []string{"HOME=" + home, "PATH=" + os.Getenv("PATH")}
+	cmd.Stdin = strings.NewReader("A=1\n")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("%v: %s", err, out)
+	}
+	for _, h := range hooks {
+		b, err := os.ReadFile(filepath.Join(home, "cs2", h.Path))
+		if err != nil || string(b) != h.Content {
+			t.Errorf("%s: %q %v", h.Path, b, err)
+		}
+	}
+	if b, _ := os.ReadFile(filepath.Join(home, ".config", "cs2", "env")); string(b) != "A=1\n" {
+		t.Errorf("env %q", b)
+	}
+}
+
+// #170 with #169: a hook deleted or edited on the volume is a difference like the environment's,
+// pushed again at a start, and while running at the drift pass.
+func TestHookDriftIsPushedAgain(t *testing.T) {
+	r := newRig(t)
+	h := r.up()
+	want, ok := r.remote.FileOn(h.InstanceAddress, "~/cs2/pre.sh")
+	if !ok || !strings.Contains(want, "[redacted]") {
+		t.Fatalf("the first start didn't write pre.sh: %q", want)
+	}
+	edited := want + "echo hand edit\n"
+	r.remote.SetFile(h.InstanceAddress, "~/cs2/pre.sh", &edited)
+	pushes := envPushes(r.remote)
+	r.advance(cloudvm.DriftEvery)
+	if err := r.tick(); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := r.remote.FileOn(h.InstanceAddress, "~/cs2/pre.sh"); got != want || envPushes(r.remote)-pushes != 1 || r.driftEvents() != 1 {
+		t.Errorf("edited hook: %d pushes, %d drift events, file:\n%s", envPushes(r.remote)-pushes, r.driftEvents(), got)
+	}
+
+	// Deleted on the volume while parked: the unpark puts it back.
+	ctx := context.Background()
+	if _, err := r.m.SetDesired(ctx, serverID, cloudvm.DesiredParked, 0); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.tick(); err != nil {
+		t.Fatal(err)
+	}
+	r.remote.SetFile(h.InstanceAddress, "~/cs2/pre.sh", nil)
+	if _, err := r.m.SetDesired(ctx, serverID, cloudvm.DesiredRunning, 0); err != nil {
+		t.Fatal(err)
+	}
+	r.advance(time.Minute)
+	got := r.up()
+	if f, ok := r.remote.FileOn(got.InstanceAddress, "~/cs2/pre.sh"); !ok || f != want {
+		t.Errorf("a deleted hook wasn't put back at the unpark: %v", ok)
 	}
 }
