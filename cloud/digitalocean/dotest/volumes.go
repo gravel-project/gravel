@@ -79,6 +79,21 @@ func (s *Server) createVolume(w http.ResponseWriter, r *http.Request) {
 	case !s.validTags(w, req.Tags):
 		return
 	}
+	// snapshot_id is always sent (godo has no omitempty on it); "" is a volume made empty.
+	if req.SnapshotID != "" {
+		snap, ok := s.snapshots[req.SnapshotID]
+		switch {
+		case !ok:
+			apiError(w, http.StatusNotFound, "not_found", "snapshot not found")
+			return
+		case !slices.Contains(snap.Regions, req.Region):
+			unprocessable(w, fmt.Sprintf("the snapshot is in %v; a volume is made from a snapshot in the snapshot's region", snap.Regions))
+			return
+		case req.SizeGigaBytes < int64(snap.MinDiskSize):
+			unprocessable(w, fmt.Sprintf("size_gigabytes must be at least %d, the size of the volume the snapshot was taken of", snap.MinDiskSize))
+			return
+		}
+	}
 	for _, t := range req.Tags {
 		s.tags[t] = true
 	}
@@ -88,6 +103,9 @@ func (s *Server) createVolume(w http.ResponseWriter, r *http.Request) {
 		FilesystemType: req.FilesystemType, FilesystemLabel: req.FilesystemLabel, Tags: nonNil(slices.Clone(req.Tags)),
 	}
 	s.volumes[v.ID] = v
+	if req.SnapshotID != "" {
+		s.volumeSource[v.ID] = req.SnapshotID
+	}
 	writeJSON(w, http.StatusCreated, map[string]any{"volume": v})
 }
 
@@ -102,6 +120,7 @@ func (s *Server) deleteVolume(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	delete(s.volumes, v.ID)
+	delete(s.volumeSource, v.ID)
 	w.WriteHeader(http.StatusNoContent)
 }
 

@@ -16,6 +16,15 @@
 //   - Volumes are created unformatted: the instance's cloud-init formats one once, on first
 //     boot. The instance sees a volume at /dev/disk/by-id/scsi-0DO_Volume_<name>. Volume names
 //     are lowercase letters, digits and hyphens, at most 64 characters, unique per region.
+//   - A volume snapshot is made through its volume and answered at once (201, no action), and
+//     a volume can be made from it straight away. It is kept in the volume's region, outlives
+//     the volume, and makes volumes only in that region and at least as big as the volume it
+//     was taken of (its min_disk_size; size_gigabytes is the data it holds, fractional). Names
+//     need not be unique. Volume snapshots sit under the token's custom scope
+//     block_storage_snapshot (create, read, delete), not snapshot, which is the Droplets' (the
+//     live run of 2026-10-12, gravel#166), so they are read and deleted under
+//     /v2/volumes/snapshots/, which that scope grants. The rest is from the API reference and
+//     the product documentation on 2026-10-12; the live conformance run checks it.
 //   - A reserved IP carries inbound traffic only: a Droplet's outbound traffic leaves from its
 //     own address, which is the one to pin in another firewall. Reserved IPs take no tags, so
 //     Addresses filtered by tag finds an address through the Droplet it is assigned to.

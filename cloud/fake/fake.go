@@ -2,9 +2,10 @@
 // cloud-VM driver (ADR-0003, ADR-0020). It keeps DigitalOcean's rules where a caller could
 // otherwise get away with something a real cloud refuses: a resize needs a stopped instance and
 // may never shrink the root disk or leave its family, names have DigitalOcean's shape, two
-// volumes in a region may not share a name, and two instances may (so a caller that wants
-// idempotency has to find what exists itself). It passes the conformance suite in
-// cloud/cloudtest.
+// volumes in a region may not share a name, and two instances or two snapshots may (so a caller
+// that wants idempotency has to find what exists itself), and a volume is made from a snapshot
+// only in the snapshot's region and never smaller than the volume it was taken of. It passes the
+// conformance suite in cloud/cloudtest.
 //
 // Asynchronous calls return an operation that completes on the fake's Clock after a configurable
 // duration (none by default). A test injects faults by method name: a call that fails, one that
@@ -43,6 +44,7 @@ type Provider struct {
 	addressN  int
 	instances map[string]*instance
 	volumes   map[string]*volume
+	snapshots map[string]*snapshot
 	firewalls map[string]*firewall
 	addresses map[string]*address // by IP
 	keys      []sshKey
@@ -66,6 +68,12 @@ type instance struct {
 type volume struct {
 	seq int
 	cloud.Volume
+	fromSnapshot string // the id of the snapshot it was made from, if any
+}
+
+type snapshot struct {
+	seq int
+	cloud.Snapshot
 }
 
 type firewall struct {
@@ -170,6 +178,7 @@ func New(opts ...Option) *Provider {
 		seq:       map[string]int{},
 		instances: map[string]*instance{},
 		volumes:   map[string]*volume{},
+		snapshots: map[string]*snapshot{},
 		firewalls: map[string]*firewall{},
 		addresses: map[string]*address{},
 		ops:       map[string]*operation{},
@@ -205,7 +214,9 @@ func (p *Provider) RateLimitNext(method string) {
 
 // HangNext makes the next operation method starts never complete: the call itself succeeds and
 // the resource stays as it was (an instance being created stays pending), and Wait returns the
-// context's error.
+// context's error. CreateVolumeSnapshot, which a cloud answers without an operation, hangs
+// itself: the next call blocks until its context ends, makes nothing and returns the context's
+// error.
 func (p *Provider) HangNext(method string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -250,22 +261,22 @@ func (p *Provider) StopModes() []bool {
 	return slices.Clone(p.stopModes)
 }
 
-// Snapshot is how many of each resource the fake holds, for asserting that a re-run made
-// nothing new.
-type Snapshot struct {
-	Instances, Volumes, Firewalls, Addresses, SSHKeys int
+// Counts is how many of each resource the fake holds, for asserting that a re-run made nothing
+// new.
+type Counts struct {
+	Instances, Volumes, Snapshots, Firewalls, Addresses, SSHKeys int
 	// PendingOperations are operations not complete yet, the hung ones included.
 	PendingOperations int
 }
 
-// Snapshot counts the fake's resources after completing every operation that is due.
-func (p *Provider) Snapshot() Snapshot {
+// Counts counts the fake's resources after completing every operation that is due.
+func (p *Provider) Counts() Counts {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.settleLocked()
-	s := Snapshot{
-		Instances: len(p.instances), Volumes: len(p.volumes), Firewalls: len(p.firewalls),
-		Addresses: len(p.addresses), SSHKeys: len(p.keys),
+	s := Counts{
+		Instances: len(p.instances), Volumes: len(p.volumes), Snapshots: len(p.snapshots),
+		Firewalls: len(p.firewalls), Addresses: len(p.addresses), SSHKeys: len(p.keys),
 	}
 	for _, o := range p.ops {
 		if !o.done {
@@ -569,8 +580,8 @@ func (p *Provider) Volumes(ctx context.Context, f cloud.Filter) ([]cloud.Volume,
 	return out, nil
 }
 
-// CreateVolume makes a detached volume. Its name must be unique in its region, as DigitalOcean
-// requires.
+// CreateVolume makes a detached volume, empty or from a snapshot (SourceSnapshot says which).
+// Its name must be unique in its region, as DigitalOcean requires.
 func (p *Provider) CreateVolume(ctx context.Context, spec cloud.VolumeSpec) (cloud.Volume, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -579,6 +590,30 @@ func (p *Provider) CreateVolume(ctx context.Context, spec cloud.VolumeSpec) (clo
 	}
 	if err := validName("volume", spec.Name); err != nil {
 		return cloud.Volume{}, err
+	}
+	var from string
+	if ref := spec.FromSnapshot; ref != nil {
+		if err := ref.Check(); err != nil {
+			return cloud.Volume{}, err
+		}
+		var snap cloud.Snapshot
+		if ref.ID != "" {
+			s, ok := p.snapshots[ref.ID]
+			if !ok {
+				return cloud.Volume{}, fmt.Errorf("fake: volume %q from snapshot %q: %w", spec.Name, ref.ID, cloud.ErrNotFound)
+			}
+			snap = s.Snapshot
+		} else {
+			s, err := p.findSnapshotLocked(ref.Name, spec.Region)
+			if err != nil {
+				return cloud.Volume{}, fmt.Errorf("fake: volume %q: %w", spec.Name, err)
+			}
+			snap = s
+		}
+		if err := snap.Fits(spec); err != nil {
+			return cloud.Volume{}, err
+		}
+		from = snap.ID
 	}
 	if err := p.regionLocked(spec.Region); err != nil {
 		return cloud.Volume{}, err
@@ -594,7 +629,7 @@ func (p *Provider) CreateVolume(ctx context.Context, spec cloud.VolumeSpec) (clo
 			return cloud.Volume{}, fmt.Errorf("fake: volume %q already exists in %s (%s): %w", spec.Name, spec.Region, v.ID, cloud.ErrInvalid)
 		}
 	}
-	v := &volume{seq: p.nextSeqLocked("v")}
+	v := &volume{seq: p.nextSeqLocked("v"), fromSnapshot: from}
 	v.Volume = cloud.Volume{
 		ID: "v-" + strconv.Itoa(v.seq), Name: spec.Name, Region: spec.Region, SizeGiB: spec.SizeGiB,
 		Tags: dedupe(spec.Tags),
@@ -618,6 +653,132 @@ func (p *Provider) DeleteVolume(ctx context.Context, id string) error {
 		return fmt.Errorf("fake: volume %s is attached to %s: %w", id, v.InstanceIDs[0], cloud.ErrInvalid)
 	}
 	delete(p.volumes, id)
+	return nil
+}
+
+// SourceSnapshot is the id of the snapshot a volume was made from: "" for a volume made empty or
+// one the fake does not have.
+func (p *Provider) SourceSnapshot(volumeID string) string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if v, ok := p.volumes[volumeID]; ok {
+		return v.fromSnapshot
+	}
+	return ""
+}
+
+// --- volume snapshots ---
+
+// CreateVolumeSnapshot copies a volume, attached or not, into a snapshot in its region. The fake
+// holds no data, so a snapshot is as big as its volume and a volume made from it is at least
+// that big. Names need not be unique, as on DigitalOcean. HangNext applies to it.
+func (p *Provider) CreateVolumeSnapshot(ctx context.Context, volumeID, name string, tags []string) (cloud.Snapshot, error) {
+	const method = "CreateVolumeSnapshot"
+	p.mu.Lock()
+	if err := p.beginLocked(ctx, method); err != nil {
+		p.mu.Unlock()
+		return cloud.Snapshot{}, err
+	}
+	if p.hang[method] > 0 {
+		p.hang[method]--
+		p.mu.Unlock()
+		<-ctx.Done()
+		return cloud.Snapshot{}, ctx.Err()
+	}
+	defer p.mu.Unlock()
+	v, ok := p.volumes[volumeID]
+	if !ok {
+		return cloud.Snapshot{}, fmt.Errorf("fake: snapshot of volume %q: %w", volumeID, cloud.ErrNotFound)
+	}
+	if strings.TrimSpace(name) == "" {
+		return cloud.Snapshot{}, fmt.Errorf("fake: snapshot of volume %s without a name: %w", volumeID, cloud.ErrInvalid)
+	}
+	if err := validTags(tags); err != nil {
+		return cloud.Snapshot{}, err
+	}
+	s := &snapshot{seq: p.nextSeqLocked("snap")}
+	s.Snapshot = cloud.Snapshot{
+		ID: "snap-" + strconv.Itoa(s.seq), Name: name, Region: v.Region,
+		SizeGiB: float64(v.SizeGiB), MinVolumeGiB: v.SizeGiB, CreatedAt: p.clock.Now(), Tags: dedupe(tags),
+	}
+	p.snapshots[s.ID] = s
+	return cloneSnapshot(s.Snapshot), nil
+}
+
+// GetVolumeSnapshot reads one snapshot.
+func (p *Provider) GetVolumeSnapshot(ctx context.Context, id string) (cloud.Snapshot, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if err := p.beginLocked(ctx, "GetVolumeSnapshot"); err != nil {
+		return cloud.Snapshot{}, err
+	}
+	s, ok := p.snapshots[id]
+	if !ok {
+		return cloud.Snapshot{}, fmt.Errorf("fake: snapshot %q: %w", id, cloud.ErrNotFound)
+	}
+	return cloneSnapshot(s.Snapshot), nil
+}
+
+// FindVolumeSnapshot is the one snapshot named name in region.
+func (p *Provider) FindVolumeSnapshot(ctx context.Context, name, region string) (cloud.Snapshot, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if err := p.beginLocked(ctx, "FindVolumeSnapshot"); err != nil {
+		return cloud.Snapshot{}, err
+	}
+	s, err := p.findSnapshotLocked(name, region)
+	if err != nil {
+		return cloud.Snapshot{}, fmt.Errorf("fake: %w", err)
+	}
+	return s, nil
+}
+
+func (p *Provider) findSnapshotLocked(name, region string) (cloud.Snapshot, error) {
+	var found []string
+	var out cloud.Snapshot
+	for _, s := range sortedBySeq(p.snapshots, func(s *snapshot) int { return s.seq }) {
+		if s.Name == name && s.Region == region {
+			found = append(found, s.ID)
+			out = cloneSnapshot(s.Snapshot)
+		}
+	}
+	switch len(found) {
+	case 0:
+		return cloud.Snapshot{}, fmt.Errorf("snapshot %q in %s: %w", name, region, cloud.ErrNotFound)
+	case 1:
+		return out, nil
+	}
+	return cloud.Snapshot{}, fmt.Errorf("snapshot %q in %s: %w: %d snapshots have the name (%s); name one by its id",
+		name, region, cloud.ErrInvalid, len(found), strings.Join(found, ", "))
+}
+
+// ListVolumeSnapshots lists the snapshots matching f, oldest first.
+func (p *Provider) ListVolumeSnapshots(ctx context.Context, f cloud.Filter) ([]cloud.Snapshot, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if err := p.beginLocked(ctx, "ListVolumeSnapshots"); err != nil {
+		return nil, err
+	}
+	var out []cloud.Snapshot
+	for _, s := range sortedBySeq(p.snapshots, func(s *snapshot) int { return s.seq }) {
+		if matches(f, s.Name, s.Tags) {
+			out = append(out, cloneSnapshot(s.Snapshot))
+		}
+	}
+	return out, nil
+}
+
+// DeleteVolumeSnapshot destroys a snapshot; the volumes made from it keep their data.
+func (p *Provider) DeleteVolumeSnapshot(ctx context.Context, id string) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if err := p.beginLocked(ctx, "DeleteVolumeSnapshot"); err != nil {
+		return err
+	}
+	if _, ok := p.snapshots[id]; !ok {
+		return fmt.Errorf("fake: snapshot %q: %w", id, cloud.ErrNotFound)
+	}
+	delete(p.snapshots, id)
 	return nil
 }
 
@@ -1133,6 +1294,11 @@ func cloneVolume(v cloud.Volume) cloud.Volume {
 	v.InstanceIDs = slices.Clone(v.InstanceIDs)
 	v.Tags = slices.Clone(v.Tags)
 	return v
+}
+
+func cloneSnapshot(s cloud.Snapshot) cloud.Snapshot {
+	s.Tags = slices.Clone(s.Tags)
+	return s
 }
 
 func cloneSize(s cloud.Size) cloud.Size {

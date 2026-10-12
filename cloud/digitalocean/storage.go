@@ -35,14 +35,24 @@ func (p *Provider) Volumes(ctx context.Context, f cloud.Filter) ([]cloud.Volume,
 }
 
 // CreateVolume creates an unformatted volume (no filesystem type: the instance's cloud-init
-// formats it once) and puts it in the configured project. When the project assignment fails
-// the volume exists anyway and comes back with the error.
+// formats it once), or one from a volume snapshot, and puts it in the configured project. The
+// snapshot is read first, so a refusal (another region, too small a volume, no such snapshot)
+// says why and costs no create. When the project assignment fails the volume exists anyway and
+// comes back with the error.
 func (p *Provider) CreateVolume(ctx context.Context, spec cloud.VolumeSpec) (cloud.Volume, error) {
 	if !volumeNameRE.MatchString(spec.Name) {
 		return cloud.Volume{}, fmt.Errorf("digitalocean: create volume %q: %w: a name is lowercase letters, digits and hyphens, starts with a letter, at most 64 characters", spec.Name, cloud.ErrInvalid)
 	}
 	if spec.Region == "" || spec.SizeGiB < 1 {
 		return cloud.Volume{}, fmt.Errorf("digitalocean: create volume %s: %w: a region and a size are required", spec.Name, cloud.ErrInvalid)
+	}
+	var snapshotID string
+	if spec.FromSnapshot != nil {
+		id, err := p.sourceSnapshot(ctx, spec)
+		if err != nil {
+			return cloud.Volume{}, err
+		}
+		snapshotID = id
 	}
 	project, err := p.projectID(ctx)
 	if err != nil {
@@ -52,6 +62,7 @@ func (p *Provider) CreateVolume(ctx context.Context, spec cloud.VolumeSpec) (clo
 		Region:        spec.Region,
 		Name:          spec.Name,
 		SizeGigaBytes: int64(spec.SizeGiB),
+		SnapshotID:    snapshotID,
 		Tags:          spec.Tags,
 	})
 	if err != nil {

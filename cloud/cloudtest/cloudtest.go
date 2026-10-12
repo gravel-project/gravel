@@ -1,13 +1,14 @@
 // Package cloudtest is the conformance suite every cloud.Provider passes (ADR-0003): the fake in
 // CI, the DigitalOcean provider against its API emulator in CI and against the real API with
 // `-tags live`. A provider passes when the lifecycle, the filters that make a half-done run
-// findable again, the idempotent firewall, volumes, addresses and its own CanResize matrix all
-// behave as the interface documents.
+// findable again, the idempotent firewall, volumes, volume snapshots and the volumes made from
+// them, addresses and its own CanResize matrix all behave as the interface documents.
 //
 // Against a live cloud the suite costs money, so it shares one instance and one volume across
 // the lifecycle steps (create, power and resize, detach and attach, addresses, delete), makes at
 // most one more instance (the duplicate-name check, which Options.SkipDuplicateInstance drops),
-// and deletes everything it made by tag at the end, even after a failure.
+// and deletes everything it made by tag at the end, even after a failure. The snapshot step makes
+// its own small volumes, since it needs one detached and deletes the one it snapshots.
 package cloudtest
 
 import (
@@ -115,6 +116,7 @@ func Run(t *testing.T, newProvider func(t *testing.T) cloud.Provider, opts Optio
 	t.Run("canresize", s.canResize)
 	t.Run("firewall", s.firewall)
 	t.Run("half-done", s.halfDone)
+	t.Run("snapshot", s.snapshot)
 	t.Run("lifecycle", func(t *testing.T) {
 		if !t.Run("create", s.create) {
 			t.Skip("cloudtest: the instance was not created; the rest of the lifecycle needs it")
@@ -323,6 +325,198 @@ func (s *suite) halfDone(t *testing.T) {
 	}
 	if len(insts) != 0 {
 		t.Errorf("Instances(name %q) = %+v, want none: the run made no instance", name, insts)
+	}
+}
+
+// snapshot takes a snapshot of a detached volume and makes volumes from it, by id and by name in
+// the region, then checks every refusal CreateVolume documents: another region, a volume smaller
+// than the snapshot's MinVolumeGiB, a reference with both or neither field, and a snapshot that
+// does not exist. Two snapshots sharing a name make the name ambiguous. The snapshot outlives the
+// volume it was taken of, which is what lets a lost volume be rebuilt from it. Against a live
+// cloud it costs two 2 GiB volumes, one 3 GiB volume and two snapshots for a few minutes.
+func (s *suite) snapshot(t *testing.T) {
+	volume := func(name string, size int, from *cloud.SnapshotRef) (cloud.Volume, error) {
+		v, err := s.p.CreateVolume(s.ctx(t), cloud.VolumeSpec{
+			Name: s.name(name), Region: s.opts.Region, SizeGiB: size, Tags: []string{s.opts.Tag}, FromSnapshot: from,
+		})
+		if err == nil && !s.opts.Keep {
+			t.Cleanup(func() { s.deleteVolume(t, v.ID) })
+		}
+		return v, err
+	}
+	src, err := volume("snap-src", 2, nil)
+	if err != nil {
+		t.Fatalf("CreateVolume: %v", err)
+	}
+	snapName := s.name("snap")
+	snap, err := s.p.CreateVolumeSnapshot(s.ctx(t), src.ID, snapName, []string{s.opts.Tag})
+	if err != nil {
+		t.Fatalf("CreateVolumeSnapshot: %v", err)
+	}
+	if !s.opts.Keep {
+		t.Cleanup(func() { s.deleteSnapshot(t, snap.ID) })
+	}
+	if snap.ID == "" || snap.Name != snapName || snap.Region != s.opts.Region || snap.SizeGiB < 0 || snap.CreatedAt.IsZero() {
+		t.Errorf("CreateVolumeSnapshot = %+v, want an id, the name %q, the region %s, a size and a creation time", snap, snapName, s.opts.Region)
+	}
+	if snap.MinVolumeGiB != src.SizeGiB {
+		t.Errorf("snapshot MinVolumeGiB = %d, want the source volume's %d GiB", snap.MinVolumeGiB, src.SizeGiB)
+	}
+	if !slices.Contains(snap.Tags, s.opts.Tag) {
+		t.Errorf("snapshot tags = %v, missing %q", snap.Tags, s.opts.Tag)
+	}
+
+	got, err := s.p.GetVolumeSnapshot(s.ctx(t), snap.ID)
+	if err != nil {
+		t.Fatalf("GetVolumeSnapshot: %v", err)
+	}
+	if got.ID != snap.ID || got.Name != snapName || got.Region != s.opts.Region || got.MinVolumeGiB != snap.MinVolumeGiB {
+		t.Errorf("GetVolumeSnapshot = %+v, want %+v", got, snap)
+	}
+	if found, err := s.p.FindVolumeSnapshot(s.ctx(t), snapName, s.opts.Region); err != nil || found.ID != snap.ID {
+		t.Errorf("FindVolumeSnapshot(%q, %s) = %+v, %v, want %s", snapName, s.opts.Region, found, err, snap.ID)
+	}
+	if _, err := s.p.FindVolumeSnapshot(s.ctx(t), s.name("snap-none"), s.opts.Region); !errors.Is(err, cloud.ErrNotFound) {
+		t.Errorf("FindVolumeSnapshot of a name nothing has = %v, want an error wrapping cloud.ErrNotFound", err)
+	}
+	for _, f := range []cloud.Filter{{Tag: s.opts.Tag}, {Name: snapName}, {Tag: s.opts.Tag, Name: snapName}} {
+		list, err := s.p.ListVolumeSnapshots(s.ctx(t), f)
+		if err != nil {
+			t.Fatalf("ListVolumeSnapshots(%+v): %v", f, err)
+		}
+		if n := len(slices.DeleteFunc(list, func(x cloud.Snapshot) bool { return x.ID != snap.ID })); n != 1 {
+			t.Errorf("ListVolumeSnapshots(%+v) lists %s %d times, want once", f, snap.ID, n)
+		}
+	}
+
+	byID, err := volume("snap-id", src.SizeGiB, &cloud.SnapshotRef{ID: snap.ID})
+	if err != nil {
+		t.Fatalf("CreateVolume from the snapshot by id: %v", err)
+	}
+	if byID.Region != s.opts.Region || byID.SizeGiB != src.SizeGiB || len(byID.InstanceIDs) != 0 {
+		t.Errorf("CreateVolume from the snapshot by id = %+v, want %d GiB in %s, detached", byID, src.SizeGiB, s.opts.Region)
+	}
+	byName, err := volume("snap-name", src.SizeGiB+1, &cloud.SnapshotRef{Name: snapName})
+	if err != nil {
+		t.Fatalf("CreateVolume from the snapshot by name: %v", err)
+	}
+	if byName.SizeGiB != src.SizeGiB+1 {
+		t.Errorf("CreateVolume from the snapshot by name = %+v, want %d GiB: a volume may be bigger than its snapshot", byName, src.SizeGiB+1)
+	}
+
+	other := s.otherRegion(t)
+	for _, c := range []struct {
+		what   string
+		region string
+		size   int
+		ref    cloud.SnapshotRef
+		want   error
+	}{
+		{"smaller than the snapshot's MinVolumeGiB", s.opts.Region, snap.MinVolumeGiB - 1, cloud.SnapshotRef{ID: snap.ID}, cloud.ErrInvalid},
+		{"smaller, by name", s.opts.Region, snap.MinVolumeGiB - 1, cloud.SnapshotRef{Name: snapName}, cloud.ErrInvalid},
+		{"both an id and a name", s.opts.Region, src.SizeGiB, cloud.SnapshotRef{ID: snap.ID, Name: snapName}, cloud.ErrInvalid},
+		{"neither an id nor a name", s.opts.Region, src.SizeGiB, cloud.SnapshotRef{}, cloud.ErrInvalid},
+		{"another region", other, src.SizeGiB, cloud.SnapshotRef{ID: snap.ID}, cloud.ErrInvalid},
+		{"a snapshot id nothing has", s.opts.Region, src.SizeGiB, cloud.SnapshotRef{ID: "does-not-exist"}, cloud.ErrNotFound},
+		{"a snapshot name nothing has", s.opts.Region, src.SizeGiB, cloud.SnapshotRef{Name: s.name("snap-none")}, cloud.ErrNotFound},
+	} {
+		if c.region == "" || c.size < 1 {
+			t.Logf("skipped the refusal of %s: no such region or size here", c.what)
+			continue
+		}
+		ref := c.ref
+		v, err := s.p.CreateVolume(s.ctx(t), cloud.VolumeSpec{
+			Name: s.name("snap-bad"), Region: c.region, SizeGiB: c.size, Tags: []string{s.opts.Tag}, FromSnapshot: &ref,
+		})
+		if err == nil {
+			s.deleteVolume(t, v.ID)
+		}
+		if !errors.Is(err, c.want) {
+			t.Errorf("CreateVolume from %s = %v, want an error wrapping %v", c.what, err, c.want)
+		}
+	}
+
+	// A second snapshot with the same name makes the name ambiguous; its id still works.
+	dup, err := s.p.CreateVolumeSnapshot(s.ctx(t), src.ID, snapName, []string{s.opts.Tag})
+	if err != nil {
+		t.Fatalf("CreateVolumeSnapshot with a taken name: %v", err)
+	}
+	if !s.opts.Keep {
+		t.Cleanup(func() { s.deleteSnapshot(t, dup.ID) })
+	}
+	if dup.ID == snap.ID {
+		t.Fatalf("the second snapshot has the first one's id %s", dup.ID)
+	}
+	if _, err := s.p.FindVolumeSnapshot(s.ctx(t), snapName, s.opts.Region); !errors.Is(err, cloud.ErrInvalid) {
+		t.Errorf("FindVolumeSnapshot of a name two snapshots share = %v, want an error wrapping cloud.ErrInvalid", err)
+	}
+	if _, err := volume("snap-amb", src.SizeGiB, &cloud.SnapshotRef{Name: snapName}); !errors.Is(err, cloud.ErrInvalid) {
+		t.Errorf("CreateVolume from a name two snapshots share = %v, want an error wrapping cloud.ErrInvalid", err)
+	}
+	if err := s.p.DeleteVolumeSnapshot(s.ctx(t), dup.ID); err != nil {
+		t.Fatalf("DeleteVolumeSnapshot of the second snapshot: %v", err)
+	}
+
+	// The snapshot outlives its volume and the volumes made from it.
+	for _, v := range []cloud.Volume{byID, byName, src} {
+		if err := s.p.DeleteVolume(s.ctx(t), v.ID); err != nil {
+			t.Fatalf("DeleteVolume(%s): %v", v.Name, err)
+		}
+	}
+	if _, err := s.p.GetVolumeSnapshot(s.ctx(t), snap.ID); err != nil {
+		t.Fatalf("GetVolumeSnapshot after its volume was deleted: %v, want the snapshot: it outlives its volume", err)
+	}
+	if err := s.p.DeleteVolumeSnapshot(s.ctx(t), snap.ID); err != nil {
+		t.Fatalf("DeleteVolumeSnapshot: %v", err)
+	}
+	s.eventually(t, "the deleted snapshot is gone", func(ctx context.Context) (bool, error) {
+		_, err := s.p.GetVolumeSnapshot(ctx, snap.ID)
+		if errors.Is(err, cloud.ErrNotFound) {
+			return true, nil
+		}
+		return false, err
+	})
+	if err := s.p.DeleteVolumeSnapshot(s.ctx(t), snap.ID); !errors.Is(err, cloud.ErrNotFound) {
+		t.Errorf("DeleteVolumeSnapshot of a deleted snapshot = %v, want an error wrapping cloud.ErrNotFound", err)
+	}
+}
+
+// otherRegion is a region other than Options.Region, preferring one the account may create in;
+// "" when the provider lists no other.
+func (s *suite) otherRegion(t *testing.T) string {
+	regions, err := s.p.Regions(s.ctx(t))
+	if err != nil {
+		t.Fatalf("Regions: %v", err)
+	}
+	other := ""
+	for _, r := range regions {
+		if r.Slug == s.opts.Region {
+			continue
+		}
+		if r.Available {
+			return r.Slug
+		}
+		if other == "" {
+			other = r.Slug
+		}
+	}
+	return other
+}
+
+// deleteVolume and deleteSnapshot are a step's cleanups: a resource already gone is fine.
+func (s *suite) deleteVolume(t *testing.T, id string) {
+	ctx, cancel := context.WithTimeout(context.Background(), s.opts.Timeout)
+	defer cancel()
+	if err := s.p.DeleteVolume(ctx, id); err != nil && !errors.Is(err, cloud.ErrNotFound) {
+		t.Errorf("DeleteVolume(%s): %v", id, err)
+	}
+}
+
+func (s *suite) deleteSnapshot(t *testing.T, id string) {
+	ctx, cancel := context.WithTimeout(context.Background(), s.opts.Timeout)
+	defer cancel()
+	if err := s.p.DeleteVolumeSnapshot(ctx, id); err != nil && !errors.Is(err, cloud.ErrNotFound) {
+		t.Errorf("DeleteVolumeSnapshot(%s): %v", id, err)
 	}
 }
 
@@ -741,6 +935,18 @@ func (s *suite) cleanup(t *testing.T) {
 		})
 		if err != nil {
 			t.Errorf("cleanup: release address %s: %v", s.addr, err)
+		}
+	}
+	snaps, err := s.p.ListVolumeSnapshots(ctx, cloud.Filter{Tag: s.opts.Tag})
+	if err != nil {
+		t.Errorf("cleanup: ListVolumeSnapshots: %v", err)
+	}
+	for _, sn := range snaps {
+		if !ours(sn.Name) {
+			continue
+		}
+		if err := s.p.DeleteVolumeSnapshot(ctx, sn.ID); err != nil && !errors.Is(err, cloud.ErrNotFound) {
+			t.Errorf("cleanup: delete volume snapshot %s (%s): %v", sn.ID, sn.Name, err)
 		}
 	}
 	vols, err := s.p.Volumes(ctx, cloud.Filter{Tag: s.opts.Tag})

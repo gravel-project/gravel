@@ -156,7 +156,7 @@ func rulesEqual(a, b []cloud.Rule) bool {
 func TestCreateTwiceChangesNothing(t *testing.T) {
 	p := fake.New()
 	first := mustCreate(t, p, testSpec())
-	snap, n := p.Snapshot(), len(p.Calls())
+	counts, n := p.Counts(), len(p.Calls())
 
 	r := mustCreate(t, p, testSpec())
 	if got, want := actions(r.Steps), "firewall:unchanged volume:unchanged instance:unchanged"; got != want {
@@ -165,8 +165,8 @@ func TestCreateTwiceChangesNothing(t *testing.T) {
 	if r.Changed() || r.Recreated {
 		t.Errorf("Changed %v Recreated %v", r.Changed(), r.Recreated)
 	}
-	if p.Snapshot() != snap {
-		t.Errorf("snapshot %+v, want %+v", p.Snapshot(), snap)
+	if p.Counts() != counts {
+		t.Errorf("counts %+v, want %+v", p.Counts(), counts)
 	}
 	if m := mutating(p.Calls()[n:]); len(m) != 0 {
 		t.Errorf("the second run called %v", m)
@@ -245,7 +245,7 @@ func TestCreateDryRun(t *testing.T) {
 	if m := mutating(p.Calls()); len(m) != 0 {
 		t.Errorf("a dry run called %v", m)
 	}
-	if s := p.Snapshot(); s != (fake.Snapshot{}) {
+	if s := p.Counts(); s != (fake.Counts{}) {
 		t.Errorf("a dry run made %+v", s)
 	}
 
@@ -335,7 +335,7 @@ func TestCreateRefuses(t *testing.T) {
 		if err == nil || !strings.Contains(err.Error(), "boom") {
 			t.Errorf("err %v", err)
 		}
-		if s := p.Snapshot(); s.Instances != 0 || s.Volumes != 0 || p.CallCount("CreateInstance") != 0 {
+		if s := p.Counts(); s.Instances != 0 || s.Volumes != 0 || p.CallCount("CreateInstance") != 0 {
 			t.Errorf("after a failed volume: %+v", s)
 		}
 		// The next run finishes the job.
@@ -360,7 +360,7 @@ func TestCreateRefuses(t *testing.T) {
 		if n := p.CallCount("CreateInstance"); n != 1 {
 			t.Errorf("CreateInstance called %d times", n)
 		}
-		if s := p.Snapshot(); s.Instances != 1 {
+		if s := p.Counts(); s.Instances != 1 {
 			t.Errorf("%d instances", s.Instances)
 		}
 	})
@@ -439,7 +439,7 @@ func TestDestroy(t *testing.T) {
 	if err != nil || len(steps) != 1 || steps[0].Kind != "instance" {
 		t.Fatalf("%v %+v", err, steps)
 	}
-	if s := p.Snapshot(); s.Instances != 0 || s.Volumes != 1 || s.Firewalls != 1 {
+	if s := p.Counts(); s.Instances != 0 || s.Volumes != 1 || s.Firewalls != 1 {
 		t.Errorf("default destroy left %+v", s)
 	}
 
@@ -453,7 +453,7 @@ func TestDestroy(t *testing.T) {
 	if m := mutating(p.Calls()[n:]); len(m) != 0 {
 		t.Errorf("a dry run called %v", m)
 	}
-	if s := p.Snapshot(); s.Instances != 1 || s.Volumes != 1 || s.Firewalls != 1 {
+	if s := p.Counts(); s.Instances != 1 || s.Volumes != 1 || s.Firewalls != 1 {
 		t.Errorf("a dry run left %+v", s)
 	}
 
@@ -461,7 +461,7 @@ func TestDestroy(t *testing.T) {
 	if err != nil || len(steps) != 3 {
 		t.Fatalf("%v %+v", err, steps)
 	}
-	if s := p.Snapshot(); s.Instances != 0 || s.Volumes != 0 || s.Firewalls != 0 {
+	if s := p.Counts(); s.Instances != 0 || s.Volumes != 0 || s.Firewalls != 0 {
 		t.Errorf("full destroy left %+v", s)
 	}
 
@@ -482,7 +482,7 @@ func TestDestroyWaitsForTheInstance(t *testing.T) {
 	if _, err := Destroy(ctx, p, "hub-1", DestroyOptions{DeleteVolume: true}); !errors.Is(err, cloud.ErrOperationFailed) {
 		t.Errorf("err %v", err)
 	}
-	if s := p.Snapshot(); s.Volumes != 1 {
+	if s := p.Counts(); s.Volumes != 1 {
 		t.Errorf("the volume went though the instance did not: %+v", s)
 	}
 }
