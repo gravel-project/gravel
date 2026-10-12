@@ -108,12 +108,20 @@ func TestRenderStructure(t *testing.T) {
 			t.Errorf("first-boot lacks %q", want)
 		}
 	}
-	// No tail: the script ends right after as_user.
+	// It waits for the user's systemd instance to answer, not for its bus socket to exist: the
+	// socket appears first, and a systemctl --user in that gap is refused (systemd 259, 2026-10-12).
+	if strings.Contains(script, "-S /run/user/$uid/bus") || !strings.Contains(script, "as_user systemctl --user show-environment >/dev/null 2>&1 && break") {
+		t.Error("first-boot waits for the bus socket instead of the user manager answering")
+	}
+	if strings.Index(script, "as_user() {") > strings.Index(script, "show-environment") {
+		t.Error("the wait uses as_user before it is defined")
+	}
+	// No tail: the script ends right after the wait.
 	p := params()
 	p.FirstBootTail = ""
 	script, _ = parse(t, render(t, p)).file(FirstBootPath)
-	if !strings.Contains(script, "\"$@\"; }\n\necho \"first-boot: done\"") {
-		t.Error("an empty tail left something between as_user and the end")
+	if !strings.Contains(script, "exit 1; }\n\necho \"first-boot: done\"") {
+		t.Error("an empty tail left something between the wait and the end")
 	}
 }
 
