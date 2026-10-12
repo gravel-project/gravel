@@ -253,6 +253,13 @@ discord:                     # what the bot manages (docs/bot.md); ids as quoted
       - platform: twitch     # twitch or kick
         login: hiddentoken   # as in the channel's URL, lower case
         label: Hidden Token  # optional, what the post shows; the login when empty (at most 40 characters)
+  news:                      # Steam announcements (docs/bot.md "News")
+    feeds:                   # at most 20; a game once per channel
+      - app_id: 730          # the game's Steam app id, as in its store URL
+        channel: "…"         # the bot needs View Channel, Send Messages, Embed Links, Read Message History
+        label: Counter-Strike 2   # the posts' footer, one line of at most 64 characters
+        feeds: [steam_community_announcements]   # optional: Steam's feed names; this one when empty
+        color: 0xde9b35      # optional: the embeds' color, 0x000000 to 0xffffff; Steam's blue when 0
   presence:                  # the "who's playing now" card (docs/bot.md "Presence"); counts only, nothing stored
     channel: "…"             # where the card lives; the bot needs View Channel, Send Messages, Read Message History
     note: Counts members who share their activity on Discord.   # optional, one line of at most 200 characters
@@ -342,6 +349,12 @@ The `streams` posts (ADR-0019) need a channel and at least one streamer. A login
 name as its URL spells it: Twitch's are 4 to 25 letters, digits and underscores; Kick's also take
 hyphens. A streamer is listed once per platform. The platforms' applications are the bot's
 (bot.yaml `streams`), never the settings', and the module is off until bot.yaml turns it on.
+
+The `news` feeds post a Steam game's announcements into a channel. Each feed needs a positive
+`app_id`, a channel and a `label`, and a game posts to a channel once (it may post to several).
+`feeds` are Steam's feed names (`steam_community_announcements`, the game's own announcements, when
+empty). Steam's news API needs no key, and the module is off until bot.yaml's `news.enabled` turns
+it on.
 
 The `presence` card (ADR-0017) needs a channel and at least one game. Each game needs an activity
 name or an application id to recognize it by, and no name (compared without regard to case) or id
