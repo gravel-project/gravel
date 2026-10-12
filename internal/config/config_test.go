@@ -114,6 +114,54 @@ func TestSecretPrecedence(t *testing.T) {
 	}
 }
 
+// The lease key (#20) reads like every secret, and a short one is refused.
+func TestLeaseKey(t *testing.T) {
+	key := strings.Repeat("k", MinLeaseKey)
+	env := Env{
+		LookupEnv: func(k string) (string, bool) { return "", false },
+		ReadFile:  func(p string) ([]byte, error) { return []byte(key + "\n"), nil },
+	}
+	cfg, err := Parse(strings.NewReader(minimal+"leases:\n  key_file: /run/secrets/lease\n"), env)
+	if err != nil || cfg.Leases.Key != key || cfg.Leases.KeySource() != "file /run/secrets/lease" {
+		t.Fatalf("from a file: %q %q %v", cfg.Leases.Key, cfg.Leases.KeySource(), err)
+	}
+	env.LookupEnv = func(k string) (string, bool) { return key + "e", k == EnvLeaseKey }
+	if cfg, err := Parse(strings.NewReader(minimal), env); err != nil || cfg.Leases.Key != key+"e" || cfg.Leases.KeySource() != "env "+EnvLeaseKey {
+		t.Errorf("from the environment: %q %v", cfg.Leases.KeySource(), err)
+	}
+	if cfg, err := Parse(strings.NewReader(minimal), noEnv()); err != nil || cfg.Leases.Key != "" || cfg.Leases.KeySource() != "" {
+		t.Errorf("none: %v", err)
+	}
+	if _, err := Parse(strings.NewReader(minimal+"leases:\n  key: short\n"), noEnv()); err == nil || !strings.Contains(err.Error(), "leases.key: 5 characters") {
+		t.Errorf("a short key: %v", err)
+	}
+}
+
+// The demo bucket (ADR-0024): its keys read like every secret, and a bucket needs the rest.
+func TestDemos(t *testing.T) {
+	env := Env{
+		LookupEnv: func(k string) (string, bool) { return "env-secret", k == EnvDemosSecretKey },
+		ReadFile:  func(p string) ([]byte, error) { return []byte("file-access\n"), nil },
+	}
+	doc := minimal + "demos:\n  endpoint: acct.r2.cloudflarestorage.com\n  region: auto\n  bucket: demos\n  access_key_file: /run/secrets/a\n"
+	cfg, err := Parse(strings.NewReader(doc), env)
+	if err != nil || !cfg.Demos.Enabled() || cfg.Demos.AccessKey != "file-access" || cfg.Demos.SecretKey != "env-secret" || cfg.Demos.MaxMiB != 512 {
+		t.Fatalf("demos %+v %v", cfg.Demos, err)
+	}
+	if cfg, err := Parse(strings.NewReader(minimal), noEnv()); err != nil || cfg.Demos.Enabled() {
+		t.Errorf("none: %v", err)
+	}
+	for name, d := range map[string]string{
+		"no endpoint": "demos:\n  region: auto\n  bucket: demos\n  access_key: a\n  secret_key: s\n",
+		"no keys":     "demos:\n  endpoint: e\n  region: auto\n  bucket: demos\n",
+		"too big":     "demos:\n  endpoint: e\n  region: auto\n  bucket: demos\n  access_key: a\n  secret_key: s\n  max_mib: 9000\n",
+	} {
+		if _, err := Parse(strings.NewReader(minimal+d), noEnv()); err == nil || !strings.Contains(err.Error(), "demos") {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+}
+
 func TestValidateCollectsEverything(t *testing.T) {
 	doc := `
 version: 2

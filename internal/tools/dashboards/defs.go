@@ -145,6 +145,25 @@ func hubDashboard() dashboard {
 					Description: "Kicks, bans, messages and moves the hub sent, by outcome; each is a row in the audit log (ListAuditLog).",
 					Targets:     []target{{Expr: `sum by (server, action, outcome) (increase(gravel_moderation_actions_total{` + sel + `}[$__rate_interval]))`, Legend: "{{server}} {{action}} {{outcome}}"}}},
 			}},
+			{Title: "Server leases", Panels: []panel{
+				{Title: "Leases holding a server", Kind: "stat", Width: 6, Optional: "the hub has no lease key",
+					Description: "Leases starting, ready or ending now (#20, ADR-0023).",
+					Targets:     []target{{Expr: `gravel_leases_live{` + sel + `}`}}},
+				{Title: "Leases", Kind: "timeseries", Width: 6, Optional: "no lease in the range",
+					Description: "By pool and what happened: requested, released, failed, never_ready (failed before its server was ready).",
+					Targets:     []target{{Expr: `sum by (pool, result) (increase(gravel_leases_total{` + sel + `}[$__rate_interval]))`, Legend: "{{pool}} {{result}}"}}},
+				{Title: "Request to ready (p95)", Kind: "timeseries", Unit: "s", Width: 6, Optional: "no lease got ready in the range",
+					Targets: []target{{Expr: `histogram_quantile(0.95, sum by (le) (rate(gravel_lease_ready_seconds_bucket{` + sel + `}[$__rate_interval])))`, Legend: "p95"}}},
+				{Title: "Match events", Kind: "timeseries", Width: 12, Optional: "no match plugin posted an event in the range",
+					Description: "Events a server's match plugin (MatchZy) posted (ADR-0024), by result: recorded, ignored (one the hub keeps nothing of), error.",
+					Targets:     []target{{Expr: `sum by (event, result) (increase(gravel_match_events_total{` + sel + `}[$__rate_interval]))`, Legend: "{{event}} {{result}}"}}},
+				{Title: "Match demos", Kind: "timeseries", Width: 12, Optional: "no demo was uploaded in the range",
+					Description: "Demos a server's match plugin uploaded to the hub's object store, by result.",
+					Targets:     []target{{Expr: `sum by (result) (increase(gravel_match_demos_total{` + sel + `}[$__rate_interval]))`, Legend: "{{result}}"}}},
+				{Title: "Plugin sets", Kind: "timeseries", Width: 6, Optional: "no lease asked for a plugin set in the range",
+					Description: "loaded, or vanilla when the set didn't load (a game patch broke it, a bad pin) and the server ran without it (#176).",
+					Targets:     []target{{Expr: `sum by (set, result) (increase(gravel_lease_plugins_total{` + sel + `}[$__rate_interval]))`, Legend: "{{set}} {{result}}"}}},
+			}},
 			{Title: "Cloud VMs", Panels: []panel{
 				{Title: "Host state", Kind: "stat", Width: 6, TextMode: "value_and_name", Optional: "no cloud-VM server is registered (servers.yaml locations and vm)",
 					Description: "The state of each cloud-VM server's host (ADR-0003): running and parked are where it rests.",
@@ -235,7 +254,7 @@ func hubDashboard() dashboard {
 func botDashboard() dashboard {
 	return dashboard{
 		UID: "gravel-bot", Title: "gravel bot", BuildInfo: "gravel_bot_build_info",
-		Description: "The gravel Discord bot: the gateway, interactions against Discord's three seconds, role sync, Linked Roles, the server cards, the mod log, seeding, the presence card, the session recaps, the go-live posts, the Steam news, the moderation command and the Go runtime (gravel docs/bot.md, Observability).",
+		Description: "The gravel Discord bot: the gateway, interactions against Discord's three seconds, role sync, Linked Roles, the server cards, the mod log, seeding, the presence card, the session recaps, the go-live posts, the Steam news, the match results, the moderation command and the Go runtime (gravel docs/bot.md, Observability).",
 		Rows: []row{
 			{Title: "Overview", Panels: []panel{
 				{Title: "Up", Kind: "stat", Width: 3, Mappings: upMap, Thresholds: []step{{Color: "red"}, {Value: 1, Color: "green"}}, Targets: []target{{Expr: `up{` + sel + `}`, Legend: "{{instance}}"}}},
@@ -367,6 +386,15 @@ func botDashboard() dashboard {
 					Description: "The stalest feed. Orange after an hour and red after three (four and twelve default intervals): Steam failing or rate-limiting the bot, a channel the bot can't read, or a post failing.",
 					Thresholds:  []step{{Color: "green"}, {Value: 3600, Color: "orange"}, {Value: 10800, Color: "red"}},
 					Targets:     []target{{Expr: `time() - min(gravel_bot_news_last_success_timestamp_seconds{` + sel + `})`}}},
+			}},
+			{Title: "Match results", Panels: []panel{
+				{Title: "Match result posts", Kind: "timeseries", Width: 18, Optional: "match results are off or no series ended in the range",
+					Description: "Finished match results (ADR-0024). posted: a result went out; error: the hub, the channel or the post failed, and what is left waits for the next pass (the log says which, once).",
+					Targets:     []target{{Expr: `sum by (result) (increase(gravel_bot_match_results_total{` + sel + `}[$__rate_interval]))`, Legend: "{{result}}"}}},
+				{Title: "Since the last good match results pass", Kind: "stat", Unit: "s", Width: 6, Optional: "match results are off",
+					Description: "Orange after 5 minutes and red after 15 (five and fifteen default intervals): the hub refusing the bot (stats:read while stats are private), a channel the bot can't use, or a post failing.",
+					Thresholds:  []step{{Color: "green"}, {Value: 300, Color: "orange"}, {Value: 900, Color: "red"}},
+					Targets:     []target{{Expr: `time() - max(gravel_bot_match_results_last_success_timestamp_seconds{` + sel + `})`}}},
 			}},
 			{Title: "Moderation command", Panels: []panel{
 				{Title: "Moderation commands", Kind: "timeseries", Width: 24, Optional: "the moderation command is off or nobody used it in the range",

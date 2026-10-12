@@ -52,6 +52,7 @@ type rig struct {
 	// proofs are codes typed in game chat (gravel#5), over their own fake store.
 	proofs  *proof.Service
 	proofSt *prooftest.FakeStore
+	leases  *fakeLeases
 }
 
 // testTheme has a logo, a favicon, header and footer links, an owner-only link and one bad
@@ -129,6 +130,8 @@ func newRigWith(t *testing.T, theme templates.Theme, login bool) *rig {
 	apiMux.Handle(hubv1connect.NewStatsServiceHandler(r.stats, member))
 	apiMux.Handle(hubv1connect.NewModerationServiceHandler(r.mod, member))
 	apiMux.Handle(hubv1connect.NewServerHostServiceHandler(r.hosts, member))
+	r.leases = &fakeLeases{}
+	apiMux.Handle(hubv1connect.NewServerLeaseServiceHandler(r.leases, member))
 	apiMux.Handle(hubv1connect.NewAppServiceHandler(api.NewAppServer(r.apps, logger), member))
 	h, err := web.New(ids, sess, sess.Middleware(apiMux), web.StaticTheme{T: theme}, logger)
 	if err != nil {
@@ -144,7 +147,8 @@ func newRigWith(t *testing.T, theme templates.Theme, login bool) *rig {
 	// introspection endpoints, and the pages.
 	mux := http.NewServeMux()
 	for _, svc := range []string{hubv1connect.OrganizationServiceName, hubv1connect.IdentityServiceName, hubv1connect.ServerServiceName,
-		hubv1connect.StatsServiceName, hubv1connect.ModerationServiceName, hubv1connect.ServerHostServiceName, hubv1connect.AppServiceName} {
+		hubv1connect.StatsServiceName, hubv1connect.ModerationServiceName, hubv1connect.ServerHostServiceName, hubv1connect.ServerLeaseServiceName,
+		hubv1connect.AppServiceName} {
 		mux.Handle("/"+svc+"/", apiMux)
 	}
 	mux.Handle("/oauth/token", r.apps.TokenHandler())

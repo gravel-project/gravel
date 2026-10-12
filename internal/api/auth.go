@@ -58,11 +58,15 @@ var memberProcedures = map[string]string{
 	hubv1connect.ServerHostServiceSetServerHostExpectationProcedure:  apps.ScopeServersModerate,
 	// ResizeServerHost, UnpinServerHostSize, SnapshotServerHostVolume and DestroyServerHost are the owner's, in person, and stay out.
 	// StartProof and GetProof (gravel#5) are the member's, in person: an app never proves an account for them.
+	// ServerLeaseService (#20) is an app's (servers:lease) or a moderator's in person; a member's token never leases.
 	hubv1connect.ServerConfigServiceGetServerConfigProcedure:   apps.ScopeServersConfigure,
 	hubv1connect.ServerConfigServicePlanServerConfigProcedure:  apps.ScopeServersConfigure,
 	hubv1connect.ServerConfigServiceApplyServerConfigProcedure: apps.ScopeServersConfigure,
 	hubv1connect.StatsServiceGetBoardProcedure:                 apps.ScopeStatsRead,
 	hubv1connect.StatsServiceListMatchesProcedure:              apps.ScopeStatsRead,
+	hubv1connect.StatsServiceListMatchResultsProcedure:         apps.ScopeStatsRead,
+	hubv1connect.StatsServiceGetMatchResultProcedure:           apps.ScopeStatsRead,
+	hubv1connect.StatsServiceGetMatchDemoProcedure:             apps.ScopeStatsRead,
 	hubv1connect.StatsServiceGetMemberProfileProcedure:         apps.ScopeStatsRead,
 	hubv1connect.StatsServiceGetParticipationBoardProcedure:    apps.ScopeStatsRead,
 	hubv1connect.StatsServiceGetSessionRecapProcedure:          apps.ScopeStatsRead,

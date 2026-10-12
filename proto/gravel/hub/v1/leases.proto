@@ -1,0 +1,134 @@
+syntax = "proto3";
+
+package gravel.hub.v1;
+
+import "google/protobuf/timestamp.proto";
+import "gravel/hub/v1/moderation.proto";
+
+option go_package = "github.com/gravel-project/gravel/gen/gravel/hub/v1;hubv1";
+
+// ServerLease is a server taken for a match (gravel#20, ADR-0023).
+message ServerLease {
+  string id = 1;
+  string server_id = 2;
+  // The pool it was asked from; empty when the server was named.
+  string pool = 3;
+  // Who holds it: "app" (an app's client id) or "user".
+  string holder_kind = 4;
+  string holder = 5;
+  // The holder's own reference (a session id): one live lease per holder and reference.
+  string holder_ref = 6;
+  // "starting", "ready", "ending" (its match is over, it lasts a few minutes more), "released" or
+  // "failed".
+  string state = 7;
+  // Why it ended, or the request's reason while it lasts.
+  string reason = 8;
+  map<string, string> settings = 9;
+  repeated string plugins = 10;
+  // "" while unknown or none was asked, "loaded", or "vanilla" after the set failed to load.
+  string plugin_state = 11;
+  string plugin_reason = 12;
+  // The match config was loaded on the server.
+  bool match_loaded = 13;
+  int32 expected_players = 14;
+  google.protobuf.Timestamp created_at = 15;
+  google.protobuf.Timestamp ready_at = 16;
+  google.protobuf.Timestamp ended_at = 17;
+  google.protobuf.Timestamp released_at = 18;
+  // When it ends at the latest.
+  google.protobuf.Timestamp max_until = 19;
+  // Where players join (host:port); empty until the server has an address.
+  string address = 20;
+}
+
+// LeaseJoin is how players join a leased server: only in the answer to the request that holds it.
+message LeaseJoin {
+  string address = 1;
+  string password = 2;
+  // What a player types to join ("connect 203.0.113.50:27015; password …").
+  string connect = 3;
+}
+
+message RequestServerLeaseRequest {
+  // A server, or a pool of servers: one of them.
+  string server_id = 1;
+  string pool = 2;
+  // The holder's reference (a session id), printable, at most 128 bytes: asking again with it
+  // answers the live lease, password included.
+  string holder_ref = 3;
+  // Players to expect: the server is sized for them until the lease ends (#172).
+  int32 expected_players = 4;
+  // Settings the server's vm.lease.settings allow.
+  map<string, string> settings = 5;
+  // A plugin set the server's game offers ("matchzy"); at most one.
+  repeated string plugins = 6;
+  // A match config in the game's format (MatchZy's JSON), loaded once the plugins are up.
+  bytes match_config = 7;
+  string reason = 8;
+  // The moderator an app acts for; unset for an app acting for itself or anyone in person.
+  Actor on_behalf_of = 9;
+}
+
+message RequestServerLeaseResponse {
+  ServerLease lease = 1;
+  LeaseJoin join = 2;
+}
+
+message GetServerLeaseRequest {
+  string lease_id = 1;
+}
+
+message GetServerLeaseResponse {
+  ServerLease lease = 1;
+}
+
+message ListServerLeasesRequest {
+  // A server's leases; empty for every server.
+  string server_id = 1;
+  bool live_only = 2;
+  // At most this many, newest first (50 when 0, at most 200).
+  int32 limit = 3;
+}
+
+message ListServerLeasesResponse {
+  repeated ServerLease leases = 1;
+}
+
+message ReleaseServerLeaseRequest {
+  string lease_id = 1;
+  string reason = 2;
+  Actor on_behalf_of = 3;
+}
+
+message ReleaseServerLeaseResponse {
+  ServerLease lease = 1;
+}
+
+message WatchServerLeaseRequest {
+  string lease_id = 1;
+}
+
+message WatchServerLeaseResponse {
+  // The lease now; unset on a heartbeat.
+  ServerLease lease = 1;
+}
+
+// ServerLeaseService takes a leasable server (servers.yaml vm.lease) for a match: with its own
+// password, settings, plugin set and match config, started and sized for the players expected, and
+// parked and given back after (ADR-0023). An app with servers:lease, the owner or a moderator; an
+// app sees and releases only its own leases. Every request and release is an audit-log row.
+service ServerLeaseService {
+  // RequestServerLease takes the named server, or the first free one in the pool (a running empty
+  // one first), and starts it. failed_precondition when it has players on or no server in the pool
+  // is free; asking again with the same holder_ref answers the same lease.
+  rpc RequestServerLease(RequestServerLeaseRequest) returns (RequestServerLeaseResponse);
+  // GetServerLease is a lease, without its password.
+  rpc GetServerLease(GetServerLeaseRequest) returns (GetServerLeaseResponse);
+  // ListServerLeases is the leases, newest first.
+  rpc ListServerLeases(ListServerLeasesRequest) returns (ListServerLeasesResponse);
+  // ReleaseServerLease gives a live lease back; the server is parked.
+  rpc ReleaseServerLease(ReleaseServerLeaseRequest) returns (ReleaseServerLeaseResponse);
+  // WatchServerLease streams the lease at once and whenever it changes, with a heartbeat every 30
+  // seconds, and ends when the lease is over.
+  rpc WatchServerLease(WatchServerLeaseRequest) returns (stream WatchServerLeaseResponse);
+}

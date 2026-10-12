@@ -205,7 +205,25 @@ type Discord struct {
 	// News are the Steam news feeds (discord/modules/news): each game's announcements posted in a
 	// channel.
 	News News `json:"news,omitzero" yaml:"news,omitempty"`
+	// MatchResults places the match results (discord/modules/matchresults, ADR-0024): each finished
+	// series a server's match plugin reported, posted once in a channel.
+	MatchResults MatchResults `json:"match_results,omitzero" yaml:"match_results,omitempty"`
 }
+
+// MatchResults places the finished match results: each one posted once in Channel, for the listed
+// servers or, when none is listed, every server. Empty is no posts.
+type MatchResults struct {
+	Channel string `json:"channel,omitempty" yaml:"channel,omitempty"`
+	// Servers are the server ids whose results are posted, at most MaxMatchResultsServers; none is
+	// every server.
+	Servers []string `json:"servers,omitempty" yaml:"servers,omitempty"`
+}
+
+// IsZero reports whether nothing is placed.
+func (r MatchResults) IsZero() bool { return r.Channel == "" && len(r.Servers) == 0 }
+
+// MaxMatchResultsServers bounds discord.match_results.servers.
+const MaxMatchResultsServers = 50
 
 // News places Steam games' announcements: each feed is one game's news into one channel. Empty is
 // none.
@@ -454,7 +472,7 @@ var MappedProviders = []string{"discord", "steam"}
 // IsZero reports whether nothing is set.
 func (d Discord) IsZero() bool {
 	return d.GuildID == "" && d.Roles.IsZero() && len(d.Recognition) == 0 && len(d.ServerCards) == 0 && d.ModLog == "" && len(d.Seeding) == 0 &&
-		d.Presence.IsZero() && len(d.Recaps) == 0 && d.Streams.IsZero() && d.News.IsZero()
+		d.Presence.IsZero() && len(d.Recaps) == 0 && d.Streams.IsZero() && d.News.IsZero() && d.MatchResults.IsZero()
 }
 
 // IsZero reports whether no role is mapped.
@@ -655,7 +673,7 @@ func validateDiscord(d Discord, bad func(string, ...any)) {
 		return
 	}
 	if d.GuildID == "" {
-		bad("discord.guild_id: required when roles are mapped, server cards placed, seeding set, presence placed, recaps set, streams placed or news listed")
+		bad("discord.guild_id: required when roles are mapped, server cards placed, seeding set, presence placed, recaps set, streams placed, news listed or match results placed")
 	} else if !snowflakeOK(d.GuildID) {
 		bad("discord.guild_id: %q is not a Discord id", d.GuildID)
 	}
@@ -727,6 +745,30 @@ func validateDiscord(d Discord, bad func(string, ...any)) {
 	validateRecaps(d, bad)
 	validateStreams(d, bad)
 	validateNews(d.News, bad)
+	validateMatchResults(d.MatchResults, bad)
+}
+
+func validateMatchResults(r MatchResults, bad func(string, ...any)) {
+	if r.IsZero() {
+		return
+	}
+	if !snowflakeOK(r.Channel) {
+		bad("discord.match_results.channel: %q is not a Discord id", r.Channel)
+	}
+	if len(r.Servers) > MaxMatchResultsServers {
+		bad("discord.match_results.servers: %d servers, at most %d", len(r.Servers), MaxMatchResultsServers)
+	}
+	seen := map[string]int{}
+	for i, s := range r.Servers {
+		field := fmt.Sprintf("discord.match_results.servers[%d]", i)
+		if !serverID.MatchString(s) {
+			bad("%s: %q is not a server id (lower-case letters, digits and hyphens)", field, s)
+		} else if j, dup := seen[s]; dup {
+			bad("%s: %q is already listed (discord.match_results.servers[%d])", field, s, j)
+		} else {
+			seen[s] = i
+		}
+	}
 }
 
 func validateNews(n News, bad func(string, ...any)) {
@@ -1134,6 +1176,9 @@ func (s Settings) Normalized() Settings {
 	}
 	if len(s.Discord.News.Feeds) == 0 {
 		s.Discord.News.Feeds = nil
+	}
+	if len(s.Discord.MatchResults.Servers) == 0 {
+		s.Discord.MatchResults.Servers = nil
 	}
 	if len(s.Games) == 0 {
 		s.Games = nil

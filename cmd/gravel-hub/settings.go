@@ -273,6 +273,13 @@ func describeDiscord(d org.Discord) string {
 	if n := len(d.News.Feeds); n > 0 {
 		out += fmt.Sprintf(", %d Steam news feeds", n)
 	}
+	if r := d.MatchResults; !r.IsZero() {
+		if n := len(r.Servers); n > 0 {
+			out += fmt.Sprintf(", match results for %d servers", n)
+		} else {
+			out += ", match results for every server"
+		}
+	}
 	if n := len(d.Presence.Games); n > 0 {
 		out += fmt.Sprintf(", a presence card with %d games", n)
 	}

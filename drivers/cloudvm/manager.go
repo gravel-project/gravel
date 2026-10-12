@@ -1,6 +1,7 @@
 package cloudvm
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"errors"
@@ -114,7 +115,16 @@ type ServerSpec struct {
 	// Removed is a server taken out of the manifest: its host is parked and stays until an owner
 	// destroys it.
 	Removed bool
+	// ExtraEnv are environment lines beyond the profile's, settings and secrets: a lease's plugin
+	// set (#20, #176). A name the profile's lines or a setting already writes is refused.
+	ExtraEnv map[string]string
+	// Files are files pushed into the install beside the profile's hooks, and checked with them: a
+	// lease's match config (#20). They hold no secret.
+	Files []Hook
 }
+
+// files are every file pushed with the environment: the game's hooks, then the server's own.
+func (s ServerSpec) files() []Hook { return append(slices.Clone(s.Profile.Hooks), s.Files...) }
 
 // Source lists the cloud-VM servers, removed ones with a host included.
 type Source interface {
@@ -438,6 +448,21 @@ func (m *Manager) host(id string) (*hostRT, ServerSpec, bool) {
 	rt, ok := m.hosts[id]
 	s, sok := m.specs[id]
 	return rt, s, ok && sok
+}
+
+// EnvCurrent reports whether a host's game runs on the environment and files the server's spec
+// renders now, as far as the hub pushed them: a lease's password and plugins have reached it once
+// this is true (#20). False for an unknown server.
+func (m *Manager) EnvCurrent(id string) bool {
+	rt, s, ok := m.host(id)
+	if !ok {
+		return false
+	}
+	rt.mu.Lock()
+	h := rt.h
+	rt.mu.Unlock()
+	env, err := RenderEnv(s, h.Size)
+	return err == nil && len(h.EnvSHA256) > 0 && bytes.Equal(filesHash(env, s.files()), h.EnvSHA256)
 }
 
 // Spec is a server's policy-relevant view as the Manager runs it: its spec without the secrets.
@@ -928,6 +953,26 @@ func (m *Manager) Say(ctx context.Context, serverID, message string) error {
 	ctx, cancel := context.WithTimeout(ctx, gameCallTimeout)
 	defer cancel()
 	return g.Say(ctx, message)
+}
+
+// Exec runs a console command on a running server's game (a lease's load command, a plugin
+// check) and returns its output; ErrNotRunning when its game isn't up.
+func (m *Manager) Exec(ctx context.Context, serverID, command string) (string, error) {
+	m.mu.Lock()
+	rt, ok := m.hosts[serverID]
+	m.mu.Unlock()
+	if !ok {
+		return "", ErrNoSuchHost
+	}
+	rt.mu.Lock()
+	g := rt.game
+	rt.mu.Unlock()
+	if g == nil {
+		return "", ErrNotRunning
+	}
+	ctx, cancel := context.WithTimeout(ctx, gameCallTimeout)
+	defer cancel()
+	return g.Exec(ctx, command)
 }
 
 // SourceAddresses are the addresses a server's log push may come from: its instance's own, and its

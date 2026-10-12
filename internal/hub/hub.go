@@ -28,6 +28,7 @@ import (
 	cs2game "github.com/gravel-project/gravel/drivers/cloudvm/cs2"
 	wardogsdriver "github.com/gravel-project/gravel/drivers/wardogs"
 	"github.com/gravel-project/gravel/games/cs2"
+	"github.com/gravel-project/gravel/games/cs2/matchzy"
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
 	"github.com/gravel-project/gravel/internal/api"
 	"github.com/gravel-project/gravel/internal/apps"
@@ -40,9 +41,11 @@ import (
 	"github.com/gravel-project/gravel/internal/ingest"
 	"github.com/gravel-project/gravel/internal/jobs"
 	"github.com/gravel-project/gravel/internal/metricnames"
+	"github.com/gravel-project/gravel/internal/objectstore"
 	"github.com/gravel-project/gravel/internal/org"
 	"github.com/gravel-project/gravel/internal/publicaddr"
 	"github.com/gravel-project/gravel/internal/ratelimit"
+	"github.com/gravel-project/gravel/internal/results"
 	"github.com/gravel-project/gravel/internal/servers"
 	"github.com/gravel-project/gravel/internal/session"
 	"github.com/gravel-project/gravel/internal/stats"
@@ -80,6 +83,8 @@ type Hub struct {
 	apps       *apps.Service
 	servers    *servers.Service
 	hosts      *servers.Hosts
+	leases     *servers.Leases
+	results    *results.Service
 	cloudvm    *cloudvm.Manager
 	monitor    *servers.Monitor
 	moderation *servers.Moderation
@@ -293,6 +298,20 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 	}
 	h.cloudvm = cloudvm.NewManager(h.hosts, h.hosts, gameControls, cvm)
 	h.hosts.Attach(h.cloudvm)
+	// Server leases (#20, ADR-0023): a lease's password and plugins reach its server through the
+	// spec the Manager reads, so the leases are loaded before it starts.
+	h.leases = servers.NewLeases(h.servers, h.hosts, st, st, o.ID, []byte(cfg.Leases.Key), h.registry, logger)
+	if err := h.leases.Load(ctx); err != nil {
+		return nil, fmt.Errorf("hub: leases: %w", err)
+	}
+	// A CS2 lease's match config is MatchZy's JSON (games/cs2/matchzy): checked before it is taken.
+	h.leases.SetMatchCheck("matchzy", func(b []byte) error {
+		var c matchzy.Config
+		if err := json.Unmarshal(b, &c); err != nil {
+			return err
+		}
+		return c.Validate()
+	})
 	// Proof of control (gravel#5): a code typed in a cloud-VM server's chat proves the account the
 	// log says typed it. Counter-Strike 2, the one game whose chat the hub reads, knows players by
 	// their Steam account.
@@ -305,6 +324,7 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 	h.monitor.SetPrimer(h.moderation.Prime)
 	h.monitor.Start()
 	h.cloudvm.Start()
+	h.jobs.Start(jobs.Job{Name: "leases", Every: servers.LeaseEvery, Run: h.leases.Run})
 	// The stats store (ADR-0012): every good poll becomes matches and player totals; boards read
 	// them with the Organization settings' stats section.
 	// The recorder and the rollup count their writes, so the boards serve from memory while
@@ -331,6 +351,25 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 	h.ingest.SetLogSource("cs2", ingest.LogSource{Headers: cs2.LogHeaders, Redact: cs2.RedactLog})
 	h.ingest.SetLogTap(h.cloudvm)
 	h.ingest.SetAddressPin(h.cloudvm)
+	// Match results and demos from a server's match plugin (ADR-0024): from the server's own host,
+	// demos to the object store when the hub has a bucket.
+	var objects objectstore.Store
+	if d := cfg.Demos; d.Enabled() {
+		s3, err := objectstore.NewS3(objectstore.S3Config{Endpoint: d.Endpoint, Region: d.Region, Bucket: d.Bucket, AccessKey: d.AccessKey,
+			SecretKey: d.SecretKey, PathStyle: d.PathStyle})
+		if err != nil {
+			return nil, fmt.Errorf("hub: demos: %w", err)
+		}
+		objects = s3
+	}
+	mapName := func(server string) string {
+		if o, ok := h.monitor.Observation(server); ok {
+			return o.Status.Map
+		}
+		return ""
+	}
+	h.results = results.New(st, o.ID, h.leases, mapName, objects, int64(cfg.Demos.MaxMiB)<<20, h.registry, logger)
+	h.ingest.SetPluginSinks(h.results, h.results)
 	h.jobs.Start(jobs.Job{Name: "ingest_feeds", Every: servers.ReconcileEvery, Immediate: true, Run: h.refreshFeeds})
 	h.jobs.Start(jobs.Job{Name: "ingest_prune", Every: ingest.PruneEvery, Run: func(ctx context.Context) error {
 		return ingest.Prune(ctx, st, time.Now(), logger)
@@ -442,8 +481,11 @@ func (h *Hub) buildAPI() *http.ServeMux {
 	moderation := api.NewModerationServer(h.moderation, h.org, h.ids, h.logger)
 	mux.Handle(hubv1connect.NewModerationServiceHandler(moderation, interceptors))
 	mux.Handle(hubv1connect.NewServerHostServiceHandler(api.NewHostServer(h.hosts, moderation, h.org, h.logger), interceptors))
+	mux.Handle(hubv1connect.NewServerLeaseServiceHandler(api.NewLeaseServer(h.leases, moderation, h.logger), interceptors))
 	mux.Handle(hubv1connect.NewServerConfigServiceHandler(api.NewConfigServer(h.moderation, h.org, h.logger), interceptors))
-	mux.Handle(hubv1connect.NewStatsServiceHandler(api.NewStatsServer(h.stats, h.participation, h.org, h.ids, h.logger), interceptors))
+	statsAPI := api.NewStatsServer(h.stats, h.participation, h.org, h.ids, h.logger)
+	statsAPI.SetResults(h.results)
+	mux.Handle(hubv1connect.NewStatsServiceHandler(statsAPI, interceptors))
 	mux.Handle(hubv1connect.NewAppServiceHandler(api.NewAppServer(h.apps, h.logger), interceptors))
 	return mux
 }
@@ -454,7 +496,8 @@ func (h *Hub) buildPublic() http.Handler {
 	scopes := h.scopes()
 	mux := http.NewServeMux()
 	services := []string{hubv1connect.OrganizationServiceName, hubv1connect.IdentityServiceName, hubv1connect.ServerServiceName,
-		hubv1connect.ModerationServiceName, hubv1connect.ServerHostServiceName, hubv1connect.ServerConfigServiceName, hubv1connect.StatsServiceName, hubv1connect.AppServiceName}
+		hubv1connect.ModerationServiceName, hubv1connect.ServerHostServiceName, hubv1connect.ServerLeaseServiceName, hubv1connect.ServerConfigServiceName,
+		hubv1connect.StatsServiceName, hubv1connect.AppServiceName}
 	for _, svc := range services {
 		mux.Handle("/"+svc+"/", h.api)
 	}
@@ -492,6 +535,8 @@ func (h *Hub) buildPublic() http.Handler {
 	top := http.NewServeMux()
 	top.Handle("POST "+ingest.Path, h.metrics.HTTP("ingest", h.ingest))
 	top.Handle("POST "+ingest.LogPath, h.metrics.HTTP("ingest_log", http.HandlerFunc(h.ingest.ServeLog)))
+	top.Handle("POST "+ingest.EventsPath, h.metrics.HTTP("ingest_events", http.HandlerFunc(h.ingest.ServeEvents)))
+	top.Handle("POST "+ingest.DemoPath, h.metrics.HTTP("ingest_demo", http.HandlerFunc(h.ingest.ServeDemo)))
 	top.Handle("/", httpx.Chain(mux, csrf.Handler, h.sess.Middleware, h.apps.Middleware))
 	return httpx.Chain(top,
 		httpx.RequestID,

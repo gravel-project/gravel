@@ -96,11 +96,252 @@ cloudvm:
         # The server prints its command line, and the image passes the game server login token, the
         # RCON password and the join password on it (+sv_setsteamaccount, +rcon_password,
         # +sv_password). From here on everything the container prints reaches the journal through a
-        # filter that masks those three values (gravel#170). The filter is a process substitution,
-        # not a wrapper, so the image's entry.sh stays the container's first process: stop signals,
-        # the RCON quit and the unit's restarts are unchanged.
-        exec > >(exec sed -u -E 's/((sv_setsteamaccount|rcon_password|sv_password)"?[[:space:]=]+"?)[^"[:space:]]+/\1[redacted]/g') 2>&1
+        # filter that masks those three values (gravel#170) and any bearer token (gravel#176). The
+        # filter is a process substitution, not a wrapper, so the image's entry.sh stays the
+        # container's first process: stop signals, the RCON quit and the unit's restarts are
+        # unchanged.
+        exec > >(exec sed -u -E -e 's/([Bb]earer[[:space:]]+)[^"[:space:]]+/\1[redacted]/g' -e 's/((sv_setsteamaccount|rcon_password|sv_password)"?[[:space:]=]+"?)[^"[:space:]]+/\1[redacted]/g') 2>&1
         echo "gravel pre-hook: the login token and passwords are masked from here on"
+
+        # The plugin channel (gravel#176): the server runs a pinned plugin set or runs vanilla, as the
+        # environment file the hub writes says. SteamCMD has already updated the install when this
+        # runs, and the update rewrites game/csgo/gameinfo.gi, so the file is patched at every start.
+        #
+        #   GRAVEL_PLUGINS             "" runs vanilla; "matchzy" runs Metamod:Source,
+        #                              CounterStrikeSharp and MatchZy.
+        #   GRAVEL_PLUGIN_FILES        The pinned files, space-separated, each url|sha256|kind|dest:
+        #                              kind is tar.gz or zip, and dest is a directory relative to
+        #                              game/csgo (normally "."). They come from the Game spec.
+        #   GRAVEL_MATCHZY_EVENTS_URL  Where MatchZy posts its match events (matchzy_remote_log_url).
+        #   GRAVEL_MATCHZY_DEMO_URL    Where MatchZy uploads its demos, when set.
+        #   GRAVEL_MATCHZY_TOKEN       The bearer token MatchZy sends to both. It is never printed.
+        #   GRAVEL_MATCH_FILE          A match configuration the hub pushed under game/csgo (such as
+        #                              gravel-match.json). This hook leaves it alone: the hub loads it
+        #                              over RCON once the server is up.
+        #
+        # A file is fetched once into .gravel/plugins/<sha256> on the volume and checked against its
+        # pin at every start. The outcome is one line in .gravel/plugins.status for the hub to read:
+        # "ok matchzy", "vanilla off" when no plugins were asked for, or "vanilla <reason>" when a step
+        # failed. A failure never stops the server: it starts vanilla, with the Metamod search path
+        # removed so the plugins on disk stay inert.
+        #
+        # Everything runs in a subshell, so nothing here can end entry.sh or leave a variable behind.
+        gravel_plugins() (
+          set +eu
+          say() { printf 'gravel pre-hook: %s\n' "$*"; }
+          if [[ -z ${STEAMAPPDIR:-} ]]; then
+            say "STEAMAPPDIR is not set, so plugins are left alone"
+            return 0
+          fi
+          local csgo=$STEAMAPPDIR/game/csgo state=$STEAMAPPDIR/.gravel
+          local gameinfo=$csgo/gameinfo.gi
+          mkdir -p "$state/plugins" || say "could not make $state/plugins"
+
+          status() {
+            if printf '%s\n' "$1" > "$state/plugins.status.tmp" && mv -f "$state/plugins.status.tmp" "$state/plugins.status"; then
+              say "status: $1"
+            else
+              say "could not write $state/plugins.status"
+            fi
+          }
+          # strip removes Metamod's search path from gameinfo.gi, which turns every plugin off.
+          strip() {
+            [[ -f $gameinfo ]] || return 0
+            grep -Eq '^[[:space:]]*Game[[:space:]]+csgo/addons/metamod[[:space:]]*$' "$gameinfo" || return 0
+            if sed -E -i '\#^[[:space:]]*Game[[:space:]]+csgo/addons/metamod[[:space:]]*$#d' "$gameinfo"; then
+              say "removed Metamod's search path from gameinfo.gi"
+            else
+              say "could not remove Metamod's search path from gameinfo.gi"
+            fi
+          }
+          fail() {
+            say "$1, so the server starts vanilla"
+            strip
+            status "vanilla $1"
+          }
+          fetch() {
+            if command -v wget > /dev/null; then
+              wget -q --tries=3 --timeout=60 -O "$2" "$1"
+            elif command -v curl > /dev/null; then
+              curl -fsSL --retry 3 --connect-timeout 60 --max-time 900 -o "$2" "$1"
+            else
+              say "neither wget nor curl is here"
+              return 1
+            fi
+          }
+
+          case ${GRAVEL_PLUGINS:-} in
+            '')
+              say "no plugins asked for, so the server runs vanilla"
+              strip
+              status "vanilla off"
+              return 0
+              ;;
+            matchzy) say "plugin set matchzy asked for" ;;
+            *)
+              fail "GRAVEL_PLUGINS names a plugin set this hook does not know"
+              return 0
+              ;;
+          esac
+
+          # The config's values go between double quotes in a file the server executes, so a quote, a
+          # semicolon or a line break would end the value and start another command.
+          local name value bad=$'["\n\r;]'
+          for name in GRAVEL_MATCHZY_EVENTS_URL GRAVEL_MATCHZY_DEMO_URL GRAVEL_MATCHZY_TOKEN; do
+            value=${!name:-}
+            if [[ $value =~ $bad ]]; then
+              fail "$name holds a quote, semicolon or line break, which MatchZy's config cannot carry"
+              return 0
+            fi
+          done
+          if [[ ! -f $gameinfo ]]; then
+            fail "$gameinfo is missing"
+            return 0
+          fi
+
+          local -a entries
+          read -r -a entries <<< "${GRAVEL_PLUGIN_FILES:-}"
+          if ((${#entries[@]} == 0)); then
+            fail "GRAVEL_PLUGIN_FILES pins no files"
+            return 0
+          fi
+          local entry url sum kind dest extra cache got file
+          for entry in "${entries[@]}"; do
+            IFS='|' read -r url sum kind dest extra <<< "$entry"
+            if [[ -n $extra || ! $url =~ ^https?://[^[:space:]]+$ || ! $sum =~ ^[0-9a-f]{64}$ || ! $kind =~ ^(tar\.gz|zip)$ ||
+              ! $dest =~ ^[A-Za-z0-9._/-]+$ || $dest == /* || /$dest/ == */../* ]]; then
+              fail "GRAVEL_PLUGIN_FILES holds an entry that is not url|sha256|tar.gz or zip|relative dest"
+              return 0
+            fi
+            file=${url##*/}
+            cache=$state/plugins/$sum
+            if [[ -f $cache ]]; then
+              read -r got _ < <(sha256sum "$cache")
+              if [[ $got == "$sum" ]]; then
+                say "$file is cached"
+                continue
+              fi
+              say "the cached $file does not match its pin, so it is fetched again"
+              rm -f "$cache"
+            fi
+            say "fetching $url"
+            if ! fetch "$url" "$cache.part"; then
+              rm -f "$cache.part"
+              fail "fetching $file failed"
+              return 0
+            fi
+            read -r got _ < <(sha256sum "$cache.part")
+            if [[ $got != "$sum" ]]; then
+              rm -f "$cache.part"
+              fail "$file has sha256 $got, not its pinned $sum"
+              return 0
+            fi
+            mv -f "$cache.part" "$cache" || { fail "could not keep $file in $state/plugins"; return 0; }
+            say "$file matches its pin"
+          done
+
+          # The files are unpacked again only when the pins change or the addons directory is gone, so
+          # a config edited on the volume survives a restart.
+          local pins="${entries[*]}" marker=$csgo/addons/.gravel-unpacked
+          if [[ -f $marker && $(< "$marker") == "$pins" ]]; then
+            say "the pinned files are already unpacked"
+          else
+            for entry in "${entries[@]}"; do
+              IFS='|' read -r url sum kind dest _ <<< "$entry"
+              file=${url##*/}
+              mkdir -p "$csgo/$dest" || { fail "could not make $csgo/$dest"; return 0; }
+              if [[ $kind == zip ]]; then
+                unzip -o -q "$state/plugins/$sum" -d "$csgo/$dest"
+              else
+                tar -xzf "$state/plugins/$sum" -C "$csgo/$dest"
+              fi || { fail "unpacking $file failed"; return 0; }
+              say "unpacked $file into game/csgo/$dest"
+            done
+            mkdir -p "$csgo/addons" && printf '%s\n' "$pins" > "$marker" || { fail "could not write $marker"; return 0; }
+          fi
+
+          # MatchZy's config keeps every line it ships; only the keys below are replaced, and a key
+          # whose value is not set is left out.
+          local cfg=$csgo/cfg/MatchZy/config.cfg
+          local note="// The lines below are written by gravel's pre.sh at every start."
+          local -a keys=(matchzy_remote_log_url matchzy_remote_log_header_key matchzy_remote_log_header_value
+            matchzy_demo_upload_url matchzy_demo_upload_header_key matchzy_demo_upload_header_value
+            matchzy_autostart_mode matchzy_kick_when_no_match_loaded)
+          config() {
+            local line events=${GRAVEL_MATCHZY_EVENTS_URL:-} demo=${GRAVEL_MATCHZY_DEMO_URL:-} token=${GRAVEL_MATCHZY_TOKEN:-}
+            if [[ -f $cfg ]]; then
+              while IFS= read -r line || [[ -n $line ]]; do
+                [[ $line == "$note" ]] && continue
+                [[ $line =~ ^[[:space:]]*([A-Za-z0-9_]+) && " ${keys[*]} " == *" ${BASH_REMATCH[1]} "* ]] && continue
+                printf '%s\n' "$line"
+              done < "$cfg" || return 1
+            fi
+            printf '%s\n' "$note"
+            if [[ -n $events ]]; then
+              printf 'matchzy_remote_log_url "%s"\n' "$events"
+              if [[ -n $token ]]; then
+                printf 'matchzy_remote_log_header_key "Authorization"\nmatchzy_remote_log_header_value "Bearer %s"\n' "$token"
+              fi
+            fi
+            if [[ -n $demo ]]; then
+              printf 'matchzy_demo_upload_url "%s"\n' "$demo"
+              if [[ -n $token ]]; then
+                printf 'matchzy_demo_upload_header_key "Authorization"\nmatchzy_demo_upload_header_value "Bearer %s"\n' "$token"
+              fi
+            fi
+            printf 'matchzy_autostart_mode 1\nmatchzy_kick_when_no_match_loaded false\n'
+          }
+          if ! mkdir -p "${cfg%/*}" || ! (umask 077 && config > "$cfg.tmp") || ! mv -f "$cfg.tmp" "$cfg"; then
+            rm -f "$cfg.tmp"
+            fail "could not write MatchZy's config"
+            return 0
+          fi
+          local events=off demo=off auth=without
+          [[ -n ${GRAVEL_MATCHZY_EVENTS_URL:-} ]] && events=on
+          [[ -n ${GRAVEL_MATCHZY_DEMO_URL:-} ]] && demo=on
+          [[ -n ${GRAVEL_MATCHZY_TOKEN:-} ]] && auth=with
+          say "wrote MatchZy's config: match events $events, demo upload $demo, $auth a token"
+
+          # Metamod loads when its directory is a search path right after Game_LowViolence, as its
+          # documentation says. Any copy is removed first, so the line is never there twice.
+          strip > /dev/null
+          if ! sed -E -i 's#^([[:space:]]*)(Game_LowViolence[[:space:]]+csgo_lv([[:space:]].*)?)$#\1\2\n\1Game\tcsgo/addons/metamod#' "$gameinfo" ||
+            [[ $(grep -Ec '^[[:space:]]*Game[[:space:]]+csgo/addons/metamod[[:space:]]*$' "$gameinfo") != 1 ]]; then
+            fail "gameinfo.gi has no single Game_LowViolence line to put Metamod after"
+            return 0
+          fi
+          say "added Metamod's search path to gameinfo.gi"
+          status "ok matchzy"
+        )
+        gravel_plugins || true
+        unset -f gravel_plugins
+  # How a lease takes a match (#20, #176): MatchZy, on Metamod:Source and CounterStrikeSharp,
+  # installed by pre.sh from these pins when a lease asks for it, with a vanilla server if it
+  # doesn't load (MatchZy's with-cssharp zip carries CounterStrikeSharp and its .NET runtime;
+  # Metamod comes on its own). A lease's match config is MatchZy's JSON, written into the install
+  # and loaded over RCON once the plugins answer.
+  lease:
+    match_file: game/csgo/gravel-match.json
+    match_format: matchzy
+    load_command: matchzy_loadmatch gravel-match.json
+    connect: "connect <address>; password <password>"
+    plugins:
+      matchzy:
+        files:
+          - url: https://github.com/alliedmodders/metamod-source/releases/download/2.0.0.1476/mmsource-2.0.0-git1476-linux.tar.gz
+            sha256: fc8b4dce5b72ee8d3222cecba2c0efab6cd4e46bbfc381aec58f834ed9842f8e
+            kind: tar.gz
+            dest: .
+          - url: https://github.com/shobhit-pathak/MatchZy/releases/download/0.9.1/MatchZy-0.9.1-with-cssharp-linux.zip
+            sha256: 5f1045c2ceb628b7223c8b41b788841b64b603e0129f6638dc0f9e7ca83d4fdd
+            kind: zip
+            dest: .
+        check: css_plugins list
+        expect: MatchZy
+        env:
+          GRAVEL_MATCHZY_EVENTS_URL: "{hub}/api/ingest/matchzy"
+          GRAVEL_MATCHZY_DEMO_URL: "{hub}/api/ingest/matchzy/demo"
+          GRAVEL_MATCHZY_TOKEN: "{token}"
   # The teams a server's card counts players on (#159); a player's team is the side the log gives
   # them, and spectators are on neither. The log carries no running score.
   teams:

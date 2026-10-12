@@ -1,0 +1,13 @@
+{
+  "event": "series_start",
+  "matchid": 27,
+  "team1": {
+    "id": "",
+    "name": "Hidden Token"
+  },
+  "team2": {
+    "id": "",
+    "name": "War Dogs"
+  },
+  "num_maps": 3
+}

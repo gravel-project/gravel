@@ -43,6 +43,15 @@ linters:
           deny:
             - pkg: github.com/digitalocean/godo
               desc: "only cloud/... may import a cloud vendor SDK; use cloud.Provider (ADR-0003)"
+        # An object-storage SDK stays behind objectstore.Store: only internal/objectstore/ imports it.
+        object-storage-sdks:
+          list-mode: lax
+          files:
+            - "$all"
+            - "!**/internal/objectstore/**"
+          deny:
+            - pkg: github.com/minio/minio-go
+              desc: "only internal/objectstore may import an object-storage SDK; use objectstore.Store"
   exclusions:
     generated: lax
     paths:

@@ -41,7 +41,8 @@ func TestOrganizationSettings(t *testing.T) {
 			Streams: &hubv1.DiscordStreams{Channel: "1300000000000000104", Role: "1300000000000000005", Note: "Grab the Stream role to be pinged.",
 				Streamers: []*hubv1.DiscordStreamer{{Platform: "twitch", Login: "hiddentoken", Label: "Hidden Token"}, {Platform: "kick", Login: "hiddentoken"}}},
 			News: &hubv1.DiscordNews{Feeds: []*hubv1.DiscordNewsFeed{{AppId: 730, Channel: "1300000000000000105", Label: "Counter-Strike 2", Color: 0xde9b35},
-				{AppId: 271590, Channel: "1300000000000000105", Label: "Grand Theft Auto V", Feeds: []string{"steam_community_announcements", "steam_updates"}}}}},
+				{AppId: 271590, Channel: "1300000000000000105", Label: "Grand Theft Auto V", Feeds: []string{"steam_community_announcements", "steam_updates"}}}},
+			MatchResults: &hubv1.DiscordMatchResults{Channel: "1300000000000000106", Servers: []string{"htg-cs2-1"}}},
 		Stats: &hubv1.StatsSettings{MinMatches: 5, Timezone: "America/Chicago", RawRetentionMonths: 6, Seasons: []*hubv1.StatsSeason{{Name: "Season 02", Game: "wardogs", From: "2026-10-15", To: "2027-01-15"}}},
 		Games: map[string]*hubv1.GameSettings{"wardogs": {
 			Theme: &hubv1.GameTheme{Light: &hubv1.ThemeTokens{Accent: "#8a5a00"}, Dark: &hubv1.ThemeTokens{Accent: "#f0b429"}, BannerUrl: "https://hiddentoken.com/brand/wardogs.png", BannerAlt: "War Dogs"},
@@ -98,6 +99,9 @@ func TestOrganizationSettings(t *testing.T) {
 	if !proto.Equal(d.GetNews(), want.GetDiscord().GetNews()) {
 		t.Errorf("news read back: %v", d.GetNews())
 	}
+	if !proto.Equal(d.GetMatchResults(), want.GetDiscord().GetMatchResults()) {
+		t.Errorf("match results read back: %v", d.GetMatchResults())
+	}
 	if st := got.Msg.GetSettings().GetStats(); st.GetMinMatches() != 5 || st.GetRawRetentionMonths() != 6 || st.GetTimezone() != "America/Chicago" || len(st.GetSeasons()) != 1 || st.GetSeasons()[0].GetGame() != "wardogs" || st.GetPublic() {
 		t.Errorf("stats read back: %v", st)
 	}
@@ -114,16 +118,17 @@ func TestOrganizationSettings(t *testing.T) {
 		Discord: &hubv1.DiscordSettings{Roles: &hubv1.DiscordRoles{Providers: map[string]string{"xbox": "1300000000000000002"}},
 			Seeding: []*hubv1.DiscordSeeding{{Server: "htg-wardogs-1", Channel: "1300000000000000101", Role: "1300000000000000004", Below: 1,
 				Hours: []*hubv1.DiscordSeedingHours{{Days: []string{"wed"}, From: "18:00", To: "18:00"}}}},
-			Presence: &hubv1.DiscordPresence{Channel: "#whos-playing", Games: []*hubv1.DiscordPresenceGame{{Game: "wardogs", Label: "War Dogs"}}},
-			Streams:  &hubv1.DiscordStreams{Channel: "1300000000000000104", Streamers: []*hubv1.DiscordStreamer{{Platform: "youtube", Login: "hiddentoken"}}},
-			News:     &hubv1.DiscordNews{Feeds: []*hubv1.DiscordNewsFeed{{AppId: 730, Channel: "1300000000000000105"}}}},
+			Presence:     &hubv1.DiscordPresence{Channel: "#whos-playing", Games: []*hubv1.DiscordPresenceGame{{Game: "wardogs", Label: "War Dogs"}}},
+			Streams:      &hubv1.DiscordStreams{Channel: "1300000000000000104", Streamers: []*hubv1.DiscordStreamer{{Platform: "youtube", Login: "hiddentoken"}}},
+			News:         &hubv1.DiscordNews{Feeds: []*hubv1.DiscordNewsFeed{{AppId: 730, Channel: "1300000000000000105"}}},
+			MatchResults: &hubv1.DiscordMatchResults{Channel: "1300000000000000106", Servers: []string{"HTG CS2"}}},
 		Games: map[string]*hubv1.GameSettings{"wardogs": {Theme: &hubv1.GameTheme{Light: &hubv1.ThemeTokens{Background: "#fff"}}, Nav: []*hubv1.NavLink{{Label: "x", Url: "/x", Placement: "footer"}},
 			Maps: map[string]string{"Ozeti": "/o.jpg"}}}}
 	_, err = joClient.UpdateOrganizationSettings(ctx, connect.NewRequest(&hubv1.UpdateOrganizationSettingsRequest{Settings: bad}))
 	if connect.CodeOf(err) != connect.CodeInvalidArgument {
 		t.Fatalf("invalid: %v", err)
 	}
-	for _, want := range []string{"theme.light.accent", "theme.logo_url", "nav[0].label", "nav[0].url", "nav[0].placement", "discord.guild_id", "discord.roles.providers.xbox", "discord.seeding[0].below", "discord.presence.channel", "discord.streams.streamers[0].platform", "discord.news.feeds[0].label", "discord.presence.games[0]: names no activity", "discord.seeding[0].hours[0]: from and to",
+	for _, want := range []string{"theme.light.accent", "theme.logo_url", "nav[0].label", "nav[0].url", "nav[0].placement", "discord.guild_id", "discord.roles.providers.xbox", "discord.seeding[0].below", "discord.presence.channel", "discord.streams.streamers[0].platform", "discord.news.feeds[0].label", "discord.match_results.servers[0]", "discord.presence.games[0]: names no activity", "discord.seeding[0].hours[0]: from and to",
 		"games.wardogs.theme.light: a game overlays only the accent", "games.wardogs.nav[0].placement", "games.wardogs.maps.Ozeti"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("the error names %s: %v", want, err)

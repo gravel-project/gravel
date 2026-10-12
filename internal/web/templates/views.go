@@ -340,6 +340,8 @@ type HostPanel struct {
 	ExpectedUntil   time.Time
 	ExpectedReason  string
 	ExpectMax       int
+	// Leases are the server's recent leases (#20), newest first.
+	Leases []LeaseRow
 	// What the reader may do now.
 	CanPark, CanUnpark, CanResize, CanDestroy, CanPin, CanUnpin, CanSnapshot, CanExpect bool
 	Sizes                                                                               []HostSizeOption
@@ -347,6 +349,13 @@ type HostPanel struct {
 
 // ExpectFor are the spans the expected-population form offers.
 var ExpectFor = []string{"1h", "2h", "3h", "4h", "6h", "12h", "24h"}
+
+// LeaseRow is one of a server's leases: who took it, for what, and what became of it.
+type LeaseRow struct {
+	ID, State, Holder, Ref, Reason, Plugins string
+	Created                                 time.Time
+	Live                                    bool
+}
 
 // HostRung is one rung of a host's scaling ladder.
 type HostRung struct {
@@ -376,6 +385,8 @@ type HostConfirmPage struct {
 	OfferForce, OfferPin, OfferDeleteVolume bool
 	// An expected population's players, span and reason, carried through the confirmation.
 	Players, For, Reason string
+	// Lease is the lease a release gives back.
+	Lease string
 }
 
 // ModControls are the moderation controls a server page shows a moderator; each is shown only
@@ -626,4 +637,38 @@ func JoinLabel(method string) string {
 	default:
 		return "Join"
 	}
+}
+
+// ResultPage is a match result (ADR-0024): a series, its maps and its players.
+type ResultPage struct {
+	Page
+	ID, ServerID, ServerName string
+	Team1, Team2             string
+	Score1, Score2           int
+	Winner                   string // team1, team2, none, or "" while it lasts
+	Started                  string
+	Ended                    bool
+	Maps                     []ResultMap
+}
+
+// ResultMap is one map of a result, numbered from 1.
+type ResultMap struct {
+	Number             int
+	Name               string
+	Score1, Score2     int
+	Winner             string
+	DemoURL            string
+	Players1, Players2 []ResultPlayer
+}
+
+// ResultPlayer is a player's totals on a map, named as on a board.
+type ResultPlayer struct {
+	Name         string
+	Pseudonymous bool
+	UserID       string
+	Kills        int
+	Deaths       int
+	Assists      int
+	Damage       int
+	MVPs         int
 }

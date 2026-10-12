@@ -269,6 +269,98 @@ service StatsService {
   // overlap it and the top five by kills. The window is at most 24 hours and must have ended.
   // The same access as GetBoard.
   rpc GetSessionRecap(GetSessionRecapRequest) returns (GetSessionRecapResponse);
+  // ListMatchResults is the series a match plugin reported (MatchZy, ADR-0024), newest first,
+  // without their maps and players. Who may GetBoard.
+  rpc ListMatchResults(ListMatchResultsRequest) returns (ListMatchResultsResponse);
+  // GetMatchResult is a series with its maps and each player's totals on each map, players shown
+  // as on a board: a member's name when they chose it, else a pseudonym. Who may GetBoard.
+  rpc GetMatchResult(GetMatchResultRequest) returns (GetMatchResultResponse);
+  // GetMatchDemo is a link to download a map's demo, good for 15 minutes; not_found when the map
+  // has none. Who may GetBoard.
+  rpc GetMatchDemo(GetMatchDemoRequest) returns (GetMatchDemoResponse);
+}
+
+// MatchResult is one series a server's match plugin ran.
+message MatchResult {
+  string id = 1;
+  string server_id = 2;
+  // The lease the server was under (a PUG), if any.
+  string lease_id = 3;
+  string team1_name = 4;
+  string team2_name = 5;
+  int32 num_maps = 6;
+  // Maps won, once the series ended.
+  int32 team1_score = 7;
+  int32 team2_score = 8;
+  // "team1", "team2", "none" (a draw), or "" while it lasts.
+  string winner = 9;
+  google.protobuf.Timestamp started_at = 10;
+  google.protobuf.Timestamp ended_at = 11;
+  repeated MatchResultMap maps = 12;
+  repeated MatchResultPlayer players = 13;
+}
+
+// MatchResultMap is one map of a series.
+message MatchResultMap {
+  // From 0, in the order played.
+  int32 map_number = 1;
+  string map_name = 2;
+  int32 team1_score = 3;
+  int32 team2_score = 4;
+  string winner = 5;
+  google.protobuf.Timestamp started_at = 6;
+  google.protobuf.Timestamp ended_at = 7;
+  bool has_demo = 8;
+}
+
+// MatchResultPlayer is a player's totals on one map, shown as a board shows them.
+message MatchResultPlayer {
+  int32 map_number = 1;
+  string name = 2;
+  bool pseudonymous = 3;
+  // The member, when shown by name.
+  string user_id = 4;
+  // "team1" or "team2".
+  string team = 5;
+  int32 kills = 6;
+  int32 deaths = 7;
+  int32 assists = 8;
+  int32 damage = 9;
+  int32 headshot_kills = 10;
+  int32 mvps = 11;
+  int32 score = 12;
+}
+
+message ListMatchResultsRequest {
+  string server_id = 1;
+  string lease_id = 2;
+  bool ended_only = 3;
+  // Only series that ended after this (a bot's next look).
+  google.protobuf.Timestamp ended_after = 4;
+  // At most this many (50 when 0, at most 200).
+  int32 page_size = 5;
+}
+
+message ListMatchResultsResponse {
+  repeated MatchResult results = 1;
+}
+
+message GetMatchResultRequest {
+  string id = 1;
+}
+
+message GetMatchResultResponse {
+  MatchResult result = 1;
+}
+
+message GetMatchDemoRequest {
+  string id = 1;
+  int32 map_number = 2;
+}
+
+message GetMatchDemoResponse {
+  string url = 1;
+  google.protobuf.Timestamp expires_at = 2;
 }
 
 message GetSessionRecapRequest {

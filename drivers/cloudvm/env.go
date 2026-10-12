@@ -46,6 +46,12 @@ func RenderEnv(s ServerSpec, size string) ([]byte, error) {
 		}
 		env[st.Env] = v
 	}
+	for k, v := range s.ExtraEnv {
+		if _, taken := env[k]; taken || !envRE.MatchString(k) {
+			return nil, fmt.Errorf("cloudvm: server %s: extra environment %q is not a name of its own", s.ID, k)
+		}
+		env[k] = v
+	}
 	sec := s.Profile.Secrets
 	env[sec.RCONPassword] = s.RCONPassword
 	for name, v := range map[string]string{sec.JoinPassword: s.JoinPassword, sec.PublisherToken: s.PublisherToken, sec.FeedURL: s.FeedURL} {

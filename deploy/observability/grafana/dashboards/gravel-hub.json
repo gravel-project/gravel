@@ -2517,6 +2517,404 @@
       },
       "id": 44,
       "panels": [],
+      "title": "Server leases",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Leases starting, ready or ending now (#20, ADR-0023). No data is expected when the hub has no lease key.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gravelOptional": "the hub has no lease key",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 100
+      },
+      "id": 45,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "gravel_leases_live{job=\"$job\", instance=~\"$instance\"}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Leases holding a server",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "By pool and what happened: requested, released, failed, never_ready (failed before its server was ready). No data is expected when no lease in the range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gravelOptional": "no lease in the range",
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 6,
+        "y": 100
+      },
+      "id": 46,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (pool, result) (increase(gravel_leases_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "{{pool}} {{result}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Leases",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "No data is expected when no lease got ready in the range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gravelOptional": "no lease got ready in the range",
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 100
+      },
+      "id": 47,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(gravel_lease_ready_seconds_bucket{job=\"$job\", instance=~\"$instance\"}[$__rate_interval])))",
+          "legendFormat": "p95",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Request to ready (p95)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Events a server's match plugin (MatchZy) posted (ADR-0024), by result: recorded, ignored (one the hub keeps nothing of), error. No data is expected when no match plugin posted an event in the range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gravelOptional": "no match plugin posted an event in the range",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 108
+      },
+      "id": 48,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (event, result) (increase(gravel_match_events_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "{{event}} {{result}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Match events",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Demos a server's match plugin uploaded to the hub's object store, by result. No data is expected when no demo was uploaded in the range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gravelOptional": "no demo was uploaded in the range",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 108
+      },
+      "id": 49,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (result) (increase(gravel_match_demos_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "{{result}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Match demos",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "loaded, or vanilla when the set didn't load (a game patch broke it, a bad pin) and the server ran without it (#176). No data is expected when no lease asked for a plugin set in the range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gravelOptional": "no lease asked for a plugin set in the range",
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 0,
+        "y": 116
+      },
+      "id": 50,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (set, result) (increase(gravel_lease_plugins_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "{{set}} {{result}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Plugin sets",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 124
+      },
+      "id": 51,
+      "panels": [],
       "title": "Cloud VMs",
       "type": "row"
     },
@@ -2549,9 +2947,9 @@
         "h": 4,
         "w": 6,
         "x": 0,
-        "y": 100
+        "y": 125
       },
-      "id": 45,
+      "id": 52,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -2618,9 +3016,9 @@
         "h": 4,
         "w": 6,
         "x": 6,
-        "y": 100
+        "y": 125
       },
-      "id": 46,
+      "id": 53,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -2679,9 +3077,9 @@
         "h": 4,
         "w": 6,
         "x": 12,
-        "y": 100
+        "y": 125
       },
-      "id": 47,
+      "id": 54,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -2740,9 +3138,9 @@
         "h": 4,
         "w": 6,
         "x": 18,
-        "y": 100
+        "y": 125
       },
-      "id": 48,
+      "id": 55,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -2808,9 +3206,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 104
+        "y": 129
       },
-      "id": 49,
+      "id": 56,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2873,9 +3271,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 104
+        "y": 129
       },
-      "id": 50,
+      "id": 57,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2938,9 +3336,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 104
+        "y": 129
       },
-      "id": 51,
+      "id": 58,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3003,9 +3401,9 @@
         "h": 8,
         "w": 6,
         "x": 0,
-        "y": 112
+        "y": 137
       },
-      "id": 52,
+      "id": 59,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3068,9 +3466,9 @@
         "h": 8,
         "w": 6,
         "x": 6,
-        "y": 112
+        "y": 137
       },
-      "id": 53,
+      "id": 60,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3126,9 +3524,9 @@
         "h": 4,
         "w": 6,
         "x": 12,
-        "y": 112
+        "y": 137
       },
-      "id": 54,
+      "id": 61,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -3187,9 +3585,9 @@
         "h": 4,
         "w": 6,
         "x": 18,
-        "y": 112
+        "y": 137
       },
-      "id": 55,
+      "id": 62,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -3248,9 +3646,9 @@
         "h": 4,
         "w": 6,
         "x": 0,
-        "y": 120
+        "y": 145
       },
-      "id": 56,
+      "id": 63,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -3316,9 +3714,9 @@
         "h": 8,
         "w": 6,
         "x": 6,
-        "y": 120
+        "y": 145
       },
-      "id": 57,
+      "id": 64,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3381,9 +3779,9 @@
         "h": 8,
         "w": 6,
         "x": 12,
-        "y": 120
+        "y": 145
       },
-      "id": 58,
+      "id": 65,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3446,9 +3844,9 @@
         "h": 8,
         "w": 6,
         "x": 18,
-        "y": 120
+        "y": 145
       },
-      "id": 59,
+      "id": 66,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3511,9 +3909,9 @@
         "h": 8,
         "w": 6,
         "x": 0,
-        "y": 128
+        "y": 153
       },
-      "id": 60,
+      "id": 67,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3546,9 +3944,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 136
+        "y": 161
       },
-      "id": 61,
+      "id": 68,
       "panels": [],
       "title": "Stats",
       "type": "row"
@@ -3589,9 +3987,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 137
+        "y": 162
       },
-      "id": 62,
+      "id": 69,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3654,9 +4052,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 137
+        "y": 162
       },
-      "id": 63,
+      "id": 70,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3719,9 +4117,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 137
+        "y": 162
       },
-      "id": 64,
+      "id": 71,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3783,9 +4181,9 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 145
+        "y": 170
       },
-      "id": 65,
+      "id": 72,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3840,9 +4238,9 @@
         "h": 4,
         "w": 12,
         "x": 12,
-        "y": 145
+        "y": 170
       },
-      "id": 66,
+      "id": 73,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -3907,9 +4305,9 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 153
+        "y": 178
       },
-      "id": 67,
+      "id": 74,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3942,9 +4340,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 161
+        "y": 186
       },
-      "id": 68,
+      "id": 75,
       "panels": [],
       "title": "Ingestion",
       "type": "row"
@@ -3986,9 +4384,9 @@
         "h": 4,
         "w": 8,
         "x": 0,
-        "y": 162
+        "y": 187
       },
-      "id": 69,
+      "id": 76,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -4054,9 +4452,9 @@
         "h": 8,
         "w": 16,
         "x": 8,
-        "y": 162
+        "y": 187
       },
-      "id": 70,
+      "id": 77,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4089,9 +4487,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 170
+        "y": 195
       },
-      "id": 71,
+      "id": 78,
       "panels": [],
       "title": "Background jobs",
       "type": "row"
@@ -4131,9 +4529,9 @@
         "h": 8,
         "w": 16,
         "x": 0,
-        "y": 171
+        "y": 196
       },
-      "id": 72,
+      "id": 79,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4188,9 +4586,9 @@
         "h": 4,
         "w": 8,
         "x": 16,
-        "y": 171
+        "y": 196
       },
-      "id": 73,
+      "id": 80,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -4226,9 +4624,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 179
+        "y": 204
       },
-      "id": 74,
+      "id": 81,
       "panels": [],
       "title": "Runtime",
       "type": "row"
@@ -4267,9 +4665,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 180
+        "y": 205
       },
-      "id": 75,
+      "id": 82,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4330,9 +4728,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 180
+        "y": 205
       },
-      "id": 76,
+      "id": 83,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4393,9 +4791,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 180
+        "y": 205
       },
-      "id": 77,
+      "id": 84,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4456,9 +4854,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 188
+        "y": 213
       },
-      "id": 78,
+      "id": 85,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4519,9 +4917,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 188
+        "y": 213
       },
-      "id": 79,
+      "id": 86,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4582,9 +4980,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 188
+        "y": 213
       },
-      "id": 80,
+      "id": 87,
       "options": {
         "legend": {
           "displayMode": "list",

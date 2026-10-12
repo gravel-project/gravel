@@ -56,8 +56,10 @@ type Config struct {
 	Recaps      Recaps      `yaml:"recaps"`
 	Streams     Streams     `yaml:"streams"`
 	News        News        `yaml:"news"`
-	Server      Server      `yaml:"server"`
-	Log         Log         `yaml:"log"`
+	// MatchResults posts each finished match result (discord/modules/matchresults, ADR-0024).
+	MatchResults MatchResults `yaml:"match_results"`
+	Server       Server       `yaml:"server"`
+	Log          Log          `yaml:"log"`
 }
 
 // RoleSync runs the role-sync reconciler (discord/modules/rolesync). What it maps lives in the
@@ -201,6 +203,20 @@ type News struct {
 // one call per feed.
 const MinNewsInterval = 5 * time.Minute
 
+// MatchResults posts each finished match result in Discord (discord/modules/matchresults,
+// ADR-0024). The channel and the servers are the Organization settings' discord.match_results;
+// this is how the process runs them. Off by default: the bot's app needs stats:read unless the
+// settings make stats public.
+type MatchResults struct {
+	Enabled bool `yaml:"enabled"`
+	// Interval is how often the hub is asked for finished results: the longest a result waits.
+	Interval time.Duration `yaml:"interval"`
+}
+
+// MinMatchResultsInterval is the match results' floor: each pass is a hub call per listed server,
+// and a channel read when a result is new.
+const MinMatchResultsInterval = 30 * time.Second
+
 // Discord is the application the bot runs as.
 type Discord struct {
 	// ApplicationID and PublicKey come from the Developer Portal; the key verifies HTTP
@@ -264,20 +280,21 @@ func OSEnv() Env { return Env{LookupEnv: os.LookupEnv, ReadFile: os.ReadFile} }
 // Default returns the configuration with every optional field at its default.
 func Default() Config {
 	return Config{
-		Version:     CurrentVersion,
-		Discord:     Discord{Gateway: true},
-		RoleSync:    RoleSync{Enabled: true, Interval: 10 * time.Minute, PollInterval: 30 * time.Second},
-		LinkedRoles: LinkedRoles{Enabled: true},
-		ServerCards: ServerCards{Enabled: true, Interval: 15 * time.Second},
-		Moderation:  Moderation{Command: "mod"},
-		ModLog:      ModLog{Interval: 15 * time.Second},
-		Seeding:     Seeding{Interval: 30 * time.Second},
-		Presence:    Presence{Interval: time.Minute},
-		Recaps:      Recaps{Interval: time.Minute},
-		Streams:     Streams{Interval: time.Minute},
-		News:        News{Interval: 15 * time.Minute},
-		Server:      Server{Listen: "127.0.0.1:8081", InternalListen: "127.0.0.1:9091", ShutdownTimeout: 15 * time.Second},
-		Log:         Log{Level: "info", Format: "json"},
+		Version:      CurrentVersion,
+		Discord:      Discord{Gateway: true},
+		RoleSync:     RoleSync{Enabled: true, Interval: 10 * time.Minute, PollInterval: 30 * time.Second},
+		LinkedRoles:  LinkedRoles{Enabled: true},
+		ServerCards:  ServerCards{Enabled: true, Interval: 15 * time.Second},
+		Moderation:   Moderation{Command: "mod"},
+		ModLog:       ModLog{Interval: 15 * time.Second},
+		Seeding:      Seeding{Interval: 30 * time.Second},
+		Presence:     Presence{Interval: time.Minute},
+		Recaps:       Recaps{Interval: time.Minute},
+		Streams:      Streams{Interval: time.Minute},
+		News:         News{Interval: 15 * time.Minute},
+		MatchResults: MatchResults{Interval: time.Minute},
+		Server:       Server{Listen: "127.0.0.1:8081", InternalListen: "127.0.0.1:9091", ShutdownTimeout: 15 * time.Second},
+		Log:          Log{Level: "info", Format: "json"},
 	}
 }
 
@@ -433,6 +450,9 @@ func (c Config) Validate() error {
 	}
 	if c.News.Interval < MinNewsInterval {
 		bad("news.interval: %s is shorter than %s", c.News.Interval, MinNewsInterval)
+	}
+	if c.MatchResults.Interval < MinMatchResultsInterval {
+		bad("match_results.interval: %s is shorter than %s", c.MatchResults.Interval, MinMatchResultsInterval)
 	}
 	for _, p := range []struct {
 		name string

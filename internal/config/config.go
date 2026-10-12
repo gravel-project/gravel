@@ -32,6 +32,9 @@ const (
 	EnvDiscordClientSecret = "GRAVEL_DISCORD_CLIENT_SECRET"
 	EnvSteamAPIKey         = "GRAVEL_STEAM_API_KEY"
 	EnvStatsPseudonymKey   = "GRAVEL_STATS_PSEUDONYM_KEY"
+	EnvLeaseKey            = "GRAVEL_LEASE_KEY"
+	EnvDemosAccessKey      = "GRAVEL_DEMOS_ACCESS_KEY"
+	EnvDemosSecretKey      = "GRAVEL_DEMOS_SECRET_KEY"
 )
 
 // Migration policies.
@@ -54,6 +57,8 @@ type Config struct {
 	Apps         Apps         `yaml:"apps"`
 	Stats        Stats        `yaml:"stats"`
 	Cloud        Cloud        `yaml:"cloud"`
+	Leases       Leases       `yaml:"leases"`
+	Demos        Demos        `yaml:"demos"`
 	// Demo marks a demo hub (gravel#112): every page says its members, matches and stats are
 	// made up, and `gravel-hub demo seed` may write fake history into its database. A hub without
 	// it refuses to start on a database that holds demo members.
@@ -68,6 +73,42 @@ type Cloud struct {
 	// lies cannot lock the hub out.
 	EgressCIDRs []string `yaml:"egress_cidrs"`
 }
+
+// Leases is server leases' one secret (#20): the key a lease's join password is derived from, so
+// the password is never stored and comes out the same after a restart. Unset, the hub leases no
+// server.
+type Leases struct {
+	// Key is development only: production sets GRAVEL_LEASE_KEY or KeyFile.
+	Key     string `yaml:"key"`
+	KeyFile string `yaml:"key_file"`
+
+	keySource string
+}
+
+// KeySource says where the lease key came from, never the key; empty when there is none.
+func (l Leases) KeySource() string { return l.keySource }
+
+// Demos is where match demos are kept (ADR-0024): an S3-compatible bucket (Cloudflare R2 first).
+// Without a bucket the hub keeps none, and a server's plugin is given no upload route.
+type Demos struct {
+	Endpoint  string `yaml:"endpoint"`
+	Region    string `yaml:"region"`
+	Bucket    string `yaml:"bucket"`
+	PathStyle bool   `yaml:"path_style"`
+	// MaxMiB is the largest demo kept (512).
+	MaxMiB int `yaml:"max_mib"`
+	// AccessKey and SecretKey are development only: production sets the environment or the files.
+	AccessKey     string `yaml:"access_key"`
+	AccessKeyFile string `yaml:"access_key_file"`
+	SecretKey     string `yaml:"secret_key"`
+	SecretKeyFile string `yaml:"secret_key_file"`
+}
+
+// Enabled reports whether the hub keeps demos.
+func (d Demos) Enabled() bool { return d.Bucket != "" }
+
+// MinLeaseKey is the shortest lease key accepted.
+const MinLeaseKey = 32
 
 // Stats is the stats store's one secret (ADR-0012 §5): the key pseudonyms are chosen with, so a
 // pseudonym cannot be computed from a SteamID without it. Unset, unlinked players show as
@@ -228,7 +269,8 @@ func Default() Config {
 			PerUser: Limit{RequestsPerMinute: 600, Burst: 100},
 			PerApp:  Limit{RequestsPerMinute: 600, Burst: 100},
 		},
-		Apps: Apps{TokenTTL: time.Hour},
+		Demos: Demos{MaxMiB: 512},
+		Apps:  Apps{TokenTTL: time.Hour},
 	}
 }
 
@@ -292,6 +334,17 @@ func (c *Config) resolveSecrets(env Env) error {
 	if c.Stats.PseudonymKey, c.Stats.keySource, err = resolveSecret(env, EnvStatsPseudonymKey, c.Stats.PseudonymKeyFile, c.Stats.PseudonymKey, "stats.pseudonym_key"); err != nil {
 		return err
 	}
+	if c.Leases.Key, c.Leases.keySource, err = resolveSecret(env, EnvLeaseKey, c.Leases.KeyFile, c.Leases.Key, "leases.key"); err != nil {
+		return err
+	}
+	if c.Demos.Enabled() {
+		if c.Demos.AccessKey, _, err = resolveSecret(env, EnvDemosAccessKey, c.Demos.AccessKeyFile, c.Demos.AccessKey, "demos.access_key"); err != nil {
+			return err
+		}
+		if c.Demos.SecretKey, _, err = resolveSecret(env, EnvDemosSecretKey, c.Demos.SecretKeyFile, c.Demos.SecretKey, "demos.secret_key"); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -321,6 +374,17 @@ func (c Config) Validate() error {
 
 	if c.Version != CurrentVersion {
 		bad("version: got %d, this hub reads version %d", c.Version, CurrentVersion)
+	}
+	if d := c.Demos; d.Enabled() {
+		if d.Endpoint == "" || d.Region == "" || d.AccessKey == "" || d.SecretKey == "" {
+			bad("demos: a bucket needs endpoint, region, access_key and secret_key")
+		}
+		if d.MaxMiB < 1 || d.MaxMiB > 4096 {
+			bad("demos.max_mib: %d is outside 1–4096", d.MaxMiB)
+		}
+	}
+	if k := c.Leases.Key; k != "" && len(k) < MinLeaseKey {
+		bad("leases.key: %d characters, at least %d (openssl rand -hex 32)", len(k), MinLeaseKey)
 	}
 	if k := c.Stats.PseudonymKey; k != "" && len(k) < MinPseudonymKey {
 		bad("stats.pseudonym_key: %d characters, at least %d (openssl rand -hex 32)", len(k), MinPseudonymKey)

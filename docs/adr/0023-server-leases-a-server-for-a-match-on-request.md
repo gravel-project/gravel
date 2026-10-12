@@ -1,0 +1,29 @@
+# ADR-0023: Server leases, a server for a match on request
+
+**Status:** proposed (2026-10-12; accepted when John merges it) · **Changes:** the transient-server API (README "on-demand start, auto-tear-down"); amends ADR-0003 §5 (parking is the transient lifecycle) · **Tracked by:** #20, #176 (the plugin channel on the cloud VM), #177 (a fresh VM per lease); hidden-token-gaming/htg#36 (the first holder, Muster's `/pug`)
+
+## Context
+
+#20 asked for a server on request: an app (Muster's PUG flow) asks, gravel starts one with the request's password and configuration, says when players can join, and takes it down after. It assumed Agones: a Fleet and a GameServerAllocation. The Kubernetes path moved after P5 (John, 2026-10-12): one hub node is cheaper than a cluster and a game node pool, and CS2 runs on a cloud VM the hub owns (ADR-0003). That VM already has the lifecycle: parked when idle, started in two or three minutes, its install on its volume.
+
+John asked for three ways to provide a server, behind one API: a standing server leased and given back, a pool of them, and a fresh VM per match. The first two are buildable now; the third needs servers made from the API and secrets that aren't files (#177).
+
+A match server needs what a public server doesn't: a password only its players get, settings for the match (the map the veto chose), a plugin set (MatchZy, which needs Metamod:Source and CounterStrikeSharp, which break on most CS2 patches), and a match config the plugin loads.
+
+## Decision
+
+1. **A lease, not a server.** `ServerLeaseService.RequestServerLease` names a server or a pool (`vm.lease.pool` in `servers.yaml`) and a holder's reference (a session id). The hub picks the server: a running empty one first, then a parked one, never one with players on. The holder gets the lease, how to join and its password. Asking again with the same reference answers the same lease. One live lease per server and per holder's reference, enforced by the database.
+2. **A standing server is the first provisioner.** Leasing changes nothing about the server but its overlay: while a lease lives, the spec the cloud-VM Manager reads has the lease's password, settings, plugin set and match file, so the existing environment push and drift repair deliver them. When the lease ends, the expectation is cleared, the server is parked, and its own password and settings come back at its next start. A fresh VM (#177) and Agones (K1) are later provisioners behind the same requests.
+3. **The password is derived, never stored.** It is an HMAC of the lease's id under the hub's lease key (`leases.key_file`), so a restarted hub derives the same one and the database holds none (the hub's rule: no secret in plaintext in the database). It is in the answer to the request that holds the lease, and nowhere else. Without a lease key, the hub leases nothing.
+4. **Ready means joinable.** A lease is `starting` until the host runs the lease's environment (`Manager.EnvCurrent`), the game answers, its plugin set answers the Game spec's check (CS2: `css_plugins list` shows MatchZy), and its match config is loaded (`matchzy_loadmatch`). Then it is `ready`. Not ready within `ready_within` (15m) fails it.
+5. **A plugin set falls back to vanilla.** A set that doesn't answer its check within three minutes of the game starting is dropped from the overlay: the server restarts without it and the lease goes ready as a vanilla server, with the reason on the lease. A password-only match still plays; the holder decides what to tell its players. The pins (URLs and SHA-256) are data in the Game spec. The game's `pre.sh` hook fetches, checks, caches and unpacks them on the volume, re-patches `gameinfo.gi` at every start (SteamCMD rewrites it), writes MatchZy's config, and strips Metamod when no set is asked for (#176).
+6. **A lease ends by itself.** It ends `release_after` (5m) after its match's series ends (MatchZy's `series_end`), after the server has been empty `idle_after` (15m) once ready, at `max` (4h), when a moderator parks the server, or when the server leaves the manifest or leasing. The holder, the owner or a moderator can release it any time.
+7. **Who may lease.** An app with the new scope `servers:lease` (an app's own; a member never grants it), or the owner and moderators in person. An app sees and releases only its own leases. A member's token never leases. Every request and release is an audit row (`lease_request`, `lease_release`).
+8. **Watching.** `WatchServerLease` streams the lease at once and on every change, with a heartbeat every 30 seconds so a proxied connection isn't idled out, and ends when the lease is over. It is the hub's first server-streaming procedure.
+9. **Expected players.** A lease's `expected_players` becomes the server's expected population until the lease's `max` (#172), so the server is sized for the match before anyone joins.
+
+## Consequences
+
+- New: `ServerLeaseService` (`leases.proto`), `internal/servers/leases.go` and its job (every 5 seconds), migration 00021 `server_leases`, `servers.yaml` `vm.lease`, the Game spec's `cloudvm.lease` (match file, format, load command, connect line, plugin sets), `ServerSpec.ExtraEnv` and `Files`, `cloudvm.Game.Exec` and `Manager.Exec`/`EnvCurrent`, `hub.yaml` `leases.key_file`, the scope `servers:lease`, the server page's leases with a release, and the metrics `gravel_leases_total`, `gravel_lease_plugins_total`, `gravel_lease_ready_seconds`, `gravel_leases_live` on a new dashboard row.
+- #20's "tests on Kind with the slim test image" belong to the Agones provisioner (K1). The standing provisioner is proven on the fake cloud, in the servers package's tests and the hub's end-to-end test on Postgres.
+- Accepted costs: a pool of one standing server takes one match at a time; a lease on a parked server waits the warm start (2–3 minutes measured on HTG's server); GOTV is open to anyone while `tv` is on, after its delay.

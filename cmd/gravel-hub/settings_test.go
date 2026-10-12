@@ -122,6 +122,21 @@ func TestSettingsCheck(t *testing.T) {
 		t.Errorf("a bad news feed: %d %q", code, errOut)
 	}
 
+	// The summary says whose match results are posted; a bad server is named offline.
+	results := "discord:\n  guild_id: \"519496143298756611\"\n  match_results:\n    channel: \"1556656220243239080\"\n    servers: [htg-cs2-1]\n"
+	writeFile(t, manifest, results)
+	if code, out, errOut := run("settings", "check", manifest); code != 0 || out != "settings valid (0 nav links, theme default, discord guild 519496143298756611, 0 roles, match results for 1 servers)\n" || errOut != "" {
+		t.Errorf("match results: %d %q %q", code, out, errOut)
+	}
+	writeFile(t, manifest, strings.Replace(results, "    servers: [htg-cs2-1]\n", "", 1))
+	if code, out, _ := run("settings", "check", manifest); code != 0 || !strings.Contains(out, "match results for every server") {
+		t.Errorf("match results for every server: %d %q", code, out)
+	}
+	writeFile(t, manifest, strings.Replace(results, "htg-cs2-1", "HTG CS2", 1))
+	if code, _, errOut := run("settings", "check", manifest); code != 1 || !strings.Contains(errOut, `discord.match_results.servers[0]: "HTG CS2" is not a server id`) {
+		t.Errorf("a bad match results server: %d %q", code, errOut)
+	}
+
 	// A game or a season's game this hub doesn't ship is refused offline too.
 	writeFile(t, manifest, "games:\n  wardog:\n    nav:\n      - {label: x, url: /x}\nstats:\n  seasons:\n    - {name: S2, game: war-dogs, from: \"2026-10-15\", to: \"2027-01-15\"}\n")
 	if code, out, errOut := run("settings", "check", manifest); code != 1 || out != "" ||

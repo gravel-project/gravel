@@ -70,6 +70,9 @@ streams:                         # go-live posts, off by default (below); the st
 news:                            # Steam announcements, off by default (below); the feeds are the Organization settings' discord.news
   enabled: false
   interval: 15m                  # how often Steam is asked; at least 5m
+match_results:                   # finished match results, off by default (below); the channel is the Organization settings' discord.match_results
+  enabled: false
+  interval: 1m                   # how often the hub is asked for finished results; at least 30s
 server:
   listen: 127.0.0.1:8081         # /interactions, /healthz, /readyz; put TLS termination in front
   internal_listen: 127.0.0.1:9091   # /metrics; keep it off the public network
@@ -561,6 +564,81 @@ so once. Metrics:
 - `gravel_bot_news_posts_total{app,result}` (`posted`, `failed`);
 - `gravel_bot_news_last_success_timestamp_seconds{app}`.
 
+### Match results (`discord/modules/matchresults`)
+
+Each finished match posted in a channel: the series a server's match plugin reported (MatchZy on
+Counter-Strike 2, ADR-0024), a PUG's result in `#results`, say.
+
+**Settings.** The Organization settings' `discord.match_results` (docs/hub.md, "Organization
+settings"):
+
+- `channel`: where the results go;
+- `servers`: the server ids whose results are posted, at most 50; left out, every server's.
+
+```yaml
+discord:
+  match_results:
+    channel: "1556656220243239080"
+    servers: [htg-cs2-1]
+```
+
+bot.yaml's `match_results` has only `enabled` and `interval`. A settings change applies at the next
+pass.
+
+**Passes.** Every `interval`, the module reads the settings. With a channel set, it asks the hub's
+`ListMatchResults` for the series that ended in the last 24 hours (one call per listed server, or
+one for every server) and, for each one the channel lacks, reads it in full with `GetMatchResult`
+and posts one message: oldest first, at most five a pass, the rest at the next.
+
+```text
+## Lonestar 2–1 Valkyra
+**Lonestar** wins
+de_nuke 13–9
+de_inferno 9–13
+de_mirage 16–14
+**Top by kills**
+1. Jo: **35** kills
+2. Brave Otter: **30** kills
+3. Sam: **29** kills
+[Full result](https://app.example.com/results/…)
+-# result `0e4c…`
+```
+
+- **Message:** one Components V2 container. The winner line reads "A draw" when the series was
+  drawn.
+- **Maps:** in the order played, with each team's rounds.
+- **Top by kills:** the top three across every map of the series. Players appear as the hub's result
+  page shows them: under a pseudonym unless the member chose their name.
+- **Names:** a team's, a map's or a player's name is escaped, so it is never read as Markdown, a
+  mention or a link.
+- **Link:** to the hub's result page, when `hub.public_url` is an http(s) origin.
+- **Pings:** the post pings no one.
+
+**What counts as posted.** The bot keeps no state in the hub. Before it posts, it reads the
+channel's 100 newest messages for its own markers (``-# result `<id>` ``; another author's copy
+doesn't count), so a restart never posts twice. The first look at a channel after the bot starts
+sets where it begins:
+
+- with results of the bot's in the channel, only series that ended after the newest of them are
+  posted, which is what was missed while the bot was away;
+- with none, only series that end after the module started.
+
+Nothing older is posted while the process runs, so turning the module on never floods a channel with
+history. The bot also remembers what it posted while it runs, so a pass with nothing new costs no
+Discord call.
+
+**Failures.** A post Discord refuses or fails is not in the channel, so it is tried again at the next
+pass; later results wait behind it, which keeps the channel in order. The hub failing leaves
+everything for the next pass. Each failure is logged once while it lasts.
+
+The bot needs **View Channel, Send Messages and Read Message History** in the channel. Its app needs
+**`stats:read`** while the settings keep stats private (`stats.public` off): the results are read
+like the boards (ADR-0024 §4). A refusal is logged once, naming the scope. With no channel set the
+module idles and says so once. Metrics:
+
+- `gravel_bot_match_results_total{result}` (`posted`, `error`);
+- `gravel_bot_match_results_last_success_timestamp_seconds`.
+
 ### Moderation (`discord/modules/moderation`)
 
 The moderation slash command, `/<moderation.command>` (`/mod` by default), with a subcommand per
@@ -682,6 +760,8 @@ of them (ADR-0009, `deploy/README.md` "Dashboards").
 | `gravel_bot_streams_last_success_timestamp_seconds` | gauge | | when the last pass in which every platform answered and every post went through completed (an idle pass counts) | streams off (0 until the first such pass) |
 | `gravel_bot_news_posts_total` | counter | `app` (the Steam app id), `result` (`posted`, `failed`) | Steam announcements posted, and the posts Discord refused or failed (retried next pass) | news off (0 for each listed app from its first pass) |
 | `gravel_bot_news_last_success_timestamp_seconds` | gauge | `app` | when the last pass in which Steam answered, every channel of the app was read and every post went through completed | news off, or until the app's first such pass |
+| `gravel_bot_match_results_total` | counter | `result` (`posted`, `error`) | match results posted, and the failures of the hub, the channel or a post (retried next pass) | match results off (0 from the start) |
+| `gravel_bot_match_results_last_success_timestamp_seconds` | gauge | | when the last pass in which the hub answered, the channel was read and every post went through completed (an idle pass counts) | match results off (0 until the first such pass) |
 
 ## Tests
 
@@ -721,4 +801,10 @@ taking over from a webhook, oldest first, five a pass, a failed post retried in 
 posting nothing, another app's or feed's items ignored, a member's unfurled link counted and another
 app's not, a 429 waited out for every feed, a forbidden channel logged once, two feeds in their own
 channels, a feed removed and added back starting afresh with the settings' label and color, idle with
-no feed, the hub down, and the metrics. The gateway itself is disgo's and is not driven in tests.
+no feed, the hub down, and the metrics. Match results are tested as rendering (the title, the
+winner or a draw, the maps in order, the top three across maps with ties, the link, escaped team,
+map and player names) and as passes on a fake clock against a fake hub and a fake channel API: a
+finished result posted once and a running one not, no Discord call when nothing is new, no repost
+after a restart and the missed ones posted, another author's marker ignored, no history on a first
+look, the servers filter, five a pass oldest first, a forbidden channel logged once and retried, the
+hub refusing the bot, idle with no channel, and the metrics. The gateway itself is disgo's and is not driven in tests.

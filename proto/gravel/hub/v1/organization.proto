@@ -179,6 +179,16 @@ message DiscordSettings {
   DiscordStreams streams = 9;
   // The Steam news feeds (the news module); unset is none.
   DiscordNews news = 10;
+  // The finished match results (the matchresults module, ADR-0024); unset is none.
+  DiscordMatchResults match_results = 11;
+}
+
+// Match results: each finished series a server's match plugin reported, posted once in the
+// channel.
+message DiscordMatchResults {
+  string channel = 1;
+  // The servers whose results are posted, at most 50; none is every server.
+  repeated string servers = 2;
 }
 
 // One game's Steam announcements posted into one channel.

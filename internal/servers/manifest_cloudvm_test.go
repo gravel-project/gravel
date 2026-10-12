@@ -131,6 +131,12 @@ func TestCloudManifestValidation(t *testing.T) {
 		{"map with a command", func(m *Manifest) { m.Servers[0].Settings["start_map"] = "de_mirage; quit" }, "start_map"},
 		{"name the image would mangle", func(m *Manifest) { m.Servers[0].Name = "HTG / CS2" }, "from the server's name"},
 		{"scaling beside max_players", func(m *Manifest) { m.Servers[0].VM.Scaling = &ScalingSpec{} }, "settings.max_players is the ladder's"},
+		{"lease: a bad pool", func(m *Manifest) { m.Servers[0].VM.Lease = &LeaseSpec{Pool: "PUG pool"} }, "vm.lease.pool"},
+		{"lease: too short a release", func(m *Manifest) { m.Servers[0].VM.Lease = &LeaseSpec{ReleaseAfter: Duration(time.Second)} }, "vm.lease.release_after"},
+		{"lease: too long", func(m *Manifest) { m.Servers[0].VM.Lease = &LeaseSpec{Max: Duration(24 * time.Hour)} }, "vm.lease.max"},
+		{"lease: an unknown setting", func(m *Manifest) { m.Servers[0].VM.Lease = &LeaseSpec{Settings: []string{"rcon"}} }, "vm.lease.settings: rcon is not one"},
+		{"lease: the players setting", func(m *Manifest) { m.Servers[0].VM.Lease = &LeaseSpec{Settings: []string{"max_players"}} }, "the server's to set"},
+		{"lease: a setting twice", func(m *Manifest) { m.Servers[0].VM.Lease = &LeaseSpec{Settings: []string{"tv", "tv"}} }, "tv is listed twice"},
 		{"scaling: size off the ladder", func(m *Manifest) {
 			delete(m.Servers[0].Settings, "max_players")
 			m.Servers[0].VM.Size = "c-8"
@@ -363,5 +369,22 @@ func TestCloudManifestApplyChecksTheSeed(t *testing.T) {
 		case c.want != "" && (err == nil || !errors.Is(err, ErrInvalidManifest) || !strings.Contains(err.Error(), c.want)):
 			t.Errorf("%+v: %v, want it to say %q", c.seed, err, c.want)
 		}
+	}
+}
+
+// A lease section (#20): parsed, its defaults filled, valid with the settings a lease may set.
+func TestCloudManifestLease(t *testing.T) {
+	parsed, err := ParseManifest([]byte(strings.Replace(cloudManifest, "      park_after: 30m\n",
+		"      park_after: 30m\n      lease:\n        pool: pug\n        idle_after: 20m\n        settings: [start_map, tv]\n", 1)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := parsed.Validate(cloudSpecs(), cloudDrivers, []string{"digitalocean"}); err != nil {
+		t.Fatal(err)
+	}
+	l := parsed.Servers[0].VM.Lease.WithDefaults()
+	if l.Pool != "pug" || time.Duration(l.IdleAfter) != 20*time.Minute || time.Duration(l.ReleaseAfter) != DefaultLeaseReleaseAfter ||
+		time.Duration(l.Max) != DefaultLeaseMax || time.Duration(l.ReadyWithin) != DefaultLeaseReadyWithin || len(l.Settings) != 2 {
+		t.Errorf("lease %+v", l)
 	}
 }

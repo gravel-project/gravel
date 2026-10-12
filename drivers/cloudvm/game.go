@@ -17,6 +17,9 @@ type Game interface {
 	Kick(ctx context.Context, userID int, reason string) error
 	// Say sends a chat line to everyone.
 	Say(ctx context.Context, message string) error
+	// Exec runs a console command the Game spec names (a lease's load command, a plugin check)
+	// and returns its output.
+	Exec(ctx context.Context, command string) (string, error)
 	// Quit stops the game; its unit on the VM starts it again (updating it first).
 	Quit(ctx context.Context) error
 	// SetPassword replaces the control password (a rotation).

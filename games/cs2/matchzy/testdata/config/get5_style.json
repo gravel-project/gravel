@@ -1,0 +1,34 @@
+{
+  "matchid": "41",
+  "team1": {
+    "id": 7,
+    "name": "Hidden Token",
+    "tag": "HTG",
+    "players": ["76561198000000001", 76561198000000002, "76561198000000001"]
+  },
+  "team2": {
+    "name": "War Dogs",
+    "players": {
+      "76561198000000003": "Player Three",
+      "76561198000000004": ""
+    }
+  },
+  "num_maps": "3",
+  "maplist": ["de_mirage", "de_inferno", "de_nuke", "de_ancient", "de_anubis"],
+  "veto_first": "Random",
+  "veto_mode": ["team1_ban", "team2_ban", "team1_pick", "team2_pick"],
+  "side_type": "NEVER_KNIFE",
+  "skip_veto": 0,
+  "clinch_series": "false",
+  "wingman": "0",
+  "players_per_team": 5,
+  "min_players_to_ready": "10",
+  "spectators": {
+    "players": ["76561198000000005"]
+  },
+  "cvars": {
+    "hostname": "HTG #41",
+    "mp_friendlyfire": 1
+  },
+  "favored_percentage_team1": 65
+}

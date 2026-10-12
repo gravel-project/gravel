@@ -66,6 +66,22 @@ func (h *Handler) hostPanel(r *http.Request, serverID string, owner bool) *templ
 	p.CanUnpin = owner && x.GetPinnedSize() != ""
 	p.CanSnapshot = owner && x.GetState() == "parked"
 	p.CanExpect = x.GetDesired() != "absent" && x.GetState() != "destroying"
+	if leases, err := h.leaseAPI.ListServerLeases(ctx, connect.NewRequest(&hubv1.ListServerLeasesRequest{ServerId: serverID, Limit: 5})); err == nil {
+		for _, l := range leases.Msg.GetLeases() {
+			row := templates.LeaseRow{ID: l.GetId(), State: l.GetState(), Ref: l.GetHolderRef(), Reason: l.GetReason(), Created: l.GetCreatedAt().AsTime(),
+				Live: l.GetState() == "starting" || l.GetState() == "ready" || l.GetState() == "ending", Holder: "an app"}
+			if l.GetHolderKind() == "user" {
+				row.Holder = "a moderator"
+			}
+			if len(l.GetPlugins()) > 0 {
+				row.Plugins = strings.Join(l.GetPlugins(), ", ")
+				if s := l.GetPluginState(); s != "" {
+					row.Plugins += " " + s
+				}
+			}
+			p.Leases = append(p.Leases, row)
+		}
+	}
 	for _, s := range x.GetSizes() {
 		p.Sizes = append(p.Sizes, templates.HostSizeOption{Slug: s.GetSlug(),
 			Label: fmt.Sprintf("%s · %d vCPU · %d GB · $%.3f/h", s.GetSlug(), s.GetVcpus(), s.GetMemoryMib()/1024, s.GetPriceHourlyUsd())})
@@ -84,6 +100,7 @@ var hostQuestions = map[string][2]string{
 	"destroy":  {"Destroy %s's machine?", "The parked machine's leftovers go. Its disk with the game's install and its address stay unless you tick the box."},
 	"expect":   {"Expect %s players on %s for the next %s?", "Until then the machine is sized for them (moved up at once while nobody is on, or at the next map change), and it doesn't park itself for being empty."},
 	"unexpect": {"Expect nobody on %s?", "The machine is sized for the players who are on again, and an empty server parks itself as usual."},
+	"release":  {"Give back %s's lease?", "The match on it ends: everyone on is warned, then the server is parked, and its own password and settings come back at its next start."},
 }
 
 // host asks for confirmation, then sends a host request through the API.
@@ -124,7 +141,7 @@ func (h *Handler) host(w http.ResponseWriter, r *http.Request) {
 		withGame(&p.Page, gameID, h.gameName(r, gameID))
 		cp := templates.HostConfirmPage{Page: p.Page, ServerID: id, ServerName: serverName, Action: action, Size: size, Warning: q[1],
 			OfferForce: action == "resize", OfferPin: action == "resize" && r.PostFormValue("scaling") == "1", OfferDeleteVolume: action == "destroy",
-			Players: players, For: span, Reason: reason}
+			Players: players, For: span, Reason: reason, Lease: r.PostFormValue("lease")}
 		switch action {
 		case "resize", "pin":
 			cp.Question = fmt.Sprintf(q[0], serverName, size)
@@ -153,6 +170,8 @@ func (h *Handler) host(w http.ResponseWriter, r *http.Request) {
 		d, _ := time.ParseDuration(span)
 		_, err = h.hostAPI.SetServerHostExpectation(ctx, connect.NewRequest(&hubv1.SetServerHostExpectationRequest{ServerId: id,
 			Players: int32(n), Until: timestamppb.New(time.Now().Add(d)), Reason: reason})) //nolint:gosec // a small player count, checked above
+	case "release":
+		_, err = h.leaseAPI.ReleaseServerLease(ctx, connect.NewRequest(&hubv1.ReleaseServerLeaseRequest{LeaseId: r.PostFormValue("lease"), Reason: "from the server's page"}))
 	case "unexpect":
 		_, err = h.hostAPI.SetServerHostExpectation(ctx, connect.NewRequest(&hubv1.SetServerHostExpectationRequest{ServerId: id}))
 	case "snapshot":
@@ -183,7 +202,7 @@ func (h *Handler) host(w http.ResponseWriter, r *http.Request) {
 		h.setFlash(w, "ok", map[string]string{"park": "Parking the server.", "unpark": "Starting the server; it takes a few minutes.",
 			"resize": "Resizing the server.", "pin": "The size is pinned.", "unpin": "The scaling policy decides the size again.",
 			"snapshot": "Snapshot " + snapshotName + " made.", "destroy": "Destroying the machine.",
-			"expect": "The server expects " + players + " players for the next " + span + ".", "unexpect": "The server expects nobody now."}[action])
+			"expect": "The server expects " + players + " players for the next " + span + ".", "unexpect": "The server expects nobody now.", "release": "The lease is given back; the server parks."}[action])
 	}
 	b.relay(w)
 	h.redirect(w, r, back)

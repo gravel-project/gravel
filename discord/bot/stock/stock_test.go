@@ -81,4 +81,11 @@ func TestModules(t *testing.T) {
 	if got := names(cfg); got != "core,moderation,modlog,seeding,presence,recaps,streams,news" {
 		t.Errorf("news on: %s", got)
 	}
+	if bot.Default().MatchResults.Enabled {
+		t.Error("match results are off by default")
+	}
+	cfg.MatchResults.Enabled = true
+	if got := names(cfg); got != "core,moderation,modlog,seeding,presence,recaps,streams,news,matchresults" {
+		t.Errorf("match results on: %s", got)
+	}
 }

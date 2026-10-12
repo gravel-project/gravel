@@ -216,6 +216,8 @@ func TestAccessibility(t *testing.T) {
 				Host: &templates.HostPanel{State: "running", StateLabel: "Running", Since: now, Size: "c-2", Address: "203.0.113.50", Reserved: true,
 					HourlyUSD: 0.0625, MonthUSD: 3.5, HoursMonth: 56, BootSeconds: 70, ReadySeconds: 1500, ParkAfter: 30 * time.Minute,
 					ExpectedPlayers: 10, ExpectedUntil: now.Add(3 * time.Hour), ExpectedReason: "PUG 3 filled", ExpectMax: 20, CanExpect: true,
+					Leases: []templates.LeaseRow{{ID: "l2", State: "ready", Ref: "PUG 3", Holder: "an app", Plugins: "matchzy loaded", Created: now, Live: true},
+						{ID: "l1", State: "released", Ref: "test", Holder: "a moderator", Reason: "nobody on for 15m0s", Created: now}},
 					CanPark: true, CanResize: true, Sizes: []templates.HostSizeOption{{Slug: "c-4", Label: "c-4 · 4 vCPU · 8 GB · $0.125/h"}}}})
 		},
 		"/fixture/server-host-parked": func() templ.Component {
@@ -256,6 +258,14 @@ func TestAccessibility(t *testing.T) {
 			p.Title, p.User, p.CSRF = "Confirm", owner, "csrf"
 			return templates.HostConfirm(templates.HostConfirmPage{Page: p, ServerID: "htg-cs2-1", ServerName: "HTG CS2", Action: "expect", Players: "10", For: "3h",
 				Reason: "PUG 3 filled", Question: "Expect 10 players on HTG CS2 for the next 3h?", Warning: "Until then the machine is sized for them."})
+		},
+		"/fixture/result": func() templ.Component {
+			p := base
+			p.Title, p.User = "Alpha vs Bravo", jo
+			return templates.Result(templates.ResultPage{Page: p, ID: "r1", ServerID: "htg-cs2-1", ServerName: "HTG CS2", Team1: "Alpha", Team2: "Bravo",
+				Score1: 1, Winner: "team1", Started: "Oct 14, 01:00 UTC", Ended: true, Maps: []templates.ResultMap{{Number: 1, Name: "de_nuke", Score1: 13, Score2: 9,
+					Winner: "team1", DemoURL: "/results/r1/demo/0", Players1: []templates.ResultPlayer{{Name: "Jo", UserID: "u1", Kills: 21, Deaths: 12}},
+					Players2: []templates.ResultPlayer{{Name: "Brave Falcon", Pseudonymous: true, Kills: 15, Deaths: 18}}}}})
 		},
 		"/fixture/confirm": func() templ.Component {
 			p := base
@@ -313,7 +323,7 @@ func TestAccessibility(t *testing.T) {
 		"/fixture/servers", "/fixture/servers-demo", "/fixture/server", "/fixture/server-anonymous", "/fixture/server-game-overlay", "/fixture/boards", "/fixture/member-self", "/fixture/member", "/fixture/members",
 		"/fixture/participation", "/fixture/participation-empty", "/fixture/member-participation", "/fixture/recap", "/fixture/recap-nobody",
 		"/fixture/server-moderator", "/fixture/server-host", "/fixture/server-host-parked", "/fixture/host-confirm", "/fixture/confirm", "/fixture/log", "/fixture/account-apps", "/fixture/consent",
-		"/fixture/account-proof", "/fixture/proof", "/fixture/proof-proven", "/fixture/host-expect"}
+		"/fixture/account-proof", "/fixture/proof", "/fixture/proof-proven", "/fixture/host-expect", "/fixture/result"}
 	// A fixture left out of the list would never be scanned and the run would still pass.
 	for path := range fixtures {
 		if !slices.Contains(paths, path) {

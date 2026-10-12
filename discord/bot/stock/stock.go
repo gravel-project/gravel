@@ -1,7 +1,7 @@
 // Package stock is gravel's stock set of bot modules, as a bot.yaml enables them: core
 // (/whoami, /link) always, role sync, Linked Roles, the server cards, the moderation command, the
-// mod log, seeding, the presence card, the session recaps, the go-live posts and the Steam news when
-// their sections turn them on. A host's bot starts from this set and adds its own modules, so a module gravel adds
+// mod log, seeding, the presence card, the session recaps, the go-live posts, the Steam news and the
+// match results when their sections turn them on. A host's bot starts from this set and adds its own modules, so a module gravel adds
 // later reaches every host bot at its next gravel upgrade (ADR-0008 §1).
 package stock
 
@@ -12,6 +12,7 @@ import (
 	"github.com/gravel-project/gravel/discord/hubclient"
 	"github.com/gravel-project/gravel/discord/modules/core"
 	"github.com/gravel-project/gravel/discord/modules/linkedroles"
+	"github.com/gravel-project/gravel/discord/modules/matchresults"
 	"github.com/gravel-project/gravel/discord/modules/moderation"
 	"github.com/gravel-project/gravel/discord/modules/modlog"
 	"github.com/gravel-project/gravel/discord/modules/news"
@@ -67,6 +68,9 @@ func Modules(cfg bot.Config, hub *hubclient.Client) []bot.Module {
 	}
 	if cfg.News.Enabled {
 		mods = append(mods, news.New(hub, news.Config{Interval: cfg.News.Interval}))
+	}
+	if cfg.MatchResults.Enabled {
+		mods = append(mods, matchresults.New(hub, matchresults.Config{Interval: cfg.MatchResults.Interval, PublicURL: cfg.Hub.PublicURL}))
 	}
 	return mods
 }

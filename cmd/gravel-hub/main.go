@@ -217,8 +217,16 @@ func configCheck(args []string, stdout, stderr io.Writer) int {
 	if src := cfg.Stats.KeySource(); src != "" {
 		pseudonyms = "key from " + src
 	}
-	fmt.Fprintf(stdout, "config OK: organization %q, listen %s, internal %s, database %s (from %s), migrate %s, login %s, pseudonyms %s\n",
-		cfg.Organization.Name, cfg.Server.Listen, cfg.Server.InternalListen, cfg.Database.RedactedURL(), cfg.Database.Source(), cfg.Database.Migrate, authSummary(cfg), pseudonyms)
+	leases := "off (no key)"
+	if src := cfg.Leases.KeySource(); src != "" {
+		leases = "key from " + src
+	}
+	demos := "none kept"
+	if cfg.Demos.Enabled() {
+		demos = fmt.Sprintf("bucket %s at %s, up to %d MiB", cfg.Demos.Bucket, cfg.Demos.Endpoint, cfg.Demos.MaxMiB)
+	}
+	fmt.Fprintf(stdout, "config OK: organization %q, listen %s, internal %s, database %s (from %s), migrate %s, login %s, pseudonyms %s, leases %s, demos %s\n",
+		cfg.Organization.Name, cfg.Server.Listen, cfg.Server.InternalListen, cfg.Database.RedactedURL(), cfg.Database.Source(), cfg.Database.Migrate, authSummary(cfg), pseudonyms, leases, demos)
 	if cfg.Demo {
 		fmt.Fprintln(stdout, "demo hub: every page says its members, matches and stats are made up, and `gravel-hub demo seed` may write made-up history into an empty database")
 	}

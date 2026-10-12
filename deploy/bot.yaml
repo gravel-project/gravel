@@ -64,6 +64,10 @@ news:                            # Steam announcements for the Organization sett
   enabled: false
   interval: 15m                  # at least 5m
 
+match_results:                   # each finished match result in the Organization settings' discord.match_results channel; stats:read unless stats are public
+  enabled: false
+  interval: 1m                   # at least 30s
+
 server:
   listen: 0.0.0.0:8081           # /interactions, /healthz, /readyz
   internal_listen: 0.0.0.0:9091  # /metrics

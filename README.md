@@ -83,7 +83,7 @@ A `ManagedServer` records a server that exists somewhere; a **driver** controls 
 - **External but reachable** — RCON / SSH for stats and commands, no lifecycle control.
 - **Externally referenced** — registered so it shows in the UI; we can barely touch it.
 - The local-execution driver has **two flavors**: container-based (Linux) and native-process-based (Windows / bare). War Dogs, if ever brought in-cluster, rides the native flavor.
-- Transient servers: on-demand start, **auto-tear-down after N minutes empty**, join info in the web UI, Community trust by default.
+- Transient servers: on-demand start, **auto-tear-down after N minutes empty**, join info in the web UI, Community trust by default. Built as **server leases** ([ADR-0023](docs/adr/0023-server-leases-a-server-for-a-match-on-request.md); in: a standing cloud-VM server or a pool of them, with the lease's own password, settings, a pinned plugin set with a vanilla fallback and a match config; a fresh VM per lease and Agones later).
 
 ### API — Connect (buf)
 
