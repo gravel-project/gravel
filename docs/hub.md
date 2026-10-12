@@ -775,6 +775,22 @@ refuses a ladder a host made at `vm.size` can't walk both ways; `servers check` 
 the rest. The server page shows the rung, the ladder with its prices, a decision waiting and why,
 and the month's cost with each run at its own size's price.
 
+**Expected population (#172).** The live players are what the policy sees, so a PUG that has just
+filled would get its bigger machine at the first boundary after it arrives. The owner, a moderator
+or an app with `servers:moderate` (a PUG bot, Muster) can say how many players to expect until when:
+`SetServerHostExpectation` (`players`, `until` at most 24 hours ahead, a one-line `reason`;
+`players` 0 clears it), or "Expect this many players" on the page. Until then the room is the
+larger of the live and the expected players. An expected crowd the rung can't hold is decided at
+once, not after `up_for`, and not held by the cooldown: it is an announcement, not noise. It is
+carried out at once while the server is empty, else at the next boundary, and the decision says
+where it came from ("up: expected 10 until 2026-10-14 23:00 UTC: PUG 3 filled, 0 of 10 players on,
+to c-4 (20 players) at the next boundary"). Meanwhile the server isn't parked for being empty (the
+crowd hasn't come yet), and it isn't moved down. `players` is clamped to the ladder's top. A pin
+beats it. An expectation doesn't unpark a server: start it as well. An unparked host is made at
+`vm.size` and moved up as soon as it runs, since it is empty. Once `until` passes the hub clears it
+(an `expect` event, as setting and clearing are); each change is also an audit row
+(`host_expect`).
+
 ```sh
 curl -s -X POST -H 'Content-Type: application/json' -b "gravel_session=…" \
   -d '{"server_id":"cs2-1","desired":"running"}' https://app.example.com/gravel.hub.v1.ServerHostService/SetServerHostDesired
@@ -1404,6 +1420,7 @@ and the digest-pin procedure.
 | `gravel_cloudvm_env_drift_total` | counter | `server` | times the game's environment file on the host was not the one the hub pushed, and was pushed again (#169) | until the first |
 | `gravel_cloudvm_tier_players` | gauge | `server` | the players the rung of its scaling ladder a running host is on is sized for (#37) | without a policy, or off the ladder |
 | `gravel_cloudvm_scale_pending` | gauge | `server`, `direction` (`up`, `down`) | 1 while a scaling decision waits for a boundary | until the first decision |
+| `gravel_cloudvm_expected_players` | gauge | `server` | the players a host expects until the time it was given (#172); 0 when none | until the first expectation |
 | `gravel_cloudvm_scale_decisions_total` | counter | `server`, `direction`, `outcome` (`decided`, `executed`, `cancelled`) | the scaling policy's decisions and what became of them | until the first |
 | `gravel_cloudvm_resizes_total` | counter | `server`, `direction`, `result` (`ok`, `refused`, `failed`) | resizes, the policy's and the owner's; a failed one started again at the old size | until the first |
 | `gravel_cloudvm_volume_snapshots_total` | counter | `server`, `result` (`ok`, `error`) | snapshots of a parked host's volume the owner asked for (#166) | until the first |

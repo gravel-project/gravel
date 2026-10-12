@@ -66,6 +66,12 @@ message ServerHost {
   google.protobuf.Timestamp pending_since = 31;
   // When the last resize began; the policy's cooldown counts from it.
   google.protobuf.Timestamp last_resize_at = 32;
+  // The players the host expects until expected_until, and why (#172): the policy reads the larger
+  // of the live and the expected players as the room, and an empty host isn't parked. 0 and unset
+  // when it expects nobody, or the time has passed.
+  int32 expected_players = 33;
+  google.protobuf.Timestamp expected_until = 34;
+  string expected_reason = 35;
 }
 
 // HostTier is one rung of a scaling ladder.
@@ -163,6 +169,23 @@ message UnpinServerHostSizeResponse {
   int64 audit_id = 2;
 }
 
+message SetServerHostExpectationRequest {
+  string server_id = 1;
+  // How many players to expect; clamped to the scaling ladder's top. 0 clears the expectation.
+  int32 players = 2;
+  // Until when, at most 24 hours ahead; required unless players is 0.
+  google.protobuf.Timestamp until = 3;
+  // Why, shown with the decision it causes ("PUG 3 filled"); one line, at most 200 characters.
+  string reason = 4;
+  // The moderator an app acts for; unset for an app acting for itself or anyone in person.
+  Actor on_behalf_of = 5;
+}
+
+message SetServerHostExpectationResponse {
+  ServerHost host = 1;
+  int64 audit_id = 2;
+}
+
 message SnapshotServerHostVolumeRequest {
   string server_id = 1;
   // The snapshot's name; "" is <server>-data-<game>-<build>-<date>. Letters, digits, dots and
@@ -219,6 +242,10 @@ service ServerHostService {
   // UnpinServerHostSize lets the scaling policy decide the host's size again. The owner only;
   // invalid_argument when nothing is pinned.
   rpc UnpinServerHostSize(UnpinServerHostSizeRequest) returns (UnpinServerHostSizeResponse);
+  // SetServerHostExpectation says how many players a host should expect until when (#172): a
+  // move up for them is decided at once and carried out at once while the server is empty, and
+  // the server isn't parked for being empty meanwhile. Who may SetServerHostDesired.
+  rpc SetServerHostExpectation(SetServerHostExpectationRequest) returns (SetServerHostExpectationResponse);
   // SnapshotServerHostVolume copies a parked host's data volume into a snapshot that a new
   // server's volume can be made from (servers.yaml vm.seed_snapshot), so it starts with the
   // game's install. The owner only; failed_precondition unless the host is parked. The snapshot

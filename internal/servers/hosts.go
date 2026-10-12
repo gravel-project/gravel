@@ -24,6 +24,7 @@ const (
 	ActionHostResize   = "host_resize"
 	ActionHostUnpin    = "host_unpin"
 	ActionHostSnapshot = "host_snapshot"
+	ActionHostExpect   = "host_expect"
 	ActionHostDestroy  = "host_destroy"
 )
 
@@ -257,7 +258,8 @@ func hostToRow(org uuid.UUID, h cloudvm.Host) (store.ServerHost, error) {
 		StateSince: h.StateSince.UTC(), InstanceCreatedAt: timePtr(h.InstanceCreatedAt), EmptySince: timePtr(h.EmptySince),
 		BootSeconds: intPtr(h.BootSeconds), ReadySeconds: intPtr(h.ReadySeconds), PinnedSize: h.PinnedSize,
 		PendingSize: h.PendingSize, PendingReason: h.PendingReason, PendingSince: timePtr(h.PendingSince),
-		LastResizeAt: timePtr(h.LastResizeAt)}
+		LastResizeAt: timePtr(h.LastResizeAt), ExpectedPlayers: h.ExpectedPlayers, ExpectedUntil: timePtr(h.ExpectedUntil),
+		ExpectedReason: h.ExpectedReason}
 	if h.RequestAuditID != 0 {
 		a := h.RequestAuditID
 		r.RequestAuditID = &a
@@ -275,7 +277,7 @@ func hostToRow(org uuid.UUID, h cloudvm.Host) (store.ServerHost, error) {
 func hostFromRow(r store.ServerHost) (cloudvm.Host, error) {
 	h := cloudvm.Host{ServerID: r.ServerID, LocationID: r.LocationID,
 		Intent: cloudvm.Intent{Desired: r.Desired, TargetSize: r.TargetSize, DestroyVolume: r.DestroyVolume, ReleaseAddress: r.ReleaseAddress,
-			PinnedSize: r.PinnedSize},
+			PinnedSize: r.PinnedSize, ExpectedPlayers: r.ExpectedPlayers, ExpectedReason: r.ExpectedReason},
 		State: r.State, Step: r.Step, Size: r.Size, DiskGiB: r.DiskGiB, InstanceID: r.InstanceID, InstanceAddress: r.InstanceAddress,
 		VolumeID: r.VolumeID, Address: r.Address, AddressReserved: r.AddressReserved, FirewallID: r.FirewallID, Egress: r.Egress,
 		HostKey: r.HostKey, EnvSHA256: r.EnvSHA256, Attempts: r.Attempts, ErrorCode: r.ErrorCode, LastError: r.LastError,
@@ -287,7 +289,7 @@ func hostFromRow(r store.ServerHost) (cloudvm.Host, error) {
 		dst *time.Time
 		src *time.Time
 	}{{&h.NextAttemptAt, r.NextAttemptAt}, {&h.InstanceCreatedAt, r.InstanceCreatedAt}, {&h.EmptySince, r.EmptySince},
-		{&h.PendingSince, r.PendingSince}, {&h.LastResizeAt, r.LastResizeAt}} {
+		{&h.PendingSince, r.PendingSince}, {&h.LastResizeAt, r.LastResizeAt}, {&h.ExpectedUntil, r.ExpectedUntil}} {
 		if p.src != nil {
 			*p.dst = *p.src
 		}
@@ -355,6 +357,9 @@ func (h *Hosts) Host(ctx context.Context, serverID string) (HostView, error) {
 		v.PriceHourly = h.mgr.Price(ctx, serverID, host.Size)
 	}
 	now := h.now().UTC()
+	if v.ExpectedPlayers > 0 && !now.Before(v.ExpectedUntil) { // passed; the next tick clears it
+		v.ExpectedPlayers, v.ExpectedUntil, v.ExpectedReason = 0, time.Time{}, ""
+	}
 	month := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
 	if secs, err := h.rows.RunningSecondsSince(ctx, h.orgID, serverID, month, now); err == nil {
 		v.RunningSecondsMonth = secs
@@ -482,6 +487,22 @@ func (h *Hosts) SnapshotVolume(ctx context.Context, actor Actor, serverID, name,
 		return err
 	})
 	return id, snap, err
+}
+
+// SetExpectation tells a host how many players to expect until when (#172); 0 players clears it.
+// The reason is the audit row's and the decision's ("PUG 3 filled").
+func (h *Hosts) SetExpectation(ctx context.Context, actor Actor, serverID string, players int, until time.Time, reason string) (int64, cloudvm.Host, error) {
+	var host cloudvm.Host
+	detail := map[string]any{"players": players}
+	if players > 0 {
+		detail["until"] = until.UTC().Format(time.RFC3339)
+	}
+	id, err := h.request(ctx, actor, serverID, ActionHostExpect, reason, detail, func(id int64) error {
+		var err error
+		host, err = h.mgr.SetExpectation(ctx, serverID, players, until, reason, id)
+		return err
+	})
+	return id, host, err
 }
 
 // Unpin lets the scaling policy decide the host's size again.

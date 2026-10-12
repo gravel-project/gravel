@@ -3159,6 +3159,67 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
+      "description": "The players a host was told to expect until a time (#172): the policy sizes it for them, and it doesn't park itself for being empty meanwhile. No data is expected when no host expects anyone.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gravelOptional": "no host expects anyone",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 112
+      },
+      "id": 55,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "gravel_cloudvm_expected_players{job=\"$job\", instance=~\"$instance\"} \u003e 0",
+          "legendFormat": "{{server}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Expected players",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
       "description": "No data is expected when no scaling decision in the range.",
       "fieldConfig": {
         "defaults": {
@@ -3189,10 +3250,10 @@
       "gridPos": {
         "h": 8,
         "w": 6,
-        "x": 0,
+        "x": 6,
         "y": 112
       },
-      "id": 55,
+      "id": 56,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3254,10 +3315,10 @@
       "gridPos": {
         "h": 8,
         "w": 6,
-        "x": 6,
+        "x": 12,
         "y": 112
       },
-      "id": 56,
+      "id": 57,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3319,10 +3380,10 @@
       "gridPos": {
         "h": 8,
         "w": 6,
-        "x": 12,
+        "x": 18,
         "y": 112
       },
-      "id": 57,
+      "id": 58,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3384,10 +3445,10 @@
       "gridPos": {
         "h": 8,
         "w": 6,
-        "x": 18,
-        "y": 112
+        "x": 0,
+        "y": 120
       },
-      "id": 58,
+      "id": 59,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3420,9 +3481,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 120
+        "y": 128
       },
-      "id": 59,
+      "id": 60,
       "panels": [],
       "title": "Stats",
       "type": "row"
@@ -3463,9 +3524,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 121
+        "y": 129
       },
-      "id": 60,
+      "id": 61,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3528,9 +3589,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 121
+        "y": 129
       },
-      "id": 61,
+      "id": 62,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3593,9 +3654,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 121
+        "y": 129
       },
-      "id": 62,
+      "id": 63,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3657,9 +3718,9 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 129
+        "y": 137
       },
-      "id": 63,
+      "id": 64,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3714,9 +3775,9 @@
         "h": 4,
         "w": 12,
         "x": 12,
-        "y": 129
+        "y": 137
       },
-      "id": 64,
+      "id": 65,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -3781,9 +3842,9 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 137
+        "y": 145
       },
-      "id": 65,
+      "id": 66,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3816,9 +3877,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 145
+        "y": 153
       },
-      "id": 66,
+      "id": 67,
       "panels": [],
       "title": "Ingestion",
       "type": "row"
@@ -3860,9 +3921,9 @@
         "h": 4,
         "w": 8,
         "x": 0,
-        "y": 146
+        "y": 154
       },
-      "id": 67,
+      "id": 68,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -3928,9 +3989,9 @@
         "h": 8,
         "w": 16,
         "x": 8,
-        "y": 146
+        "y": 154
       },
-      "id": 68,
+      "id": 69,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3963,9 +4024,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 154
+        "y": 162
       },
-      "id": 69,
+      "id": 70,
       "panels": [],
       "title": "Background jobs",
       "type": "row"
@@ -4005,9 +4066,9 @@
         "h": 8,
         "w": 16,
         "x": 0,
-        "y": 155
+        "y": 163
       },
-      "id": 70,
+      "id": 71,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4062,9 +4123,9 @@
         "h": 4,
         "w": 8,
         "x": 16,
-        "y": 155
+        "y": 163
       },
-      "id": 71,
+      "id": 72,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -4100,9 +4161,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 163
+        "y": 171
       },
-      "id": 72,
+      "id": 73,
       "panels": [],
       "title": "Runtime",
       "type": "row"
@@ -4141,9 +4202,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 164
+        "y": 172
       },
-      "id": 73,
+      "id": 74,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4204,9 +4265,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 164
+        "y": 172
       },
-      "id": 74,
+      "id": 75,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4267,9 +4328,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 164
+        "y": 172
       },
-      "id": 75,
+      "id": 76,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4330,9 +4391,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 172
+        "y": 180
       },
-      "id": 76,
+      "id": 77,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4393,9 +4454,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 172
+        "y": 180
       },
-      "id": 77,
+      "id": 78,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4456,9 +4517,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 172
+        "y": 180
       },
-      "id": 78,
+      "id": 79,
       "options": {
         "legend": {
           "displayMode": "list",

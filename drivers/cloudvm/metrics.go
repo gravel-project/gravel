@@ -25,6 +25,7 @@ type metrics struct {
 	decisions    *prometheus.CounterVec
 	resizes      *prometheus.CounterVec
 	snapshots    *prometheus.CounterVec
+	expected     *prometheus.GaugeVec
 }
 
 func newMetrics(reg prometheus.Registerer) *metrics {
@@ -76,8 +77,11 @@ func newMetrics(reg prometheus.Registerer) *metrics {
 	m.snapshots = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "gravel_cloudvm_volume_snapshots_total", Help: "Snapshots of a parked host's data volume an owner asked for, by result.",
 	}, []string{"server", "result"})
+	m.expected = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "gravel_cloudvm_expected_players", Help: "The players a host expects until the time it was given (#172); 0 when it expects nobody.",
+	}, []string{"server"})
 	reg.MustRegister(m.state, m.since, m.failing, m.ops, m.duration, m.running, m.price, m.logBatches, m.bansEnforced, m.envDrift,
-		m.tier, m.pending, m.decisions, m.resizes, m.snapshots)
+		m.tier, m.pending, m.decisions, m.resizes, m.snapshots, m.expected)
 	return m
 }
 

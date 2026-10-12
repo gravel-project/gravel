@@ -48,6 +48,9 @@ const (
 	// ServerHostServiceUnpinServerHostSizeProcedure is the fully-qualified name of the
 	// ServerHostService's UnpinServerHostSize RPC.
 	ServerHostServiceUnpinServerHostSizeProcedure = "/gravel.hub.v1.ServerHostService/UnpinServerHostSize"
+	// ServerHostServiceSetServerHostExpectationProcedure is the fully-qualified name of the
+	// ServerHostService's SetServerHostExpectation RPC.
+	ServerHostServiceSetServerHostExpectationProcedure = "/gravel.hub.v1.ServerHostService/SetServerHostExpectation"
 	// ServerHostServiceSnapshotServerHostVolumeProcedure is the fully-qualified name of the
 	// ServerHostService's SnapshotServerHostVolume RPC.
 	ServerHostServiceSnapshotServerHostVolumeProcedure = "/gravel.hub.v1.ServerHostService/SnapshotServerHostVolume"
@@ -72,6 +75,10 @@ type ServerHostServiceClient interface {
 	// UnpinServerHostSize lets the scaling policy decide the host's size again. The owner only;
 	// invalid_argument when nothing is pinned.
 	UnpinServerHostSize(context.Context, *connect.Request[v1.UnpinServerHostSizeRequest]) (*connect.Response[v1.UnpinServerHostSizeResponse], error)
+	// SetServerHostExpectation says how many players a host should expect until when (#172): a
+	// move up for them is decided at once and carried out at once while the server is empty, and
+	// the server isn't parked for being empty meanwhile. Who may SetServerHostDesired.
+	SetServerHostExpectation(context.Context, *connect.Request[v1.SetServerHostExpectationRequest]) (*connect.Response[v1.SetServerHostExpectationResponse], error)
 	// SnapshotServerHostVolume copies a parked host's data volume into a snapshot that a new
 	// server's volume can be made from (servers.yaml vm.seed_snapshot), so it starts with the
 	// game's install. The owner only; failed_precondition unless the host is parked. The snapshot
@@ -122,6 +129,12 @@ func NewServerHostServiceClient(httpClient connect.HTTPClient, baseURL string, o
 			connect.WithSchema(serverHostServiceMethods.ByName("UnpinServerHostSize")),
 			connect.WithClientOptions(opts...),
 		),
+		setServerHostExpectation: connect.NewClient[v1.SetServerHostExpectationRequest, v1.SetServerHostExpectationResponse](
+			httpClient,
+			baseURL+ServerHostServiceSetServerHostExpectationProcedure,
+			connect.WithSchema(serverHostServiceMethods.ByName("SetServerHostExpectation")),
+			connect.WithClientOptions(opts...),
+		),
 		snapshotServerHostVolume: connect.NewClient[v1.SnapshotServerHostVolumeRequest, v1.SnapshotServerHostVolumeResponse](
 			httpClient,
 			baseURL+ServerHostServiceSnapshotServerHostVolumeProcedure,
@@ -144,6 +157,7 @@ type serverHostServiceClient struct {
 	setServerHostDesired     *connect.Client[v1.SetServerHostDesiredRequest, v1.SetServerHostDesiredResponse]
 	resizeServerHost         *connect.Client[v1.ResizeServerHostRequest, v1.ResizeServerHostResponse]
 	unpinServerHostSize      *connect.Client[v1.UnpinServerHostSizeRequest, v1.UnpinServerHostSizeResponse]
+	setServerHostExpectation *connect.Client[v1.SetServerHostExpectationRequest, v1.SetServerHostExpectationResponse]
 	snapshotServerHostVolume *connect.Client[v1.SnapshotServerHostVolumeRequest, v1.SnapshotServerHostVolumeResponse]
 	destroyServerHost        *connect.Client[v1.DestroyServerHostRequest, v1.DestroyServerHostResponse]
 }
@@ -173,6 +187,11 @@ func (c *serverHostServiceClient) UnpinServerHostSize(ctx context.Context, req *
 	return c.unpinServerHostSize.CallUnary(ctx, req)
 }
 
+// SetServerHostExpectation calls gravel.hub.v1.ServerHostService.SetServerHostExpectation.
+func (c *serverHostServiceClient) SetServerHostExpectation(ctx context.Context, req *connect.Request[v1.SetServerHostExpectationRequest]) (*connect.Response[v1.SetServerHostExpectationResponse], error) {
+	return c.setServerHostExpectation.CallUnary(ctx, req)
+}
+
 // SnapshotServerHostVolume calls gravel.hub.v1.ServerHostService.SnapshotServerHostVolume.
 func (c *serverHostServiceClient) SnapshotServerHostVolume(ctx context.Context, req *connect.Request[v1.SnapshotServerHostVolumeRequest]) (*connect.Response[v1.SnapshotServerHostVolumeResponse], error) {
 	return c.snapshotServerHostVolume.CallUnary(ctx, req)
@@ -199,6 +218,10 @@ type ServerHostServiceHandler interface {
 	// UnpinServerHostSize lets the scaling policy decide the host's size again. The owner only;
 	// invalid_argument when nothing is pinned.
 	UnpinServerHostSize(context.Context, *connect.Request[v1.UnpinServerHostSizeRequest]) (*connect.Response[v1.UnpinServerHostSizeResponse], error)
+	// SetServerHostExpectation says how many players a host should expect until when (#172): a
+	// move up for them is decided at once and carried out at once while the server is empty, and
+	// the server isn't parked for being empty meanwhile. Who may SetServerHostDesired.
+	SetServerHostExpectation(context.Context, *connect.Request[v1.SetServerHostExpectationRequest]) (*connect.Response[v1.SetServerHostExpectationResponse], error)
 	// SnapshotServerHostVolume copies a parked host's data volume into a snapshot that a new
 	// server's volume can be made from (servers.yaml vm.seed_snapshot), so it starts with the
 	// game's install. The owner only; failed_precondition unless the host is parked. The snapshot
@@ -245,6 +268,12 @@ func NewServerHostServiceHandler(svc ServerHostServiceHandler, opts ...connect.H
 		connect.WithSchema(serverHostServiceMethods.ByName("UnpinServerHostSize")),
 		connect.WithHandlerOptions(opts...),
 	)
+	serverHostServiceSetServerHostExpectationHandler := connect.NewUnaryHandler(
+		ServerHostServiceSetServerHostExpectationProcedure,
+		svc.SetServerHostExpectation,
+		connect.WithSchema(serverHostServiceMethods.ByName("SetServerHostExpectation")),
+		connect.WithHandlerOptions(opts...),
+	)
 	serverHostServiceSnapshotServerHostVolumeHandler := connect.NewUnaryHandler(
 		ServerHostServiceSnapshotServerHostVolumeProcedure,
 		svc.SnapshotServerHostVolume,
@@ -269,6 +298,8 @@ func NewServerHostServiceHandler(svc ServerHostServiceHandler, opts ...connect.H
 			serverHostServiceResizeServerHostHandler.ServeHTTP(w, r)
 		case ServerHostServiceUnpinServerHostSizeProcedure:
 			serverHostServiceUnpinServerHostSizeHandler.ServeHTTP(w, r)
+		case ServerHostServiceSetServerHostExpectationProcedure:
+			serverHostServiceSetServerHostExpectationHandler.ServeHTTP(w, r)
 		case ServerHostServiceSnapshotServerHostVolumeProcedure:
 			serverHostServiceSnapshotServerHostVolumeHandler.ServeHTTP(w, r)
 		case ServerHostServiceDestroyServerHostProcedure:
@@ -300,6 +331,10 @@ func (UnimplementedServerHostServiceHandler) ResizeServerHost(context.Context, *
 
 func (UnimplementedServerHostServiceHandler) UnpinServerHostSize(context.Context, *connect.Request[v1.UnpinServerHostSizeRequest]) (*connect.Response[v1.UnpinServerHostSizeResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.ServerHostService.UnpinServerHostSize is not implemented"))
+}
+
+func (UnimplementedServerHostServiceHandler) SetServerHostExpectation(context.Context, *connect.Request[v1.SetServerHostExpectationRequest]) (*connect.Response[v1.SetServerHostExpectationResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.ServerHostService.SetServerHostExpectation is not implemented"))
 }
 
 func (UnimplementedServerHostServiceHandler) SnapshotServerHostVolume(context.Context, *connect.Request[v1.SnapshotServerHostVolumeRequest]) (*connect.Response[v1.SnapshotServerHostVolumeResponse], error) {

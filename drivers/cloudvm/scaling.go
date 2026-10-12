@@ -161,9 +161,14 @@ func (t *tick) scale(ctx context.Context, h *Host) bool {
 		return false
 	}
 	capacity := sc.Ladder[rung].Players
-	occupancy := float64(players) / float64(capacity)
+	// The room is the larger of the live and the expected players (#172). An expected crowd the
+	// rung can't hold is an announcement, not noise: it is decided at once, cooldown or not.
+	exp := expected(*h, t.now)
+	room := max(players, exp)
+	occupancy := float64(room) / float64(capacity)
 	high, low := !highSince.IsZero(), !lowSince.IsZero()
 	highFor, lowFor := t.now.Sub(highSince), t.now.Sub(lowSince)
+	announced := exp > players && rung+1 < len(sc.Ladder) && (float64(exp)/float64(capacity) >= sc.UpAt || exp >= capacity)
 
 	if pending != "" {
 		up := Rung(sc.Ladder, pending) > rung
@@ -171,14 +176,18 @@ func (t *tick) scale(ctx context.Context, h *Host) bool {
 		case Rung(sc.Ladder, pending) < 0:
 			t.cancelScale(h, pending+" is no longer on the ladder")
 		case up && occupancy <= sc.DownAt:
-			t.cancelScale(h, fmt.Sprintf("the room emptied to %d of %d", players, capacity))
+			t.cancelScale(h, fmt.Sprintf("the room emptied to %d of %d", room, capacity))
 		case !up && occupancy >= sc.UpAt:
-			t.cancelScale(h, fmt.Sprintf("the room filled to %d of %d", players, capacity))
+			t.cancelScale(h, fmt.Sprintf("the room filled to %d of %d", room, capacity))
 		}
 	}
-	if h.PendingSize == "" && (h.LastResizeAt.IsZero() || t.now.Sub(h.LastResizeAt) >= sc.Cooldown) {
+	cooled := h.LastResizeAt.IsZero() || t.now.Sub(h.LastResizeAt) >= sc.Cooldown
+	if h.PendingSize == "" && (cooled || announced) {
 		var to, dir, why string
 		switch {
+		case announced:
+			to, dir = sc.Ladder[rung+1].Size, DirectionUp
+			why = fmt.Sprintf("%s, %d of %d players on", expectation(*h), players, capacity)
 		case high && highFor >= sc.UpFor:
 			to, dir = sc.Ladder[rung+1].Size, DirectionUp
 			why = fmt.Sprintf("%d of %d players for %s", players, capacity, highFor.Round(time.Second))

@@ -4,8 +4,10 @@ import (
 	"context"
 	"net/http"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	hubv1 "github.com/gravel-project/gravel/gen/gravel/hub/v1"
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
@@ -48,6 +50,10 @@ func TestHostServiceCallers(t *testing.T) {
 			_, err := c.SetServerHostDesired(ctx, connect.NewRequest(&hubv1.SetServerHostDesiredRequest{ServerId: "wd-1", Desired: "parked"}))
 			return err
 		},
+		"expect": func(c hubv1connect.ServerHostServiceClient) error {
+			_, err := c.SetServerHostExpectation(ctx, connect.NewRequest(&hubv1.SetServerHostExpectationRequest{ServerId: "wd-1", Players: 10, Until: timestamppb.New(time.Now().Add(time.Hour))}))
+			return err
+		},
 		"resize": func(c hubv1connect.ServerHostServiceClient) error {
 			_, err := c.ResizeServerHost(ctx, connect.NewRequest(&hubv1.ResizeServerHostRequest{ServerId: "wd-1", Size: "c-4"}))
 			return err
@@ -71,12 +77,12 @@ func TestHostServiceCallers(t *testing.T) {
 		anon     = connect.CodeUnauthenticated
 	)
 	want := map[string]map[string]connect.Code{
-		"anonymous": {"get": anon, "park": anon, "resize": anon, "unpin": anon, "snapshot": anon, "destroy": anon},
-		"member":    {"get": admitted, "park": denied, "resize": denied, "unpin": denied, "snapshot": denied, "destroy": denied},
-		"moderator": {"get": admitted, "park": admitted, "resize": denied, "unpin": denied, "snapshot": denied, "destroy": denied},
-		"owner":     {"get": admitted, "park": admitted, "resize": admitted, "unpin": admitted, "snapshot": admitted, "destroy": admitted},
-		"reader":    {"get": admitted, "park": denied, "resize": denied, "unpin": denied, "snapshot": denied, "destroy": denied},
-		"bot":       {"get": denied, "park": admitted, "resize": denied, "unpin": denied, "snapshot": denied, "destroy": denied},
+		"anonymous": {"get": anon, "park": anon, "expect": anon, "resize": anon, "unpin": anon, "snapshot": anon, "destroy": anon},
+		"member":    {"get": admitted, "park": denied, "expect": denied, "resize": denied, "unpin": denied, "snapshot": denied, "destroy": denied},
+		"moderator": {"get": admitted, "park": admitted, "expect": admitted, "resize": denied, "unpin": denied, "snapshot": denied, "destroy": denied},
+		"owner":     {"get": admitted, "park": admitted, "expect": admitted, "resize": admitted, "unpin": admitted, "snapshot": admitted, "destroy": admitted},
+		"reader":    {"get": admitted, "park": denied, "expect": denied, "resize": denied, "unpin": denied, "snapshot": denied, "destroy": denied},
+		"bot":       {"get": denied, "park": admitted, "expect": admitted, "resize": denied, "unpin": denied, "snapshot": denied, "destroy": denied},
 	}
 	for who, c := range callers {
 		for name, f := range calls {

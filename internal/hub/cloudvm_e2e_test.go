@@ -15,6 +15,7 @@ import (
 
 	"connectrpc.com/connect"
 	"golang.org/x/crypto/ssh"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/gravel-project/gravel/cloud"
 	"github.com/gravel-project/gravel/cloud/fake"
@@ -241,6 +242,18 @@ func TestHubCloudVMLifecycle(t *testing.T) {
 	if _, err := hosts.UnpinServerHostSize(ctx, connect.NewRequest(&hubv1.UnpinServerHostSizeRequest{ServerId: "cs2-1"})); connect.CodeOf(err) != connect.CodeInvalidArgument {
 		t.Errorf("unpin with nothing pinned: %v", err)
 	}
+	// An expected population (#172): set, read back, cleared; one in the past is refused.
+	until := time.Now().Add(time.Hour).Truncate(time.Second)
+	exp, err := hosts.SetServerHostExpectation(ctx, connect.NewRequest(&hubv1.SetServerHostExpectationRequest{ServerId: "cs2-1", Players: 10, Until: timestamppb.New(until), Reason: "PUG 3 filled"}))
+	if err != nil || exp.Msg.GetHost().GetExpectedPlayers() != 10 || !exp.Msg.GetHost().GetExpectedUntil().AsTime().Equal(until) || exp.Msg.GetHost().GetExpectedReason() != "PUG 3 filled" {
+		t.Fatalf("expect: %v %v", exp, err)
+	}
+	if got, err := hosts.SetServerHostExpectation(ctx, connect.NewRequest(&hubv1.SetServerHostExpectationRequest{ServerId: "cs2-1"})); err != nil || got.Msg.GetHost().GetExpectedPlayers() != 0 || got.Msg.GetHost().GetExpectedUntil() != nil {
+		t.Fatalf("clear: %v %v", got, err)
+	}
+	if _, err := hosts.SetServerHostExpectation(ctx, connect.NewRequest(&hubv1.SetServerHostExpectationRequest{ServerId: "cs2-1", Players: 10, Until: timestamppb.New(time.Now().Add(-time.Minute))})); connect.CodeOf(err) != connect.CodeInvalidArgument {
+		t.Errorf("an expectation in the past: %v", err)
+	}
 	// The month's cost comes from the events, each run at its own size's price, on Postgres.
 	if c := unpinned.Msg.GetHost().GetMonthCostUsd(); c <= 0 {
 		t.Errorf("month cost %v after running at two sizes", c)
@@ -269,7 +282,7 @@ func TestHubCloudVMLifecycle(t *testing.T) {
 	for _, e := range audit.Msg.GetEntries() {
 		actions = append(actions, e.GetAction()+":"+e.GetOutcome())
 	}
-	if strings.Join(actions, ",") != "host_unpin:invalid,host_unpin:accepted,host_resize:accepted,host_resize:accepted,host_resize:invalid,host_snapshot:not_parked,host_unpark:accepted,host_snapshot:accepted,host_park:accepted,host_destroy:not_parked" {
+	if strings.Join(actions, ",") != "host_expect:invalid,host_expect:accepted,host_expect:accepted,host_unpin:invalid,host_unpin:accepted,host_resize:accepted,host_resize:accepted,host_resize:invalid,host_snapshot:not_parked,host_unpark:accepted,host_snapshot:accepted,host_park:accepted,host_destroy:not_parked" {
 		t.Errorf("audit %v", actions)
 	}
 

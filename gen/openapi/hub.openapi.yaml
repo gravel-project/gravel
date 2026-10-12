@@ -1290,6 +1290,48 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.SetServerHostDesiredResponse'
+  /gravel.hub.v1.ServerHostService/SetServerHostExpectation:
+    post:
+      tags:
+        - gravel.hub.v1.ServerHostService
+      summary: SetServerHostExpectation
+      description: |-
+        SetServerHostExpectation says how many players a host should expect until when (#172): a
+         move up for them is decided at once and carried out at once while the server is empty, and
+         the server isn't parked for being empty meanwhile. Who may SetServerHostDesired.
+      operationId: gravel.hub.v1.ServerHostService.SetServerHostExpectation
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.SetServerHostExpectationRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.SetServerHostExpectationResponse'
   /gravel.hub.v1.ServerHostService/SnapshotServerHostVolume:
     post:
       tags:
@@ -4612,6 +4654,21 @@ components:
             - $ref: '#/components/schemas/google.protobuf.Timestamp'
           title: last_resize_at
           description: When the last resize began; the policy's cooldown counts from it.
+        expectedPlayers:
+          type: integer
+          title: expected_players
+          format: int32
+          description: |-
+            The players the host expects until expected_until, and why (#172): the policy reads the larger
+             of the live and the expected players as the room, and an empty host isn't parked. 0 and unset
+             when it expects nobody, or the time has passed.
+        expectedUntil:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: expected_until
+        expectedReason:
+          type: string
+          title: expected_reason
       title: ServerHost
       additionalProperties: false
       description: |-
@@ -4810,6 +4867,46 @@ components:
           title: audit_id
           format: int64
       title: SetServerHostDesiredResponse
+      additionalProperties: false
+    gravel.hub.v1.SetServerHostExpectationRequest:
+      type: object
+      properties:
+        serverId:
+          type: string
+          title: server_id
+        players:
+          type: integer
+          title: players
+          format: int32
+          description: How many players to expect; clamped to the scaling ladder's top. 0 clears the expectation.
+        until:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: until
+          description: Until when, at most 24 hours ahead; required unless players is 0.
+        reason:
+          type: string
+          title: reason
+          description: Why, shown with the decision it causes ("PUG 3 filled"); one line, at most 200 characters.
+        onBehalfOf:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.Actor'
+          title: on_behalf_of
+          description: The moderator an app acts for; unset for an app acting for itself or anyone in person.
+      title: SetServerHostExpectationRequest
+      additionalProperties: false
+    gravel.hub.v1.SetServerHostExpectationResponse:
+      type: object
+      properties:
+        host:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.ServerHost'
+          title: host
+        auditId:
+          type: string
+          title: audit_id
+          format: int64
+      title: SetServerHostExpectationResponse
       additionalProperties: false
     gravel.hub.v1.SetUserRoleRequest:
       type: object

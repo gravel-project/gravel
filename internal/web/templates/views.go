@@ -306,10 +306,19 @@ type HostPanel struct {
 	PendingSize   string
 	PendingReason string
 	PendingSince  time.Time
+	// The expected population (#172): players, until when and why; 0 for none. ExpectMax is the
+	// most the form offers (the ladder's top, or 64).
+	ExpectedPlayers int
+	ExpectedUntil   time.Time
+	ExpectedReason  string
+	ExpectMax       int
 	// What the reader may do now.
-	CanPark, CanUnpark, CanResize, CanDestroy, CanPin, CanUnpin, CanSnapshot bool
-	Sizes                                                                    []HostSizeOption
+	CanPark, CanUnpark, CanResize, CanDestroy, CanPin, CanUnpin, CanSnapshot, CanExpect bool
+	Sizes                                                                               []HostSizeOption
 }
+
+// ExpectFor are the spans the expected-population form offers.
+var ExpectFor = []string{"1h", "2h", "3h", "4h", "6h", "12h", "24h"}
 
 // HostRung is one rung of a host's scaling ladder.
 type HostRung struct {
@@ -337,6 +346,8 @@ type HostConfirmPage struct {
 	Warning string
 	// Force, Pin and DeleteVolume are the switches the confirmation offers.
 	OfferForce, OfferPin, OfferDeleteVolume bool
+	// An expected population's players, span and reason, carried through the confirmation.
+	Players, For, Reason string
 }
 
 // ModControls are the moderation controls a server page shows a moderator; each is shown only

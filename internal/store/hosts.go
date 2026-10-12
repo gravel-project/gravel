@@ -54,8 +54,12 @@ type ServerHost struct {
 	PendingReason string
 	PendingSince  *time.Time
 	LastResizeAt  *time.Time
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	// The expected population (migration 00019): players, until when, and why; 0 players for none.
+	ExpectedPlayers int
+	ExpectedUntil   *time.Time
+	ExpectedReason  string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 // ServerHostEvent is a row of server_host_events: one transition of a host.
@@ -77,7 +81,7 @@ const hostColumns = `organization_id, server_id, location_id, desired, state, st
 	disk_gib, instance_id, instance_address, volume_id, address, address_reserved, firewall_id, egress, operation, host_key,
 	env_sha256, attempts, next_attempt_at, error_code, last_error, request_audit_id, state_since, instance_created_at,
 	empty_since, boot_seconds, ready_seconds, pinned_size, pending_size, pending_reason, pending_since, last_resize_at,
-	created_at, updated_at`
+	expected_players, expected_until, expected_reason, created_at, updated_at`
 
 func scanHost(row pgx.Row) (ServerHost, error) {
 	var h ServerHost
@@ -86,7 +90,8 @@ func scanHost(row pgx.Row) (ServerHost, error) {
 		&h.DestroyVolume, &h.ReleaseAddress, &h.DiskGiB, &h.InstanceID, &h.InstanceAddress, &h.VolumeID, &h.Address,
 		&h.AddressReserved, &h.FirewallID, &egress, &h.Operation, &h.HostKey, &h.EnvSHA256, &h.Attempts, &h.NextAttemptAt,
 		&h.ErrorCode, &h.LastError, &h.RequestAuditID, &h.StateSince, &h.InstanceCreatedAt, &h.EmptySince, &h.BootSeconds,
-		&h.ReadySeconds, &h.PinnedSize, &h.PendingSize, &h.PendingReason, &h.PendingSince, &h.LastResizeAt, &h.CreatedAt, &h.UpdatedAt)
+		&h.ReadySeconds, &h.PinnedSize, &h.PendingSize, &h.PendingReason, &h.PendingSince, &h.LastResizeAt,
+		&h.ExpectedPlayers, &h.ExpectedUntil, &h.ExpectedReason, &h.CreatedAt, &h.UpdatedAt)
 	if err != nil {
 		return h, err
 	}
@@ -141,7 +146,7 @@ func (s *Store) SaveServerHost(ctx context.Context, h ServerHost, now time.Time)
 	_, err = s.pool.Exec(ctx, `
 		INSERT INTO server_hosts (`+hostColumns+`)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24,
-		        $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $37)
+		        $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $40)
 		ON CONFLICT (organization_id, server_id) DO UPDATE SET
 		  location_id = excluded.location_id, desired = excluded.desired, state = excluded.state, step = excluded.step,
 		  size = excluded.size, target_size = excluded.target_size, destroy_volume = excluded.destroy_volume,
@@ -154,12 +159,14 @@ func (s *Store) SaveServerHost(ctx context.Context, h ServerHost, now time.Time)
 		  instance_created_at = excluded.instance_created_at, empty_since = excluded.empty_since,
 		  boot_seconds = excluded.boot_seconds, ready_seconds = excluded.ready_seconds, pinned_size = excluded.pinned_size,
 		  pending_size = excluded.pending_size, pending_reason = excluded.pending_reason,
-		  pending_since = excluded.pending_since, last_resize_at = excluded.last_resize_at, updated_at = $37`,
+		  pending_since = excluded.pending_since, last_resize_at = excluded.last_resize_at,
+		  expected_players = excluded.expected_players, expected_until = excluded.expected_until,
+		  expected_reason = excluded.expected_reason, updated_at = $40`,
 		h.OrganizationID, h.ServerID, h.LocationID, h.Desired, h.State, h.Step, h.Size, h.TargetSize, h.DestroyVolume,
 		h.ReleaseAddress, h.DiskGiB, h.InstanceID, h.InstanceAddress, h.VolumeID, h.Address, h.AddressReserved, h.FirewallID,
 		egress, nullJSON(h.Operation), h.HostKey, h.EnvSHA256, h.Attempts, h.NextAttemptAt, h.ErrorCode, h.LastError,
 		h.RequestAuditID, h.StateSince, h.InstanceCreatedAt, h.EmptySince, h.BootSeconds, h.ReadySeconds, h.PinnedSize,
-		h.PendingSize, h.PendingReason, h.PendingSince, h.LastResizeAt, now)
+		h.PendingSize, h.PendingReason, h.PendingSince, h.LastResizeAt, h.ExpectedPlayers, h.ExpectedUntil, h.ExpectedReason, now)
 	if err != nil {
 		return fmt.Errorf("store: save server host: %w", err)
 	}

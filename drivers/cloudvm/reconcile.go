@@ -723,7 +723,15 @@ func (t *tick) running(ctx context.Context, h *Host, want string) (bool, error) 
 		h.TargetSize = h.PinnedSize
 		return true, nil
 	}
-	if t.s.ParkAfter > 0 && known && players == 0 && !emptySince.IsZero() && t.now.Sub(emptySince) >= t.s.ParkAfter {
+	// An expected population that has passed is cleared; one still ahead holds off the idle park:
+	// the crowd hasn't come yet (#172).
+	if h.ExpectedPlayers > 0 && expected(*h, t.now) == 0 {
+		t.events = append(t.events, Event{ServerID: h.ServerID, At: t.now, From: h.State, To: h.State, Step: DetailExpect, Detail: "passed: " + expectation(*h), Size: h.Size})
+		t.m.log.Info("the expected population has passed", "server", h.ServerID, "expected", h.ExpectedPlayers)
+		h.ExpectedPlayers, h.ExpectedUntil, h.ExpectedReason = 0, time.Time{}, ""
+		t.m.met.expected.WithLabelValues(h.ServerID).Set(0)
+	}
+	if t.s.ParkAfter > 0 && known && players == 0 && !emptySince.IsZero() && t.now.Sub(emptySince) >= t.s.ParkAfter && expected(*h, t.now) == 0 {
 		h.Desired = DesiredParked
 		t.m.log.Info("the server has been empty; parking its host", "server", h.ServerID, "empty_for", t.now.Sub(emptySince).Round(time.Second).String())
 		if h.PendingSize != "" {
