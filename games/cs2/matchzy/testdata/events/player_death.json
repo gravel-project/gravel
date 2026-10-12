@@ -1,0 +1,34 @@
+{
+  "event": "player_death",
+  "matchid": 27,
+  "map_number": 0,
+  "round_number": 4,
+  "round_time": 21877,
+  "player": {
+    "steamid": "BOT-7",
+    "name": "Ted",
+    "user_id": 7,
+    "side": "t",
+    "is_bot": true
+  },
+  "weapon": {
+    "name": "ak47",
+    "id": 0
+  },
+  "bomb": false,
+  "headshot": true,
+  "thru_smoke": false,
+  "penetrated": 0,
+  "attacker_blind": false,
+  "no_scope": false,
+  "suicide": false,
+  "friendly_fire": false,
+  "attacker": {
+    "steamid": "76561198000000001",
+    "name": "J\u00F6rg",
+    "user_id": 2,
+    "side": "ct",
+    "is_bot": false
+  },
+  "assist": null
+}

@@ -1,0 +1,58 @@
+{
+  "matchid": 27,
+  "team1": {
+    "id": "htg",
+    "name": "Hidden Token",
+    "players": {
+      "76561198000000001": "Jörg",
+      "76561198000000002": ""
+    }
+  },
+  "team2": {
+    "name": "War Dogs",
+    "players": {
+      "76561198000000003": "Player Three",
+      "76561198000000004": "Player Four"
+    }
+  },
+  "num_maps": 3,
+  "maplist": [
+    "de_mirage",
+    "de_inferno",
+    "de_nuke",
+    "de_ancient",
+    "de_anubis",
+    "de_dust2",
+    "de_train"
+  ],
+  "map_sides": [
+    "team1_ct",
+    "team2_ct",
+    "knife"
+  ],
+  "skip_veto": true,
+  "veto_first": "random",
+  "veto_mode": [
+    "team1_ban",
+    "team2_ban",
+    "team1_pick",
+    "team2_pick",
+    "team1_ban",
+    "team2_ban"
+  ],
+  "side_type": "always_knife",
+  "players_per_team": 2,
+  "min_players_to_ready": 2,
+  "clinch_series": false,
+  "wingman": true,
+  "spectators": {
+    "players": {
+      "76561198000000005": "Caster"
+    }
+  },
+  "cvars": {
+    "hostname": "HTG Match #27",
+    "matchzy_remote_log_url": "https://hub.example/ingest/matchzy?x=1",
+    "mp_friendlyfire": "1"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "event": "map_result",
+  "matchid": 27,
+  "map_number": 0,
+  "winner": {
+    "side": "3",
+    "team": "team1"
+  },
+  "team1": {
+    "id": "",
+    "name": "Hidden Token",
+    "series_score": 1,
+    "score": 13,
+    "score_ct": 0,
+    "score_t": 0,
+    "players": []
+  },
+  "team2": {
+    "id": "",
+    "name": "War Dogs",
+    "series_score": 0,
+    "score": 9,
+    "score_ct": 0,
+    "score_t": 0,
+    "players": []
+  }
+}

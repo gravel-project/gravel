@@ -1,0 +1,11 @@
+{
+  "event": "player_disconnect",
+  "matchid": 27,
+  "player": {
+    "steamid": "76561198000000002",
+    "name": "it\u0027s two",
+    "user_id": 4,
+    "side": null,
+    "is_bot": false
+  }
+}
