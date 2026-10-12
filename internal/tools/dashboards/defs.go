@@ -229,7 +229,7 @@ func hubDashboard() dashboard {
 func botDashboard() dashboard {
 	return dashboard{
 		UID: "gravel-bot", Title: "gravel bot", BuildInfo: "gravel_bot_build_info",
-		Description: "The gravel Discord bot: the gateway, interactions against Discord's three seconds, role sync, Linked Roles, the server cards, the mod log, seeding, the presence card, the session recaps, the go-live posts, the moderation command and the Go runtime (gravel docs/bot.md, Observability).",
+		Description: "The gravel Discord bot: the gateway, interactions against Discord's three seconds, role sync, Linked Roles, the server cards, the mod log, seeding, the presence card, the session recaps, the go-live posts, the Steam news, the moderation command and the Go runtime (gravel docs/bot.md, Observability).",
 		Rows: []row{
 			{Title: "Overview", Panels: []panel{
 				{Title: "Up", Kind: "stat", Width: 3, Mappings: upMap, Thresholds: []step{{Color: "red"}, {Value: 1, Color: "green"}}, Targets: []target{{Expr: `up{` + sel + `}`, Legend: "{{instance}}"}}},
@@ -352,6 +352,15 @@ func botDashboard() dashboard {
 				{Title: "Go-live posts", Kind: "timeseries", Width: 24, Optional: "go-live posts are off or nobody streamed in the range",
 					Description: "posted: a stream started (the role is pinged); resumed: a stream came back within ten minutes and its post went live again; ended: the post was edited after the stream; forbidden: the bot may not post in the channel; error: Discord failed, retried next pass.",
 					Targets:     []target{{Expr: `sum by (platform, result) (increase(gravel_bot_streams_posts_total{` + sel + `}[$__rate_interval]))`, Legend: "{{platform}} {{result}}"}}},
+			}},
+			{Title: "Steam news", Panels: []panel{
+				{Title: "News posts", Kind: "timeseries", Width: 18, Optional: "news is off or Steam announced nothing in the range",
+					Description: "Steam announcements posted, by app id. posted: an announcement went out; failed: Discord refused or failed the post, which is retried at the next pass (the log says which).",
+					Targets:     []target{{Expr: `sum by (app, result) (increase(gravel_bot_news_posts_total{` + sel + `}[$__rate_interval]))`, Legend: "{{app}} {{result}}"}}},
+				{Title: "Since the last good news pass", Kind: "stat", Unit: "s", Width: 6, Optional: "news is off",
+					Description: "The stalest feed. Orange after an hour and red after three (four and twelve default intervals): Steam failing or rate-limiting the bot, a channel the bot can't read, or a post failing.",
+					Thresholds:  []step{{Color: "green"}, {Value: 3600, Color: "orange"}, {Value: 10800, Color: "red"}},
+					Targets:     []target{{Expr: `time() - min(gravel_bot_news_last_success_timestamp_seconds{` + sel + `})`}}},
 			}},
 			{Title: "Moderation command", Panels: []panel{
 				{Title: "Moderation commands", Kind: "timeseries", Width: 24, Optional: "the moderation command is off or nobody used it in the range",

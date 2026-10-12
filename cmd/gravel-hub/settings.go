@@ -270,6 +270,9 @@ func describeDiscord(d org.Discord) string {
 	if n := len(d.Streams.Streamers); n > 0 {
 		out += fmt.Sprintf(", go-live posts for %d streamers", n)
 	}
+	if n := len(d.News.Feeds); n > 0 {
+		out += fmt.Sprintf(", %d Steam news feeds", n)
+	}
 	if n := len(d.Presence.Games); n > 0 {
 		out += fmt.Sprintf(", a presence card with %d games", n)
 	}

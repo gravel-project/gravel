@@ -1,7 +1,7 @@
 // Package stock is gravel's stock set of bot modules, as a bot.yaml enables them: core
 // (/whoami, /link) always, role sync, Linked Roles, the server cards, the moderation command, the
-// mod log, seeding, the presence card, the session recaps and the go-live posts when their sections
-// turn them on. A host's bot starts from this set and adds its own modules, so a module gravel adds
+// mod log, seeding, the presence card, the session recaps, the go-live posts and the Steam news when
+// their sections turn them on. A host's bot starts from this set and adds its own modules, so a module gravel adds
 // later reaches every host bot at its next gravel upgrade (ADR-0008 §1).
 package stock
 
@@ -14,6 +14,7 @@ import (
 	"github.com/gravel-project/gravel/discord/modules/linkedroles"
 	"github.com/gravel-project/gravel/discord/modules/moderation"
 	"github.com/gravel-project/gravel/discord/modules/modlog"
+	"github.com/gravel-project/gravel/discord/modules/news"
 	"github.com/gravel-project/gravel/discord/modules/presence"
 	"github.com/gravel-project/gravel/discord/modules/recaps"
 	"github.com/gravel-project/gravel/discord/modules/rolesync"
@@ -63,6 +64,9 @@ func Modules(cfg bot.Config, hub *hubclient.Client) []bot.Module {
 			platforms = append(platforms, streams.NewKick(streams.App{ClientID: a.ClientID, ClientSecret: a.ClientSecret}, hc))
 		}
 		mods = append(mods, streams.New(hub, streams.Config{Interval: cfg.Streams.Interval, Platforms: platforms}))
+	}
+	if cfg.News.Enabled {
+		mods = append(mods, news.New(hub, news.Config{Interval: cfg.News.Interval}))
 	}
 	return mods
 }

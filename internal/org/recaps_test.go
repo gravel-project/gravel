@@ -35,7 +35,7 @@ func TestSettingsValidateRecaps(t *testing.T) {
 		d    Discord
 		want []string
 	}{
-		{"without a guild", Discord{Recaps: []RecapRule{htgRecap()}}, []string{"discord.guild_id: required when roles are mapped, server cards placed, seeding set, presence placed, recaps set or streams placed"}},
+		{"without a guild", Discord{Recaps: []RecapRule{htgRecap()}}, []string{"discord.guild_id: required when roles are mapped, server cards placed, seeding set, presence placed, recaps set, streams placed or news listed"}},
 		{"server", rule(func(r *RecapRule) { r.Server = "HTG 1" }), []string{`discord.recaps[0].server: "HTG 1" is not a server id`}},
 		{"channel", rule(func(r *RecapRule) { r.Channel = "#wd-chat" }), []string{`discord.recaps[0].channel: "#wd-chat" is not a Discord id`}},
 		{"no title", rule(func(r *RecapRule) { r.Title = " " }), []string{"discord.recaps[0].title: one line of 1 to 60 characters"}},

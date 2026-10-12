@@ -60,6 +60,10 @@ streams:                         # go-live posts for the Organization settings' 
   #   client_id: "…"
   #   client_secret_file: /run/secrets/gravel-bot-kick-client-secret
 
+news:                            # Steam announcements for the Organization settings' discord.news feeds; Steam's news API needs no key
+  enabled: false
+  interval: 15m                  # at least 5m
+
 server:
   listen: 0.0.0.0:8081           # /interactions, /healthz, /readyz
   internal_listen: 0.0.0.0:9091  # /metrics

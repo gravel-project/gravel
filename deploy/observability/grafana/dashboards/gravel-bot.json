@@ -2,7 +2,7 @@
   "annotations": {
     "list": []
   },
-  "description": "The gravel Discord bot: the gateway, interactions against Discord's three seconds, role sync, Linked Roles, the server cards, the mod log, seeding, the presence card, the session recaps, the go-live posts, the moderation command and the Go runtime (gravel docs/bot.md, Observability).",
+  "description": "The gravel Discord bot: the gateway, interactions against Discord's three seconds, role sync, Linked Roles, the server cards, the mod log, seeding, the presence card, the session recaps, the go-live posts, the Steam news, the moderation command and the Go runtime (gravel docs/bot.md, Observability).",
   "editable": false,
   "graphTooltip": 1,
   "panels": [
@@ -2366,6 +2366,152 @@
       },
       "id": 43,
       "panels": [],
+      "title": "Steam news",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Steam announcements posted, by app id. posted: an announcement went out; failed: Discord refused or failed the post, which is retried at the next pass (the log says which). No data is expected when news is off or Steam announced nothing in the range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gravelOptional": "news is off or Steam announced nothing in the range",
+      "gridPos": {
+        "h": 8,
+        "w": 18,
+        "x": 0,
+        "y": 102
+      },
+      "id": 44,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (app, result) (increase(gravel_bot_news_posts_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "{{app}} {{result}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "News posts",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "The stalest feed. Orange after an hour and red after three (four and twelve default intervals): Steam failing or rate-limiting the bot, a channel the bot can't read, or a post failing. No data is expected when news is off.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 3600
+              },
+              {
+                "color": "red",
+                "value": 10800
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gravelOptional": "news is off",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 102
+      },
+      "id": 45,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "time() - min(gravel_bot_news_last_success_timestamp_seconds{job=\"$job\", instance=~\"$instance\"})",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Since the last good news pass",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 110
+      },
+      "id": 46,
+      "panels": [],
       "title": "Moderation command",
       "type": "row"
     },
@@ -2405,9 +2551,9 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 102
+        "y": 111
       },
-      "id": 44,
+      "id": 47,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2440,9 +2586,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 110
+        "y": 119
       },
-      "id": 45,
+      "id": 48,
       "panels": [],
       "title": "Runtime",
       "type": "row"
@@ -2481,9 +2627,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 111
+        "y": 120
       },
-      "id": 46,
+      "id": 49,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2544,9 +2690,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 111
+        "y": 120
       },
-      "id": 47,
+      "id": 50,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2607,9 +2753,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 111
+        "y": 120
       },
-      "id": 48,
+      "id": 51,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2670,9 +2816,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 119
+        "y": 128
       },
-      "id": 49,
+      "id": 52,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2733,9 +2879,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 119
+        "y": 128
       },
-      "id": 50,
+      "id": 53,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2796,9 +2942,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 119
+        "y": 128
       },
-      "id": 51,
+      "id": 54,
       "options": {
         "legend": {
           "displayMode": "list",

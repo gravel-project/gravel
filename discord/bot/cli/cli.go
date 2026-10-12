@@ -233,9 +233,13 @@ func (p Program) configCheck(args []string, stdout, stderr io.Writer) int {
 		}
 		streamsOn = "every " + cfg.Streams.Interval.String() + " (" + strings.Join(apps, ", ") + ")"
 	}
-	fmt.Fprintf(stdout, "config ok: application %s, commands %s, gateway %t, hub %s (public %s, client %s), token from %s, hub secret from %s, role sync %s, linked roles %t, server cards %s, seeding %s, presence %s, recaps %s, streams %s, listen %s, internal %s, modules %s\n",
+	newsOn := "off"
+	if cfg.News.Enabled {
+		newsOn = "every " + cfg.News.Interval.String()
+	}
+	fmt.Fprintf(stdout, "config ok: application %s, commands %s, gateway %t, hub %s (public %s, client %s), token from %s, hub secret from %s, role sync %s, linked roles %t, server cards %s, seeding %s, presence %s, recaps %s, streams %s, news %s, listen %s, internal %s, modules %s\n",
 		cfg.Discord.ApplicationID, guilds, cfg.Discord.Gateway, cfg.Hub.URL, cfg.Hub.PublicURL, cfg.Hub.ClientID,
-		cfg.Discord.TokenSource(), cfg.Hub.SecretSource(), roleSync, cfg.LinkedRoles.Enabled, serverCards, seeding, presence, recapsOn, streamsOn, cfg.Server.Listen, cfg.Server.InternalListen,
+		cfg.Discord.TokenSource(), cfg.Hub.SecretSource(), roleSync, cfg.LinkedRoles.Enabled, serverCards, seeding, presence, recapsOn, streamsOn, newsOn, cfg.Server.Listen, cfg.Server.InternalListen,
 		strings.Join(names, ", "))
 	return 0
 }

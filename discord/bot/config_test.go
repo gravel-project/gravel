@@ -208,3 +208,24 @@ func TestStreams(t *testing.T) {
 		t.Errorf("off with an application: %v", err)
 	}
 }
+
+func TestNews(t *testing.T) {
+	c, err := Parse(strings.NewReader(minimal), env(nil, nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.News.Enabled || c.News.Interval != 15*time.Minute {
+		t.Errorf("news is off by default, every 15 minutes: %+v", c.News)
+	}
+	c, err = Parse(strings.NewReader(minimal+"news:\n  enabled: true\n  interval: 5m\n"), env(nil, nil))
+	if err != nil || !c.News.Enabled || c.News.Interval != 5*time.Minute {
+		t.Errorf("news on: %v %+v", err, c.News)
+	}
+	if _, err := Parse(strings.NewReader(minimal+"news:\n  interval: 1m\n"), env(nil, nil)); err == nil || !strings.Contains(err.Error(), "news.interval: 1m0s is shorter than 5m0s") {
+		t.Errorf("a short interval: %v", err)
+	}
+	// The feeds are the Organization settings', not bot.yaml's.
+	if _, err := Parse(strings.NewReader(minimal+"news:\n  feeds: []\n"), env(nil, nil)); err == nil || !strings.Contains(err.Error(), "feeds") {
+		t.Errorf("feeds in bot.yaml: %v", err)
+	}
+}

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"math"
 	"net/url"
 	"regexp"
 	"slices"
@@ -201,7 +202,44 @@ type Discord struct {
 	// Streams are the go-live posts (discord/modules/streams, ADR-0019): one post per stream of
 	// each listed streamer, edited when the stream ends.
 	Streams Streams `json:"streams,omitzero" yaml:"streams,omitempty"`
+	// News are the Steam news feeds (discord/modules/news): each game's announcements posted in a
+	// channel.
+	News News `json:"news,omitzero" yaml:"news,omitempty"`
 }
+
+// News places Steam games' announcements: each feed is one game's news into one channel. Empty is
+// none.
+type News struct {
+	// Feeds are read in this order, at most MaxNewsFeeds; each game once per channel.
+	Feeds []NewsFeed `json:"feeds,omitempty" yaml:"feeds,omitempty"`
+}
+
+// NewsFeed is one game's Steam announcements into one channel.
+type NewsFeed struct {
+	// AppID is the game's Steam app id, as in its store URL: 730 for Counter-Strike 2.
+	AppID   int    `json:"app_id" yaml:"app_id"`
+	Channel string `json:"channel" yaml:"channel"`
+	// Label names the game in each post's footer: "<label> · Steam announcement".
+	Label string `json:"label" yaml:"label"`
+	// Feeds are Steam's feed names to read; none is NewsDefaultFeed, the game's own announcements.
+	Feeds []string `json:"feeds,omitempty" yaml:"feeds,omitempty"`
+	// Color is the posts' embed color as 0xRRGGBB; 0 is the bot's default (Steam's blue).
+	Color int `json:"color,omitempty" yaml:"color,omitempty"`
+}
+
+// IsZero reports whether no feed is listed.
+func (n News) IsZero() bool { return len(n.Feeds) == 0 }
+
+// The news feeds' bounds.
+const (
+	MaxNewsFeeds = 20
+	MaxNewsLabel = 64
+	// NewsDefaultFeed is what a feed reads when it names none.
+	NewsDefaultFeed = "steam_community_announcements"
+)
+
+// newsFeedName is one of Steam's feed names: steam_community_announcements, steam_updates.
+var newsFeedName = regexp.MustCompile(`^[A-Za-z0-9_.-]{1,64}$`)
 
 // Streams places the go-live posts: when a listed streamer goes live on Twitch or Kick the bot
 // posts once in Channel, pinging Role when one is set, and edits the post when the stream ends.
@@ -416,7 +454,7 @@ var MappedProviders = []string{"discord", "steam"}
 // IsZero reports whether nothing is set.
 func (d Discord) IsZero() bool {
 	return d.GuildID == "" && d.Roles.IsZero() && len(d.Recognition) == 0 && len(d.ServerCards) == 0 && d.ModLog == "" && len(d.Seeding) == 0 &&
-		d.Presence.IsZero() && len(d.Recaps) == 0 && d.Streams.IsZero()
+		d.Presence.IsZero() && len(d.Recaps) == 0 && d.Streams.IsZero() && d.News.IsZero()
 }
 
 // IsZero reports whether no role is mapped.
@@ -617,7 +655,7 @@ func validateDiscord(d Discord, bad func(string, ...any)) {
 		return
 	}
 	if d.GuildID == "" {
-		bad("discord.guild_id: required when roles are mapped, server cards placed, seeding set, presence placed, recaps set or streams placed")
+		bad("discord.guild_id: required when roles are mapped, server cards placed, seeding set, presence placed, recaps set, streams placed or news listed")
 	} else if !snowflakeOK(d.GuildID) {
 		bad("discord.guild_id: %q is not a Discord id", d.GuildID)
 	}
@@ -688,6 +726,47 @@ func validateDiscord(d Discord, bad func(string, ...any)) {
 	validatePresence(d.Presence, bad)
 	validateRecaps(d, bad)
 	validateStreams(d, bad)
+	validateNews(d.News, bad)
+}
+
+func validateNews(n News, bad func(string, ...any)) {
+	if len(n.Feeds) > MaxNewsFeeds {
+		bad("discord.news.feeds: %d feeds, at most %d", len(n.Feeds), MaxNewsFeeds)
+	}
+	seen := map[string]int{}
+	for i, f := range n.Feeds {
+		field := fmt.Sprintf("discord.news.feeds[%d]", i)
+		if f.AppID <= 0 || f.AppID > math.MaxInt32 {
+			bad("%s.app_id: %d is not a Steam app id (730 for Counter-Strike 2)", field, f.AppID)
+		}
+		if !snowflakeOK(f.Channel) {
+			bad("%s.channel: %q is not a Discord id", field, f.Channel)
+		} else if j, dup := seen[strconv.Itoa(f.AppID)+"/"+f.Channel]; dup {
+			bad("%s: app %d already posts to channel %s (discord.news.feeds[%d])", field, f.AppID, f.Channel, j)
+		} else {
+			seen[strconv.Itoa(f.AppID)+"/"+f.Channel] = i
+		}
+		label := strings.TrimSpace(f.Label)
+		switch {
+		case label == "":
+			bad("%s.label: required, the game's name for the posts' footer", field)
+		case utf8.RuneCountInString(label) > MaxNewsLabel || strings.ContainsFunc(label, unicode.IsControl):
+			bad("%s.label: one line of at most %d characters", field, MaxNewsLabel)
+		}
+		names := map[string]bool{}
+		for j, name := range f.Feeds {
+			switch {
+			case !newsFeedName.MatchString(name):
+				bad("%s.feeds[%d]: %q is not a Steam feed name (%s)", field, j, name, NewsDefaultFeed)
+			case names[name]:
+				bad("%s.feeds[%d]: %q is listed twice", field, j, name)
+			}
+			names[name] = true
+		}
+		if f.Color < 0 || f.Color > 0xffffff {
+			bad("%s.color: %#x is not a color from 0x000000 to 0xffffff", field, f.Color)
+		}
+	}
 }
 
 func validateStreams(d Discord, bad func(string, ...any)) {
@@ -1045,6 +1124,16 @@ func (s Settings) Normalized() Settings {
 	}
 	if len(s.Discord.Streams.Streamers) == 0 {
 		s.Discord.Streams.Streamers = nil
+	}
+	for i := range s.Discord.News.Feeds {
+		f := &s.Discord.News.Feeds[i]
+		f.Label = strings.TrimSpace(f.Label)
+		if len(f.Feeds) == 0 {
+			f.Feeds = nil
+		}
+	}
+	if len(s.Discord.News.Feeds) == 0 {
+		s.Discord.News.Feeds = nil
 	}
 	if len(s.Games) == 0 {
 		s.Games = nil

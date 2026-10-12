@@ -177,6 +177,27 @@ message DiscordSettings {
   repeated DiscordRecap recaps = 8;
   // The go-live posts for the community's streamers (the streams module, ADR-0019); unset is none.
   DiscordStreams streams = 9;
+  // The Steam news feeds (the news module); unset is none.
+  DiscordNews news = 10;
+}
+
+// One game's Steam announcements posted into one channel.
+message DiscordNewsFeed {
+  // The game's Steam app id, as in its store URL: 730 for Counter-Strike 2.
+  int32 app_id = 1;
+  string channel = 2;
+  // The game's name in each post's footer, at most 64 characters.
+  string label = 3;
+  // Steam's feed names to read; none is "steam_community_announcements".
+  repeated string feeds = 4;
+  // The posts' embed color as 0xRRGGBB; 0 is the bot's default.
+  int32 color = 5;
+}
+
+// Steam news: each feed is one game's announcements into one channel, posted as the bot finds them.
+message DiscordNews {
+  // At most 20; a game once per channel.
+  repeated DiscordNewsFeed feeds = 1;
 }
 
 // One streamer the bot watches.

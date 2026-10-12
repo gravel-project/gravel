@@ -120,6 +120,13 @@ func settingsToProto(set org.Settings, at time.Time) *hubv1.OrganizationSettings
 				p.Discord.Streams.Streamers = append(p.Discord.Streams.Streamers, &hubv1.DiscordStreamer{Platform: s.Platform, Login: s.Login, Label: s.Label})
 			}
 		}
+		if n := d.News; !n.IsZero() {
+			p.Discord.News = &hubv1.DiscordNews{}
+			for _, f := range n.Feeds {
+				pf := &hubv1.DiscordNewsFeed{AppId: int32(f.AppID), Channel: f.Channel, Label: f.Label, Feeds: f.Feeds, Color: int32(f.Color)} //nolint:gosec // bounded by validation
+				p.Discord.News.Feeds = append(p.Discord.News.Feeds, pf)
+			}
+		}
 		if pr := d.Presence; !pr.IsZero() {
 			p.Discord.Presence = &hubv1.DiscordPresence{Channel: pr.Channel, Note: pr.Note}
 			for _, g := range pr.Games {
@@ -193,6 +200,10 @@ func settingsFromProto(p *hubv1.OrganizationSettings) org.Settings {
 		for _, s := range st.GetStreamers() {
 			set.Discord.Streams.Streamers = append(set.Discord.Streams.Streamers, org.Streamer{Platform: s.GetPlatform(), Login: s.GetLogin(), Label: s.GetLabel()})
 		}
+	}
+	for _, f := range d.GetNews().GetFeeds() {
+		set.Discord.News.Feeds = append(set.Discord.News.Feeds, org.NewsFeed{AppID: int(f.GetAppId()), Channel: f.GetChannel(), Label: f.GetLabel(),
+			Feeds: f.GetFeeds(), Color: int(f.GetColor())})
 	}
 	if pr := d.GetPresence(); pr != nil {
 		set.Discord.Presence = org.Presence{Channel: pr.GetChannel(), Note: pr.GetNote()}

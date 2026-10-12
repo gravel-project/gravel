@@ -55,6 +55,7 @@ type Config struct {
 	Presence    Presence    `yaml:"presence"`
 	Recaps      Recaps      `yaml:"recaps"`
 	Streams     Streams     `yaml:"streams"`
+	News        News        `yaml:"news"`
 	Server      Server      `yaml:"server"`
 	Log         Log         `yaml:"log"`
 }
@@ -187,6 +188,19 @@ func (a StreamApp) SecretSource() string { return a.secretSource }
 // both platforms' limits.
 const MinStreamsInterval = 30 * time.Second
 
+// News posts Steam games' announcements in Discord (discord/modules/news). The feeds are the
+// Organization settings' discord.news; this is how the process runs them. Off by default. Steam's
+// news API is public and needs no key, and the bot's app needs no scope beyond reading the settings.
+type News struct {
+	Enabled bool `yaml:"enabled"`
+	// Interval is how often Steam is asked: the longest a new announcement waits.
+	Interval time.Duration `yaml:"interval"`
+}
+
+// MinNewsInterval is the news module's floor: Steam's API is public and shared, and each pass is
+// one call per feed.
+const MinNewsInterval = 5 * time.Minute
+
 // Discord is the application the bot runs as.
 type Discord struct {
 	// ApplicationID and PublicKey come from the Developer Portal; the key verifies HTTP
@@ -261,6 +275,7 @@ func Default() Config {
 		Presence:    Presence{Interval: time.Minute},
 		Recaps:      Recaps{Interval: time.Minute},
 		Streams:     Streams{Interval: time.Minute},
+		News:        News{Interval: 15 * time.Minute},
 		Server:      Server{Listen: "127.0.0.1:8081", InternalListen: "127.0.0.1:9091", ShutdownTimeout: 15 * time.Second},
 		Log:         Log{Level: "info", Format: "json"},
 	}
@@ -415,6 +430,9 @@ func (c Config) Validate() error {
 	}
 	if c.Streams.Interval < MinStreamsInterval {
 		bad("streams.interval: %s is shorter than %s", c.Streams.Interval, MinStreamsInterval)
+	}
+	if c.News.Interval < MinNewsInterval {
+		bad("news.interval: %s is shorter than %s", c.News.Interval, MinNewsInterval)
 	}
 	for _, p := range []struct {
 		name string
