@@ -111,7 +111,7 @@ func TestCloudManifestValidation(t *testing.T) {
 		{"digit-first id", func(m *Manifest) { m.Servers[0].ID = "1cs2" }, "a letter first"},
 		{"long id", func(m *Manifest) { m.Servers[0].ID = "a" + strings.Repeat("b", 40) }, "at most 40"},
 		{"size", func(m *Manifest) { m.Servers[0].VM.Size = "C 2" }, "vm.size"},
-		{"small volume", func(m *Manifest) { m.Servers[0].VM.VolumeGiB = 50 }, "the game's install needs 80"},
+		{"small volume", func(m *Manifest) { m.Servers[0].VM.VolumeGiB = 50 }, "the game's install needs 100"},
 		{"address kind", func(m *Manifest) { m.Servers[0].VM.Address = "floating" }, "vm.address"},
 		{"park too soon", func(m *Manifest) { m.Servers[0].VM.ParkAfter = Duration(time.Minute) }, "vm.park_after"},
 		{"password is the credential", func(m *Manifest) { m.Servers[0].VM.PasswordFile = m.Servers[0].CredentialFile }, "the same file"},

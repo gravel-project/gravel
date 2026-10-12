@@ -636,7 +636,7 @@ servers:
       token_file: /run/secrets/cs2-feed-token
     vm:
       size: c-2                              # the provider's size the VM is made at
-      volume_gib: 100                        # the install's disk (at least the spec's minimum, 80 for CS2)
+      volume_gib: 100                        # the install's disk (at least the spec's minimum, 100 for CS2)
       address: reserved                      # reserved (kept across parks and resizes; default) or ephemeral
       park_after: 30m                        # optional: park after this long empty (5m–24h); absent never
       password_file: /run/secrets/cs2-join-password   # optional: the password players join with
@@ -665,7 +665,7 @@ twice.
 |---|---|---|
 | `creating` | firewall, volume, reserved address, instance, the address assigned | `provisioning` |
 | `booting` | waiting for the first boot (cloud-init, the game's unit installed); SSH host key trusted on first use and pinned | `provisioning` |
-| `starting` | the environment file pushed over SSH, then waiting for the game to answer RCON (a first start downloads the install: CS2 is about 60 GB) | `provisioning` |
+| `starting` | the environment file pushed over SSH, then waiting for the game to answer RCON (a first start downloads the install: CS2 was 73.4 GB in 2026-10) | `provisioning` |
 | `running` | polled like any server; settings or secrets changed in the manifest reach the game when it is empty | `ok` (or a failure) |
 | `parking` | players warned, the game stopped, the instance stopped and, where a stopped instance bills (DigitalOcean), destroyed | `provisioning` |
 | `parked` | nothing: the volume and the reserved address stay; unparking makes a new instance on them | `parked` |

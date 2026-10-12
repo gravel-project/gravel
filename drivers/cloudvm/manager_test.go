@@ -318,7 +318,7 @@ func TestBootAndInstallTimeouts(t *testing.T) {
 	r.remote.BootAll()
 	r.advance(time.Hour)
 	_ = r.tick()
-	r.advance(46 * time.Minute)
+	r.advance(time.Duration(profile(t).ReadyTimeout) + time.Minute)
 	if err := r.tick(); err == nil || r.host().ErrorCode != cloudvm.CodeInstallTimeout {
 		t.Errorf("a game that never answers: %v, %q", err, r.host().ErrorCode)
 	}
