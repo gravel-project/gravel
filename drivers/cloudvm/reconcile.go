@@ -445,7 +445,7 @@ func (t *tick) remote(ctx context.Context, h *Host, stdin []byte, command string
 }
 
 func (t *tick) boot(ctx context.Context, h *Host) (bool, error) {
-	err := t.remote(ctx, h, nil, "test -e ~/"+BootMarker)
+	err := t.remote(ctx, h, nil, "test -e "+BootMarker)
 	if err != nil {
 		var se *stepError
 		if errors.As(err, &se) {

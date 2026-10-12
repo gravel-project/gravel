@@ -6,4 +6,6 @@ install -o "$user" -g "$user" -m 0644 /usr/local/share/gravel/{{ .Game }}.contai
 restorecon -R "$home/.config"
 as_user systemctl --user daemon-reload
 as_user systemctl --user start {{ .Game }}.service || true
-install -o "$user" -g "$user" -m 0644 /dev/null "$home/.gravel-boot-done"
+rm -f "$home/.gravel-boot-done" # an earlier version's marker, on the volume
+install -d -m 0755 /var/lib/gravel
+install -m 0644 /dev/null /var/lib/gravel/boot-done

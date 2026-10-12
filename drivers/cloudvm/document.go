@@ -17,9 +17,12 @@ var tmpl = template.Must(template.New("").ParseFS(templates, "templates/*.tmpl")
 
 var gameRE = regexp.MustCompile(`^[a-z][a-z0-9]{0,31}$`)
 
-// BootMarker is the file the first-boot script leaves in the runtime user's home when the game's
-// unit is installed: the hub reads it over SSH to know the host has booted.
-const BootMarker = ".gravel-boot-done"
+// BootMarker is the file the first-boot script leaves when the game's unit is installed: the hub
+// reads it over SSH to know the host has booted. It is on the root disk, which is new with every
+// instance. In the runtime user's home it was on the data volume, so a replacement instance
+// showed the previous one's marker and was taken as booted before its own first boot had installed
+// the unit (HTG's first warm start, 2026-10-12: "booting" in under a second).
+const BootMarker = "/var/lib/gravel/boot-done"
 
 // Document is the cloud-init document a server's instance boots with: vmdoc's host, the game's
 // unit staged and installed by the first-boot tail. It holds no secret. keys are the hub's public
