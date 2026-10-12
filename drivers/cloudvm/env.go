@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -16,12 +17,25 @@ const IngestPath = "/api/ingest/log/"
 // setting's value, and the secrets. podman takes an env file's values literally (no quotes, no
 // escapes), so a value with a line break is refused rather than written. The file holds secrets:
 // it is pushed over SSH, written 0600, and only its hash is kept.
-func RenderEnv(s ServerSpec) ([]byte, error) {
+//
+// size is the host's size: with a scaling policy, the rung it is on sets the game's players
+// setting (Profile.PlayersSetting), so a host resized to a bigger rung takes more players.
+func RenderEnv(s ServerSpec, size string) ([]byte, error) {
 	env := maps.Clone(s.Profile.Env)
 	if env == nil {
 		env = map[string]string{}
 	}
-	values := s.Profile.Values(s.Settings, s.Name)
+	settings := s.Settings
+	if sc, key := s.Scaling, s.Profile.PlayersSetting; sc != nil && key != "" {
+		if i := Rung(sc.Ladder, size); i >= 0 {
+			settings = maps.Clone(settings)
+			if settings == nil {
+				settings = map[string]string{}
+			}
+			settings[key] = strconv.Itoa(sc.Ladder[i].Players)
+		}
+	}
+	values := s.Profile.Values(settings, s.Name)
 	for _, st := range s.Profile.Settings {
 		v, ok := values[st.Key]
 		if !ok {

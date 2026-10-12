@@ -66,8 +66,24 @@ type ServerHost struct {
 	Sizes []*HostSize `protobuf:"bytes,23,rep,name=sizes,proto3" json:"sizes,omitempty"`
 	// A host is parked after the server has been empty this long; 0 never.
 	ParkAfterSeconds int64 `protobuf:"varint,24,opt,name=park_after_seconds,json=parkAfterSeconds,proto3" json:"park_after_seconds,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// The vertical scaling policy (#37): whether the server has one, its ladder (smallest rung
+	// first, each with its price), and the players the rung the host is on is sized for (0 off the
+	// ladder or without a policy).
+	Scaling     bool        `protobuf:"varint,25,opt,name=scaling,proto3" json:"scaling,omitempty"`
+	Ladder      []*HostTier `protobuf:"bytes,26,rep,name=ladder,proto3" json:"ladder,omitempty"`
+	TierPlayers int32       `protobuf:"varint,27,opt,name=tier_players,json=tierPlayers,proto3" json:"tier_players,omitempty"`
+	// A size the owner pinned: the policy stands aside, and an unparked host comes back to it. ""
+	// for none.
+	PinnedSize string `protobuf:"bytes,28,opt,name=pinned_size,json=pinnedSize,proto3" json:"pinned_size,omitempty"`
+	// The policy's decision waiting for a boundary (a map change, a match's end, an empty server):
+	// the size, why, and since when. "" for none.
+	PendingSize   string                 `protobuf:"bytes,29,opt,name=pending_size,json=pendingSize,proto3" json:"pending_size,omitempty"`
+	PendingReason string                 `protobuf:"bytes,30,opt,name=pending_reason,json=pendingReason,proto3" json:"pending_reason,omitempty"`
+	PendingSince  *timestamppb.Timestamp `protobuf:"bytes,31,opt,name=pending_since,json=pendingSince,proto3" json:"pending_since,omitempty"`
+	// When the last resize began; the policy's cooldown counts from it.
+	LastResizeAt  *timestamppb.Timestamp `protobuf:"bytes,32,opt,name=last_resize_at,json=lastResizeAt,proto3" json:"last_resize_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ServerHost) Reset() {
@@ -268,6 +284,124 @@ func (x *ServerHost) GetParkAfterSeconds() int64 {
 	return 0
 }
 
+func (x *ServerHost) GetScaling() bool {
+	if x != nil {
+		return x.Scaling
+	}
+	return false
+}
+
+func (x *ServerHost) GetLadder() []*HostTier {
+	if x != nil {
+		return x.Ladder
+	}
+	return nil
+}
+
+func (x *ServerHost) GetTierPlayers() int32 {
+	if x != nil {
+		return x.TierPlayers
+	}
+	return 0
+}
+
+func (x *ServerHost) GetPinnedSize() string {
+	if x != nil {
+		return x.PinnedSize
+	}
+	return ""
+}
+
+func (x *ServerHost) GetPendingSize() string {
+	if x != nil {
+		return x.PendingSize
+	}
+	return ""
+}
+
+func (x *ServerHost) GetPendingReason() string {
+	if x != nil {
+		return x.PendingReason
+	}
+	return ""
+}
+
+func (x *ServerHost) GetPendingSince() *timestamppb.Timestamp {
+	if x != nil {
+		return x.PendingSince
+	}
+	return nil
+}
+
+func (x *ServerHost) GetLastResizeAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.LastResizeAt
+	}
+	return nil
+}
+
+// HostTier is one rung of a scaling ladder.
+type HostTier struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Size  string                 `protobuf:"bytes,1,opt,name=size,proto3" json:"size,omitempty"`
+	// The players the rung is sized for; the game takes that many on it.
+	Players        int32   `protobuf:"varint,2,opt,name=players,proto3" json:"players,omitempty"`
+	PriceHourlyUsd float64 `protobuf:"fixed64,3,opt,name=price_hourly_usd,json=priceHourlyUsd,proto3" json:"price_hourly_usd,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *HostTier) Reset() {
+	*x = HostTier{}
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HostTier) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HostTier) ProtoMessage() {}
+
+func (x *HostTier) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HostTier.ProtoReflect.Descriptor instead.
+func (*HostTier) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_hosts_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *HostTier) GetSize() string {
+	if x != nil {
+		return x.Size
+	}
+	return ""
+}
+
+func (x *HostTier) GetPlayers() int32 {
+	if x != nil {
+		return x.Players
+	}
+	return 0
+}
+
+func (x *HostTier) GetPriceHourlyUsd() float64 {
+	if x != nil {
+		return x.PriceHourlyUsd
+	}
+	return 0
+}
+
 // HostSize is a size a host may move to.
 type HostSize struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
@@ -284,7 +418,7 @@ type HostSize struct {
 
 func (x *HostSize) Reset() {
 	*x = HostSize{}
-	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[1]
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -296,7 +430,7 @@ func (x *HostSize) String() string {
 func (*HostSize) ProtoMessage() {}
 
 func (x *HostSize) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[1]
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -309,7 +443,7 @@ func (x *HostSize) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HostSize.ProtoReflect.Descriptor instead.
 func (*HostSize) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_hosts_proto_rawDescGZIP(), []int{1}
+	return file_gravel_hub_v1_hosts_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *HostSize) GetSlug() string {
@@ -369,7 +503,8 @@ type HostEvent struct {
 	FromState string                 `protobuf:"bytes,3,opt,name=from_state,json=fromState,proto3" json:"from_state,omitempty"`
 	ToState   string                 `protobuf:"bytes,4,opt,name=to_state,json=toState,proto3" json:"to_state,omitempty"`
 	Step      string                 `protobuf:"bytes,5,opt,name=step,proto3" json:"step,omitempty"`
-	// A word or a size ("idle", "unpark", "c-2 to c-4", "resize_failed"); never an address.
+	// A word or a size ("idle", "unpark", "c-2 to c-4", "resize_failed", "env_drift"), or a
+	// scaling decision's reason (step "scale" or "scale_cancelled"); never an address.
 	Detail string `protobuf:"bytes,6,opt,name=detail,proto3" json:"detail,omitempty"`
 	Size   string `protobuf:"bytes,7,opt,name=size,proto3" json:"size,omitempty"`
 	// The audit-log row of the request behind the transition (ListAuditLog); 0 for the hub's own.
@@ -380,7 +515,7 @@ type HostEvent struct {
 
 func (x *HostEvent) Reset() {
 	*x = HostEvent{}
-	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[2]
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -392,7 +527,7 @@ func (x *HostEvent) String() string {
 func (*HostEvent) ProtoMessage() {}
 
 func (x *HostEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[2]
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -405,7 +540,7 @@ func (x *HostEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HostEvent.ProtoReflect.Descriptor instead.
 func (*HostEvent) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_hosts_proto_rawDescGZIP(), []int{2}
+	return file_gravel_hub_v1_hosts_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *HostEvent) GetId() int64 {
@@ -473,7 +608,7 @@ type GetServerHostRequest struct {
 
 func (x *GetServerHostRequest) Reset() {
 	*x = GetServerHostRequest{}
-	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[3]
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -485,7 +620,7 @@ func (x *GetServerHostRequest) String() string {
 func (*GetServerHostRequest) ProtoMessage() {}
 
 func (x *GetServerHostRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[3]
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -498,7 +633,7 @@ func (x *GetServerHostRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetServerHostRequest.ProtoReflect.Descriptor instead.
 func (*GetServerHostRequest) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_hosts_proto_rawDescGZIP(), []int{3}
+	return file_gravel_hub_v1_hosts_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *GetServerHostRequest) GetServerId() string {
@@ -517,7 +652,7 @@ type GetServerHostResponse struct {
 
 func (x *GetServerHostResponse) Reset() {
 	*x = GetServerHostResponse{}
-	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[4]
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -529,7 +664,7 @@ func (x *GetServerHostResponse) String() string {
 func (*GetServerHostResponse) ProtoMessage() {}
 
 func (x *GetServerHostResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[4]
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -542,7 +677,7 @@ func (x *GetServerHostResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetServerHostResponse.ProtoReflect.Descriptor instead.
 func (*GetServerHostResponse) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_hosts_proto_rawDescGZIP(), []int{4}
+	return file_gravel_hub_v1_hosts_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *GetServerHostResponse) GetHost() *ServerHost {
@@ -564,7 +699,7 @@ type ListServerHostEventsRequest struct {
 
 func (x *ListServerHostEventsRequest) Reset() {
 	*x = ListServerHostEventsRequest{}
-	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[5]
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -576,7 +711,7 @@ func (x *ListServerHostEventsRequest) String() string {
 func (*ListServerHostEventsRequest) ProtoMessage() {}
 
 func (x *ListServerHostEventsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[5]
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -589,7 +724,7 @@ func (x *ListServerHostEventsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListServerHostEventsRequest.ProtoReflect.Descriptor instead.
 func (*ListServerHostEventsRequest) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_hosts_proto_rawDescGZIP(), []int{5}
+	return file_gravel_hub_v1_hosts_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *ListServerHostEventsRequest) GetServerId() string {
@@ -623,7 +758,7 @@ type ListServerHostEventsResponse struct {
 
 func (x *ListServerHostEventsResponse) Reset() {
 	*x = ListServerHostEventsResponse{}
-	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[6]
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -635,7 +770,7 @@ func (x *ListServerHostEventsResponse) String() string {
 func (*ListServerHostEventsResponse) ProtoMessage() {}
 
 func (x *ListServerHostEventsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[6]
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -648,7 +783,7 @@ func (x *ListServerHostEventsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListServerHostEventsResponse.ProtoReflect.Descriptor instead.
 func (*ListServerHostEventsResponse) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_hosts_proto_rawDescGZIP(), []int{6}
+	return file_gravel_hub_v1_hosts_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *ListServerHostEventsResponse) GetEvents() []*HostEvent {
@@ -679,7 +814,7 @@ type SetServerHostDesiredRequest struct {
 
 func (x *SetServerHostDesiredRequest) Reset() {
 	*x = SetServerHostDesiredRequest{}
-	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[7]
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -691,7 +826,7 @@ func (x *SetServerHostDesiredRequest) String() string {
 func (*SetServerHostDesiredRequest) ProtoMessage() {}
 
 func (x *SetServerHostDesiredRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[7]
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -704,7 +839,7 @@ func (x *SetServerHostDesiredRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetServerHostDesiredRequest.ProtoReflect.Descriptor instead.
 func (*SetServerHostDesiredRequest) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_hosts_proto_rawDescGZIP(), []int{7}
+	return file_gravel_hub_v1_hosts_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *SetServerHostDesiredRequest) GetServerId() string {
@@ -745,7 +880,7 @@ type SetServerHostDesiredResponse struct {
 
 func (x *SetServerHostDesiredResponse) Reset() {
 	*x = SetServerHostDesiredResponse{}
-	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[8]
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -757,7 +892,7 @@ func (x *SetServerHostDesiredResponse) String() string {
 func (*SetServerHostDesiredResponse) ProtoMessage() {}
 
 func (x *SetServerHostDesiredResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[8]
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -770,7 +905,7 @@ func (x *SetServerHostDesiredResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetServerHostDesiredResponse.ProtoReflect.Descriptor instead.
 func (*SetServerHostDesiredResponse) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_hosts_proto_rawDescGZIP(), []int{8}
+	return file_gravel_hub_v1_hosts_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *SetServerHostDesiredResponse) GetHost() *ServerHost {
@@ -793,15 +928,18 @@ type ResizeServerHostRequest struct {
 	// A size from ServerHost.sizes.
 	Size string `protobuf:"bytes,2,opt,name=size,proto3" json:"size,omitempty"`
 	// Resize with players on (they are disconnected for the few minutes it takes).
-	Force         bool   `protobuf:"varint,3,opt,name=force,proto3" json:"force,omitempty"`
-	Reason        string `protobuf:"bytes,4,opt,name=reason,proto3" json:"reason,omitempty"`
+	Force  bool   `protobuf:"varint,3,opt,name=force,proto3" json:"force,omitempty"`
+	Reason string `protobuf:"bytes,4,opt,name=reason,proto3" json:"reason,omitempty"`
+	// Pin the size: the scaling policy stands aside and an unparked host comes back to it, until
+	// UnpinServerHostSize. With the size the host is at, it only pins.
+	Pin           bool `protobuf:"varint,5,opt,name=pin,proto3" json:"pin,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ResizeServerHostRequest) Reset() {
 	*x = ResizeServerHostRequest{}
-	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[9]
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -813,7 +951,7 @@ func (x *ResizeServerHostRequest) String() string {
 func (*ResizeServerHostRequest) ProtoMessage() {}
 
 func (x *ResizeServerHostRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[9]
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -826,7 +964,7 @@ func (x *ResizeServerHostRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResizeServerHostRequest.ProtoReflect.Descriptor instead.
 func (*ResizeServerHostRequest) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_hosts_proto_rawDescGZIP(), []int{9}
+	return file_gravel_hub_v1_hosts_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ResizeServerHostRequest) GetServerId() string {
@@ -857,6 +995,13 @@ func (x *ResizeServerHostRequest) GetReason() string {
 	return ""
 }
 
+func (x *ResizeServerHostRequest) GetPin() bool {
+	if x != nil {
+		return x.Pin
+	}
+	return false
+}
+
 type ResizeServerHostResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Host          *ServerHost            `protobuf:"bytes,1,opt,name=host,proto3" json:"host,omitempty"`
@@ -867,7 +1012,7 @@ type ResizeServerHostResponse struct {
 
 func (x *ResizeServerHostResponse) Reset() {
 	*x = ResizeServerHostResponse{}
-	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[10]
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -879,7 +1024,7 @@ func (x *ResizeServerHostResponse) String() string {
 func (*ResizeServerHostResponse) ProtoMessage() {}
 
 func (x *ResizeServerHostResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[10]
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -892,7 +1037,7 @@ func (x *ResizeServerHostResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResizeServerHostResponse.ProtoReflect.Descriptor instead.
 func (*ResizeServerHostResponse) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_hosts_proto_rawDescGZIP(), []int{10}
+	return file_gravel_hub_v1_hosts_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ResizeServerHostResponse) GetHost() *ServerHost {
@@ -903,6 +1048,110 @@ func (x *ResizeServerHostResponse) GetHost() *ServerHost {
 }
 
 func (x *ResizeServerHostResponse) GetAuditId() int64 {
+	if x != nil {
+		return x.AuditId
+	}
+	return 0
+}
+
+type UnpinServerHostSizeRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ServerId      string                 `protobuf:"bytes,1,opt,name=server_id,json=serverId,proto3" json:"server_id,omitempty"`
+	Reason        string                 `protobuf:"bytes,2,opt,name=reason,proto3" json:"reason,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UnpinServerHostSizeRequest) Reset() {
+	*x = UnpinServerHostSizeRequest{}
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UnpinServerHostSizeRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UnpinServerHostSizeRequest) ProtoMessage() {}
+
+func (x *UnpinServerHostSizeRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UnpinServerHostSizeRequest.ProtoReflect.Descriptor instead.
+func (*UnpinServerHostSizeRequest) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_hosts_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *UnpinServerHostSizeRequest) GetServerId() string {
+	if x != nil {
+		return x.ServerId
+	}
+	return ""
+}
+
+func (x *UnpinServerHostSizeRequest) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+type UnpinServerHostSizeResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Host          *ServerHost            `protobuf:"bytes,1,opt,name=host,proto3" json:"host,omitempty"`
+	AuditId       int64                  `protobuf:"varint,2,opt,name=audit_id,json=auditId,proto3" json:"audit_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UnpinServerHostSizeResponse) Reset() {
+	*x = UnpinServerHostSizeResponse{}
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UnpinServerHostSizeResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UnpinServerHostSizeResponse) ProtoMessage() {}
+
+func (x *UnpinServerHostSizeResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UnpinServerHostSizeResponse.ProtoReflect.Descriptor instead.
+func (*UnpinServerHostSizeResponse) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_hosts_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *UnpinServerHostSizeResponse) GetHost() *ServerHost {
+	if x != nil {
+		return x.Host
+	}
+	return nil
+}
+
+func (x *UnpinServerHostSizeResponse) GetAuditId() int64 {
 	if x != nil {
 		return x.AuditId
 	}
@@ -923,7 +1172,7 @@ type DestroyServerHostRequest struct {
 
 func (x *DestroyServerHostRequest) Reset() {
 	*x = DestroyServerHostRequest{}
-	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[11]
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -935,7 +1184,7 @@ func (x *DestroyServerHostRequest) String() string {
 func (*DestroyServerHostRequest) ProtoMessage() {}
 
 func (x *DestroyServerHostRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[11]
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -948,7 +1197,7 @@ func (x *DestroyServerHostRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DestroyServerHostRequest.ProtoReflect.Descriptor instead.
 func (*DestroyServerHostRequest) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_hosts_proto_rawDescGZIP(), []int{11}
+	return file_gravel_hub_v1_hosts_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *DestroyServerHostRequest) GetServerId() string {
@@ -989,7 +1238,7 @@ type DestroyServerHostResponse struct {
 
 func (x *DestroyServerHostResponse) Reset() {
 	*x = DestroyServerHostResponse{}
-	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[12]
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1001,7 +1250,7 @@ func (x *DestroyServerHostResponse) String() string {
 func (*DestroyServerHostResponse) ProtoMessage() {}
 
 func (x *DestroyServerHostResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[12]
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1014,7 +1263,7 @@ func (x *DestroyServerHostResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DestroyServerHostResponse.ProtoReflect.Descriptor instead.
 func (*DestroyServerHostResponse) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_hosts_proto_rawDescGZIP(), []int{12}
+	return file_gravel_hub_v1_hosts_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *DestroyServerHostResponse) GetHost() *ServerHost {
@@ -1035,7 +1284,7 @@ var File_gravel_hub_v1_hosts_proto protoreflect.FileDescriptor
 
 const file_gravel_hub_v1_hosts_proto_rawDesc = "" +
 	"\n" +
-	"\x19gravel/hub/v1/hosts.proto\x12\rgravel.hub.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1egravel/hub/v1/moderation.proto\"\xd3\x06\n" +
+	"\x19gravel/hub/v1/hosts.proto\x12\rgravel.hub.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1egravel/hub/v1/moderation.proto\"\xaf\t\n" +
 	"\n" +
 	"ServerHost\x12\x1b\n" +
 	"\tserver_id\x18\x01 \x01(\tR\bserverId\x12\x1a\n" +
@@ -1065,7 +1314,20 @@ const file_gravel_hub_v1_hosts_proto_rawDesc = "" +
 	"\rready_seconds\x18\x15 \x01(\x05R\freadySeconds\x12J\n" +
 	"\x13instance_created_at\x18\x16 \x01(\v2\x1a.google.protobuf.TimestampR\x11instanceCreatedAt\x12-\n" +
 	"\x05sizes\x18\x17 \x03(\v2\x17.gravel.hub.v1.HostSizeR\x05sizes\x12,\n" +
-	"\x12park_after_seconds\x18\x18 \x01(\x03R\x10parkAfterSeconds\"\xe9\x01\n" +
+	"\x12park_after_seconds\x18\x18 \x01(\x03R\x10parkAfterSeconds\x12\x18\n" +
+	"\ascaling\x18\x19 \x01(\bR\ascaling\x12/\n" +
+	"\x06ladder\x18\x1a \x03(\v2\x17.gravel.hub.v1.HostTierR\x06ladder\x12!\n" +
+	"\ftier_players\x18\x1b \x01(\x05R\vtierPlayers\x12\x1f\n" +
+	"\vpinned_size\x18\x1c \x01(\tR\n" +
+	"pinnedSize\x12!\n" +
+	"\fpending_size\x18\x1d \x01(\tR\vpendingSize\x12%\n" +
+	"\x0epending_reason\x18\x1e \x01(\tR\rpendingReason\x12?\n" +
+	"\rpending_since\x18\x1f \x01(\v2\x1a.google.protobuf.TimestampR\fpendingSince\x12@\n" +
+	"\x0elast_resize_at\x18  \x01(\v2\x1a.google.protobuf.TimestampR\flastResizeAt\"b\n" +
+	"\bHostTier\x12\x12\n" +
+	"\x04size\x18\x01 \x01(\tR\x04size\x12\x18\n" +
+	"\aplayers\x18\x02 \x01(\x05R\aplayers\x12(\n" +
+	"\x10price_hourly_usd\x18\x03 \x01(\x01R\x0epriceHourlyUsd\"\xe9\x01\n" +
 	"\bHostSize\x12\x12\n" +
 	"\x04slug\x18\x01 \x01(\tR\x04slug\x12\x14\n" +
 	"\x05vcpus\x18\x02 \x01(\x05R\x05vcpus\x12\x1d\n" +
@@ -1105,13 +1367,20 @@ const file_gravel_hub_v1_hosts_proto_rawDesc = "" +
 	"onBehalfOf\"h\n" +
 	"\x1cSetServerHostDesiredResponse\x12-\n" +
 	"\x04host\x18\x01 \x01(\v2\x19.gravel.hub.v1.ServerHostR\x04host\x12\x19\n" +
-	"\baudit_id\x18\x02 \x01(\x03R\aauditId\"x\n" +
+	"\baudit_id\x18\x02 \x01(\x03R\aauditId\"\x8a\x01\n" +
 	"\x17ResizeServerHostRequest\x12\x1b\n" +
 	"\tserver_id\x18\x01 \x01(\tR\bserverId\x12\x12\n" +
 	"\x04size\x18\x02 \x01(\tR\x04size\x12\x14\n" +
 	"\x05force\x18\x03 \x01(\bR\x05force\x12\x16\n" +
-	"\x06reason\x18\x04 \x01(\tR\x06reason\"d\n" +
+	"\x06reason\x18\x04 \x01(\tR\x06reason\x12\x10\n" +
+	"\x03pin\x18\x05 \x01(\bR\x03pin\"d\n" +
 	"\x18ResizeServerHostResponse\x12-\n" +
+	"\x04host\x18\x01 \x01(\v2\x19.gravel.hub.v1.ServerHostR\x04host\x12\x19\n" +
+	"\baudit_id\x18\x02 \x01(\x03R\aauditId\"Q\n" +
+	"\x1aUnpinServerHostSizeRequest\x12\x1b\n" +
+	"\tserver_id\x18\x01 \x01(\tR\bserverId\x12\x16\n" +
+	"\x06reason\x18\x02 \x01(\tR\x06reason\"g\n" +
+	"\x1bUnpinServerHostSizeResponse\x12-\n" +
 	"\x04host\x18\x01 \x01(\v2\x19.gravel.hub.v1.ServerHostR\x04host\x12\x19\n" +
 	"\baudit_id\x18\x02 \x01(\x03R\aauditId\"\x9d\x01\n" +
 	"\x18DestroyServerHostRequest\x12\x1b\n" +
@@ -1121,12 +1390,13 @@ const file_gravel_hub_v1_hosts_proto_rawDesc = "" +
 	"\x06reason\x18\x04 \x01(\tR\x06reason\"e\n" +
 	"\x19DestroyServerHostResponse\x12-\n" +
 	"\x04host\x18\x01 \x01(\v2\x19.gravel.hub.v1.ServerHostR\x04host\x12\x19\n" +
-	"\baudit_id\x18\x02 \x01(\x03R\aauditId2\x9e\x04\n" +
+	"\baudit_id\x18\x02 \x01(\x03R\aauditId2\x8c\x05\n" +
 	"\x11ServerHostService\x12Z\n" +
 	"\rGetServerHost\x12#.gravel.hub.v1.GetServerHostRequest\x1a$.gravel.hub.v1.GetServerHostResponse\x12o\n" +
 	"\x14ListServerHostEvents\x12*.gravel.hub.v1.ListServerHostEventsRequest\x1a+.gravel.hub.v1.ListServerHostEventsResponse\x12o\n" +
 	"\x14SetServerHostDesired\x12*.gravel.hub.v1.SetServerHostDesiredRequest\x1a+.gravel.hub.v1.SetServerHostDesiredResponse\x12c\n" +
-	"\x10ResizeServerHost\x12&.gravel.hub.v1.ResizeServerHostRequest\x1a'.gravel.hub.v1.ResizeServerHostResponse\x12f\n" +
+	"\x10ResizeServerHost\x12&.gravel.hub.v1.ResizeServerHostRequest\x1a'.gravel.hub.v1.ResizeServerHostResponse\x12l\n" +
+	"\x13UnpinServerHostSize\x12).gravel.hub.v1.UnpinServerHostSizeRequest\x1a*.gravel.hub.v1.UnpinServerHostSizeResponse\x12f\n" +
 	"\x11DestroyServerHost\x12'.gravel.hub.v1.DestroyServerHostRequest\x1a(.gravel.hub.v1.DestroyServerHostResponseB:Z8github.com/gravel-project/gravel/gen/gravel/hub/v1;hubv1b\x06proto3"
 
 var (
@@ -1141,50 +1411,59 @@ func file_gravel_hub_v1_hosts_proto_rawDescGZIP() []byte {
 	return file_gravel_hub_v1_hosts_proto_rawDescData
 }
 
-var file_gravel_hub_v1_hosts_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
+var file_gravel_hub_v1_hosts_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
 var file_gravel_hub_v1_hosts_proto_goTypes = []any{
 	(*ServerHost)(nil),                   // 0: gravel.hub.v1.ServerHost
-	(*HostSize)(nil),                     // 1: gravel.hub.v1.HostSize
-	(*HostEvent)(nil),                    // 2: gravel.hub.v1.HostEvent
-	(*GetServerHostRequest)(nil),         // 3: gravel.hub.v1.GetServerHostRequest
-	(*GetServerHostResponse)(nil),        // 4: gravel.hub.v1.GetServerHostResponse
-	(*ListServerHostEventsRequest)(nil),  // 5: gravel.hub.v1.ListServerHostEventsRequest
-	(*ListServerHostEventsResponse)(nil), // 6: gravel.hub.v1.ListServerHostEventsResponse
-	(*SetServerHostDesiredRequest)(nil),  // 7: gravel.hub.v1.SetServerHostDesiredRequest
-	(*SetServerHostDesiredResponse)(nil), // 8: gravel.hub.v1.SetServerHostDesiredResponse
-	(*ResizeServerHostRequest)(nil),      // 9: gravel.hub.v1.ResizeServerHostRequest
-	(*ResizeServerHostResponse)(nil),     // 10: gravel.hub.v1.ResizeServerHostResponse
-	(*DestroyServerHostRequest)(nil),     // 11: gravel.hub.v1.DestroyServerHostRequest
-	(*DestroyServerHostResponse)(nil),    // 12: gravel.hub.v1.DestroyServerHostResponse
-	(*timestamppb.Timestamp)(nil),        // 13: google.protobuf.Timestamp
-	(*Actor)(nil),                        // 14: gravel.hub.v1.Actor
+	(*HostTier)(nil),                     // 1: gravel.hub.v1.HostTier
+	(*HostSize)(nil),                     // 2: gravel.hub.v1.HostSize
+	(*HostEvent)(nil),                    // 3: gravel.hub.v1.HostEvent
+	(*GetServerHostRequest)(nil),         // 4: gravel.hub.v1.GetServerHostRequest
+	(*GetServerHostResponse)(nil),        // 5: gravel.hub.v1.GetServerHostResponse
+	(*ListServerHostEventsRequest)(nil),  // 6: gravel.hub.v1.ListServerHostEventsRequest
+	(*ListServerHostEventsResponse)(nil), // 7: gravel.hub.v1.ListServerHostEventsResponse
+	(*SetServerHostDesiredRequest)(nil),  // 8: gravel.hub.v1.SetServerHostDesiredRequest
+	(*SetServerHostDesiredResponse)(nil), // 9: gravel.hub.v1.SetServerHostDesiredResponse
+	(*ResizeServerHostRequest)(nil),      // 10: gravel.hub.v1.ResizeServerHostRequest
+	(*ResizeServerHostResponse)(nil),     // 11: gravel.hub.v1.ResizeServerHostResponse
+	(*UnpinServerHostSizeRequest)(nil),   // 12: gravel.hub.v1.UnpinServerHostSizeRequest
+	(*UnpinServerHostSizeResponse)(nil),  // 13: gravel.hub.v1.UnpinServerHostSizeResponse
+	(*DestroyServerHostRequest)(nil),     // 14: gravel.hub.v1.DestroyServerHostRequest
+	(*DestroyServerHostResponse)(nil),    // 15: gravel.hub.v1.DestroyServerHostResponse
+	(*timestamppb.Timestamp)(nil),        // 16: google.protobuf.Timestamp
+	(*Actor)(nil),                        // 17: gravel.hub.v1.Actor
 }
 var file_gravel_hub_v1_hosts_proto_depIdxs = []int32{
-	13, // 0: gravel.hub.v1.ServerHost.since:type_name -> google.protobuf.Timestamp
-	13, // 1: gravel.hub.v1.ServerHost.instance_created_at:type_name -> google.protobuf.Timestamp
-	1,  // 2: gravel.hub.v1.ServerHost.sizes:type_name -> gravel.hub.v1.HostSize
-	13, // 3: gravel.hub.v1.HostEvent.at:type_name -> google.protobuf.Timestamp
-	0,  // 4: gravel.hub.v1.GetServerHostResponse.host:type_name -> gravel.hub.v1.ServerHost
-	2,  // 5: gravel.hub.v1.ListServerHostEventsResponse.events:type_name -> gravel.hub.v1.HostEvent
-	14, // 6: gravel.hub.v1.SetServerHostDesiredRequest.on_behalf_of:type_name -> gravel.hub.v1.Actor
-	0,  // 7: gravel.hub.v1.SetServerHostDesiredResponse.host:type_name -> gravel.hub.v1.ServerHost
-	0,  // 8: gravel.hub.v1.ResizeServerHostResponse.host:type_name -> gravel.hub.v1.ServerHost
-	0,  // 9: gravel.hub.v1.DestroyServerHostResponse.host:type_name -> gravel.hub.v1.ServerHost
-	3,  // 10: gravel.hub.v1.ServerHostService.GetServerHost:input_type -> gravel.hub.v1.GetServerHostRequest
-	5,  // 11: gravel.hub.v1.ServerHostService.ListServerHostEvents:input_type -> gravel.hub.v1.ListServerHostEventsRequest
-	7,  // 12: gravel.hub.v1.ServerHostService.SetServerHostDesired:input_type -> gravel.hub.v1.SetServerHostDesiredRequest
-	9,  // 13: gravel.hub.v1.ServerHostService.ResizeServerHost:input_type -> gravel.hub.v1.ResizeServerHostRequest
-	11, // 14: gravel.hub.v1.ServerHostService.DestroyServerHost:input_type -> gravel.hub.v1.DestroyServerHostRequest
-	4,  // 15: gravel.hub.v1.ServerHostService.GetServerHost:output_type -> gravel.hub.v1.GetServerHostResponse
-	6,  // 16: gravel.hub.v1.ServerHostService.ListServerHostEvents:output_type -> gravel.hub.v1.ListServerHostEventsResponse
-	8,  // 17: gravel.hub.v1.ServerHostService.SetServerHostDesired:output_type -> gravel.hub.v1.SetServerHostDesiredResponse
-	10, // 18: gravel.hub.v1.ServerHostService.ResizeServerHost:output_type -> gravel.hub.v1.ResizeServerHostResponse
-	12, // 19: gravel.hub.v1.ServerHostService.DestroyServerHost:output_type -> gravel.hub.v1.DestroyServerHostResponse
-	15, // [15:20] is the sub-list for method output_type
-	10, // [10:15] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	16, // 0: gravel.hub.v1.ServerHost.since:type_name -> google.protobuf.Timestamp
+	16, // 1: gravel.hub.v1.ServerHost.instance_created_at:type_name -> google.protobuf.Timestamp
+	2,  // 2: gravel.hub.v1.ServerHost.sizes:type_name -> gravel.hub.v1.HostSize
+	1,  // 3: gravel.hub.v1.ServerHost.ladder:type_name -> gravel.hub.v1.HostTier
+	16, // 4: gravel.hub.v1.ServerHost.pending_since:type_name -> google.protobuf.Timestamp
+	16, // 5: gravel.hub.v1.ServerHost.last_resize_at:type_name -> google.protobuf.Timestamp
+	16, // 6: gravel.hub.v1.HostEvent.at:type_name -> google.protobuf.Timestamp
+	0,  // 7: gravel.hub.v1.GetServerHostResponse.host:type_name -> gravel.hub.v1.ServerHost
+	3,  // 8: gravel.hub.v1.ListServerHostEventsResponse.events:type_name -> gravel.hub.v1.HostEvent
+	17, // 9: gravel.hub.v1.SetServerHostDesiredRequest.on_behalf_of:type_name -> gravel.hub.v1.Actor
+	0,  // 10: gravel.hub.v1.SetServerHostDesiredResponse.host:type_name -> gravel.hub.v1.ServerHost
+	0,  // 11: gravel.hub.v1.ResizeServerHostResponse.host:type_name -> gravel.hub.v1.ServerHost
+	0,  // 12: gravel.hub.v1.UnpinServerHostSizeResponse.host:type_name -> gravel.hub.v1.ServerHost
+	0,  // 13: gravel.hub.v1.DestroyServerHostResponse.host:type_name -> gravel.hub.v1.ServerHost
+	4,  // 14: gravel.hub.v1.ServerHostService.GetServerHost:input_type -> gravel.hub.v1.GetServerHostRequest
+	6,  // 15: gravel.hub.v1.ServerHostService.ListServerHostEvents:input_type -> gravel.hub.v1.ListServerHostEventsRequest
+	8,  // 16: gravel.hub.v1.ServerHostService.SetServerHostDesired:input_type -> gravel.hub.v1.SetServerHostDesiredRequest
+	10, // 17: gravel.hub.v1.ServerHostService.ResizeServerHost:input_type -> gravel.hub.v1.ResizeServerHostRequest
+	12, // 18: gravel.hub.v1.ServerHostService.UnpinServerHostSize:input_type -> gravel.hub.v1.UnpinServerHostSizeRequest
+	14, // 19: gravel.hub.v1.ServerHostService.DestroyServerHost:input_type -> gravel.hub.v1.DestroyServerHostRequest
+	5,  // 20: gravel.hub.v1.ServerHostService.GetServerHost:output_type -> gravel.hub.v1.GetServerHostResponse
+	7,  // 21: gravel.hub.v1.ServerHostService.ListServerHostEvents:output_type -> gravel.hub.v1.ListServerHostEventsResponse
+	9,  // 22: gravel.hub.v1.ServerHostService.SetServerHostDesired:output_type -> gravel.hub.v1.SetServerHostDesiredResponse
+	11, // 23: gravel.hub.v1.ServerHostService.ResizeServerHost:output_type -> gravel.hub.v1.ResizeServerHostResponse
+	13, // 24: gravel.hub.v1.ServerHostService.UnpinServerHostSize:output_type -> gravel.hub.v1.UnpinServerHostSizeResponse
+	15, // 25: gravel.hub.v1.ServerHostService.DestroyServerHost:output_type -> gravel.hub.v1.DestroyServerHostResponse
+	20, // [20:26] is the sub-list for method output_type
+	14, // [14:20] is the sub-list for method input_type
+	14, // [14:14] is the sub-list for extension type_name
+	14, // [14:14] is the sub-list for extension extendee
+	0,  // [0:14] is the sub-list for field type_name
 }
 
 func init() { file_gravel_hub_v1_hosts_proto_init() }
@@ -1199,7 +1478,7 @@ func file_gravel_hub_v1_hosts_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gravel_hub_v1_hosts_proto_rawDesc), len(file_gravel_hub_v1_hosts_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   13,
+			NumMessages:   16,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

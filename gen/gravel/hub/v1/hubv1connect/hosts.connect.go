@@ -45,6 +45,9 @@ const (
 	// ServerHostServiceResizeServerHostProcedure is the fully-qualified name of the ServerHostService's
 	// ResizeServerHost RPC.
 	ServerHostServiceResizeServerHostProcedure = "/gravel.hub.v1.ServerHostService/ResizeServerHost"
+	// ServerHostServiceUnpinServerHostSizeProcedure is the fully-qualified name of the
+	// ServerHostService's UnpinServerHostSize RPC.
+	ServerHostServiceUnpinServerHostSizeProcedure = "/gravel.hub.v1.ServerHostService/UnpinServerHostSize"
 	// ServerHostServiceDestroyServerHostProcedure is the fully-qualified name of the
 	// ServerHostService's DestroyServerHost RPC.
 	ServerHostServiceDestroyServerHostProcedure = "/gravel.hub.v1.ServerHostService/DestroyServerHost"
@@ -63,6 +66,9 @@ type ServerHostServiceClient interface {
 	// ResizeServerHost moves a running host to another size now. The owner only;
 	// failed_precondition with players on unless force.
 	ResizeServerHost(context.Context, *connect.Request[v1.ResizeServerHostRequest]) (*connect.Response[v1.ResizeServerHostResponse], error)
+	// UnpinServerHostSize lets the scaling policy decide the host's size again. The owner only;
+	// invalid_argument when nothing is pinned.
+	UnpinServerHostSize(context.Context, *connect.Request[v1.UnpinServerHostSizeRequest]) (*connect.Response[v1.UnpinServerHostSizeResponse], error)
 	// DestroyServerHost removes a parked host's remains. The owner only.
 	DestroyServerHost(context.Context, *connect.Request[v1.DestroyServerHostRequest]) (*connect.Response[v1.DestroyServerHostResponse], error)
 }
@@ -102,6 +108,12 @@ func NewServerHostServiceClient(httpClient connect.HTTPClient, baseURL string, o
 			connect.WithSchema(serverHostServiceMethods.ByName("ResizeServerHost")),
 			connect.WithClientOptions(opts...),
 		),
+		unpinServerHostSize: connect.NewClient[v1.UnpinServerHostSizeRequest, v1.UnpinServerHostSizeResponse](
+			httpClient,
+			baseURL+ServerHostServiceUnpinServerHostSizeProcedure,
+			connect.WithSchema(serverHostServiceMethods.ByName("UnpinServerHostSize")),
+			connect.WithClientOptions(opts...),
+		),
 		destroyServerHost: connect.NewClient[v1.DestroyServerHostRequest, v1.DestroyServerHostResponse](
 			httpClient,
 			baseURL+ServerHostServiceDestroyServerHostProcedure,
@@ -117,6 +129,7 @@ type serverHostServiceClient struct {
 	listServerHostEvents *connect.Client[v1.ListServerHostEventsRequest, v1.ListServerHostEventsResponse]
 	setServerHostDesired *connect.Client[v1.SetServerHostDesiredRequest, v1.SetServerHostDesiredResponse]
 	resizeServerHost     *connect.Client[v1.ResizeServerHostRequest, v1.ResizeServerHostResponse]
+	unpinServerHostSize  *connect.Client[v1.UnpinServerHostSizeRequest, v1.UnpinServerHostSizeResponse]
 	destroyServerHost    *connect.Client[v1.DestroyServerHostRequest, v1.DestroyServerHostResponse]
 }
 
@@ -140,6 +153,11 @@ func (c *serverHostServiceClient) ResizeServerHost(ctx context.Context, req *con
 	return c.resizeServerHost.CallUnary(ctx, req)
 }
 
+// UnpinServerHostSize calls gravel.hub.v1.ServerHostService.UnpinServerHostSize.
+func (c *serverHostServiceClient) UnpinServerHostSize(ctx context.Context, req *connect.Request[v1.UnpinServerHostSizeRequest]) (*connect.Response[v1.UnpinServerHostSizeResponse], error) {
+	return c.unpinServerHostSize.CallUnary(ctx, req)
+}
+
 // DestroyServerHost calls gravel.hub.v1.ServerHostService.DestroyServerHost.
 func (c *serverHostServiceClient) DestroyServerHost(ctx context.Context, req *connect.Request[v1.DestroyServerHostRequest]) (*connect.Response[v1.DestroyServerHostResponse], error) {
 	return c.destroyServerHost.CallUnary(ctx, req)
@@ -158,6 +176,9 @@ type ServerHostServiceHandler interface {
 	// ResizeServerHost moves a running host to another size now. The owner only;
 	// failed_precondition with players on unless force.
 	ResizeServerHost(context.Context, *connect.Request[v1.ResizeServerHostRequest]) (*connect.Response[v1.ResizeServerHostResponse], error)
+	// UnpinServerHostSize lets the scaling policy decide the host's size again. The owner only;
+	// invalid_argument when nothing is pinned.
+	UnpinServerHostSize(context.Context, *connect.Request[v1.UnpinServerHostSizeRequest]) (*connect.Response[v1.UnpinServerHostSizeResponse], error)
 	// DestroyServerHost removes a parked host's remains. The owner only.
 	DestroyServerHost(context.Context, *connect.Request[v1.DestroyServerHostRequest]) (*connect.Response[v1.DestroyServerHostResponse], error)
 }
@@ -193,6 +214,12 @@ func NewServerHostServiceHandler(svc ServerHostServiceHandler, opts ...connect.H
 		connect.WithSchema(serverHostServiceMethods.ByName("ResizeServerHost")),
 		connect.WithHandlerOptions(opts...),
 	)
+	serverHostServiceUnpinServerHostSizeHandler := connect.NewUnaryHandler(
+		ServerHostServiceUnpinServerHostSizeProcedure,
+		svc.UnpinServerHostSize,
+		connect.WithSchema(serverHostServiceMethods.ByName("UnpinServerHostSize")),
+		connect.WithHandlerOptions(opts...),
+	)
 	serverHostServiceDestroyServerHostHandler := connect.NewUnaryHandler(
 		ServerHostServiceDestroyServerHostProcedure,
 		svc.DestroyServerHost,
@@ -209,6 +236,8 @@ func NewServerHostServiceHandler(svc ServerHostServiceHandler, opts ...connect.H
 			serverHostServiceSetServerHostDesiredHandler.ServeHTTP(w, r)
 		case ServerHostServiceResizeServerHostProcedure:
 			serverHostServiceResizeServerHostHandler.ServeHTTP(w, r)
+		case ServerHostServiceUnpinServerHostSizeProcedure:
+			serverHostServiceUnpinServerHostSizeHandler.ServeHTTP(w, r)
 		case ServerHostServiceDestroyServerHostProcedure:
 			serverHostServiceDestroyServerHostHandler.ServeHTTP(w, r)
 		default:
@@ -234,6 +263,10 @@ func (UnimplementedServerHostServiceHandler) SetServerHostDesired(context.Contex
 
 func (UnimplementedServerHostServiceHandler) ResizeServerHost(context.Context, *connect.Request[v1.ResizeServerHostRequest]) (*connect.Response[v1.ResizeServerHostResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.ServerHostService.ResizeServerHost is not implemented"))
+}
+
+func (UnimplementedServerHostServiceHandler) UnpinServerHostSize(context.Context, *connect.Request[v1.UnpinServerHostSizeRequest]) (*connect.Response[v1.UnpinServerHostSizeResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.ServerHostService.UnpinServerHostSize is not implemented"))
 }
 
 func (UnimplementedServerHostServiceHandler) DestroyServerHost(context.Context, *connect.Request[v1.DestroyServerHostRequest]) (*connect.Response[v1.DestroyServerHostResponse], error) {

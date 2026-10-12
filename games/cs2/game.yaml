@@ -75,7 +75,11 @@ cloudvm:
     - {key: start_map, env: CS2_STARTMAP, type: string, pattern: '[a-z0-9_]+', max_length: 64, default: de_inferno}
     - {key: max_players, env: CS2_MAXPLAYERS, type: int, min: 2, max: 64, default: "10"}
     - {key: tv, env: TV_ENABLE, type: bool, default: "false"}
-  # The sizes a server moves through as it fills (gravel#37); DigitalOcean's dedicated-CPU plans.
+  # The sizes a server with a scaling policy moves through as it fills (#37), DigitalOcean's
+  # dedicated-CPU plans; each rung's players become max_players. Measured on HTG's server
+  # (2026-10-12): c-2 to c-4 in place is 2 min 21 s from request to playable, back is 2 min 31 s,
+  # and the root disk stays c-2's 25 GB, so the way down stays open.
   ladder:
     - {size: c-2, players: 10}
     - {size: c-4, players: 20}
+  players_setting: max_players

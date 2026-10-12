@@ -118,7 +118,7 @@ func (s *HostServer) ResizeServerHost(ctx context.Context, req *connect.Request[
 	if strings.TrimSpace(m.GetSize()) == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("size is required"))
 	}
-	id, err := s.hosts.Resize(ctx, who, m.GetServerId(), m.GetSize(), m.GetForce(), m.GetReason())
+	id, err := s.hosts.Resize(ctx, who, m.GetServerId(), m.GetSize(), m.GetForce(), m.GetPin(), m.GetReason())
 	if err != nil {
 		return nil, s.mapError(ctx, err)
 	}
@@ -127,6 +127,24 @@ func (s *HostServer) ResizeServerHost(ctx context.Context, req *connect.Request[
 		return nil, err
 	}
 	return connect.NewResponse(&hubv1.ResizeServerHostResponse{Host: h, AuditId: id}), nil
+}
+
+// UnpinServerHostSize lets the scaling policy decide a host's size again.
+func (s *HostServer) UnpinServerHostSize(ctx context.Context, req *connect.Request[hubv1.UnpinServerHostSizeRequest]) (*connect.Response[hubv1.UnpinServerHostSizeResponse], error) {
+	m := req.Msg
+	who, err := s.owner(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := s.hosts.Unpin(ctx, who, m.GetServerId(), m.GetReason())
+	if err != nil {
+		return nil, s.mapError(ctx, err)
+	}
+	h, err := s.host(ctx, m.GetServerId())
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&hubv1.UnpinServerHostSizeResponse{Host: h, AuditId: id}), nil
 }
 
 // DestroyServerHost removes a parked host's remains.
@@ -176,7 +194,17 @@ func hostMessage(v servers.HostView) *hubv1.ServerHost {
 		ErrorCode: v.ErrorCode, Attempts: int32(v.Attempts), Size: v.Size, TargetSize: v.TargetSize, DiskGib: int32(v.DiskGiB),
 		VolumeGib: int32(v.VolumeGiB), Address: v.Address, AddressReserved: v.AddressReserved, HourlyPriceUsd: v.PriceHourly,
 		RunningSecondsMonth: v.RunningSecondsMonth, MonthCostUsd: v.MonthCostUSD(), BootSeconds: int32(v.BootSeconds),
-		ReadySeconds: int32(v.ReadySeconds), ParkAfterSeconds: int64(v.ParkAfter.Seconds()),
+		ReadySeconds: int32(v.ReadySeconds), ParkAfterSeconds: int64(v.ParkAfter.Seconds()), Scaling: v.Scaling != nil,
+		TierPlayers: int32(v.TierPlayers), PinnedSize: v.PinnedSize, PendingSize: v.PendingSize, PendingReason: v.PendingReason,
+	}
+	for _, r := range v.Ladder {
+		h.Ladder = append(h.Ladder, &hubv1.HostTier{Size: r.Size, Players: int32(r.Players), PriceHourlyUsd: r.PriceHourly})
+	}
+	if !v.PendingSince.IsZero() {
+		h.PendingSince = timestamppb.New(v.PendingSince)
+	}
+	if !v.LastResizeAt.IsZero() {
+		h.LastResizeAt = timestamppb.New(v.LastResizeAt)
 	}
 	if !v.StateSince.IsZero() {
 		h.Since = timestamppb.New(v.StateSince)

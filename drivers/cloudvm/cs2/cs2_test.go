@@ -26,7 +26,7 @@ func TestAdapter(t *testing.T) {
 	joined := g.Log([]byte(`10/12/2026 - 19:01:00.000 - "Player One<2><[U:1:22202]><>" connected, address "198.51.100.2:27005"` + "\n" +
 		`10/12/2026 - 19:01:06.000 - "Player One<2><[U:1:22202]>" switched from team <Unassigned> to <CT>` + "\n"))
 	steam := drivers.Identity{Provider: "steam", Subject: "76561197960287930"}
-	if len(joined) != 1 || joined[0].UserID != 2 || joined[0].Identity != steam {
+	if len(joined.Connected) != 1 || joined.Connected[0].UserID != 2 || joined.Connected[0].Identity != steam || joined.Boundary != "" {
 		t.Fatalf("joined %+v", joined)
 	}
 	st, err := g.Status(ctx)
@@ -64,5 +64,26 @@ func TestAdapter(t *testing.T) {
 	g.Forget()
 	if _, ok := g.Find(steam); ok {
 		t.Error("Forget kept the roster")
+	}
+}
+
+// The boundaries a scaling decision waits for (#37): a match's end and a map loading, the last in
+// a batch winning; a round's end is no boundary.
+func TestAdapterBoundaries(t *testing.T) {
+	srv := cs2test.New(t)
+	g, err := cs2game.New(srv.Addr(), cs2test.Password, cloudvm.Profile{LogTimezone: "Etc/UTC"}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct{ name, body, want string }{
+		{"round end", `10/12/2026 - 19:30:00.000 - World triggered "Round_End"` + "\n", ""},
+		{"game over", `10/12/2026 - 19:40:00.000 - Game Over: competitive mg_active de_mirage score 13:11 after 38 min` + "\n", cloudvm.BoundaryMatchEnd},
+		{"loading map", `10/12/2026 - 19:40:20.000 - Loading map "de_inferno"` + "\n", cloudvm.BoundaryMapChange},
+		{"both, map last", `10/12/2026 - 19:40:00.000 - Game Over: competitive mg_active de_mirage score 13:11 after 38 min` + "\n" +
+			`10/12/2026 - 19:40:20.000 - Loading map "de_inferno"` + "\n", cloudvm.BoundaryMapChange},
+	} {
+		if got := g.Log([]byte(c.body)).Boundary; got != c.want {
+			t.Errorf("%s: boundary %q, want %q", c.name, got, c.want)
+		}
 	}
 }

@@ -76,12 +76,19 @@ func (g *Game) Quit(ctx context.Context) error { return g.c.Quit(ctx) }
 // SetPassword implements cloudvm.Game.
 func (g *Game) SetPassword(p string) { g.c.SetPassword(p) }
 
-// Log reads a pushed batch into the roster and returns who connected.
-func (g *Game) Log(body []byte) []cloudvm.GamePlayer {
-	var out []cloudvm.GamePlayer
+// Log reads a pushed batch into the roster and returns who connected and the last boundary: a
+// match's end (Game Over) or a map loading.
+func (g *Game) Log(body []byte) cloudvm.LogResult {
+	var out cloudvm.LogResult
 	for _, c := range g.roster.PushBatch(body) {
-		if p := c.Connected; p != nil {
-			out = append(out, cloudvm.GamePlayer{UserID: p.UserID, Name: p.Name, Identity: identity(p.SteamID64)})
+		switch {
+		case c.Connected != nil:
+			p := c.Connected
+			out.Connected = append(out.Connected, cloudvm.GamePlayer{UserID: p.UserID, Name: p.Name, Identity: identity(p.SteamID64)})
+		case c.MatchOver:
+			out.Boundary = cloudvm.BoundaryMatchEnd
+		case c.MapChange != "":
+			out.Boundary = cloudvm.BoundaryMapChange
 		}
 	}
 	return out

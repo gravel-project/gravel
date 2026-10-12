@@ -641,11 +641,11 @@ servers:
       park_after: 30m                        # optional: park after this long empty (5m–24h); absent never
       password_file: /run/secrets/cs2-join-password   # optional: the password players join with
       publisher_token_file: /run/secrets/cs2-gslt     # optional: a Game Server Login Token
+      scaling: {}                            # optional: walk the game's ladder as the room fills (below)
     settings:                                # what the spec's cloudvm.settings declares, checked by type
       game_alias: competitive                # competitive · wingman · casual · deathmatch · custom
       map_group: mg_active
-      start_map: de_mirage
-      max_players: 10
+      start_map: de_mirage                   # max_players is the ladder's with scaling, else set it here
       tv: false
 ```
 
@@ -699,7 +699,32 @@ never starts a game on a file it couldn't check); while running it is logged and
 page's "Server machine" section); the owner resizes it to a size the provider allows from its
 current one (`ResizeServerHost`; refused with players on unless `force`) and destroys a parked one
 (`DestroyServerHost`; the volume and the address stay unless asked). A resize disconnects everyone
-for a few minutes; the scaling policy that decides it at a map change is #37.
+for a few minutes (DigitalOcean's `c-2` to `c-4` and back: 2½ minutes each way, measured on HTG's
+server), and an owner's resize lasts until the host is parked: an unpark makes the instance at
+`vm.size` again.
+
+**Scaling (#37).** With `vm.scaling` the hub sizes the host to its room, walking a **ladder**
+one rung at a time: the Game spec's `cloudvm.ladder` (CS2: `c-2` for 10 players, `c-4` for 20),
+or the manifest's own `scaling.ladder`. `vm.size` is the rung the host is made at, and each rung's
+players become the game's players setting (`players_setting`, CS2's `max_players`), so the
+manifest leaves that setting out. The status polls keep since when the room has been full or
+empty: a rung at least `up_at` full (0.8) for `up_for` (5m), or holding as many players as it is
+sized for, decides a move up; one at most `down_at` full (0.25) for `down_for` (30m) decides a move
+down; no decision comes within `cooldown` (30m) of the last resize. A decision is an event on the
+host (step `scale`, with its inputs: "up: 9 of 10 players for 5m0s, to c-4 (20 players) at the
+next boundary"), players are warned once in chat, and it waits for a **boundary**: the game's log
+announcing a match's end or a map loading (CS2's `Game Over` and `Loading map`), or an empty
+server. Then the host resizes as an owner's resize does, and the game restarts with the new rung's
+players. A decision the room stops supporting (an up with the room back to `down_at`, a down with
+it back to `up_at`) is dropped (step `scale_cancelled`); parking beats a move down. The owner can
+**pin** a size (`ResizeServerHost` with `pin`, or "Keep it at" on the page): the policy stands
+aside and an unparked host is resized back to the pin as soon as it runs empty, until
+`UnpinServerHostSize`. A host is always made at `vm.size`, never at a pin, because the root disk a
+host is made with never changes and never shrinks: DigitalOcean's `c-4` made as `c-4` has a 50 GB
+disk and could never come back to `c-2`'s 25. `gravel-hub servers apply` asks the cloud and
+refuses a ladder a host made at `vm.size` can't walk both ways; `servers check` (no cloud) checks
+the rest. The server page shows the rung, the ladder with its prices, a decision waiting and why,
+and the month's cost with each run at its own size's price.
 
 ```sh
 curl -s -X POST -H 'Content-Type: application/json' -b "gravel_session=…" \
@@ -1328,6 +1353,10 @@ and the digest-pin procedure.
 | `gravel_cloudvm_log_batches_total` | counter | `server` | log batches that reached the game's roster | until the first batch |
 | `gravel_cloudvm_bans_enforced_total` | counter | `server` | banned players kicked as they connected | until the first |
 | `gravel_cloudvm_env_drift_total` | counter | `server` | times the game's environment file on the host was not the one the hub pushed, and was pushed again (#169) | until the first |
+| `gravel_cloudvm_tier_players` | gauge | `server` | the players the rung of its scaling ladder a running host is on is sized for (#37) | without a policy, or off the ladder |
+| `gravel_cloudvm_scale_pending` | gauge | `server`, `direction` (`up`, `down`) | 1 while a scaling decision waits for a boundary | until the first decision |
+| `gravel_cloudvm_scale_decisions_total` | counter | `server`, `direction`, `outcome` (`decided`, `executed`, `cancelled`) | the scaling policy's decisions and what became of them | until the first |
+| `gravel_cloudvm_resizes_total` | counter | `server`, `direction`, `result` (`ok`, `refused`, `failed`) | resizes, the policy's and the owner's; a failed one started again at the old size | until the first |
 | `gravel_stats_matches_total` | counter | `server`, `game` | matches the stats store started (ADR-0012) | until the first match |
 | `gravel_stats_rows_written_total` | counter | `server` | player rows written from polls | until someone is on |
 | `gravel_stats_record_errors_total` | counter | `server` | polls the stats store could not write | until one fails |

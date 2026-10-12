@@ -47,8 +47,15 @@ type ServerHost struct {
 	EmptySince        *time.Time
 	BootSeconds       *int
 	ReadySeconds      *int
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+	// The scaling policy's (migration 00018): a size the owner pinned, a decision waiting for a
+	// boundary, and when the last resize began.
+	PinnedSize    string
+	PendingSize   string
+	PendingReason string
+	PendingSince  *time.Time
+	LastResizeAt  *time.Time
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 }
 
 // ServerHostEvent is a row of server_host_events: one transition of a host.
@@ -69,7 +76,8 @@ type ServerHostEvent struct {
 const hostColumns = `organization_id, server_id, location_id, desired, state, step, size, target_size, destroy_volume, release_address,
 	disk_gib, instance_id, instance_address, volume_id, address, address_reserved, firewall_id, egress, operation, host_key,
 	env_sha256, attempts, next_attempt_at, error_code, last_error, request_audit_id, state_since, instance_created_at,
-	empty_since, boot_seconds, ready_seconds, created_at, updated_at`
+	empty_since, boot_seconds, ready_seconds, pinned_size, pending_size, pending_reason, pending_since, last_resize_at,
+	created_at, updated_at`
 
 func scanHost(row pgx.Row) (ServerHost, error) {
 	var h ServerHost
@@ -78,7 +86,7 @@ func scanHost(row pgx.Row) (ServerHost, error) {
 		&h.DestroyVolume, &h.ReleaseAddress, &h.DiskGiB, &h.InstanceID, &h.InstanceAddress, &h.VolumeID, &h.Address,
 		&h.AddressReserved, &h.FirewallID, &egress, &h.Operation, &h.HostKey, &h.EnvSHA256, &h.Attempts, &h.NextAttemptAt,
 		&h.ErrorCode, &h.LastError, &h.RequestAuditID, &h.StateSince, &h.InstanceCreatedAt, &h.EmptySince, &h.BootSeconds,
-		&h.ReadySeconds, &h.CreatedAt, &h.UpdatedAt)
+		&h.ReadySeconds, &h.PinnedSize, &h.PendingSize, &h.PendingReason, &h.PendingSince, &h.LastResizeAt, &h.CreatedAt, &h.UpdatedAt)
 	if err != nil {
 		return h, err
 	}
@@ -133,7 +141,7 @@ func (s *Store) SaveServerHost(ctx context.Context, h ServerHost, now time.Time)
 	_, err = s.pool.Exec(ctx, `
 		INSERT INTO server_hosts (`+hostColumns+`)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24,
-		        $25, $26, $27, $28, $29, $30, $31, $32, $32)
+		        $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $37)
 		ON CONFLICT (organization_id, server_id) DO UPDATE SET
 		  location_id = excluded.location_id, desired = excluded.desired, state = excluded.state, step = excluded.step,
 		  size = excluded.size, target_size = excluded.target_size, destroy_volume = excluded.destroy_volume,
@@ -144,11 +152,14 @@ func (s *Store) SaveServerHost(ctx context.Context, h ServerHost, now time.Time)
 		  attempts = excluded.attempts, next_attempt_at = excluded.next_attempt_at, error_code = excluded.error_code,
 		  last_error = excluded.last_error, request_audit_id = excluded.request_audit_id, state_since = excluded.state_since,
 		  instance_created_at = excluded.instance_created_at, empty_since = excluded.empty_since,
-		  boot_seconds = excluded.boot_seconds, ready_seconds = excluded.ready_seconds, updated_at = $32`,
+		  boot_seconds = excluded.boot_seconds, ready_seconds = excluded.ready_seconds, pinned_size = excluded.pinned_size,
+		  pending_size = excluded.pending_size, pending_reason = excluded.pending_reason,
+		  pending_since = excluded.pending_since, last_resize_at = excluded.last_resize_at, updated_at = $37`,
 		h.OrganizationID, h.ServerID, h.LocationID, h.Desired, h.State, h.Step, h.Size, h.TargetSize, h.DestroyVolume,
 		h.ReleaseAddress, h.DiskGiB, h.InstanceID, h.InstanceAddress, h.VolumeID, h.Address, h.AddressReserved, h.FirewallID,
 		egress, nullJSON(h.Operation), h.HostKey, h.EnvSHA256, h.Attempts, h.NextAttemptAt, h.ErrorCode, h.LastError,
-		h.RequestAuditID, h.StateSince, h.InstanceCreatedAt, h.EmptySince, h.BootSeconds, h.ReadySeconds, now)
+		h.RequestAuditID, h.StateSince, h.InstanceCreatedAt, h.EmptySince, h.BootSeconds, h.ReadySeconds, h.PinnedSize,
+		h.PendingSize, h.PendingReason, h.PendingSince, h.LastResizeAt, now)
 	if err != nil {
 		return fmt.Errorf("store: save server host: %w", err)
 	}
@@ -192,6 +203,27 @@ func (s *Store) ListServerHostEvents(ctx context.Context, orgID uuid.UUID, serve
 		return nil, fmt.Errorf("store: list server host events: %w", err)
 	}
 	return out, nil
+}
+
+// RunningCostSince is what a host's instance cost from a time to now, by its events: each run at
+// the hourly price its transition into running recorded, so the rungs of a scaling ladder add up
+// at their own prices. A run with no price recorded counts nothing.
+func (s *Store) RunningCostSince(ctx context.Context, orgID uuid.UUID, serverID string, from, now time.Time) (float64, error) {
+	var usd float64
+	err := s.pool.QueryRow(ctx, `
+		WITH ev AS (
+		  SELECT at, to_state, price_hourly_usd, lead(at) OVER (ORDER BY id) AS next_at
+		    FROM server_host_events WHERE organization_id = $1 AND server_id = $2 AND to_state <> from_state
+		)
+		SELECT coalesce(sum(extract(epoch FROM (least(coalesce(next_at, $4), $4) - greatest(at, $3))) / 3600
+		                    * coalesce(price_hourly_usd, 0)), 0)::float8
+		  FROM ev
+		 WHERE to_state = 'running' AND coalesce(next_at, $4) > $3 AND at < $4`,
+		orgID, serverID, from, now).Scan(&usd)
+	if err != nil {
+		return 0, fmt.Errorf("store: running cost: %w", err)
+	}
+	return usd, nil
 }
 
 // RunningSecondsSince is how long a host ran (its state was running) from a time to now, by its

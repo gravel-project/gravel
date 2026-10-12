@@ -17,6 +17,8 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/gravel-project/gravel/cloud"
+	"github.com/gravel-project/gravel/drivers/cloudvm"
 	"github.com/gravel-project/gravel/internal/store"
 )
 
@@ -188,6 +190,9 @@ type ApplyOptions struct {
 	// CheckCredentials refuses a server whose credential file is not a readable, non-empty file
 	// (apply runs where the hub's secrets are; check, in CI, does not).
 	CheckCredentials bool
+	// Clouds makes a location's provider from its token, so a scaling ladder is walked against
+	// the cloud's sizes when it is saved (#37); nil skips that check. Only with CheckCredentials.
+	Clouds func(ctx context.Context, l Location, token string) (cloud.Provider, error)
 }
 
 // ErrCredentialFile is a credential file apply could not read.
@@ -231,6 +236,11 @@ func (s *Service) Apply(ctx context.Context, m Manifest, opt ApplyOptions) ([]Ch
 		}
 		if len(errs) > 0 {
 			return nil, errors.Join(errs...)
+		}
+		if opt.Clouds != nil {
+			if err := s.checkLadders(ctx, m, opt.Clouds); err != nil {
+				return nil, err
+			}
 		}
 	}
 	current, err := s.Manifest(ctx)
@@ -392,4 +402,48 @@ func nonNil(b []Band) []Band {
 		return []Band{}
 	}
 	return b
+}
+
+// checkLadders walks every scaling ladder against its location's cloud: each rung offered in the
+// region, and every step allowed both ways from the root disk a host made at vm.size has
+// (cloudvm.CheckLadder). A ladder that can't be walked is refused here, not at a boundary.
+func (s *Service) checkLadders(ctx context.Context, m Manifest, clouds func(context.Context, Location, string) (cloud.Provider, error)) error {
+	locs := map[string]Location{}
+	for _, l := range m.Locations {
+		locs[l.ID] = l
+	}
+	var errs []error
+	for _, srv := range m.Servers {
+		if srv.VM == nil || srv.VM.Scaling == nil {
+			continue
+		}
+		spec, ok := s.specs[srv.Game]
+		loc, lok := locs[srv.Location]
+		if !ok || spec.CloudVM == nil || !lok {
+			continue // Validate said so already
+		}
+		b, err := os.ReadFile(loc.TokenFile)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("%w: location %s: %s: %w", ErrCredentialFile, loc.ID, loc.TokenFile, err))
+			continue
+		}
+		token, _, _ := strings.Cut(strings.TrimSpace(string(b)), "\n")
+		p, err := clouds(ctx, loc, strings.TrimSpace(token))
+		if err != nil {
+			errs = append(errs, fmt.Errorf("server %s: location %s: %w", srv.ID, loc.ID, err))
+			continue
+		}
+		sizes, err := p.Sizes(ctx)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("server %s: location %s: the cloud's sizes: %w", srv.ID, loc.ID, err))
+			continue
+		}
+		policy := srv.VM.Scaling.Policy(spec.CloudVM.Ladder)
+		if err := cloudvm.CheckLadder(sizes, p.CanResize, loc.Region, srv.VM.Size, policy.Ladder); err != nil {
+			for _, e := range strings.Split(err.Error(), "\n") {
+				errs = append(errs, fmt.Errorf("%w: servers[%s].vm.scaling: %s", ErrInvalidManifest, srv.ID, e))
+			}
+		}
+	}
+	return errors.Join(errs...)
 }

@@ -269,6 +269,7 @@ func (t *tick) waitOperation(ctx context.Context, h *Host) (bool, error) {
 			t.m.log.Warn("the resize failed; starting the host at its old size", "server", h.ServerID, "error", err.Error())
 			t.events = append(t.events, Event{ServerID: h.ServerID, At: t.now, From: h.State, To: h.State, Step: stepStart, Detail: CodeResizeFailed, Size: h.Size})
 			t.m.met.ops.WithLabelValues(h.ServerID, "resize", "error").Inc()
+			t.countResize(h, "failed")
 			return true, nil
 		}
 		return false, fail(CodeCloudFailed, err)
@@ -536,7 +537,7 @@ func (t *tick) envDrift(h *Host, where string) {
 func (t *tick) start(ctx context.Context, h *Host) (bool, error) {
 	switch h.Step {
 	case stepEnv, "":
-		env, err := RenderEnv(t.s)
+		env, err := RenderEnv(t.s, h.Size)
 		if err != nil {
 			return false, err
 		}
@@ -595,7 +596,7 @@ func (t *tick) status(ctx context.Context, h *Host) (GameStatus, error) {
 	if err != nil {
 		return GameStatus{}, err
 	}
-	t.m.observe(t.rt, st, t.now)
+	t.m.observe(t.rt, t.s.Scaling, st, t.now)
 	return st, nil
 }
 
@@ -609,6 +610,10 @@ func (t *tick) running(ctx context.Context, h *Host, want string) (bool, error) 
 			h.TargetSize = ""
 			return true, nil
 		}
+		if h.PendingSize != "" && h.PendingSize != h.TargetSize {
+			t.cancelScale(h, "the owner resized it to "+h.TargetSize)
+		}
+		h.LastResizeAt = t.now
 		t.to(h, StateResizing, stepQuit, h.Size+" to "+h.TargetSize)
 		return true, nil
 	}
@@ -624,7 +629,7 @@ func (t *tick) running(ctx context.Context, h *Host, want string) (bool, error) 
 			return moved, err
 		}
 	}
-	env, err := RenderEnv(t.s)
+	env, err := RenderEnv(t.s, h.Size)
 	if err != nil {
 		return false, err
 	}
@@ -659,13 +664,23 @@ func (t *tick) running(ctx context.Context, h *Host, want string) (bool, error) 
 		t.to(h, StateStarting, stepGame, "settings changed")
 		return true, nil
 	}
+	// A pinned size the host is not at (it was unparked, so made at the server's size): resize to
+	// it while the room is still empty.
+	if h.PinnedSize != "" && h.PinnedSize != h.Size && known && players == 0 {
+		t.m.log.Info("the host is not at its pinned size; resizing while it is empty", "server", h.ServerID, "pinned", h.PinnedSize)
+		h.TargetSize = h.PinnedSize
+		return true, nil
+	}
 	if t.s.ParkAfter > 0 && known && players == 0 && !emptySince.IsZero() && t.now.Sub(emptySince) >= t.s.ParkAfter {
 		h.Desired = DesiredParked
 		t.m.log.Info("the server has been empty; parking its host", "server", h.ServerID, "empty_for", t.now.Sub(emptySince).Round(time.Second).String())
+		if h.PendingSize != "" {
+			t.cancelScale(h, "the host is parked")
+		}
 		t.to(h, StateParking, stepQuit, "idle")
 		return true, nil
 	}
-	return false, nil
+	return t.scale(ctx, h), nil
 }
 
 // checkDrift looks at the host as the cloud has it: an instance someone stopped is started, a lost
@@ -852,15 +867,24 @@ func (t *tick) resize(ctx context.Context, h *Host) (bool, error) {
 		if okFrom && h.DiskGiB > 0 {
 			from.DiskGiB = h.DiskGiB
 		}
+		dir := DirectionUp
+		if okFrom && okTo && (to.VCPUs < from.VCPUs || (to.VCPUs == from.VCPUs && to.MemoryMiB < from.MemoryMiB)) {
+			dir = DirectionDown
+		}
+		t.rt.mu.Lock()
+		t.rt.resizeDir = dir
+		t.rt.mu.Unlock()
 		if !okFrom || !okTo || t.p.CanResize(from, to) != nil {
 			t.m.log.Warn("the resize is not allowed; starting the host at its size", "server", h.ServerID, "from", h.Size, "to", h.TargetSize)
 			t.events = append(t.events, Event{ServerID: h.ServerID, At: t.now, From: h.State, To: h.State, Step: stepStart, Detail: CodeResizeFailed, Size: h.Size})
+			t.countResize(h, "refused")
 			h.TargetSize, h.Step = "", stepStart
 			return true, nil
 		}
 		op, err := t.p.ResizeInstance(ctx, h.InstanceID, h.TargetSize)
 		if err != nil {
 			if errors.Is(err, cloud.ErrResizeNotAllowed) || errors.Is(err, cloud.ErrInvalid) {
+				t.countResize(h, "refused")
 				h.TargetSize, h.Step = "", stepStart
 				return true, nil
 			}
@@ -876,6 +900,11 @@ func (t *tick) resize(ctx context.Context, h *Host) (bool, error) {
 		if err != nil {
 			return false, cloudErr(err)
 		}
+		result := "ok"
+		if inst.Size != h.TargetSize {
+			result = "failed"
+		}
+		t.countResize(h, result)
 		h.Size, h.TargetSize, h.Step = inst.Size, "", stepStart
 		return true, nil
 	case stepStart:
@@ -947,4 +976,16 @@ func (t *tick) destroy(ctx context.Context, h *Host) (bool, error) {
 		return true, nil
 	}
 	return false, fmt.Errorf("cloudvm: unknown destroying step %q", h.Step)
+}
+
+// countResize counts a resize's end by the direction its step worked out.
+func (t *tick) countResize(h *Host, result string) {
+	t.rt.mu.Lock()
+	dir := t.rt.resizeDir
+	t.rt.resizeDir = ""
+	t.rt.mu.Unlock()
+	if dir == "" {
+		dir = DirectionUp
+	}
+	t.m.met.resizes.WithLabelValues(h.ServerID, dir, result).Inc()
 }

@@ -250,7 +250,7 @@ type Game struct {
 	mu       sync.Mutex
 	up       bool
 	status   cloudvm.GameStatus
-	connects map[string][]cloudvm.GamePlayer // what the next Log returns, by body
+	logs     map[string]cloudvm.LogResult // what the next Log returns, by body
 	commands []string
 	addrs    []string
 	password string
@@ -258,7 +258,7 @@ type Game struct {
 
 // NewGame is a game that answers once Up is called.
 func NewGame() *Game {
-	return &Game{connects: map[string][]cloudvm.GamePlayer{}, status: cloudvm.GameStatus{Build: "1.0", Map: "de_test", MaxPlayers: 10}}
+	return &Game{logs: map[string]cloudvm.LogResult{}, status: cloudvm.GameStatus{Build: "1.0", Map: "de_test", MaxPlayers: 10}}
 }
 
 // Factory is the game's GameFactory.
@@ -291,7 +291,18 @@ func (g *Game) SetPlayers(rows ...cloudvm.GamePlayer) {
 func (g *Game) OnLog(body string, connected ...cloudvm.GamePlayer) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	g.connects[body] = connected
+	r := g.logs[body]
+	r.Connected = connected
+	g.logs[body] = r
+}
+
+// OnBoundary makes a log body announce a boundary (cloudvm.BoundaryMapChange, BoundaryMatchEnd).
+func (g *Game) OnBoundary(body, boundary string) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	r := g.logs[body]
+	r.Boundary = boundary
+	g.logs[body] = r
 }
 
 // Commands are the commands sent (say, kick, quit).
@@ -363,10 +374,12 @@ func (g *Game) SetPassword(p string) {
 }
 
 // Log implements cloudvm.Game.
-func (g *Game) Log(body []byte) []cloudvm.GamePlayer {
+func (g *Game) Log(body []byte) cloudvm.LogResult {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	return slices.Clone(g.connects[string(body)])
+	r := g.logs[string(body)]
+	r.Connected = slices.Clone(r.Connected)
+	return r
 }
 
 // Find implements cloudvm.Game.

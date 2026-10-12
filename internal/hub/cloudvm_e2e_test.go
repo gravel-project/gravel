@@ -218,6 +218,23 @@ func TestHubCloudVMLifecycle(t *testing.T) {
 		time.Sleep(50 * time.Millisecond)
 	}
 
+	// Pin the size it is at (#37), then unpin it; a second unpin has nothing to undo.
+	pinned, err := hosts.ResizeServerHost(ctx, connect.NewRequest(&hubv1.ResizeServerHostRequest{ServerId: "cs2-1", Size: "dedicated-4", Pin: true}))
+	if err != nil || pinned.Msg.GetHost().GetPinnedSize() != "dedicated-4" || pinned.Msg.GetHost().GetTargetSize() != "" {
+		t.Fatalf("pin: %v %v", pinned, err)
+	}
+	unpinned, err := hosts.UnpinServerHostSize(ctx, connect.NewRequest(&hubv1.UnpinServerHostSizeRequest{ServerId: "cs2-1"}))
+	if err != nil || unpinned.Msg.GetHost().GetPinnedSize() != "" {
+		t.Fatalf("unpin: %v %v", unpinned, err)
+	}
+	if _, err := hosts.UnpinServerHostSize(ctx, connect.NewRequest(&hubv1.UnpinServerHostSizeRequest{ServerId: "cs2-1"})); connect.CodeOf(err) != connect.CodeInvalidArgument {
+		t.Errorf("unpin with nothing pinned: %v", err)
+	}
+	// The month's cost comes from the events, each run at its own size's price, on Postgres.
+	if c := unpinned.Msg.GetHost().GetMonthCostUsd(); c <= 0 {
+		t.Errorf("month cost %v after running at two sizes", c)
+	}
+
 	ev, err := hosts.ListServerHostEvents(ctx, connect.NewRequest(&hubv1.ListServerHostEventsRequest{ServerId: "cs2-1", PageSize: 3}))
 	if err != nil || len(ev.Msg.GetEvents()) != 3 || ev.Msg.GetNextPageToken() == "" {
 		t.Fatalf("events %v %v", ev, err)
@@ -241,7 +258,7 @@ func TestHubCloudVMLifecycle(t *testing.T) {
 	for _, e := range audit.Msg.GetEntries() {
 		actions = append(actions, e.GetAction()+":"+e.GetOutcome())
 	}
-	if strings.Join(actions, ",") != "host_resize:accepted,host_resize:invalid,host_unpark:accepted,host_park:accepted,host_destroy:not_parked" {
+	if strings.Join(actions, ",") != "host_unpin:invalid,host_unpin:accepted,host_resize:accepted,host_resize:accepted,host_resize:invalid,host_unpark:accepted,host_park:accepted,host_destroy:not_parked" {
 		t.Errorf("audit %v", actions)
 	}
 

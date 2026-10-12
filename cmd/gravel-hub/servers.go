@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/gravel-project/gravel/cloud"
 	"github.com/gravel-project/gravel/internal/config"
 	"github.com/gravel-project/gravel/internal/hub"
 	"github.com/gravel-project/gravel/internal/org"
@@ -131,7 +132,10 @@ func serversApply(ctx context.Context, args []string, stdout, stderr io.Writer) 
 		return 1
 	}
 	defer closeStore()
-	changes, err := svc.Apply(ctx, want, servers.ApplyOptions{DryRun: *dryRun, CheckCredentials: true})
+	clouds := func(_ context.Context, l servers.Location, token string) (cloud.Provider, error) {
+		return hub.NewCloudProvider(l.Provider, token, l.Project, buildVersion())
+	}
+	changes, err := svc.Apply(ctx, want, servers.ApplyOptions{DryRun: *dryRun, CheckCredentials: true, Clouds: clouds})
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1

@@ -50,6 +50,30 @@ message ServerHost {
   repeated HostSize sizes = 23;
   // A host is parked after the server has been empty this long; 0 never.
   int64 park_after_seconds = 24;
+  // The vertical scaling policy (#37): whether the server has one, its ladder (smallest rung
+  // first, each with its price), and the players the rung the host is on is sized for (0 off the
+  // ladder or without a policy).
+  bool scaling = 25;
+  repeated HostTier ladder = 26;
+  int32 tier_players = 27;
+  // A size the owner pinned: the policy stands aside, and an unparked host comes back to it. ""
+  // for none.
+  string pinned_size = 28;
+  // The policy's decision waiting for a boundary (a map change, a match's end, an empty server):
+  // the size, why, and since when. "" for none.
+  string pending_size = 29;
+  string pending_reason = 30;
+  google.protobuf.Timestamp pending_since = 31;
+  // When the last resize began; the policy's cooldown counts from it.
+  google.protobuf.Timestamp last_resize_at = 32;
+}
+
+// HostTier is one rung of a scaling ladder.
+message HostTier {
+  string size = 1;
+  // The players the rung is sized for; the game takes that many on it.
+  int32 players = 2;
+  double price_hourly_usd = 3;
 }
 
 // HostSize is a size a host may move to.
@@ -70,7 +94,8 @@ message HostEvent {
   string from_state = 3;
   string to_state = 4;
   string step = 5;
-  // A word or a size ("idle", "unpark", "c-2 to c-4", "resize_failed"); never an address.
+  // A word or a size ("idle", "unpark", "c-2 to c-4", "resize_failed", "env_drift"), or a
+  // scaling decision's reason (step "scale" or "scale_cancelled"); never an address.
   string detail = 6;
   string size = 7;
   // The audit-log row of the request behind the transition (ListAuditLog); 0 for the hub's own.
@@ -118,9 +143,22 @@ message ResizeServerHostRequest {
   // Resize with players on (they are disconnected for the few minutes it takes).
   bool force = 3;
   string reason = 4;
+  // Pin the size: the scaling policy stands aside and an unparked host comes back to it, until
+  // UnpinServerHostSize. With the size the host is at, it only pins.
+  bool pin = 5;
 }
 
 message ResizeServerHostResponse {
+  ServerHost host = 1;
+  int64 audit_id = 2;
+}
+
+message UnpinServerHostSizeRequest {
+  string server_id = 1;
+  string reason = 2;
+}
+
+message UnpinServerHostSizeResponse {
   ServerHost host = 1;
   int64 audit_id = 2;
 }
@@ -153,6 +191,9 @@ service ServerHostService {
   // ResizeServerHost moves a running host to another size now. The owner only;
   // failed_precondition with players on unless force.
   rpc ResizeServerHost(ResizeServerHostRequest) returns (ResizeServerHostResponse);
+  // UnpinServerHostSize lets the scaling policy decide the host's size again. The owner only;
+  // invalid_argument when nothing is pinned.
+  rpc UnpinServerHostSize(UnpinServerHostSizeRequest) returns (UnpinServerHostSizeResponse);
   // DestroyServerHost removes a parked host's remains. The owner only.
   rpc DestroyServerHost(DestroyServerHostRequest) returns (DestroyServerHostResponse);
 }

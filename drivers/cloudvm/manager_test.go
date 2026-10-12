@@ -186,7 +186,7 @@ func (r *rig) world() world {
 	return w
 }
 
-// counter is a counter's value for one label set, 0 when it was never touched.
+// counter is a counter's or gauge's value for one label set, 0 when it was never touched.
 func (r *rig) counter(name string, labels map[string]string) float64 {
 	r.t.Helper()
 	mfs, err := r.reg.Gather()
@@ -204,7 +204,7 @@ func (r *rig) counter(name string, labels map[string]string) float64 {
 					continue metrics
 				}
 			}
-			return m.GetCounter().GetValue()
+			return m.GetCounter().GetValue() + m.GetGauge().GetValue()
 		}
 	}
 	return 0
@@ -554,17 +554,17 @@ func TestResize(t *testing.T) {
 	if _, err := r.m.Status(ctx, serverID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := r.m.Resize(ctx, serverID, "dedicated-4", false, 0); !errors.Is(err, cloudvm.ErrPlayersOn) {
+	if _, err := r.m.Resize(ctx, serverID, "dedicated-4", false, false, 0); !errors.Is(err, cloudvm.ErrPlayersOn) {
 		t.Errorf("with a player on: %v", err)
 	}
-	if _, err := r.m.Resize(ctx, serverID, "medium", true, 0); !errors.Is(err, cloudvm.ErrInvalidSize) {
+	if _, err := r.m.Resize(ctx, serverID, "medium", true, false, 0); !errors.Is(err, cloudvm.ErrInvalidSize) {
 		t.Errorf("another family: %v", err)
 	}
 	sizes, _ := r.m.Sizes(ctx, serverID)
 	if len(sizes) != 1 || sizes[0].Slug != "dedicated-4" {
 		t.Errorf("sizes %v", sizes)
 	}
-	if _, err := r.m.Resize(ctx, serverID, "dedicated-4", true, 9); err != nil {
+	if _, err := r.m.Resize(ctx, serverID, "dedicated-4", true, false, 9); err != nil {
 		t.Fatal(err)
 	}
 	r.advance(time.Minute)
@@ -584,7 +584,7 @@ func TestResize(t *testing.T) {
 	// And back: the root disk stayed the smaller size's, so the way down is open.
 	r.game.SetPlayers()
 	_, _ = r.m.Status(ctx, serverID)
-	if _, err := r.m.Resize(ctx, serverID, "dedicated-2", false, 0); err != nil {
+	if _, err := r.m.Resize(ctx, serverID, "dedicated-2", false, false, 0); err != nil {
 		t.Fatal(err)
 	}
 	r.p.FailOperationNext("ResizeInstance")
@@ -598,7 +598,7 @@ func TestResize(t *testing.T) {
 	if !slices.ContainsFunc(r.st.Events(), func(e cloudvm.Event) bool { return e.Detail == cloudvm.CodeResizeFailed }) {
 		t.Error("the failed resize was not recorded")
 	}
-	if _, err := r.m.Resize(ctx, serverID, "dedicated-2", false, 0); err != nil {
+	if _, err := r.m.Resize(ctx, serverID, "dedicated-2", false, false, 0); err != nil {
 		t.Fatal(err)
 	}
 	_ = r.tick()
@@ -841,7 +841,7 @@ func TestRenderEnv(t *testing.T) {
 	r := newRig(t)
 	s := r.src.specs[0]
 	s.Settings = map[string]string{"tv": "true", "game_type": "1", "game_mode": "2"}
-	env, err := cloudvm.RenderEnv(s)
+	env, err := cloudvm.RenderEnv(s, s.Size)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -859,7 +859,7 @@ func TestRenderEnv(t *testing.T) {
 		t.Error("env lines are not sorted (a stable hash needs them sorted)")
 	}
 	s.JoinPassword = "a\nb"
-	if _, err := cloudvm.RenderEnv(s); err == nil {
+	if _, err := cloudvm.RenderEnv(s, s.Size); err == nil {
 		t.Error("a value with a line break was written")
 	}
 }

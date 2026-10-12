@@ -294,9 +294,26 @@ type HostPanel struct {
 	ReadySeconds int
 	// ParkAfter is how long an empty server runs before it is parked; 0 never.
 	ParkAfter time.Duration
+	// The scaling policy (#37): whether the server has one, its ladder, the players the current
+	// rung is sized for, a size the owner pinned, and a decision waiting for a boundary.
+	Scaling       bool
+	Ladder        []HostRung
+	TierPlayers   int
+	Pinned        string
+	PendingSize   string
+	PendingReason string
+	PendingSince  time.Time
 	// What the reader may do now.
-	CanPark, CanUnpark, CanResize, CanDestroy bool
-	Sizes                                     []HostSizeOption
+	CanPark, CanUnpark, CanResize, CanDestroy, CanPin, CanUnpin bool
+	Sizes                                                       []HostSizeOption
+}
+
+// HostRung is one rung of a host's scaling ladder.
+type HostRung struct {
+	Size     string
+	Players  int
+	PriceUSD float64
+	Current  bool
 }
 
 // HostSizeOption is a size a host may move to.
@@ -315,8 +332,8 @@ type HostConfirmPage struct {
 	Size       string
 	// Warning is said before the button (players disconnected, data deleted).
 	Warning string
-	// Force and DeleteVolume are the switches the confirmation offers.
-	OfferForce, OfferDeleteVolume bool
+	// Force, Pin and DeleteVolume are the switches the confirmation offers.
+	OfferForce, OfferPin, OfferDeleteVolume bool
 }
 
 // ModControls are the moderation controls a server page shows a moderator; each is shown only

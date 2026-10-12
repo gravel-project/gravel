@@ -45,9 +45,12 @@ type Profile struct {
 	Secrets SecretEnv `yaml:"secrets"`
 	// Settings are what a server's manifest may set, and how each reaches the game.
 	Settings []Setting `yaml:"settings"`
-	// Ladder is the sizes a server moves through as its population grows (gravel#37), smallest
-	// first; informational until the scaling policy uses it.
+	// Ladder is the sizes a server moves through as its population grows, smallest first: the
+	// default a server's scaling policy walks (#37; a manifest may give its own).
 	Ladder []Tier `yaml:"ladder,omitempty"`
+	// PlayersSetting is the int setting a rung's players are written to, so the game takes as
+	// many players as the machine it runs on is sized for ("max_players"); "" writes none.
+	PlayersSetting string `yaml:"players_setting,omitempty"`
 }
 
 // Port is one port the game listens on.
@@ -246,9 +249,42 @@ func (p Profile) Validate() error {
 			}
 		}
 	}
-	for i, t := range p.Ladder {
+	if err := p.ValidateLadder(p.Ladder); err != nil {
+		for _, e := range strings.Split(err.Error(), "\n") {
+			bad("%s", e)
+		}
+	}
+	if p.PlayersSetting != "" {
+		if s, ok := p.setting(p.PlayersSetting); !ok || s.Type != TypeInt {
+			bad("players_setting %q is not an int setting", p.PlayersSetting)
+		}
+	}
+	return errors.Join(errs...)
+}
+
+// ValidateLadder checks a ladder for the game: every rung a size and players, the sizes distinct,
+// the players growing rung by rung, and each rung's players a value the players setting takes.
+func (p Profile) ValidateLadder(ladder []Tier) error {
+	var errs []error
+	seen := map[string]bool{}
+	for i, t := range ladder {
 		if t.Size == "" || t.Players < 1 {
-			bad("ladder[%d]: a size and at least one player", i)
+			errs = append(errs, fmt.Errorf("ladder[%d]: a size and at least one player", i))
+			continue
+		}
+		if seen[t.Size] {
+			errs = append(errs, fmt.Errorf("ladder[%d]: %s is on the ladder twice", i, t.Size))
+		}
+		seen[t.Size] = true
+		if i > 0 && t.Players <= ladder[i-1].Players {
+			errs = append(errs, fmt.Errorf("ladder[%d]: %d players is not more than the rung below's %d (smallest first)", i, t.Players, ladder[i-1].Players))
+		}
+		if p.PlayersSetting != "" {
+			if s, ok := p.setting(p.PlayersSetting); ok {
+				if err := s.check(strconv.Itoa(t.Players)); err != nil {
+					errs = append(errs, fmt.Errorf("ladder[%d]: %d players: %s %w", i, t.Players, p.PlayersSetting, err))
+				}
+			}
 		}
 	}
 	return errors.Join(errs...)

@@ -1290,6 +1290,47 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.SetServerHostDesiredResponse'
+  /gravel.hub.v1.ServerHostService/UnpinServerHostSize:
+    post:
+      tags:
+        - gravel.hub.v1.ServerHostService
+      summary: UnpinServerHostSize
+      description: |-
+        UnpinServerHostSize lets the scaling policy decide the host's size again. The owner only;
+         invalid_argument when nothing is pinned.
+      operationId: gravel.hub.v1.ServerHostService.UnpinServerHostSize
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.UnpinServerHostSizeRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.UnpinServerHostSizeResponse'
   /gravel.hub.v1.ServerService/GetServerStatus:
     post:
       tags:
@@ -3228,7 +3269,9 @@ components:
         detail:
           type: string
           title: detail
-          description: A word or a size ("idle", "unpark", "c-2 to c-4", "resize_failed"); never an address.
+          description: |-
+            A word or a size ("idle", "unpark", "c-2 to c-4", "resize_failed", "env_drift"), or a
+             scaling decision's reason (step "scale" or "scale_cancelled"); never an address.
         size:
           type: string
           title: size
@@ -3272,6 +3315,24 @@ components:
       title: HostSize
       additionalProperties: false
       description: HostSize is a size a host may move to.
+    gravel.hub.v1.HostTier:
+      type: object
+      properties:
+        size:
+          type: string
+          title: size
+        players:
+          type: integer
+          title: players
+          format: int32
+          description: The players the rung is sized for; the game takes that many on it.
+        priceHourlyUsd:
+          type: number
+          title: price_hourly_usd
+          format: double
+      title: HostTier
+      additionalProperties: false
+      description: HostTier is one rung of a scaling ladder.
     gravel.hub.v1.Identity:
       type: object
       properties:
@@ -4213,6 +4274,12 @@ components:
         reason:
           type: string
           title: reason
+        pin:
+          type: boolean
+          title: pin
+          description: |-
+            Pin the size: the scaling policy stands aside and an unparked host comes back to it, until
+             UnpinServerHostSize. With the size the host is at, it only pins.
       title: ResizeServerHostRequest
       additionalProperties: false
     gravel.hub.v1.ResizeServerHostResponse:
@@ -4416,6 +4483,46 @@ components:
           title: park_after_seconds
           format: int64
           description: A host is parked after the server has been empty this long; 0 never.
+        scaling:
+          type: boolean
+          title: scaling
+          description: |-
+            The vertical scaling policy (#37): whether the server has one, its ladder (smallest rung
+             first, each with its price), and the players the rung the host is on is sized for (0 off the
+             ladder or without a policy).
+        ladder:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.HostTier'
+          title: ladder
+        tierPlayers:
+          type: integer
+          title: tier_players
+          format: int32
+        pinnedSize:
+          type: string
+          title: pinned_size
+          description: |-
+            A size the owner pinned: the policy stands aside, and an unparked host comes back to it. ""
+             for none.
+        pendingSize:
+          type: string
+          title: pending_size
+          description: |-
+            The policy's decision waiting for a boundary (a map change, a match's end, an empty server):
+             the size, why, and since when. "" for none.
+        pendingReason:
+          type: string
+          title: pending_reason
+        pendingSince:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: pending_since
+        lastResizeAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: last_resize_at
+          description: When the last resize began; the policy's cooldown counts from it.
       title: ServerHost
       additionalProperties: false
       description: |-
@@ -4808,6 +4915,30 @@ components:
           title: user
           description: The caller, after the unlink.
       title: UnlinkIdentityResponse
+      additionalProperties: false
+    gravel.hub.v1.UnpinServerHostSizeRequest:
+      type: object
+      properties:
+        serverId:
+          type: string
+          title: server_id
+        reason:
+          type: string
+          title: reason
+      title: UnpinServerHostSizeRequest
+      additionalProperties: false
+    gravel.hub.v1.UnpinServerHostSizeResponse:
+      type: object
+      properties:
+        host:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.ServerHost'
+          title: host
+        auditId:
+          type: string
+          title: audit_id
+          format: int64
+      title: UnpinServerHostSizeResponse
       additionalProperties: false
     gravel.hub.v1.UpdateOrganizationSettingsRequest:
       type: object

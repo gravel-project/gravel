@@ -69,6 +69,35 @@ type VMSpec struct {
 	// PublisherTokenFile is a token the game's publisher issues a server (CS2's Game Server Login
 	// Token); empty is none.
 	PublisherTokenFile string `yaml:"publisher_token_file,omitempty" json:"publisher_token_file,omitempty"`
+	// Scaling turns on the vertical scaling policy (#37): the host walks a ladder of sizes as its
+	// population changes, one rung at a time, at a map change or a match's end. Absent, the host
+	// stays at Size; present ({} for the defaults), Size is the rung it is made at.
+	Scaling *ScalingSpec `yaml:"scaling,omitempty" json:"scaling,omitempty"`
+}
+
+// ScalingSpec is a server's scaling policy as the manifest gives it; every field is optional.
+type ScalingSpec struct {
+	// Ladder replaces the game's (its Game spec's cloudvm.ladder), smallest first.
+	Ladder []cloudvm.Tier `yaml:"ladder,omitempty" json:"ladder,omitempty"`
+	// UpAt (0–1) and UpFor: a rung this full for this long moves up (0.8, 5m).
+	UpAt  float64  `yaml:"up_at,omitempty" json:"up_at,omitempty"`
+	UpFor Duration `yaml:"up_for,omitempty" json:"up_for,omitempty"`
+	// DownAt (0–1) and DownFor: a rung this empty for this long moves down (0.25, 30m).
+	DownAt  float64  `yaml:"down_at,omitempty" json:"down_at,omitempty"`
+	DownFor Duration `yaml:"down_for,omitempty" json:"down_for,omitempty"`
+	// Cooldown is the least time between two resizes (30m).
+	Cooldown Duration `yaml:"cooldown,omitempty" json:"cooldown,omitempty"`
+}
+
+// Policy is the scaling policy the cloud-VM driver runs: the ladder (the manifest's, else the
+// game's) and the thresholds with their defaults.
+func (sc ScalingSpec) Policy(game []cloudvm.Tier) cloudvm.Scaling {
+	ladder := sc.Ladder
+	if len(ladder) == 0 {
+		ladder = game
+	}
+	return cloudvm.Scaling{Ladder: slices.Clone(ladder), UpAt: sc.UpAt, UpFor: time.Duration(sc.UpFor), DownAt: sc.DownAt,
+		DownFor: time.Duration(sc.DownFor), Cooldown: time.Duration(sc.Cooldown)}.WithDefaults()
 }
 
 // Address kinds.
@@ -132,6 +161,12 @@ const (
 	MaxVolumeGiB        = 16384
 	MinParkAfter        = 5 * time.Minute
 	MaxParkAfter        = 24 * time.Hour
+	// The scaling policy's bounds: a hold shorter than a minute follows noise, and a cooldown
+	// shorter than ten minutes would resize more often than a match lasts.
+	MinScaleHold     = time.Minute
+	MaxScaleHold     = 24 * time.Hour
+	MinScaleCooldown = 10 * time.Minute
+	MaxScaleCooldown = 24 * time.Hour
 )
 
 // ErrInvalidManifest wraps every validation failure; the message says which field and why.
@@ -440,6 +475,41 @@ func validateVM(at string, s Server, spec Spec, gameOK bool, locations map[strin
 			for _, e := range strings.Split(err.Error(), "\n") {
 				bad("%s.settings: %s", at, e)
 			}
+		}
+		if vm.Scaling != nil {
+			validateScaling(at+".vm.scaling", *vm.Scaling, vm.Size, s.Settings, *spec.CloudVM, bad)
+		}
+	}
+}
+
+// validateScaling is a scaling policy on its own (the provider's sizes are apply's to check): a
+// ladder of at least two rungs the game accepts, the server's size one of them, the thresholds in
+// order, the holds and the cooldown in bounds, and the players setting left to the ladder.
+func validateScaling(at string, sc ScalingSpec, size string, settings map[string]string, p cloudvm.Profile, bad func(string, ...any)) {
+	policy := sc.Policy(p.Ladder)
+	if len(policy.Ladder) < 2 {
+		bad("%s.ladder: at least two rungs to move between (the game's has %d)", at, len(p.Ladder))
+	} else if err := p.ValidateLadder(policy.Ladder); err != nil {
+		for _, e := range strings.Split(err.Error(), "\n") {
+			bad("%s: %s", at, e)
+		}
+	} else if cloudvm.Rung(policy.Ladder, size) < 0 {
+		bad("%s: vm.size %s is not on the ladder; it is the rung the host is made at", at, size)
+	}
+	if !(policy.DownAt > 0 && policy.DownAt < policy.UpAt && policy.UpAt <= 1) {
+		bad("%s: down_at %.2f and up_at %.2f must be 0 < down_at < up_at ≤ 1", at, policy.DownAt, policy.UpAt)
+	}
+	for name, d := range map[string]time.Duration{"up_for": policy.UpFor, "down_for": policy.DownFor} {
+		if d < MinScaleHold || d > MaxScaleHold {
+			bad("%s.%s: %s is outside %s–%s", at, name, d, MinScaleHold, MaxScaleHold)
+		}
+	}
+	if policy.Cooldown < MinScaleCooldown || policy.Cooldown > MaxScaleCooldown {
+		bad("%s.cooldown: %s is outside %s–%s", at, policy.Cooldown, MinScaleCooldown, MaxScaleCooldown)
+	}
+	if key := p.PlayersSetting; key != "" {
+		if _, set := settings[key]; set {
+			bad("%s: settings.%s is the ladder's to set (each rung's players); leave it out", at, key)
 		}
 	}
 }
