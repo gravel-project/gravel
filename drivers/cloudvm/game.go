@@ -21,7 +21,8 @@ type Game interface {
 	Quit(ctx context.Context) error
 	// SetPassword replaces the control password (a rotation).
 	SetPassword(password string)
-	// Log reads a batch the game pushed: who connected in it, and the last boundary it announced.
+	// Log reads a batch the game pushed: who connected in it, the last boundary it announced, and
+	// what players said in chat.
 	Log(body []byte) LogResult
 	// Find is a connected player by identity, as the log knows them.
 	Find(id drivers.Identity) (GamePlayer, bool)
@@ -36,6 +37,15 @@ type LogResult struct {
 	// Boundary is the last point in the batch where a resize disconnects nobody mid-game
 	// (BoundaryMapChange, BoundaryMatchEnd); "" for none.
 	Boundary string
+	// Chat are the lines players typed, in order, each with the identity that typed it.
+	Chat []ChatLine
+}
+
+// ChatLine is one line a player typed in the game's chat.
+type ChatLine struct {
+	Player GamePlayer
+	Text   string
+	Team   bool // team chat, not all chat
 }
 
 // GameStatus is one status read.

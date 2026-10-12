@@ -364,6 +364,15 @@ func (g *Game) OnBoundary(body, boundary string) {
 	g.logs[body] = r
 }
 
+// OnChat makes a log body carry chat lines.
+func (g *Game) OnChat(body string, lines ...cloudvm.ChatLine) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	r := g.logs[body]
+	r.Chat = lines
+	g.logs[body] = r
+}
+
 // Commands are the commands sent (say, kick, quit).
 func (g *Game) Commands() []string {
 	g.mu.Lock()
@@ -437,7 +446,7 @@ func (g *Game) Log(body []byte) cloudvm.LogResult {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	r := g.logs[string(body)]
-	r.Connected = slices.Clone(r.Connected)
+	r.Connected, r.Chat = slices.Clone(r.Connected), slices.Clone(r.Chat)
 	return r
 }
 

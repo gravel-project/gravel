@@ -17,13 +17,15 @@ import (
 	"golang.org/x/time/rate"
 )
 
-// idleFor is how long a key goes unused before Sweep drops it.
+// idleFor is how long a key goes unused before Sweep drops it, at the least: a slower bucket is
+// kept until it would be full again, so a sweep never forgives what it hasn't refilled.
 const idleFor = 10 * time.Minute
 
 // Limiter is a set of token buckets keyed by string.
 type Limiter struct {
 	limit rate.Limit
 	burst int
+	idle  time.Duration
 
 	mu      sync.Mutex
 	buckets map[string]*bucket
@@ -36,8 +38,23 @@ type bucket struct {
 }
 
 // New builds a limiter allowing perMinute sustained requests per key with the given burst.
-func New(perMinute, burst int) *Limiter {
-	return &Limiter{limit: rate.Limit(float64(perMinute) / 60), burst: burst, buckets: map[string]*bucket{}, now: time.Now}
+func New(perMinute, burst int) *Limiter { return NewEvery(perMinute, time.Minute, burst) }
+
+// NewEvery builds a limiter allowing n sustained requests per period per key with the given
+// burst, for rates slower than one a minute: five an hour is NewEvery(5, time.Hour, 5).
+func NewEvery(n int, per time.Duration, burst int) *Limiter {
+	limit := rate.Limit(float64(n) / per.Seconds())
+	idle := idleFor
+	if refill := time.Duration(float64(burst) / float64(limit) * float64(time.Second)); n > 0 && refill > idle {
+		idle = refill
+	}
+	return &Limiter{limit: limit, burst: burst, idle: idle, buckets: map[string]*bucket{}, now: time.Now}
+}
+
+// WithClock replaces the limiter's clock (tests), and returns the limiter.
+func (l *Limiter) WithClock(now func() time.Time) *Limiter {
+	l.now = now
+	return l
 }
 
 // Allow takes one token for key. When refused it says how long until one is available.
@@ -62,11 +79,12 @@ func (l *Limiter) Allow(key string) (ok bool, retryAfter time.Duration) {
 	return true, 0
 }
 
-// Sweep drops keys idle for ten minutes and reports how many remain.
+// Sweep drops keys idle for ten minutes, or until their bucket is full again when that is longer,
+// and reports how many remain.
 func (l *Limiter) Sweep() int {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	cutoff := l.now().Add(-idleFor)
+	cutoff := l.now().Add(-l.idle)
 	for k, b := range l.buckets {
 		if b.lastSeen.Before(cutoff) {
 			delete(l.buckets, k)

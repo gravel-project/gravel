@@ -40,6 +40,9 @@ const (
 	// host when nobody plays and resize it between sizes.
 	CapPark   = "park"
 	CapResize = "resize"
+	// CapChat is a server whose chat the hub reads with who typed each line, so a code typed
+	// there proves an account (gravel#5).
+	CapChat = "chat"
 )
 
 // Errors a driver returns, wrapping the game client's own.

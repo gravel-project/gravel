@@ -90,6 +90,31 @@ templ AccountContent(p AccountPage) {
 			</ul>
 		}
 	</section>
+	if len(p.ProofServers) > 0 {
+		<section aria-labelledby="proof-heading">
+			<h2 id="proof-heading">Prove an account in game</h2>
+			<p>Get a one-time code, join one of these servers and type it in chat. The server's log names the account you play as, and the hub links it to you, or proves a link you have again.</p>
+			<form method="post" action="/account/prove">
+				<input type="hidden" name="_csrf" value={ p.CSRF }/>
+				<label for="proof-server">Server</label>
+				<select id="proof-server" name="server_id">
+					for _, s := range p.ProofServers {
+						<option value={ s.ID }>{ s.Name }</option>
+					}
+				</select>
+				if len(p.ProofAccounts) > 0 {
+					<label for="proof-subject">Account</label>
+					<select id="proof-subject" name="subject">
+						<option value="">A new account</option>
+						for _, i := range p.ProofAccounts {
+							<option value={ i.Subject }>{ i.ProviderDisplay } { i.Label() }, again</option>
+						}
+					</select>
+				}
+				<button type="submit">Get a code</button>
+			</form>
+		</section>
+	}
 	<p><a href="/profile">Your stats and leaderboard name</a></p>
 	if len(p.Apps) > 0 {
 		<section aria-labelledby="apps-heading">
@@ -170,4 +195,53 @@ templ ErrorContent(p ErrorPage) {
 			<a href="/login">Back to the login page</a>
 		}
 	</p>
+}
+
+// Proof is a code the member just got (gravel#5): shown once, with where to type it and what
+// became of it.
+templ Proof(p ProofPage) {
+	@Layout(p.Page) {
+		@ProofContent(p)
+	}
+}
+
+// ProofContent is Proof without the layout, for htmx.
+templ ProofContent(p ProofPage) {
+	<h1>Your code</h1>
+	<p class="code"><code>{ p.Code }</code></p>
+	<p>{ p.Instructions }</p>
+	<p>
+		The server: { p.ServerName }
+		if p.Join != nil {
+			<code>{ p.Join.Value }</code>
+		}
+	</p>
+	if p.Join != nil && p.Join.Hint != "" {
+		<p class="muted">{ p.Join.Hint }</p>
+	}
+	<p class="muted">Good until { at(p.ExpiresAt) }, and only once. It is shown only here: leaving this page means getting a new one.</p>
+	@ProofStatusView(p.Status)
+	<p><a href="/account">Back to your account</a></p>
+}
+
+// ProofStatusView is what became of the code; while it is open it asks again every five seconds.
+templ ProofStatusView(s ProofStatus) {
+	if s.State == "open" {
+		<div id="proof-status" role="status" hx-get={ "/account/prove/" + s.ID } hx-trigger="every 5s" hx-swap="outerHTML">
+			<p>Waiting for the code in the server's chat.</p>
+		</div>
+	} else {
+		<div id="proof-status" role="status">
+			switch s.State {
+				case "proven":
+					<p class="flash flash-ok">Done: your { s.ProviderDisplay } account <code>{ s.Subject }</code> is linked and proven.</p>
+				case "taken":
+					<p class="flash flash-err">That { s.ProviderDisplay } account is linked to another member, so nothing changed. If it is yours, ask the hub's owner.</p>
+				case "replaced":
+					<p class="muted">A newer code took this one's place.</p>
+				default:
+					<p class="muted">This code expired. Get a new one on your account page.</p>
+			}
+		</div>
+	}
 }

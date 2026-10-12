@@ -55,6 +55,12 @@ const (
 	// IdentityServiceSetUserRoleProcedure is the fully-qualified name of the IdentityService's
 	// SetUserRole RPC.
 	IdentityServiceSetUserRoleProcedure = "/gravel.hub.v1.IdentityService/SetUserRole"
+	// IdentityServiceStartProofProcedure is the fully-qualified name of the IdentityService's
+	// StartProof RPC.
+	IdentityServiceStartProofProcedure = "/gravel.hub.v1.IdentityService/StartProof"
+	// IdentityServiceGetProofProcedure is the fully-qualified name of the IdentityService's GetProof
+	// RPC.
+	IdentityServiceGetProofProcedure = "/gravel.hub.v1.IdentityService/GetProof"
 )
 
 // IdentityServiceClient is a client for the gravel.hub.v1.IdentityService service.
@@ -80,6 +86,14 @@ type IdentityServiceClient interface {
 	// SetUserRole grants or revokes a member's role (ADR-0013); every change is recorded with who
 	// made it. The owner only; the owner holds every power already and needs no role.
 	SetUserRole(context.Context, *connect.Request[v1.SetUserRoleRequest]) (*connect.Response[v1.SetUserRoleResponse], error)
+	// StartProof draws a one-time code the caller types in a game server's chat to prove the account
+	// they play as (gravel#5): the server's log names the account, and the hub links it to the
+	// caller (or proves an existing link again; another member's account stays theirs). Good for ten
+	// minutes and once; a new code replaces the open one. In person only; five codes an hour
+	// (resource_exhausted past that).
+	StartProof(context.Context, *connect.Request[v1.StartProofRequest]) (*connect.Response[v1.StartProofResponse], error)
+	// GetProof is one of the caller's proofs: open, proven, taken, replaced or expired. In person only.
+	GetProof(context.Context, *connect.Request[v1.GetProofRequest]) (*connect.Response[v1.GetProofResponse], error)
 }
 
 // NewIdentityServiceClient constructs a client for the gravel.hub.v1.IdentityService service. By
@@ -141,6 +155,18 @@ func NewIdentityServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 			connect.WithSchema(identityServiceMethods.ByName("SetUserRole")),
 			connect.WithClientOptions(opts...),
 		),
+		startProof: connect.NewClient[v1.StartProofRequest, v1.StartProofResponse](
+			httpClient,
+			baseURL+IdentityServiceStartProofProcedure,
+			connect.WithSchema(identityServiceMethods.ByName("StartProof")),
+			connect.WithClientOptions(opts...),
+		),
+		getProof: connect.NewClient[v1.GetProofRequest, v1.GetProofResponse](
+			httpClient,
+			baseURL+IdentityServiceGetProofProcedure,
+			connect.WithSchema(identityServiceMethods.ByName("GetProof")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -154,6 +180,8 @@ type identityServiceClient struct {
 	listUsers          *connect.Client[v1.ListUsersRequest, v1.ListUsersResponse]
 	listIdentityEvents *connect.Client[v1.ListIdentityEventsRequest, v1.ListIdentityEventsResponse]
 	setUserRole        *connect.Client[v1.SetUserRoleRequest, v1.SetUserRoleResponse]
+	startProof         *connect.Client[v1.StartProofRequest, v1.StartProofResponse]
+	getProof           *connect.Client[v1.GetProofRequest, v1.GetProofResponse]
 }
 
 // GetMe calls gravel.hub.v1.IdentityService.GetMe.
@@ -196,6 +224,16 @@ func (c *identityServiceClient) SetUserRole(ctx context.Context, req *connect.Re
 	return c.setUserRole.CallUnary(ctx, req)
 }
 
+// StartProof calls gravel.hub.v1.IdentityService.StartProof.
+func (c *identityServiceClient) StartProof(ctx context.Context, req *connect.Request[v1.StartProofRequest]) (*connect.Response[v1.StartProofResponse], error) {
+	return c.startProof.CallUnary(ctx, req)
+}
+
+// GetProof calls gravel.hub.v1.IdentityService.GetProof.
+func (c *identityServiceClient) GetProof(ctx context.Context, req *connect.Request[v1.GetProofRequest]) (*connect.Response[v1.GetProofResponse], error) {
+	return c.getProof.CallUnary(ctx, req)
+}
+
 // IdentityServiceHandler is an implementation of the gravel.hub.v1.IdentityService service.
 type IdentityServiceHandler interface {
 	// GetMe returns the caller and their linked identities.
@@ -219,6 +257,14 @@ type IdentityServiceHandler interface {
 	// SetUserRole grants or revokes a member's role (ADR-0013); every change is recorded with who
 	// made it. The owner only; the owner holds every power already and needs no role.
 	SetUserRole(context.Context, *connect.Request[v1.SetUserRoleRequest]) (*connect.Response[v1.SetUserRoleResponse], error)
+	// StartProof draws a one-time code the caller types in a game server's chat to prove the account
+	// they play as (gravel#5): the server's log names the account, and the hub links it to the
+	// caller (or proves an existing link again; another member's account stays theirs). Good for ten
+	// minutes and once; a new code replaces the open one. In person only; five codes an hour
+	// (resource_exhausted past that).
+	StartProof(context.Context, *connect.Request[v1.StartProofRequest]) (*connect.Response[v1.StartProofResponse], error)
+	// GetProof is one of the caller's proofs: open, proven, taken, replaced or expired. In person only.
+	GetProof(context.Context, *connect.Request[v1.GetProofRequest]) (*connect.Response[v1.GetProofResponse], error)
 }
 
 // NewIdentityServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -276,6 +322,18 @@ func NewIdentityServiceHandler(svc IdentityServiceHandler, opts ...connect.Handl
 		connect.WithSchema(identityServiceMethods.ByName("SetUserRole")),
 		connect.WithHandlerOptions(opts...),
 	)
+	identityServiceStartProofHandler := connect.NewUnaryHandler(
+		IdentityServiceStartProofProcedure,
+		svc.StartProof,
+		connect.WithSchema(identityServiceMethods.ByName("StartProof")),
+		connect.WithHandlerOptions(opts...),
+	)
+	identityServiceGetProofHandler := connect.NewUnaryHandler(
+		IdentityServiceGetProofProcedure,
+		svc.GetProof,
+		connect.WithSchema(identityServiceMethods.ByName("GetProof")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/gravel.hub.v1.IdentityService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case IdentityServiceGetMeProcedure:
@@ -294,6 +352,10 @@ func NewIdentityServiceHandler(svc IdentityServiceHandler, opts ...connect.Handl
 			identityServiceListIdentityEventsHandler.ServeHTTP(w, r)
 		case IdentityServiceSetUserRoleProcedure:
 			identityServiceSetUserRoleHandler.ServeHTTP(w, r)
+		case IdentityServiceStartProofProcedure:
+			identityServiceStartProofHandler.ServeHTTP(w, r)
+		case IdentityServiceGetProofProcedure:
+			identityServiceGetProofHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -333,4 +395,12 @@ func (UnimplementedIdentityServiceHandler) ListIdentityEvents(context.Context, *
 
 func (UnimplementedIdentityServiceHandler) SetUserRole(context.Context, *connect.Request[v1.SetUserRoleRequest]) (*connect.Response[v1.SetUserRoleResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.IdentityService.SetUserRole is not implemented"))
+}
+
+func (UnimplementedIdentityServiceHandler) StartProof(context.Context, *connect.Request[v1.StartProofRequest]) (*connect.Response[v1.StartProofResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.IdentityService.StartProof is not implemented"))
+}
+
+func (UnimplementedIdentityServiceHandler) GetProof(context.Context, *connect.Request[v1.GetProofRequest]) (*connect.Response[v1.GetProofResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.IdentityService.GetProof is not implemented"))
 }

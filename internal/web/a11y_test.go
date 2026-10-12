@@ -102,7 +102,9 @@ func TestAccessibility(t *testing.T) {
 			p := base
 			p.Title, p.User, p.CSRF = online.Name, jo, "csrf"
 			ended := now.Add(42 * time.Minute)
-			return templates.Server(templates.ServerPage{Page: p, Server: online, ObservedAt: &now, Teams: []templates.Team{{Name: "Lonestar", Score: 412}, {Name: "Boreal", Score: 388}},
+			eight, seven := int32(8), int32(7)
+			return templates.Server(templates.ServerPage{Page: p, Server: online, ObservedAt: &now, Scored: true,
+				Teams:    []templates.Team{{Name: "Lonestar", Score: 412, Players: &eight}, {Name: "Boreal", Score: 388, Players: &seven}},
 				Players:  []templates.PlayerRow{{Name: "Jo", Team: "Lonestar", Kills: 7, Deaths: 2, PingMs: 41, Member: true}, {Name: "Stranger", Team: "Boreal", Kills: 1, Deaths: 5, PingMs: 90}},
 				Matches:  []templates.MatchRow{{Started: now, Map: "Ozeti", Players: 24, Kills: 310}, {Started: now, Ended: &ended, Map: "Bakurani", Players: 31, Kills: 402}},
 				BoardURL: "/boards?scope=server%3Ahtg-wardogs-1", NextMap: "NorthAmerica"})
@@ -213,6 +215,7 @@ func TestAccessibility(t *testing.T) {
 				Mod: &templates.ModControls{Kick: true, Ban: true, Unban: true, Broadcast: true},
 				Host: &templates.HostPanel{State: "running", StateLabel: "Running", Since: now, Size: "c-2", Address: "203.0.113.50", Reserved: true,
 					HourlyUSD: 0.0625, MonthUSD: 3.5, HoursMonth: 56, BootSeconds: 70, ReadySeconds: 1500, ParkAfter: 30 * time.Minute,
+					ExpectedPlayers: 10, ExpectedUntil: now.Add(3 * time.Hour), ExpectedReason: "PUG 3 filled", ExpectMax: 20, CanExpect: true,
 					CanPark: true, CanResize: true, Sizes: []templates.HostSizeOption{{Slug: "c-4", Label: "c-4 · 4 vCPU · 8 GB · $0.125/h"}}}})
 		},
 		"/fixture/server-host-parked": func() templ.Component {
@@ -227,6 +230,32 @@ func TestAccessibility(t *testing.T) {
 			p.Title, p.User, p.CSRF = "Confirm", owner, "csrf"
 			return templates.HostConfirm(templates.HostConfirmPage{Page: p, ServerID: "htg-cs2-1", ServerName: "HTG CS2", Action: "resize", Size: "c-4",
 				Question: "Resize HTG CS2 to c-4?", Warning: "Everyone on is disconnected for a few minutes.", OfferForce: true})
+		},
+		// Proof in game (gravel#5): the account page's offer, and a code's page open and proven.
+		"/fixture/account-proof": func() templ.Component {
+			p := base
+			p.Title, p.User, p.CSRF = "Account", jo, "csrf"
+			return templates.Account(templates.AccountPage{Page: p, Identities: identities, ProofServers: []templates.ProofServer{{ID: "htg-cs2-1", Name: "HTG CS2"}},
+				ProofAccounts: identities[1:]})
+		},
+		"/fixture/proof": func() templ.Component {
+			p := base
+			p.Title, p.User = "Your code", jo
+			return templates.Proof(templates.ProofPage{Page: p, Code: "7K3M-9QXA", Instructions: "Join the server, then type in chat: !link 7K3M-9QXA",
+				ServerName: "HTG CS2", Join: &templates.Join{Label: "Connect", Value: "203.0.113.50:27015", Hint: "In CS2's console: connect 203.0.113.50:27015"},
+				ExpiresAt: now.Add(10 * time.Minute), Status: templates.ProofStatus{ID: "p1", State: "open", ProviderDisplay: "Steam"}})
+		},
+		"/fixture/proof-proven": func() templ.Component {
+			p := base
+			p.Title, p.User = "Your code", jo
+			return templates.Proof(templates.ProofPage{Page: p, Code: "7K3M-9QXA", Instructions: "Join the server, then type in chat: !link 7K3M-9QXA",
+				ServerName: "HTG CS2", ExpiresAt: now.Add(10 * time.Minute), Status: templates.ProofStatus{ID: "p1", State: "proven", ProviderDisplay: "Steam", Subject: "76561198000000001"}})
+		},
+		"/fixture/host-expect": func() templ.Component {
+			p := base
+			p.Title, p.User, p.CSRF = "Confirm", owner, "csrf"
+			return templates.HostConfirm(templates.HostConfirmPage{Page: p, ServerID: "htg-cs2-1", ServerName: "HTG CS2", Action: "expect", Players: "10", For: "3h",
+				Reason: "PUG 3 filled", Question: "Expect 10 players on HTG CS2 for the next 3h?", Warning: "Until then the machine is sized for them."})
 		},
 		"/fixture/confirm": func() templ.Component {
 			p := base
@@ -283,7 +312,8 @@ func TestAccessibility(t *testing.T) {
 	paths := []string{"/login", "/fixture/account-unowned", "/fixture/account-owner", "/fixture/error",
 		"/fixture/servers", "/fixture/servers-demo", "/fixture/server", "/fixture/server-anonymous", "/fixture/server-game-overlay", "/fixture/boards", "/fixture/member-self", "/fixture/member", "/fixture/members",
 		"/fixture/participation", "/fixture/participation-empty", "/fixture/member-participation", "/fixture/recap", "/fixture/recap-nobody",
-		"/fixture/server-moderator", "/fixture/server-host", "/fixture/server-host-parked", "/fixture/host-confirm", "/fixture/confirm", "/fixture/log", "/fixture/account-apps", "/fixture/consent"}
+		"/fixture/server-moderator", "/fixture/server-host", "/fixture/server-host-parked", "/fixture/host-confirm", "/fixture/confirm", "/fixture/log", "/fixture/account-apps", "/fixture/consent",
+		"/fixture/account-proof", "/fixture/proof", "/fixture/proof-proven", "/fixture/host-expect"}
 	// A fixture left out of the list would never be scanned and the run would still pass.
 	for path := range fixtures {
 		if !slices.Contains(paths, path) {

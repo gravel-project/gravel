@@ -70,7 +70,25 @@ type Change struct {
 	// MapChange is the map the server started loading ("Loading map"): a new map, after a
 	// match's end or a changelevel.
 	MapChange string
+	// Said is a chat line from a player with a SteamID, on any team or none.
+	Said *Chat
 }
+
+// Chat is one chat line, with the account that typed it: the log ties it to the player's SteamID,
+// which is what lets a code typed in chat prove the account (gravel#5).
+type Chat struct {
+	UserID    int
+	Name      string
+	SteamID64 uint64
+	Text      string
+	// Team is team chat (say_team), not all chat.
+	Team bool
+}
+
+// sayAnySide is a chat line from a player on any side: cs2log reads one only from a player on CT
+// or T (the others are its Unknown), and a code is as often typed from the team-select screen
+// (Unassigned) or as a Spectator.
+var sayAnySide = regexp.MustCompile(`^"(.*)<(\d+)><([^<>]*)><([^<>]*)>" say(_team)? "(.*)"$`)
 
 // Roster is who is on the server, kept from the log stream: CS2's status lists no SteamIDs, so
 // the log's connect lines are where an identity comes from (principle 6: logs are authoritative).
@@ -95,7 +113,8 @@ func NewRoster(logTimezone string) (*Roster, error) {
 // Push reads one log line. A line that is not a log line, or one the roster does not need, changes
 // nothing and is no error; err is only a line cs2log cannot read at all.
 func (r *Roster) Push(line string) (Change, error) {
-	ev, err := r.parser.ParseLine(strings.TrimRight(line, "\r"))
+	line = strings.TrimRight(line, "\r")
+	ev, err := r.parser.ParseLine(line)
 	if err != nil {
 		if errors.Is(err, cs2log.ErrNoMatch) {
 			return Change{}, nil
@@ -162,8 +181,24 @@ func (r *Roster) Push(line string) (Change, error) {
 		return Change{Reset: true}, nil
 	case cs2log.MapLoadingStarted:
 		return Change{MapChange: e.Map}, nil
+	case cs2log.PlayerSay:
+		return chat(e.Player.UserID, e.Player.Name, e.Player.SteamID, e.Text, e.Team), nil
+	case cs2log.Unknown: // cs2log reads chat only from CT or T
+		if m := sayAnySide.FindStringSubmatch(e.Payload); m != nil {
+			return chat(m[2], m[1], m[3], m[6], m[5] != ""), nil
+		}
 	}
 	return Change{}, nil
+}
+
+// chat is a chat line's change: nothing for a bot's or a console's line, which has no SteamID.
+func chat(userID, name, steamID, text string, team bool) Change {
+	id, err := strconv.Atoi(userID)
+	sid, human := SteamID64(steamID)
+	if err != nil || id < 0 || !human {
+		return Change{}
+	}
+	return Change{Said: &Chat{UserID: id, Name: name, SteamID64: sid, Text: text, Team: team}}
 }
 
 // PushBatch reads every line of a batch (a log push's body) and returns what changed, in order.
@@ -176,7 +211,7 @@ func (r *Roster) PushBatch(body []byte) []Change {
 		if err != nil {
 			continue
 		}
-		if c.Connected != nil || c.Disconnected != nil || c.Reset || c.MatchOver || c.MapChange != "" {
+		if c.Connected != nil || c.Disconnected != nil || c.Reset || c.MatchOver || c.MapChange != "" || c.Said != nil {
 			out = append(out, c)
 		}
 	}
@@ -270,6 +305,9 @@ func sensitiveCvar(name string) bool {
 	return false
 }
 
+// linkCode is a proof-of-control code typed in chat ("!link 7K3M-9QXA").
+var linkCode = regexp.MustCompile(`(?i)([!.]link\s+)[0-9a-z]{4}-?[0-9a-z]{4}`)
+
 // RedactLog returns a log batch with every secret it may carry replaced: the value of a secret
 // cvar in the server's startup dump ("sv_password" = "…"), and every occurrence of the given
 // strings (the feed token the batch was posted with, which a logged console command could echo).
@@ -287,6 +325,7 @@ func RedactLog(body []byte, secrets ...string) []byte {
 		if m := cvarRE.FindStringSubmatch(s); m != nil && sensitiveCvar(m[2]) && m[3] != "" {
 			s = m[1] + `"` + m[2] + `" = "[REDACTED]"`
 		}
+		s = linkCode.ReplaceAllString(s, "${1}[REDACTED]") // a proof code typed in chat (gravel#5)
 		for _, sec := range secrets {
 			if sec != "" {
 				s = strings.ReplaceAll(s, sec, "[REDACTED]")

@@ -212,6 +212,45 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.GetMeResponse'
+  /gravel.hub.v1.IdentityService/GetProof:
+    post:
+      tags:
+        - gravel.hub.v1.IdentityService
+      summary: GetProof
+      description: 'GetProof is one of the caller''s proofs: open, proven, taken, replaced or expired. In person only.'
+      operationId: gravel.hub.v1.IdentityService.GetProof
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.GetProofRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.GetProofResponse'
   /gravel.hub.v1.IdentityService/ListIdentityEvents:
     post:
       tags:
@@ -454,6 +493,50 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.SetUserRoleResponse'
+  /gravel.hub.v1.IdentityService/StartProof:
+    post:
+      tags:
+        - gravel.hub.v1.IdentityService
+      summary: StartProof
+      description: |-
+        StartProof draws a one-time code the caller types in a game server's chat to prove the account
+         they play as (gravel#5): the server's log names the account, and the hub links it to the
+         caller (or proves an existing link again; another member's account stays theirs). Good for ten
+         minutes and once; a new code replaces the open one. In person only; five codes an hour
+         (resource_exhausted past that).
+      operationId: gravel.hub.v1.IdentityService.StartProof
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.StartProofRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.StartProofResponse'
   /gravel.hub.v1.IdentityService/UnlinkIdentity:
     post:
       tags:
@@ -3242,6 +3325,42 @@ components:
           description: Every kind recorded in the organization, sorted, for a picker.
       title: GetParticipationBoardResponse
       additionalProperties: false
+    gravel.hub.v1.GetProofRequest:
+      type: object
+      properties:
+        proofId:
+          type: string
+          title: proof_id
+      title: GetProofRequest
+      additionalProperties: false
+    gravel.hub.v1.GetProofResponse:
+      type: object
+      properties:
+        proofId:
+          type: string
+          title: proof_id
+        serverId:
+          type: string
+          title: server_id
+        provider:
+          type: string
+          title: provider
+        expiresAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: expires_at
+        state:
+          type: string
+          title: state
+          description: |-
+            "open", "expired", "proven" (linked, or proven again), "taken" (another member's account;
+             nothing moved), "replaced" (a newer code took its place).
+        subject:
+          type: string
+          title: subject
+          description: The account that proved it, once proven or taken.
+      title: GetProofResponse
+      additionalProperties: false
     gravel.hub.v1.GetServerConfigRequest:
       type: object
       properties:
@@ -3485,7 +3604,9 @@ components:
         verificationMethod:
           type: string
           title: verification_method
-          description: 'How control was proven: "oauth2" or "openid".'
+          description: |-
+            How control was proven: "oauth2", "openid", or "game-chat" (a one-time code typed in a game
+             server's chat, gravel#5).
         verifiedAt:
           allOf:
             - $ref: '#/components/schemas/google.protobuf.Timestamp'
@@ -4966,6 +5087,45 @@ components:
             - $ref: '#/components/schemas/gravel.hub.v1.VolumeSnapshot'
           title: snapshot
       title: SnapshotServerHostVolumeResponse
+      additionalProperties: false
+    gravel.hub.v1.StartProofRequest:
+      type: object
+      properties:
+        serverId:
+          type: string
+          title: server_id
+          description: 'The server whose chat the code is typed in: one whose status has the "chat" capability.'
+        subject:
+          type: string
+          title: subject
+          description: |-
+            An account the caller has linked at the server's game's provider, to prove again; empty to
+             link a new one.
+      title: StartProofRequest
+      additionalProperties: false
+    gravel.hub.v1.StartProofResponse:
+      type: object
+      properties:
+        proofId:
+          type: string
+          title: proof_id
+        code:
+          type: string
+          title: code
+          description: The code, shown once ("7K3M-9QXA"); only its hash is kept.
+        expiresAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: expires_at
+        instructions:
+          type: string
+          title: instructions
+          description: 'What to do with it: "Join the server, then type in chat: !link 7K3M-9QXA".'
+        provider:
+          type: string
+          title: provider
+          description: 'The provider the account it proves is at: "steam".'
+      title: StartProofResponse
       additionalProperties: false
     gravel.hub.v1.StatsSeason:
       type: object

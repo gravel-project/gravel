@@ -248,6 +248,7 @@ type Manager struct {
 	mu        sync.Mutex
 	loaded    bool
 	hosts     map[string]*hostRT
+	chat      ChatSink
 	specs     map[string]ServerSpec
 	providers map[string]providerEntry
 	egress    []string
@@ -865,6 +866,14 @@ func (m *Manager) Lines(serverID string, body []byte) {
 	}
 	m.met.logBatches.WithLabelValues(serverID).Inc()
 	res := g.Log(body)
+	if len(res.Chat) > 0 {
+		m.mu.Lock()
+		sink := m.chat
+		m.mu.Unlock()
+		if sink != nil {
+			sink(serverID, res.Chat)
+		}
+	}
 	if res.Boundary != "" {
 		rt.mu.Lock()
 		rt.boundary, rt.boundaryAt = res.Boundary, m.opt.Now()
@@ -889,6 +898,36 @@ func (m *Manager) Lines(serverID string, body []byte) {
 			m.log.Info("kicked a banned player as they connected", "server", serverID, "player", p.Identity.Subject)
 		}(p)
 	}
+}
+
+// ChatSink takes the chat lines a server's log carried (a code typed to prove an account, gravel#5).
+// It is called on the log route's goroutine after the batch is stored: return quickly.
+type ChatSink func(serverID string, lines []ChatLine)
+
+// SetChatSink sets where chat lines go; nil drops them.
+func (m *Manager) SetChatSink(f ChatSink) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.chat = f
+}
+
+// Say sends a chat line to everyone on a running server; ErrNotRunning when its game isn't up.
+func (m *Manager) Say(ctx context.Context, serverID, message string) error {
+	m.mu.Lock()
+	rt, ok := m.hosts[serverID]
+	m.mu.Unlock()
+	if !ok {
+		return ErrNoSuchHost
+	}
+	rt.mu.Lock()
+	g := rt.game
+	rt.mu.Unlock()
+	if g == nil {
+		return ErrNotRunning
+	}
+	ctx, cancel := context.WithTimeout(ctx, gameCallTimeout)
+	defer cancel()
+	return g.Say(ctx, message)
 }
 
 // SourceAddresses are the addresses a server's log push may come from: its instance's own, and its

@@ -19,6 +19,8 @@ import (
 	"github.com/gravel-project/gravel/internal/apps/appstest"
 	"github.com/gravel-project/gravel/internal/identity"
 	"github.com/gravel-project/gravel/internal/identity/identitytest"
+	"github.com/gravel-project/gravel/internal/identity/proof"
+	"github.com/gravel-project/gravel/internal/identity/proof/prooftest"
 	"github.com/gravel-project/gravel/internal/org"
 	"github.com/gravel-project/gravel/internal/org/orgtest"
 	"github.com/gravel-project/gravel/internal/servers"
@@ -46,6 +48,9 @@ type rig struct {
 	stats *fakeStatsStore
 	reg   *prometheus.Registry
 	token string
+	// proofs take codes typed in game chat (gravel#5) on proofReader's one CS2 server.
+	proofs  *proof.Service
+	proofSt *prooftest.FakeStore
 }
 
 // fakeObserver is the monitor's observations, set by the test.
@@ -87,7 +92,11 @@ func newRig(t *testing.T) *rig {
 	mux := http.NewServeMux()
 	member := connect.WithInterceptors(api.MemberTokens()) // as the hub wires it (ADR-0015)
 	mux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(r.org, logger), member))
-	mux.Handle(hubv1connect.NewIdentityServiceHandler(api.NewIdentityServer(r.ids, r.sess, r.org, logger), member))
+	idAPI := api.NewIdentityServer(r.ids, r.sess, r.org, logger)
+	r.proofSt = prooftest.NewFakeStore()
+	r.proofs = proof.New(r.proofSt, logger, []proof.Channel{proof.GameChat{ProviderName: "steam"}})
+	idAPI.SetProofs(r.proofs, proofReader{}, r.obs)
+	mux.Handle(hubv1connect.NewIdentityServiceHandler(idAPI, member))
 	mux.Handle(hubv1connect.NewServerServiceHandler(api.NewServerServer(r.srvs, r.obs, r.ids, logger), member))
 	modServer := api.NewModerationServer(mod, r.org, r.ids, logger)
 	mux.Handle(hubv1connect.NewModerationServiceHandler(modServer, member))

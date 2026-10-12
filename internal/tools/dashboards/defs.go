@@ -81,6 +81,9 @@ func hubDashboard() dashboard {
 					Targets: []target{{Expr: `sum by (provider, intent, result) (increase(gravel_auth_completions_total{` + sel + `}[$__rate_interval]))`, Legend: "{{provider}} {{intent}} {{result}}"}}},
 				{Title: "Refused by a rate limit", Kind: "timeseries", Width: 12, Optional: "no request was rate limited in the range",
 					Targets: []target{{Expr: `sum by (scope) (increase(gravel_rate_limited_total{` + sel + `}[$__rate_interval]))`, Legend: "{{scope}}"}}},
+				{Title: "Proofs in game", Kind: "timeseries", Width: 12, Optional: "nobody proved an account in game during the range",
+					Description: "One-time codes typed in a game server's chat (gravel#5): started, linked, proven (again), taken (another member's account; nothing moved), bad_code, limited. Many bad codes from one server is someone guessing.",
+					Targets:     []target{{Expr: `sum by (channel, result) (increase(gravel_identity_proofs_total{` + sel + `}[$__rate_interval]))`, Legend: "{{channel}} {{result}}"}}},
 			}},
 			{Title: "First-party apps", Panels: []panel{
 				{Title: "Sign-ins to apps", Kind: "timeseries", Width: 8, Optional: "no app signed a member in during the range",

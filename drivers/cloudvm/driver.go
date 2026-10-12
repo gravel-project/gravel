@@ -16,7 +16,7 @@ import (
 // Capabilities a cloud-VM server has while its host runs. Kill, message and moving a player
 // are not offered: CS2's console has no command for the first two that names a player safely,
 // and teams are the players' own.
-var Capabilities = []string{drivers.CapBan, drivers.CapBans, drivers.CapBroadcast, drivers.CapKick, drivers.CapPark,
+var Capabilities = []string{drivers.CapBan, drivers.CapBans, drivers.CapBroadcast, drivers.CapChat, drivers.CapKick, drivers.CapPark,
 	drivers.CapPlayers, drivers.CapResize, drivers.CapStatus, drivers.CapUnban}
 
 // Factory is the driver the hub's monitor builds for a cloud-VM server: a thin view of the

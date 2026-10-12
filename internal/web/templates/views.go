@@ -149,6 +149,34 @@ type AccountPage struct {
 	RoleProviders []Provider
 	// Apps are the first-party apps the member allowed (ADR-0015), each with a revoke button.
 	Apps []AppGrant
+	// ProofServers are the running servers whose chat takes a one-time code (gravel#5), and
+	// ProofAccounts the member's linked accounts a code there can prove again.
+	ProofServers  []ProofServer
+	ProofAccounts []Identity
+}
+
+// ProofServer is a server a member can prove an account on by typing a code in its chat.
+type ProofServer struct {
+	ID, Name string
+}
+
+// ProofPage is a code the member just got, shown once, with where to type it.
+type ProofPage struct {
+	Page
+	Code         string
+	Instructions string
+	ServerName   string
+	Join         *Join
+	ExpiresAt    time.Time
+	Status       ProofStatus
+}
+
+// ProofStatus is what became of a code, refreshed while it is open.
+type ProofStatus struct {
+	ID              string
+	State           string // open, expired, proven, taken, replaced
+	ProviderDisplay string
+	Subject         string
 }
 
 // Scope is a scope an app holds or asks for, with what it lets the app do, in words.

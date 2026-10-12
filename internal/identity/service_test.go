@@ -281,7 +281,7 @@ func TestRegistrationRaceBecomesLogin(t *testing.T) {
 }
 
 func TestMergeOnSharedVerifiedEmail(t *testing.T) {
-	t.Skip("absorb-don't-delete merge of two users on a shared verified email is not in v1: Discord's identify scope carries no email and Steam has none; it returns with the proof-of-control work (gravel#5)")
+	t.Skip("absorb-don't-delete merge of two users on a shared verified email has no input: Discord's identify scope carries no email and Steam has none. Proof of control (gravel#5, ADR-0022) links and proves accounts and never merges users; the merge comes with the first provider that gives a verified email")
 }
 
 func TestStoreErrorsPropagate(t *testing.T) {

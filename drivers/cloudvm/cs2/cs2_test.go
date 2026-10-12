@@ -87,3 +87,18 @@ func TestAdapterBoundaries(t *testing.T) {
 		}
 	}
 }
+
+// Chat lines reach the hub with the identity that typed them (gravel#5).
+func TestAdapterChat(t *testing.T) {
+	srv := cs2test.New(t)
+	g, err := cs2game.New(srv.Addr(), cs2test.Password, cloudvm.Profile{LogTimezone: "Etc/UTC"}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	res := g.Log([]byte(`10/12/2026 - 19:05:00.000 - "Player One<2><[U:1:22202]><Unassigned>" say "!link 7K3M-9QXA"` + "\n" +
+		`10/12/2026 - 19:05:01.000 - "Console<0><Console><Console>" say "hi"` + "\n"))
+	if len(res.Chat) != 1 || res.Chat[0].Text != "!link 7K3M-9QXA" || res.Chat[0].Player.Identity != (drivers.Identity{Provider: "steam", Subject: "76561197960287930"}) ||
+		res.Chat[0].Player.Name != "Player One" || res.Chat[0].Team {
+		t.Errorf("chat %+v", res.Chat)
+	}
+}

@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -153,8 +155,8 @@ func TestHubCloudVMLifecycle(t *testing.T) {
 	if len(insts) != 1 {
 		t.Fatalf("instances %v", insts)
 	}
-	push := func(from string) int {
-		req, _ := http.NewRequestWithContext(ctx, http.MethodPost, base+"/api/ingest/log/feed-token", strings.NewReader("10/12/2026 - 19:00:00.000 - World triggered \"Round_Start\"\n"))
+	pushBody := func(from, body string) int {
+		req, _ := http.NewRequestWithContext(ctx, http.MethodPost, base+"/api/ingest/log/feed-token", strings.NewReader(body))
 		req.Header.Set("X-Test-Client", from)
 		req.Header.Set("X-Server-Instance-Token", "abc")
 		resp, err := http.DefaultClient.Do(req)
@@ -164,11 +166,66 @@ func TestHubCloudVMLifecycle(t *testing.T) {
 		_ = resp.Body.Close()
 		return resp.StatusCode
 	}
+	push := func(from string) int {
+		return pushBody(from, "10/12/2026 - 19:00:00.000 - World triggered \"Round_Start\"\n")
+	}
 	if code := push("198.51.100.9"); code != http.StatusUnauthorized {
 		t.Errorf("a push from elsewhere: %d", code)
 	}
 	if code := push(insts[0].PublicIPv4); code != http.StatusOK {
 		t.Errorf("a push from the host: %d", code)
+	}
+
+	// Proof in game (gravel#5): the owner's code, typed in the server's chat, links the Steam
+	// account the log names, and the hub answers in chat.
+	idc := hubv1connect.NewIdentityServiceClient(owned, base)
+	pr, err := idc.StartProof(ctx, connect.NewRequest(&hubv1.StartProofRequest{ServerId: "cs2-1"}))
+	if err != nil || pr.Msg.GetProvider() != "steam" {
+		t.Fatalf("start a proof: %v %v", pr, err)
+	}
+	said := "chat line " + pr.Msg.GetCode()
+	game.OnChat(said, cloudvm.ChatLine{Player: cloudvm.GamePlayer{UserID: 2, Name: "Owner in game",
+		Identity: drivers.Identity{Provider: "steam", Subject: "76561197960287930"}}, Text: "!link " + pr.Msg.GetCode()})
+	if code := pushBody(insts[0].PublicIPv4, said); code != http.StatusOK {
+		t.Fatalf("the chat line's push: %d", code)
+	}
+	for deadline := time.Now().Add(10 * time.Second); ; time.Sleep(20 * time.Millisecond) {
+		got, err := idc.GetProof(ctx, connect.NewRequest(&hubv1.GetProofRequest{ProofId: pr.Msg.GetProofId()}))
+		if err == nil && got.Msg.GetState() == "proven" && slices.ContainsFunc(game.Commands(), func(c string) bool { return strings.HasPrefix(c, "say Code accepted:") }) {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("never proven: %v %v, commands %v", got, err, game.Commands())
+		}
+	}
+	// A bad code is answered, at most once a minute per server.
+	for i := range 2 {
+		bad := "bad code " + strconv.Itoa(i)
+		game.OnChat(bad, cloudvm.ChatLine{Player: cloudvm.GamePlayer{UserID: 3, Identity: drivers.Identity{Provider: "steam", Subject: "76561197960287931"}}, Text: "!link 0000-0000"})
+		if code := pushBody(insts[0].PublicIPv4, bad); code != http.StatusOK {
+			t.Fatalf("a bad code's push: %d", code)
+		}
+	}
+	unknown := func() int {
+		n := 0
+		for _, c := range game.Commands() {
+			if strings.HasPrefix(c, "say That code is unknown") {
+				n++
+			}
+		}
+		return n
+	}
+	for deadline := time.Now().Add(5 * time.Second); unknown() == 0 && time.Now().Before(deadline); time.Sleep(20 * time.Millisecond) {
+	}
+	time.Sleep(200 * time.Millisecond) // the second answer, were it coming
+	if n := unknown(); n != 1 {
+		t.Errorf("%d answers to two bad codes, want 1: %v", n, game.Commands())
+	}
+	me, err := idc.GetMe(ctx, connect.NewRequest(&hubv1.GetMeRequest{}))
+	if err != nil || !slices.ContainsFunc(me.Msg.GetUser().GetIdentities(), func(i *hubv1.Identity) bool {
+		return i.GetProvider() == "steam" && i.GetSubject() == "76561197960287930" && i.GetVerificationMethod() == "game-chat"
+	}) {
+		t.Errorf("the owner's identities: %v %v", me, err)
 	}
 
 	// Anyone not signed in reads no host.
@@ -295,7 +352,10 @@ func TestHubCloudVMLifecycle(t *testing.T) {
 	for _, want := range []string{
 		`gravel_cloudvm_host_state{server="cs2-1",state="running"} 1`,
 		`gravel_cloudvm_operations_total{op="park",result="ok",server="cs2-1"} 1`,
-		`gravel_ingest_batches_total{result="stored",server="cs2-1",source="cs2"} 1`,
+		`gravel_ingest_batches_total{result="stored",server="cs2-1",source="cs2"} 4`, // a round start and three chat lines
+		`gravel_identity_proofs_total{channel="game-chat",result="started"} 1`,
+		`gravel_identity_proofs_total{channel="game-chat",result="linked"} 1`,
+		`gravel_identity_proofs_total{channel="game-chat",result="bad_code"} 2`,
 		`gravel_ingest_batches_total{result="address_mismatch",server="cs2-1",source="cs2"} 1`,
 	} {
 		if !strings.Contains(string(body), want) {

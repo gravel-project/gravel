@@ -109,6 +109,8 @@ Public listener (`server.listen`), HTTP/1.1 and unencrypted HTTP/2 so gRPC works
 | `/gravel.hub.v1.OrganizationService/UpdateOrganizationSettings` | replace them; the owner only; `invalid_argument` names every invalid field |
 | `/gravel.hub.v1.IdentityService/GetMe` | the caller and their linked identities; needs a session, or a member's token from an app (no scope needed: how an app learns who signed in, ADR-0015) |
 | `/gravel.hub.v1.IdentityService/UnlinkIdentity` | `{"provider": "steam", "subject": "…"}`; the last identity is refused (`failed_precondition`) |
+| `/gravel.hub.v1.IdentityService/StartProof` | `{"server_id": "…", "subject": "…"}` → a one-time code to type in that server's chat, with its id, expiry and instructions ([Proof in game](#proof-in-game-adr-0022)); `subject` (optional) is an account of the caller's to prove again; a session only, five an hour |
+| `/gravel.hub.v1.IdentityService/GetProof` | `{"proof_id": "…"}` → `open`, `proven`, `taken`, `replaced` or `expired`, and the account once proven; a session only, the caller's own |
 | `/gravel.hub.v1.IdentityService/Logout` | end the calling session and clear its cookie |
 | `/gravel.hub.v1.IdentityService/RevokeSessions` | log out everywhere; answers how many sessions ended and clears the cookie |
 | `/gravel.hub.v1.IdentityService/LookupUser` | `{"provider": "discord", "subject": "…"}` → the user and their identities, for role sync; an app with `identity:read`, or the owner |
@@ -1232,6 +1234,31 @@ so is unlinking the last one (a provider-only account would be unreachable).
   cloudflared); otherwise everyone shares the proxy's bucket. Set it only when nothing else can
   reach the listener: the header is trusted as given.
 - Expired sessions and attempts are pruned every ten minutes.
+
+### Proof in game (ADR-0022)
+
+Where a provider has no sign-in the hub can use, or a member wants to prove an account again, a
+one-time code typed in a game server's chat proves it (#5). The account page lists the running
+servers whose chat the hub reads (a status with the `chat` capability: Counter-Strike 2 on the
+cloud-VM driver), and "Get a code" shows a code like `7K3M-9QXA` once, on its own page, with the
+server's address. The member joins and types `!link 7K3M-9QXA` (or `.link`, in any case, with or
+without the hyphen) in all chat or team chat, from any team or none. The server's log carries the
+line with the player's SteamID, from the server's own address. The hub links that Steam account to
+the member, or proves it again when it is theirs already (`verification_method` becomes
+`game-chat`), and says so in chat. The page notices within five seconds.
+
+- **One code, ten minutes, once,** bound to the member, the server and (when proving an account
+  again) that account; a new code replaces the open one. Only its SHA-256 is stored.
+- **Another member's account stays theirs:** the code is spent, nothing moves, and the chat says
+  the account belongs to someone else. The member asks the hub's owner.
+- **Limits:** five codes a member an hour; ten codes presented per account and server, and sixty
+  per server, every ten minutes. A wrong code gets one answer: unknown or expired. Failures are
+  answered in chat at most once a minute per server.
+- **What is kept:** proof rows for 30 days after they expire (pruned with the sessions); the log
+  batch as the ingest route keeps it, with the code redacted in the copy a person reads.
+- `gravel_identity_proofs_total{channel, result}` counts codes started, linked, proven, taken,
+  bad and limited, on the hub dashboard's Login row; many bad codes on one server is someone
+  guessing.
 
 ## Discord Linked Roles (ADR-0008)
 
