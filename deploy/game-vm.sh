@@ -139,7 +139,7 @@ user_systemctl() { vm_ssh gravel "XDG_RUNTIME_DIR=/run/user/1100 systemctl --use
 check() {
   vm_ssh admin sudo cloud-init status >/dev/null || die "cloud-init is not done, or finished degraded"
   [[ "$(vm_ssh admin hostname)" == "$name" ]] || die "the hostname is not $name"
-  vm_ssh gravel 'mountpoint -q "$HOME" && test -e "$HOME/.gravel-home" && test -e "$HOME/.gravel-boot-done"' ||
+  vm_ssh gravel 'mountpoint -q "$HOME" && test -e "$HOME/.gravel-home" && test -e /var/lib/gravel/boot-done' ||
     die "the data volume is not the runtime user's home, or first boot did not finish"
   [[ "$(vm_ssh gravel id -u)" == "1100" ]] || die "the runtime user's uid is not 1100"
   vm_ssh gravel 'test -f "$HOME/.config/containers/systemd/cs2.container"' || die "the game's unit is not installed"

@@ -725,7 +725,7 @@ func TestDocumentHoldsNoSecret(t *testing.T) {
 		}
 	}
 	for _, want := range []string{"ConditionPathExists=%h/.config/cs2/env", "UserNS=keep-id:uid=1000,gid=1000", "Volume=%h/cs2:/home/steam/cs2-dedicated:Z",
-		"EnvironmentFile=%h/.config/cs2/env", "Image=ghcr.io/joedwards32/cs2:5.0.0@sha256:", "Network=host", ".gravel-boot-done"} {
+		"EnvironmentFile=%h/.config/cs2/env", "Image=ghcr.io/joedwards32/cs2:5.0.0@sha256:", "Network=host", "/var/lib/gravel/boot-done"} {
 		if !strings.Contains(doc, want) {
 			t.Errorf("the document lacks %q", want)
 		}
@@ -838,5 +838,31 @@ func TestEnvScriptQueuesTheRestart(t *testing.T) {
 	}
 	if strings.Contains(cloudvm.EnvScript("cs2", false), "systemctl") {
 		t.Error("without restart the script touches the unit")
+	}
+}
+
+// TestBootMarkerIsOnTheRootDisk holds the fix for HTG's first warm start: the marker in the
+// runtime user's home was on the data volume, so a replacement instance showed the previous
+// instance's marker and was taken as booted before its own first boot ran.
+func TestBootMarkerIsOnTheRootDisk(t *testing.T) {
+	if strings.HasPrefix(cloudvm.BootMarker, "~") || strings.HasPrefix(cloudvm.BootMarker, "/home/") || !strings.HasPrefix(cloudvm.BootMarker, "/") {
+		t.Fatalf("BootMarker %q is not an absolute path off the volume", cloudvm.BootMarker)
+	}
+	r := newRig(t)
+	r.remote.BootAll()
+	for i := 0; i < 4; i++ {
+		_ = r.tick()
+	}
+	var checked bool
+	for _, run := range r.remote.Runs() {
+		if strings.Contains(run.Command, "$HOME/.gravel-boot-done") || strings.Contains(run.Command, "~/.gravel-boot-done") {
+			t.Errorf("the hub checked the marker on the volume: %q", run.Command)
+		}
+		if run.Command == "test -e "+cloudvm.BootMarker {
+			checked = true
+		}
+	}
+	if !checked {
+		t.Error("the hub never checked the marker on the root disk")
 	}
 }

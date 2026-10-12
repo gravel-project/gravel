@@ -115,7 +115,9 @@ write_files:
       restorecon -R "$home/.config"
       as_user systemctl --user daemon-reload
       as_user systemctl --user start cs2.service || true
-      install -o "$user" -g "$user" -m 0644 /dev/null "$home/.gravel-boot-done"
+      rm -f "$home/.gravel-boot-done" # an earlier version's marker, on the volume
+      install -d -m 0755 /var/lib/gravel
+      install -m 0644 /dev/null /var/lib/gravel/boot-done
 
       echo "first-boot: done"
   - path: /usr/local/share/gravel/cs2.container
