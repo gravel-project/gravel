@@ -819,3 +819,24 @@ func TestRenderEnv(t *testing.T) {
 		t.Error("a value with a line break was written")
 	}
 }
+
+// TestEnvScriptQueuesTheRestart holds the fix for HTG's first live run: a blocking restart waited
+// on the image pull and podman's copy for the user namespace, was cut at remoteRunTimeout, and
+// each retry restarted the copy.
+func TestEnvScriptQueuesTheRestart(t *testing.T) {
+	script := cloudvm.EnvScript("cs2", true)
+	if !strings.Contains(script, "systemctl --user restart --no-block cs2.service\n") {
+		t.Errorf("the restart is not queued with --no-block:\n%s", script)
+	}
+	for _, line := range strings.Split(script, "\n") {
+		if strings.Contains(line, "systemctl") && strings.Contains(line, " restart ") && !strings.Contains(line, "--no-block") {
+			t.Errorf("a blocking restart: %q", line)
+		}
+	}
+	if !strings.Contains(script, "mv -f ~/.config/cs2/env.tmp ~/.config/cs2/env\n") {
+		t.Errorf("the file is not written in one move:\n%s", script)
+	}
+	if strings.Contains(cloudvm.EnvScript("cs2", false), "systemctl") {
+		t.Error("without restart the script touches the unit")
+	}
+}
