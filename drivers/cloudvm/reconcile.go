@@ -3,6 +3,8 @@ package cloudvm
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -52,6 +54,9 @@ const (
 	CodeDuplicateInstances = "duplicate_instances"
 	CodeVolumeNotOurs      = "volume_not_ours"
 	CodeGameFailed         = "game_failed"
+	// DetailEnvDrift is the event a host records when its game's environment file is not the
+	// one the hub pushed (#169): the hub pushes it again.
+	DetailEnvDrift = "env_drift"
 )
 
 // ErrHostKeyChanged is a host presenting another SSH host key than the one the hub trusted: the
@@ -425,8 +430,9 @@ func (t *tick) create(ctx context.Context, h *Host) (bool, error) {
 	return false, fmt.Errorf("cloudvm: unknown creating step %q", h.Step)
 }
 
-// remote runs a command on the host as the runtime user, trusting its key on first use.
-func (t *tick) remote(ctx context.Context, h *Host, stdin []byte, command string) error {
+// remote runs a command on the host as the runtime user, trusting its key on first use, and
+// returns what it printed.
+func (t *tick) remote(ctx context.Context, h *Host, stdin []byte, command string) ([]byte, error) {
 	rctx, cancel := context.WithTimeout(ctx, remoteRunTimeout)
 	defer cancel()
 	var in io.Reader
@@ -434,18 +440,18 @@ func (t *tick) remote(ctx context.Context, h *Host, stdin []byte, command string
 		in = bytes.NewReader(stdin)
 	}
 	target := RemoteTarget{Address: h.InstanceAddress, User: vmdoc.DefaultUser, Signer: t.s.Location.SSHKey, HostKey: h.HostKey}
-	_, key, err := t.m.opt.Remote.Run(rctx, target, in, command)
+	out, key, err := t.m.opt.Remote.Run(rctx, target, in, command)
 	if h.HostKey == "" && key != "" {
 		h.HostKey = key
 	}
 	if errors.Is(err, ErrHostKeyChanged) {
-		return fail(CodeHostKeyChanged, err)
+		return nil, fail(CodeHostKeyChanged, err)
 	}
-	return err
+	return out, err
 }
 
 func (t *tick) boot(ctx context.Context, h *Host) (bool, error) {
-	err := t.remote(ctx, h, nil, "test -e "+BootMarker)
+	_, err := t.remote(ctx, h, nil, "test -e "+BootMarker)
 	if err != nil {
 		var se *stepError
 		if errors.As(err, &se) {
@@ -482,7 +488,7 @@ func EnvScript(game string, restart bool) string {
 // pushEnv writes the game's environment file and restarts its unit (or, with restart false, only
 // writes it).
 func (t *tick) pushEnv(ctx context.Context, h *Host, env []byte, restart bool) error {
-	if err := t.remote(ctx, h, env, EnvScript(t.s.Game, restart)); err != nil {
+	if _, err := t.remote(ctx, h, env, EnvScript(t.s.Game, restart)); err != nil {
 		var se *stepError
 		if errors.As(err, &se) {
 			return err
@@ -492,6 +498,41 @@ func (t *tick) pushEnv(ctx context.Context, h *Host, env []byte, restart bool) e
 	return nil
 }
 
+// EnvHashScript is the command that prints the SHA-256 of the game's environment file on the
+// host, or "missing" when there is none. Only the hash leaves the host, never the file.
+func EnvHashScript(game string) string {
+	return "f=~/.config/" + game + "/env; if [ -f \"$f\" ]; then sha256sum \"$f\"; else echo missing; fi"
+}
+
+// hostEnvHash reads the hash of the environment file on the host: nil when there is none.
+func (t *tick) hostEnvHash(ctx context.Context, h *Host) ([]byte, error) {
+	out, err := t.remote(ctx, h, nil, EnvHashScript(t.s.Game))
+	if err != nil {
+		return nil, err
+	}
+	fields := strings.Fields(string(out))
+	if len(fields) == 0 {
+		return nil, fmt.Errorf("cloudvm: no answer from the environment file's hash")
+	}
+	if fields[0] == "missing" {
+		return nil, nil
+	}
+	sum, err := hex.DecodeString(fields[0])
+	if err != nil || len(sum) != sha256.Size {
+		return nil, fmt.Errorf("cloudvm: the environment file's hash is not a SHA-256: %q", fields[0])
+	}
+	return sum, nil
+}
+
+// envDrift records that the environment file on the host is not the one the hub pushed: by hand,
+// a crash mid-write or a break-glass change left in place (#169, HTG's first live run: a line
+// added on the volume survived a park and bound RCON to the wrong address). Never its content.
+func (t *tick) envDrift(h *Host, where string) {
+	t.events = append(t.events, Event{ServerID: h.ServerID, At: t.now, From: h.State, To: h.State, Step: h.Step, Detail: DetailEnvDrift, Size: h.Size})
+	t.m.met.envDrift.WithLabelValues(h.ServerID).Inc()
+	t.m.log.Warn("the game's environment file on the host is not the one the hub pushed; pushing it again", "server", h.ServerID, "when", where)
+}
+
 func (t *tick) start(ctx context.Context, h *Host) (bool, error) {
 	switch h.Step {
 	case stepEnv, "":
@@ -499,12 +540,25 @@ func (t *tick) start(ctx context.Context, h *Host) (bool, error) {
 		if err != nil {
 			return false, err
 		}
-		if sum := envHash(env); !bytes.Equal(sum, h.EnvSHA256) {
+		// The recorded hash says what the hub pushed, not what the host has: read the host's.
+		sum := envHash(env)
+		onHost, err := t.hostEnvHash(ctx, h)
+		if err != nil {
+			var se *stepError
+			if errors.As(err, &se) {
+				return false, err
+			}
+			return false, fail(CodeSSHFailed, err)
+		}
+		if !bytes.Equal(sum, onHost) {
+			if bytes.Equal(sum, h.EnvSHA256) {
+				t.envDrift(h, "start")
+			}
 			if err := t.pushEnv(ctx, h, env, true); err != nil {
 				return false, err
 			}
-			h.EnvSHA256 = sum
 		}
+		h.EnvSHA256 = sum
 		h.Step = stepGame
 		return true, nil
 	case stepGame:
@@ -574,7 +628,22 @@ func (t *tick) running(ctx context.Context, h *Host, want string) (bool, error) 
 	if err != nil {
 		return false, err
 	}
-	if sum := envHash(env); !bytes.Equal(sum, h.EnvSHA256) {
+	sum := envHash(env)
+	if drift && bytes.Equal(sum, h.EnvSHA256) {
+		// The same pass looks at the file on the host; a difference takes the settings-changed path
+		// below, so a game with players on keeps running until it is empty.
+		if onHost, err := t.hostEnvHash(ctx, h); err != nil {
+			var se *stepError
+			if errors.As(err, &se) {
+				return false, err
+			}
+			t.m.log.Warn("couldn't read the game's environment file's hash on the host", "server", h.ServerID, "error", err.Error())
+		} else if !bytes.Equal(sum, onHost) {
+			t.envDrift(h, "running")
+			h.EnvSHA256 = nil
+		}
+	}
+	if !bytes.Equal(sum, h.EnvSHA256) {
 		if !known || players > 0 {
 			if h.Step != stepEnvPending {
 				h.Step = stepEnvPending

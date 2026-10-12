@@ -65,6 +65,7 @@ type rig struct {
 	game   *cloudvmtest.Game
 	src    *source
 	egress []string
+	reg    *prometheus.Registry
 	now    time.Time
 	nowMu  sync.Mutex
 }
@@ -83,13 +84,21 @@ func newRig(t *testing.T) *rig {
 		Settings: map[string]string{"start_map": "de_mirage"}, RCONPassword: "rcon-secret", JoinPassword: "join-secret",
 		FeedURL: cloudvm.FeedURL("https://ingest.example.com", "feed-secret"),
 	}}}
+	r.remote.DiskOf = cloudvmtest.HomeOnVolume(r.p)
 	r.m = r.manager(r.st)
 	return r
+}
+
+// env is the environment file on a host (its home is on the server's volume).
+func (r *rig) env(address string) string {
+	e, _ := r.remote.EnvOn(address)
+	return e
 }
 
 func (r *rig) manager(st cloudvm.HostStore) *cloudvm.Manager {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	reg := prometheus.NewRegistry()
+	r.reg = reg
 	m := cloudvm.NewManager(r.src, st, map[string]cloudvm.GameFactory{"cs2": r.game.Factory()}, cloudvm.Options{
 		Providers: func(context.Context, cloudvm.Location) (cloud.Provider, error) { return r.p, nil },
 		Remote:    r.remote,
@@ -177,6 +186,41 @@ func (r *rig) world() world {
 	return w
 }
 
+// counter is a counter's value for one label set, 0 when it was never touched.
+func (r *rig) counter(name string, labels map[string]string) float64 {
+	r.t.Helper()
+	mfs, err := r.reg.Gather()
+	if err != nil {
+		r.t.Fatal(err)
+	}
+	for _, mf := range mfs {
+		if mf.GetName() != name {
+			continue
+		}
+	metrics:
+		for _, m := range mf.GetMetric() {
+			for _, lp := range m.GetLabel() {
+				if v, ok := labels[lp.GetName()]; ok && v != lp.GetValue() {
+					continue metrics
+				}
+			}
+			return m.GetCounter().GetValue()
+		}
+	}
+	return 0
+}
+
+// driftEvents counts the host's env_drift events.
+func (r *rig) driftEvents() int {
+	n := 0
+	for _, e := range r.st.Events() {
+		if e.Detail == cloudvm.DetailEnvDrift {
+			n++
+		}
+	}
+	return n
+}
+
 func envPushes(r *cloudvmtest.Remote) int {
 	n := 0
 	for _, run := range r.Runs() {
@@ -231,7 +275,7 @@ func TestCreateFromNothing(t *testing.T) {
 			t.Errorf("rule %+v", rule)
 		}
 	}
-	env := r.remote.Env[h.InstanceAddress]
+	env := r.env(h.InstanceAddress)
 	for _, line := range []string{"CS2_RCONPW=rcon-secret", "CS2_PW=join-secret", "CS2_LOG_HTTP_URL=https://ingest.example.com/api/ingest/log/feed-secret",
 		"CS2_STARTMAP=de_mirage", "CS2_MAXPLAYERS=10", "TV_ENABLE=0", "CS2_SERVER_HIBERNATE=0", "CS2_SERVERNAME=HTG CS2"} {
 		if !strings.Contains(env, line+"\n") {
@@ -682,7 +726,7 @@ func TestEnvRotationWaitsForEmpty(t *testing.T) {
 	if err := r.tick(); err != nil {
 		t.Fatal(err)
 	}
-	if got := r.host(); got.Step != "env_pending" || strings.Contains(r.remote.Env[h.InstanceAddress], "rotated") {
+	if got := r.host(); got.Step != "env_pending" || strings.Contains(r.env(h.InstanceAddress), "rotated") {
 		t.Fatalf("pushed with a player on: step %q", got.Step)
 	}
 	if r.game.Password() != "rotated" {
@@ -693,8 +737,8 @@ func TestEnvRotationWaitsForEmpty(t *testing.T) {
 	if err := r.tick(); err != nil {
 		t.Fatal(err)
 	}
-	if got := r.host(); got.State != cloudvm.StateRunning || !strings.Contains(r.remote.Env[h.InstanceAddress], "CS2_RCONPW=rotated\n") {
-		t.Errorf("after the room emptied: %s, env:\n%s", got.State, r.remote.Env[h.InstanceAddress])
+	if got := r.host(); got.State != cloudvm.StateRunning || !strings.Contains(r.env(h.InstanceAddress), "CS2_RCONPW=rotated\n") {
+		t.Errorf("after the room emptied: %s, env:\n%s", got.State, r.env(h.InstanceAddress))
 	}
 }
 
@@ -707,7 +751,7 @@ func TestHostKeyMismatchIsAnError(t *testing.T) {
 	if err := r.tick(); err == nil || r.host().ErrorCode != cloudvm.CodeHostKeyChanged {
 		t.Errorf("%v %q", err, r.host().ErrorCode)
 	}
-	if strings.Contains(r.remote.Env[h.InstanceAddress], "CS2_PW=new") {
+	if strings.Contains(r.env(h.InstanceAddress), "CS2_PW=new") {
 		t.Error("the env went to a host with another key")
 	}
 }
@@ -935,5 +979,170 @@ func TestSourceAddressesIncludeTheReservedAddress(t *testing.T) {
 	}
 	if _, ok := r.m.SourceAddresses("nope"); ok {
 		t.Error("a server with no host has source addresses")
+	}
+}
+
+// #169: the hub reads the environment file on the host, not only the hash it recorded.
+
+const handEdit = "CS2_IP=10.48.0.6\n" // HTG's first live run: this line bound RCON to the anchor address
+
+func TestEnvDriftOnTheVolumeIsPushedAgainAtUnpark(t *testing.T) {
+	r := newRig(t)
+	h := r.up()
+	want := r.env(h.InstanceAddress)
+	r.remote.SetEnv(h.InstanceAddress, want+handEdit) // on the volume, so it outlives the instance
+	ctx := context.Background()
+	if _, err := r.m.SetDesired(ctx, serverID, cloudvm.DesiredParked, 0); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.tick(); err != nil {
+		t.Fatal(err)
+	}
+	if r.driftEvents() != 0 {
+		t.Fatal("drift recorded before the hub looked")
+	}
+	pushes := envPushes(r.remote)
+	if _, err := r.m.SetDesired(ctx, serverID, cloudvm.DesiredRunning, 0); err != nil {
+		t.Fatal(err)
+	}
+	r.advance(time.Minute)
+	got := r.up()
+	if r.env(got.InstanceAddress) != want {
+		t.Errorf("the hand edit survived the unpark:\n%s", r.env(got.InstanceAddress))
+	}
+	if n := envPushes(r.remote) - pushes; n != 1 {
+		t.Errorf("%d pushes at the unpark, want 1", n)
+	}
+	if r.driftEvents() != 1 || r.counter("gravel_cloudvm_env_drift_total", map[string]string{"server": serverID}) != 1 {
+		t.Errorf("drift events %d, counter %v: want one of each", r.driftEvents(), r.counter("gravel_cloudvm_env_drift_total", nil))
+	}
+	for _, e := range r.st.Events() {
+		if e.Detail == cloudvm.DetailEnvDrift && (e.From != cloudvm.StateStarting || strings.Contains(e.Detail+e.Step, "CS2_IP")) {
+			t.Errorf("drift event %+v: recorded at starting, without the file's content", e)
+		}
+	}
+}
+
+func TestEnvDriftIsPushedAgainOnARecreatedInstance(t *testing.T) {
+	r := newRig(t)
+	h := r.up()
+	want := r.env(h.InstanceAddress)
+	r.remote.SetEnv(h.InstanceAddress, want+handEdit)
+	if _, err := r.p.DeleteInstance(context.Background(), h.InstanceID); err != nil {
+		t.Fatal(err)
+	}
+	r.advance(cloudvm.DriftEvery)
+	if err := r.tick(); err != nil {
+		t.Fatal(err)
+	}
+	got := r.host()
+	if got.State != cloudvm.StateRunning || got.InstanceID == h.InstanceID {
+		t.Fatalf("after a lost instance %+v", got)
+	}
+	if r.env(got.InstanceAddress) != want || r.driftEvents() != 1 {
+		t.Errorf("recreate: drift events %d, env:\n%s", r.driftEvents(), r.env(got.InstanceAddress))
+	}
+}
+
+func TestEnvDriftWhileRunningEmptyIsPushedAtTheDriftPass(t *testing.T) {
+	r := newRig(t)
+	h := r.up()
+	want := r.env(h.InstanceAddress)
+	r.remote.SetEnv(h.InstanceAddress, want+handEdit)
+	pushes := envPushes(r.remote)
+	r.advance(cloudvm.DriftEvery - time.Second)
+	if err := r.tick(); err != nil {
+		t.Fatal(err)
+	}
+	if envPushes(r.remote) != pushes {
+		t.Fatal("pushed before the drift pass")
+	}
+	r.advance(time.Second)
+	if err := r.tick(); err != nil {
+		t.Fatal(err)
+	}
+	if got := r.host(); got.State != cloudvm.StateRunning || r.env(h.InstanceAddress) != want || envPushes(r.remote)-pushes != 1 {
+		t.Errorf("after the drift pass: %s, %d pushes, env:\n%s", got.State, envPushes(r.remote)-pushes, r.env(h.InstanceAddress))
+	}
+	if !slices.Contains(r.st.Transitions(), "running>starting") || r.driftEvents() != 1 {
+		t.Errorf("transitions %v, drift events %d: the game restarts on the pushed file", r.st.Transitions(), r.driftEvents())
+	}
+	r.advance(cloudvm.DriftEvery)
+	if err := r.tick(); err != nil {
+		t.Fatal(err)
+	}
+	if r.driftEvents() != 1 || envPushes(r.remote)-pushes != 1 {
+		t.Errorf("a matching file was pushed again or recorded as drift (%d events)", r.driftEvents())
+	}
+}
+
+func TestEnvDriftWithPlayersOnWaitsForEmpty(t *testing.T) {
+	r := newRig(t)
+	h := r.up()
+	ctx := context.Background()
+	want := r.env(h.InstanceAddress)
+	r.game.SetPlayers(cloudvm.GamePlayer{UserID: 2})
+	_, _ = r.m.Status(ctx, serverID)
+	r.remote.SetEnv(h.InstanceAddress, want+handEdit)
+	r.advance(cloudvm.DriftEvery)
+	if err := r.tick(); err != nil {
+		t.Fatal(err)
+	}
+	if got := r.host(); got.Step != "env_pending" || r.env(h.InstanceAddress) == want {
+		t.Fatalf("with a player on: step %q; the file must wait for an empty server", got.Step)
+	}
+	r.advance(cloudvm.DriftEvery)
+	if err := r.tick(); err != nil {
+		t.Fatal(err)
+	}
+	if r.driftEvents() != 1 {
+		t.Errorf("drift recorded %d times while it waited", r.driftEvents())
+	}
+	r.game.SetPlayers()
+	_, _ = r.m.Status(ctx, serverID)
+	if err := r.tick(); err != nil {
+		t.Fatal(err)
+	}
+	if got := r.host(); got.State != cloudvm.StateRunning || r.env(h.InstanceAddress) != want {
+		t.Errorf("after the room emptied: %s, env:\n%s", got.State, r.env(h.InstanceAddress))
+	}
+}
+
+func TestEnvHashUnreadableAtStartFailsTheStep(t *testing.T) {
+	r := newRig(t)
+	r.remote.BootAll()
+	r.game.Up(true)
+	r.remote.FailHash("*", errors.New("ssh: handshake failed"))
+	if err := r.tick(); err == nil {
+		t.Fatal("no error with an unreadable hash")
+	}
+	if got := r.host(); got.State != cloudvm.StateStarting || got.ErrorCode != cloudvm.CodeSSHFailed || envPushes(r.remote) != 0 {
+		t.Fatalf("host %s/%s code %q, %d pushes: never trust the record when the host can't be read", got.State, got.Step, got.ErrorCode, envPushes(r.remote))
+	}
+	r.remote.FailHash("*", nil)
+	r.advance(10 * time.Minute)
+	if got := r.up(); envPushes(r.remote) != 1 || got.ErrorCode != "" {
+		t.Errorf("after the host answered: %d pushes, code %q", envPushes(r.remote), got.ErrorCode)
+	}
+}
+
+func TestEnvHashUnreadableWhileRunningKeepsTheGame(t *testing.T) {
+	r := newRig(t)
+	r.up()
+	pushes := envPushes(r.remote)
+	r.remote.FailHash("*", errors.New("ssh: handshake failed"))
+	r.advance(cloudvm.DriftEvery)
+	if err := r.tick(); err != nil {
+		t.Fatal(err)
+	}
+	if got := r.host(); got.State != cloudvm.StateRunning || got.ErrorCode != "" || envPushes(r.remote) != pushes || r.driftEvents() != 0 {
+		t.Errorf("host %s code %q, %d new pushes, %d drift events: a running game is left alone", got.State, got.ErrorCode, envPushes(r.remote)-pushes, r.driftEvents())
+	}
+}
+
+func TestEnvHashScriptPrintsOnlyTheHash(t *testing.T) {
+	s := cloudvm.EnvHashScript("cs2")
+	if !strings.Contains(s, "sha256sum") || !strings.Contains(s, "~/.config/cs2/env") || !strings.Contains(s, "echo missing") || strings.Contains(s, "cat ") {
+		t.Errorf("script %q: the hash or \"missing\", never the file", s)
 	}
 }

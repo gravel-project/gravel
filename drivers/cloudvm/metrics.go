@@ -19,6 +19,7 @@ type metrics struct {
 	price        *prometheus.GaugeVec
 	logBatches   *prometheus.CounterVec
 	bansEnforced *prometheus.CounterVec
+	envDrift     *prometheus.CounterVec
 }
 
 func newMetrics(reg prometheus.Registerer) *metrics {
@@ -51,8 +52,11 @@ func newMetrics(reg prometheus.Registerer) *metrics {
 		bansEnforced: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Name: "gravel_cloudvm_bans_enforced_total", Help: "Banned players kicked as they connected to a cloud-VM server.",
 		}, []string{"server"}),
+		envDrift: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "gravel_cloudvm_env_drift_total", Help: "Times the game's environment file on a host was not the one the hub pushed, and was pushed again.",
+		}, []string{"server"}),
 	}
-	reg.MustRegister(m.state, m.since, m.failing, m.ops, m.duration, m.running, m.price, m.logBatches, m.bansEnforced)
+	reg.MustRegister(m.state, m.since, m.failing, m.ops, m.duration, m.running, m.price, m.logBatches, m.bansEnforced, m.envDrift)
 	return m
 }
 

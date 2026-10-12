@@ -684,6 +684,16 @@ A step that fails keeps its state, shows a word (`error_code`: `cloud_failed`,
 host key that changes, or two instances with the server's tag, stop the host until a human looks.
 Removing a server from the manifest parks its host; destroying it is a separate request.
 
+**The environment file.** The hub pushes the game's environment file when what it renders changes
+(a setting, a rotated secret), and it reads the file's SHA-256 on the host before trusting its own
+record: at every start (a create, an unpark, a recreated instance) and on the five-minute drift
+pass while the server runs (#169). The file lives in the runtime user's home, which is the data
+volume, so a hand edit on the host outlives a park; a file that differs, or is missing, is pushed
+again and the game restarts on it, at once while starting and when the server is empty while it
+runs. Each one is an `env_drift` event on the host and `gravel_cloudvm_env_drift_total`; only the
+hash leaves the host, never the file. A host that can't be read at start fails the step (the hub
+never starts a game on a file it couldn't check); while running it is logged and left alone.
+
 **Parking and resizing.** An empty server past `park_after` is parked by the hub (its event says
 `idle`). The owner and moderators park and start a server (`SetServerHostDesired`, or the server
 page's "Server machine" section); the owner resizes it to a size the provider allows from its
@@ -1317,6 +1327,7 @@ and the digest-pin procedure.
 | `gravel_cloudvm_hourly_price_usd` | gauge | `server`, `size` | a running host's price | while it is not running |
 | `gravel_cloudvm_log_batches_total` | counter | `server` | log batches that reached the game's roster | until the first batch |
 | `gravel_cloudvm_bans_enforced_total` | counter | `server` | banned players kicked as they connected | until the first |
+| `gravel_cloudvm_env_drift_total` | counter | `server` | times the game's environment file on the host was not the one the hub pushed, and was pushed again (#169) | until the first |
 | `gravel_stats_matches_total` | counter | `server`, `game` | matches the stats store started (ADR-0012) | until the first match |
 | `gravel_stats_rows_written_total` | counter | `server` | player rows written from polls | until someone is on |
 | `gravel_stats_record_errors_total` | counter | `server` | polls the stats store could not write | until one fails |

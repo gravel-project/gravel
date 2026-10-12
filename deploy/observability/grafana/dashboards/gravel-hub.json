@@ -2936,7 +2936,7 @@
       "gravelOptional": "no cloud-VM server pushed its log in the range",
       "gridPos": {
         "h": 8,
-        "w": 12,
+        "w": 8,
         "x": 0,
         "y": 104
       },
@@ -3001,8 +3001,8 @@
       "gravelOptional": "no banned player connected in the range",
       "gridPos": {
         "h": 8,
-        "w": 12,
-        "x": 12,
+        "w": 8,
+        "x": 8,
         "y": 104
       },
       "id": 52,
@@ -3033,6 +3033,71 @@
       "type": "timeseries"
     },
     {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "The game's environment file on a host was not the one the hub pushed (an edit by hand, a crash mid-write), so the hub pushed it again; the host's events say when. No data is expected when no host's environment file drifted in the range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gravelOptional": "no host's environment file drifted in the range",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 104
+      },
+      "id": 53,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (server) (increase(gravel_cloudvm_env_drift_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "{{server}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Environment file drift",
+      "type": "timeseries"
+    },
+    {
       "collapsed": false,
       "gridPos": {
         "h": 1,
@@ -3040,7 +3105,7 @@
         "x": 0,
         "y": 112
       },
-      "id": 53,
+      "id": 54,
       "panels": [],
       "title": "Stats",
       "type": "row"
@@ -3083,7 +3148,7 @@
         "x": 0,
         "y": 113
       },
-      "id": 54,
+      "id": 55,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3148,7 +3213,7 @@
         "x": 8,
         "y": 113
       },
-      "id": 55,
+      "id": 56,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3213,7 +3278,7 @@
         "x": 16,
         "y": 113
       },
-      "id": 56,
+      "id": 57,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3277,7 +3342,7 @@
         "x": 0,
         "y": 121
       },
-      "id": 57,
+      "id": 58,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3334,7 +3399,7 @@
         "x": 12,
         "y": 121
       },
-      "id": 58,
+      "id": 59,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -3401,7 +3466,7 @@
         "x": 0,
         "y": 129
       },
-      "id": 59,
+      "id": 60,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3436,7 +3501,7 @@
         "x": 0,
         "y": 137
       },
-      "id": 60,
+      "id": 61,
       "panels": [],
       "title": "Ingestion",
       "type": "row"
@@ -3480,7 +3545,7 @@
         "x": 0,
         "y": 138
       },
-      "id": 61,
+      "id": 62,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -3548,7 +3613,7 @@
         "x": 8,
         "y": 138
       },
-      "id": 62,
+      "id": 63,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3583,7 +3648,7 @@
         "x": 0,
         "y": 146
       },
-      "id": 63,
+      "id": 64,
       "panels": [],
       "title": "Background jobs",
       "type": "row"
@@ -3625,7 +3690,7 @@
         "x": 0,
         "y": 147
       },
-      "id": 64,
+      "id": 65,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3682,7 +3747,7 @@
         "x": 16,
         "y": 147
       },
-      "id": 65,
+      "id": 66,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -3720,7 +3785,7 @@
         "x": 0,
         "y": 155
       },
-      "id": 66,
+      "id": 67,
       "panels": [],
       "title": "Runtime",
       "type": "row"
@@ -3761,7 +3826,7 @@
         "x": 0,
         "y": 156
       },
-      "id": 67,
+      "id": 68,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3824,7 +3889,7 @@
         "x": 8,
         "y": 156
       },
-      "id": 68,
+      "id": 69,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3887,7 +3952,7 @@
         "x": 16,
         "y": 156
       },
-      "id": 69,
+      "id": 70,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3950,7 +4015,7 @@
         "x": 0,
         "y": 164
       },
-      "id": 70,
+      "id": 71,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4013,7 +4078,7 @@
         "x": 8,
         "y": 164
       },
-      "id": 71,
+      "id": 72,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4076,7 +4141,7 @@
         "x": 16,
         "y": 164
       },
-      "id": 72,
+      "id": 73,
       "options": {
         "legend": {
           "displayMode": "list",
