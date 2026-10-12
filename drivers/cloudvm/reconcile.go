@@ -465,10 +465,16 @@ func (t *tick) boot(ctx context.Context, h *Host) (bool, error) {
 
 // EnvScript is the command the hub runs on a host over SSH, the environment file on its stdin:
 // the file is written 0600 in one move, and with restart the game's unit restarts on it.
+//
+// The restart is queued, not waited for (--no-block). A unit's start can take minutes on a host's
+// first start or after a new image (the pull, then podman's copy of the image for the user
+// namespace), longer than remoteRunTimeout; a blocking restart was cut there, failed the step,
+// and its retry queued another restart that began the copy again (HTG's first live run,
+// 2026-10-12). Readiness is the starting state's RCON wait, under the Game spec's ReadyTimeout.
 func EnvScript(game string, restart bool) string {
 	script := "set -eu\numask 077\nmkdir -p ~/.config/" + game + "\ncat > ~/.config/" + game + "/env.tmp\nmv -f ~/.config/" + game + "/env.tmp ~/.config/" + game + "/env\n"
 	if restart {
-		script += "systemctl --user daemon-reload\nsystemctl --user restart " + game + ".service\n"
+		script += "systemctl --user daemon-reload\nsystemctl --user restart --no-block " + game + ".service\n"
 	}
 	return script
 }

@@ -40,9 +40,9 @@ cloudvm:
   image: ghcr.io/joedwards32/cs2:5.0.0@sha256:90e6ef414ec29da557b9e615e7a86dd992606689a9bae31334805cf6e5d92531
   runtime_uid: 1000                       # the image's steam user
   install_dir: /home/steam/cs2-dedicated
-  volume_min_gib: 80                      # the install is about 60 GB and grows with updates
+  volume_min_gib: 100                     # the install was 73.4 GB on 2026-10-12 and grows with updates
   log_timezone: Etc/UTC                   # the image's
-  ready_timeout: 45m                      # a first start downloads the install
+  ready_timeout: 90m                      # a first start downloads the install (~31 min at DigitalOcean's 40 MB/s)
   ports:
     - {name: game, protocol: udp, port: 27015, public: true}
     - {name: rcon, protocol: tcp, port: 27015, public: false}   # the game port over TCP; the hub only
