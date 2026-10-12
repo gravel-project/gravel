@@ -26,8 +26,10 @@ const BootMarker = "/var/lib/gravel/boot-done"
 
 // Document is the cloud-init document a server's instance boots with: vmdoc's host, the game's
 // unit staged and installed by the first-boot tail. It holds no secret. keys are the hub's public
-// key and the location's extra keys.
-func Document(s ServerSpec, gameName, dataDevice string, keys []string) (string, error) {
+// key and the location's extra keys. reservedEgress is the provider's script that makes outbound
+// traffic leave from a reserved address (cloud.Provider.ReservedEgressScript); for a server with a
+// reserved address it is installed as a boot service and a NetworkManager hook.
+func Document(s ServerSpec, gameName, dataDevice string, keys []string, reservedEgress string) (string, error) {
 	if !gameRE.MatchString(s.Game) {
 		return "", fmt.Errorf("cloudvm: game id %q cannot name a unit", s.Game)
 	}
@@ -38,6 +40,23 @@ func Document(s ServerSpec, gameName, dataDevice string, keys []string) (string,
 	var unit, tail bytes.Buffer
 	if err := tmpl.ExecuteTemplate(&unit, "game.container.tmpl", data); err != nil {
 		return "", fmt.Errorf("cloudvm: unit: %w", err)
+	}
+	files := []vmdoc.File{{Path: "/usr/local/share/gravel/" + s.Game + ".container", Mode: "0644", Content: unit.String()}}
+	if s.AddressReserved && reservedEgress != "" {
+		var svc, hook bytes.Buffer
+		if err := tmpl.ExecuteTemplate(&svc, "reserved-egress.service.tmpl", data); err != nil {
+			return "", fmt.Errorf("cloudvm: egress unit: %w", err)
+		}
+		if err := tmpl.ExecuteTemplate(&hook, "reserved-egress-dispatcher.sh.tmpl", data); err != nil {
+			return "", fmt.Errorf("cloudvm: egress hook: %w", err)
+		}
+		files = append(files,
+			vmdoc.File{Path: "/usr/local/libexec/gravel-reserved-egress", Mode: "0755", Content: reservedEgress},
+			vmdoc.File{Path: "/etc/systemd/system/gravel-reserved-egress.service", Mode: "0644", Content: svc.String()},
+			vmdoc.File{Path: "/etc/NetworkManager/dispatcher.d/90-gravel-reserved-egress", Mode: "0755", Content: hook.String()})
+		if err := tmpl.ExecuteTemplate(&tail, "reserved-egress-tail.sh.tmpl", data); err != nil {
+			return "", fmt.Errorf("cloudvm: egress first boot: %w", err)
+		}
 	}
 	if err := tmpl.ExecuteTemplate(&tail, "game-tail.sh.tmpl", data); err != nil {
 		return "", fmt.Errorf("cloudvm: first boot: %w", err)
@@ -51,7 +70,7 @@ func Document(s ServerSpec, gameName, dataDevice string, keys []string) (string,
 		Hostname:      InstanceName(s.ID),
 		SSHKeys:       keys,
 		DataDevice:    dataDevice,
-		Files:         []vmdoc.File{{Path: "/usr/local/share/gravel/" + s.Game + ".container", Mode: "0644", Content: unit.String()}},
+		Files:         files,
 		FirstBootTail: tail.String(),
 	})
 }

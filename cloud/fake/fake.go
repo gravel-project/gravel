@@ -696,6 +696,9 @@ func (p *Provider) VolumeDevice(v cloud.Volume) string {
 	return "/dev/disk/by-id/scsi-0FAKE_Volume_" + v.Name
 }
 
+// ReservedEgressScript is "": the fake's reserved addresses carry outbound traffic by themselves.
+func (p *Provider) ReservedEgressScript() string { return "" }
+
 // --- addresses ---
 
 // Addresses lists the reserved addresses matching f, oldest first. An address has no name, so

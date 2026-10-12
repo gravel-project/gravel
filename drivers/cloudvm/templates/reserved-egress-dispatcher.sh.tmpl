@@ -1,0 +1,8 @@
+#!/bin/sh
+# Written by the gravel hub: NetworkManager puts its own default route back when an interface comes
+# up again, so the reserved address's routes are put back after it (without waiting for an
+# assignment that has not happened yet; the boot service does that).
+case "$2" in
+up | dhcp4-change) GRAVEL_EGRESS_TRIES=1 /usr/local/libexec/gravel-reserved-egress >/dev/null 2>&1 ;;
+esac
+exit 0

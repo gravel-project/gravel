@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/netip"
+	"slices"
 	"strings"
 	"sync"
 
@@ -30,10 +31,10 @@ type Tap interface {
 	Lines(server string, body []byte)
 }
 
-// AddressPin is where each server's log push must come from; ok is false for a server with no
-// host running.
+// AddressPin is where each server's log push may come from (its instance's address, and a reserved
+// address its outbound traffic leaves from); ok is false for a server with no host running.
 type AddressPin interface {
-	SourceAddress(server string) (netip.Addr, bool)
+	SourceAddresses(server string) ([]netip.Addr, bool)
 }
 
 // LogSource is what the route knows of a kind of log source: the headers it defines (stored with
@@ -89,9 +90,9 @@ func (h *Handler) ServeLog(w http.ResponseWriter, r *http.Request) {
 	tap, pin, src := h.log.tap, h.log.pin, h.log.sources[source]
 	h.log.mu.RUnlock()
 	if ok && pin != nil {
-		want, running := pin.SourceAddress(server)
+		want, running := pin.SourceAddresses(server)
 		got, err := netip.ParseAddr(ratelimit.ClientIP(r))
-		if !running || err != nil || got.Unmap() != want.Unmap() {
+		if !running || err != nil || !slices.ContainsFunc(want, func(a netip.Addr) bool { return a.Unmap() == got.Unmap() }) {
 			h.count(server, source, "address_mismatch")
 			h.logger.Warn("ingest: a log batch with a server's token came from another address", "server", server)
 			w.WriteHeader(http.StatusUnauthorized)

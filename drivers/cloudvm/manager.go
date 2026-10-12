@@ -664,15 +664,25 @@ func (m *Manager) Lines(serverID string, body []byte) {
 	}
 }
 
-// SourceAddress is the address a server's log push comes from: its instance's own (a reserved
-// address carries inbound traffic only).
-func (m *Manager) SourceAddress(serverID string) (netip.Addr, bool) {
+// SourceAddresses are the addresses a server's log push may come from: its instance's own, and its
+// reserved address, which carries the instance's outbound traffic once the provider's egress
+// script has run (cloud.Provider.ReservedEgressScript). ok is false while no instance runs.
+func (m *Manager) SourceAddresses(serverID string) ([]netip.Addr, bool) {
 	h, ok := m.Host(serverID)
 	if !ok || h.InstanceAddress == "" {
-		return netip.Addr{}, false
+		return nil, false
 	}
 	a, err := netip.ParseAddr(h.InstanceAddress)
-	return a, err == nil
+	if err != nil {
+		return nil, false
+	}
+	out := []netip.Addr{a}
+	if h.AddressReserved && h.Address != "" && h.Address != h.InstanceAddress {
+		if r, err := netip.ParseAddr(h.Address); err == nil {
+			out = append(out, r)
+		}
+	}
+	return out, true
 }
 
 // setBans replaces the identities a server kicks as they connect.
