@@ -41,7 +41,7 @@ func TestSettingsValidateStreams(t *testing.T) {
 		d    Discord
 		want []string
 	}{
-		{"without a guild", Discord{Streams: htgStreams()}, []string{"discord.guild_id: required when roles are mapped, server cards placed, seeding set, presence placed, recaps set or streams placed"}},
+		{"without a guild", Discord{Streams: htgStreams()}, []string{"discord.guild_id: required when roles are mapped, server cards placed, seeding set, presence placed, recaps set, streams placed or news listed"}},
 		{"channel", with(func(s *Streams) { s.Channel = "#live" }), []string{`discord.streams.channel: "#live" is not a Discord id`}},
 		{"role", with(func(s *Streams) { s.Role = "@Stream" }), []string{`discord.streams.role: "@Stream" is not a Discord id`}},
 		{"everyone", with(func(s *Streams) { s.Role = guild }), []string{"discord.streams.role: \"" + guild + "\" is the guild's @everyone role"}},

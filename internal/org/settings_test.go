@@ -238,7 +238,7 @@ func TestSettingsValidateSeeding(t *testing.T) {
 		d    Discord
 		want []string
 	}{
-		{"without a guild", Discord{Seeding: []SeedingRule{htgSeeding()}}, []string{"discord.guild_id: required when roles are mapped, server cards placed, seeding set, presence placed, recaps set or streams placed"}},
+		{"without a guild", Discord{Seeding: []SeedingRule{htgSeeding()}}, []string{"discord.guild_id: required when roles are mapped, server cards placed, seeding set, presence placed, recaps set, streams placed or news listed"}},
 		{"server", rule(func(r *SeedingRule) { r.Server = "HTG 1" }), []string{`discord.seeding[0].server: "HTG 1" is not a server id`}},
 		{"channel", rule(func(r *SeedingRule) { r.Channel = "#wd-seeding" }), []string{`discord.seeding[0].channel: "#wd-seeding" is not a Discord id`}},
 		{"role missing", rule(func(r *SeedingRule) { r.Role = "" }), []string{`discord.seeding[0].role: "" is not a Discord id`}},

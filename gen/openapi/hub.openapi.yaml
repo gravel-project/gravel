@@ -2535,6 +2535,47 @@ components:
           format: int64
       title: DestroyServerHostResponse
       additionalProperties: false
+    gravel.hub.v1.DiscordNews:
+      type: object
+      properties:
+        feeds:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.DiscordNewsFeed'
+          title: feeds
+          description: At most 20; a game once per channel.
+      title: DiscordNews
+      additionalProperties: false
+      description: 'Steam news: each feed is one game''s announcements into one channel, posted as the bot finds them.'
+    gravel.hub.v1.DiscordNewsFeed:
+      type: object
+      properties:
+        appId:
+          type: integer
+          title: app_id
+          format: int32
+          description: 'The game''s Steam app id, as in its store URL: 730 for Counter-Strike 2.'
+        channel:
+          type: string
+          title: channel
+        label:
+          type: string
+          title: label
+          description: The game's name in each post's footer, at most 64 characters.
+        feeds:
+          type: array
+          items:
+            type: string
+          title: feeds
+          description: Steam's feed names to read; none is "steam_community_announcements".
+        color:
+          type: integer
+          title: color
+          format: int32
+          description: The posts' embed color as 0xRRGGBB; 0 is the bot's default.
+      title: DiscordNewsFeed
+      additionalProperties: false
+      description: One game's Steam announcements posted into one channel.
     gravel.hub.v1.DiscordPresence:
       type: object
       properties:
@@ -2781,6 +2822,11 @@ components:
             - $ref: '#/components/schemas/gravel.hub.v1.DiscordStreams'
           title: streams
           description: The go-live posts for the community's streamers (the streams module, ADR-0019); unset is none.
+        news:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.DiscordNews'
+          title: news
+          description: The Steam news feeds (the news module); unset is none.
       title: DiscordSettings
       additionalProperties: false
       description: |-

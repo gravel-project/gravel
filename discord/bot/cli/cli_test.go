@@ -90,7 +90,7 @@ func TestConfigCheck(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("config check: %d %s", code, errOut)
 	}
-	for _, want := range []string{"config ok", "role sync every 10m0s, poll 30s, dry run", "linked roles false", "server cards every 15s", "seeding off", "token from discord.token", "modules core, rolesync, servercards, rules"} {
+	for _, want := range []string{"config ok", "role sync every 10m0s, poll 30s, dry run", "linked roles false", "server cards every 15s", "seeding off", "news off", "token from discord.token", "modules core, rolesync, servercards, rules"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("config check should say %q: %s", want, out)
 		}

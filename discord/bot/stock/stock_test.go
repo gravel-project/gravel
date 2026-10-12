@@ -74,4 +74,11 @@ func TestModules(t *testing.T) {
 	if got := names(cfg); got != "core,moderation,modlog,seeding,presence,recaps,streams" {
 		t.Errorf("streams on: %s", got)
 	}
+	if bot.Default().News.Enabled {
+		t.Error("news is off by default")
+	}
+	cfg.News.Enabled = true
+	if got := names(cfg); got != "core,moderation,modlog,seeding,presence,recaps,streams,news" {
+		t.Errorf("news on: %s", got)
+	}
 }

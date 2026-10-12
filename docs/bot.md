@@ -67,6 +67,9 @@ streams:                         # go-live posts, off by default (below); the st
   kick:                          # the application from kick.com's developer settings; leave out for no Kick
     client_id: "…"
     client_secret_file: /run/secrets/gravel-bot-kick-client-secret     # or GRAVEL_BOT_KICK_CLIENT_SECRET
+news:                            # Steam announcements, off by default (below); the feeds are the Organization settings' discord.news
+  enabled: false
+  interval: 15m                  # how often Steam is asked; at least 5m
 server:
   listen: 127.0.0.1:8081         # /interactions, /healthz, /readyz; put TLS termination in front
   internal_listen: 127.0.0.1:9091   # /metrics; keep it off the public network
@@ -480,6 +483,80 @@ reading the settings. With no streamer listed the module idles and says so once.
 - `gravel_bot_streams_posts_total{platform,result}` (`posted`, `resumed`, `ended`, `forbidden`, `error`);
 - `gravel_bot_streams_last_success_timestamp_seconds`.
 
+### News (`discord/modules/news`)
+
+A game's announcements from Steam, posted in a channel: patch notes in `#cs-news`, say.
+
+**Feeds.** The Organization settings' `discord.news.feeds` (docs/hub.md, "Organization settings")
+lists them, at most 20. Each is one game into one channel:
+
+- `app_id`: the game's Steam app id, as in its store URL (730 for Counter-Strike 2);
+- `channel`: where the posts go;
+- `label`: the game's name in each post's footer, one line of at most 64 characters;
+- `feeds`: Steam's feed names to read, `steam_community_announcements` (the game's own
+  announcements) when left out;
+- `color`: the embeds' color as `0xRRGGBB`, Steam's blue (`0x66c0f4`) when left out.
+
+```yaml
+discord:
+  news:
+    feeds:
+      - app_id: 730
+        channel: "1556656220243239072"
+        label: Counter-Strike 2
+        color: 0xde9b35
+```
+
+A game may post to several channels, and a channel may carry several games, but each pair once.
+bot.yaml's `news` has only `enabled` and `interval`. A settings change applies at the next pass: a
+feed removed is forgotten, and a feed added (or added back) starts as on a first look, below.
+
+**Passes.** Every `interval`, the module reads the settings, then asks Steam's public news API
+(`ISteamNews/GetNewsForApp`, no key) for each feed's ten latest items, keeps those of the feed's app
+and feeds, and posts the ones the channel lacks: oldest first, at most five a pass, the rest at the
+next. Each post is one embed:
+
+- the title, linked to the store's page for it
+  (`https://store.steampowered.com/news/app/<app>/view/<gid>`);
+- the notes, from Steam's BBCode into Discord Markdown: headings, bold, italics, strike-through, links,
+  lists and table rows. Media is dropped, any other tag is stripped, and the text stays literal (a
+  `*` or a `# ` in patch notes is escaped). Notes over 1800 characters are cut at a line and end with
+  "… [Full notes on Steam](…)";
+- the first image, with Steam's `{STEAM_CLAN_IMAGE}` filled in;
+- the item's date, the feed's color and the footer "`<label>` · Steam announcement".
+
+A post pings no one. This is the look of the Cloudflare Worker that fed Hidden Token Gaming's
+`#cs-news` before, so a channel the module takes over stays uniform.
+
+**What counts as posted.** The bot keeps no state in the hub. Before it posts, it reads the
+channel's 100 newest messages. Every announcement linked from an embed there
+(`/news/app/<app>/view/<gid>` with the feed's app) counts as posted, **whoever posted it**: the bot,
+a webhook or a member whose link Discord unfurled. So a bridge the module replaces is never
+repeated. The first look at a feed after the bot starts, or after the feed is added, sets where it
+begins:
+
+- with the game's announcements in the channel, only items newer than the newest of them are
+  posted;
+- with none, only items from the last 24 hours.
+
+Nothing older is posted while the process runs, so turning the module on never floods a channel with
+history, and an item a bridge skipped stays skipped. The bot also remembers what it posted while it
+runs, so a busy channel that pushes a post past the newest 100 doesn't get it again. After a
+restart only the newest 100 count.
+
+**Failures.** A post Discord refuses or fails is not in the channel, so it is tried again at the
+next pass; the feed's later items wait behind it, which keeps the channel in order. Steam failing is
+retried next pass. A 429 from Steam stops every feed until its `Retry-After` (a minute when it names
+none, at most 15). A hub it can't read leaves everything for the next pass. Each failure is logged
+once while it lasts.
+
+The bot needs **View Channel, Send Messages, Embed Links and Read Message History** in the channel.
+Its app needs no scope beyond reading the settings. With no feed listed the module idles and says
+so once. Metrics:
+
+- `gravel_bot_news_posts_total{app,result}` (`posted`, `failed`);
+- `gravel_bot_news_last_success_timestamp_seconds{app}`.
+
 ### Moderation (`discord/modules/moderation`)
 
 The moderation slash command, `/<moderation.command>` (`/mod` by default), with a subcommand per
@@ -599,6 +676,8 @@ of them (ADR-0009, `deploy/README.md` "Dashboards").
 | `gravel_bot_streams_polls_total` | counter | `platform`, `result` (`ok`, `throttled`, `unauthorized`, `error`) | calls asking a platform who is live | streams off, or until the first call |
 | `gravel_bot_streams_posts_total` | counter | `platform`, `result` (`posted`, `resumed`, `ended`, `forbidden`, `error`) | go-live posts, their edits, and the failures | streams off, or until the first post |
 | `gravel_bot_streams_last_success_timestamp_seconds` | gauge | | when the last pass in which every platform answered and every post went through completed (an idle pass counts) | streams off (0 until the first such pass) |
+| `gravel_bot_news_posts_total` | counter | `app` (the Steam app id), `result` (`posted`, `failed`) | Steam announcements posted, and the posts Discord refused or failed (retried next pass) | news off (0 for each listed app from its first pass) |
+| `gravel_bot_news_last_success_timestamp_seconds` | gauge | `app` | when the last pass in which Steam answered, every channel of the app was read and every post went through completed | news off, or until the app's first such pass |
 
 ## Tests
 
@@ -629,5 +708,13 @@ tested as the last ended window (an overnight window, the daylight-saving change
 fake clock against a fake hub and a fake channel API: nothing before the window ends plus the grace,
 one post with the right window, floor, numbers, matches, top and link, no second post on the next
 pass or after a restart, another author's marker ignored, no post when nobody came, under the floor
-all night, retries after a hub failure, a forbidden channel, the catch-up limit, and escaping. The gateway
-itself is disgo's and is not driven in tests.
+all night, retries after a hub failure, a forbidden channel, the catch-up limit, and escaping. News is
+tested as rendering, with every case of the Worker it replaces (the BBCode mapping, literal text, the
+cut with its link, the first image and the clan placeholder) against Steam's real answers, and as
+passes on a fake clock against a fake hub, a fake Steam and a fake channel API: no backlog on a
+fresh channel, only the last day after a restart, nothing older than the channel's newest when
+taking over from a webhook, oldest first, five a pass, a failed post retried in order, a Steam error or a cut answer
+posting nothing, another app's or feed's items ignored, a member's unfurled link counted and another
+app's not, a 429 waited out for every feed, a forbidden channel logged once, two feeds in their own
+channels, a feed removed and added back starting afresh with the settings' label and color, idle with
+no feed, the hub down, and the metrics. The gateway itself is disgo's and is not driven in tests.

@@ -111,6 +111,17 @@ func TestSettingsCheck(t *testing.T) {
 		t.Errorf("a bad seeding rule: %d %q", code, errOut)
 	}
 
+	// The summary counts the Steam news feeds; a bad feed is named offline.
+	news := "discord:\n  guild_id: \"519496143298756611\"\n  news:\n    feeds:\n      - {app_id: 730, channel: \"1556656220243239072\", label: Counter-Strike 2, color: 0xde9b35}\n"
+	writeFile(t, manifest, news)
+	if code, out, errOut := run("settings", "check", manifest); code != 0 || out != "settings valid (0 nav links, theme default, discord guild 519496143298756611, 0 roles, 1 Steam news feeds)\n" || errOut != "" {
+		t.Errorf("news: %d %q %q", code, out, errOut)
+	}
+	writeFile(t, manifest, strings.Replace(news, "app_id: 730", "app_id: 0", 1))
+	if code, _, errOut := run("settings", "check", manifest); code != 1 || !strings.Contains(errOut, "discord.news.feeds[0].app_id: 0 is not a Steam app id") {
+		t.Errorf("a bad news feed: %d %q", code, errOut)
+	}
+
 	// A game or a season's game this hub doesn't ship is refused offline too.
 	writeFile(t, manifest, "games:\n  wardog:\n    nav:\n      - {label: x, url: /x}\nstats:\n  seasons:\n    - {name: S2, game: war-dogs, from: \"2026-10-15\", to: \"2027-01-15\"}\n")
 	if code, out, errOut := run("settings", "check", manifest); code != 1 || out != "" ||
