@@ -773,8 +773,10 @@ func TestRunPassesAtStart(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() { done <- r.mod.Run(ctx) }()
+	// Wait for the post and its log line: the module logs just after the post returns, so a
+	// cancel between the two used to leave the line unwritten (gravel#175's CI, 2026-10-12).
 	deadline := time.Now().Add(5 * time.Second)
-	for len(r.discord.posts(channel)) == 0 && time.Now().Before(deadline) {
+	for (len(r.discord.posts(channel)) == 0 || r.log.count("news: posted") == 0) && time.Now().Before(deadline) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	cancel()
