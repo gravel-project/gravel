@@ -277,6 +277,9 @@ discord:                     # what the bot manages (docs/bot.md); ids as quoted
         label: Counter-Strike 2   # the posts' footer, one line of at most 64 characters
         feeds: [steam_community_announcements]   # optional: Steam's feed names; this one when empty
         color: 0xde9b35      # optional: the embeds' color, 0x000000 to 0xffffff; Steam's blue when 0
+  match_results:             # each finished match result, posted once (docs/bot.md "Match results", ADR-0024)
+    channel: "…"             # the bot needs View Channel, Send Messages, Read Message History
+    servers: [htg-cs2-1]     # optional: the servers whose results are posted, at most 50; every server's when empty
   presence:                  # the "who's playing now" card (docs/bot.md "Presence"); counts only, nothing stored
     channel: "…"             # where the card lives; the bot needs View Channel, Send Messages, Read Message History
     note: Counts members who share their activity on Discord.   # optional, one line of at most 200 characters
@@ -372,6 +375,13 @@ The `news` feeds post a Steam game's announcements into a channel. Each feed nee
 `feeds` are Steam's feed names (`steam_community_announcements`, the game's own announcements, when
 empty). Steam's news API needs no key, and the module is off until bot.yaml's `news.enabled` turns
 it on.
+
+The `match_results` posts (ADR-0024) need a channel: each series a server's match plugin reported
+is posted there once it ends, with its maps, its winner and the top three by kills. `servers` lists
+the server ids whose results are posted, each once; without it every server's are. The players
+appear as on the result page, under a pseudonym unless the member chose their name. The bot's app
+needs `stats:read` unless `stats.public` is on, and the module is off until bot.yaml's
+`match_results.enabled` turns it on.
 
 The `presence` card (ADR-0017) needs a channel and at least one game. Each game needs an activity
 name or an application id to recognize it by, and no name (compared without regard to case) or id

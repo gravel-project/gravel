@@ -2943,6 +2943,23 @@ components:
           format: int64
       title: DestroyServerHostResponse
       additionalProperties: false
+    gravel.hub.v1.DiscordMatchResults:
+      type: object
+      properties:
+        channel:
+          type: string
+          title: channel
+        servers:
+          type: array
+          items:
+            type: string
+          title: servers
+          description: The servers whose results are posted, at most 50; none is every server.
+      title: DiscordMatchResults
+      additionalProperties: false
+      description: |-
+        Match results: each finished series a server's match plugin reported, posted once in the
+         channel.
     gravel.hub.v1.DiscordNews:
       type: object
       properties:
@@ -3235,6 +3252,11 @@ components:
             - $ref: '#/components/schemas/gravel.hub.v1.DiscordNews'
           title: news
           description: The Steam news feeds (the news module); unset is none.
+        matchResults:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.DiscordMatchResults'
+          title: match_results
+          description: The finished match results (the matchresults module, ADR-0024); unset is none.
       title: DiscordSettings
       additionalProperties: false
       description: |-

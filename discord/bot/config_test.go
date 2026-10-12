@@ -229,3 +229,24 @@ func TestNews(t *testing.T) {
 		t.Errorf("feeds in bot.yaml: %v", err)
 	}
 }
+
+func TestMatchResults(t *testing.T) {
+	c, err := Parse(strings.NewReader(minimal), env(nil, nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.MatchResults.Enabled || c.MatchResults.Interval != time.Minute {
+		t.Errorf("match results are off by default, every minute: %+v", c.MatchResults)
+	}
+	c, err = Parse(strings.NewReader(minimal+"match_results:\n  enabled: true\n  interval: 30s\n"), env(nil, nil))
+	if err != nil || !c.MatchResults.Enabled || c.MatchResults.Interval != 30*time.Second {
+		t.Errorf("match results on: %v %+v", err, c.MatchResults)
+	}
+	if _, err := Parse(strings.NewReader(minimal+"match_results:\n  interval: 10s\n"), env(nil, nil)); err == nil || !strings.Contains(err.Error(), "match_results.interval: 10s is shorter than 30s") {
+		t.Errorf("a short interval: %v", err)
+	}
+	// The channel is the Organization settings', not bot.yaml's.
+	if _, err := Parse(strings.NewReader(minimal+"match_results:\n  channel: \"1\"\n"), env(nil, nil)); err == nil || !strings.Contains(err.Error(), "channel") {
+		t.Errorf("a channel in bot.yaml: %v", err)
+	}
+}

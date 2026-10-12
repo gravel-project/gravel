@@ -254,7 +254,7 @@ func hubDashboard() dashboard {
 func botDashboard() dashboard {
 	return dashboard{
 		UID: "gravel-bot", Title: "gravel bot", BuildInfo: "gravel_bot_build_info",
-		Description: "The gravel Discord bot: the gateway, interactions against Discord's three seconds, role sync, Linked Roles, the server cards, the mod log, seeding, the presence card, the session recaps, the go-live posts, the Steam news, the moderation command and the Go runtime (gravel docs/bot.md, Observability).",
+		Description: "The gravel Discord bot: the gateway, interactions against Discord's three seconds, role sync, Linked Roles, the server cards, the mod log, seeding, the presence card, the session recaps, the go-live posts, the Steam news, the match results, the moderation command and the Go runtime (gravel docs/bot.md, Observability).",
 		Rows: []row{
 			{Title: "Overview", Panels: []panel{
 				{Title: "Up", Kind: "stat", Width: 3, Mappings: upMap, Thresholds: []step{{Color: "red"}, {Value: 1, Color: "green"}}, Targets: []target{{Expr: `up{` + sel + `}`, Legend: "{{instance}}"}}},
@@ -386,6 +386,15 @@ func botDashboard() dashboard {
 					Description: "The stalest feed. Orange after an hour and red after three (four and twelve default intervals): Steam failing or rate-limiting the bot, a channel the bot can't read, or a post failing.",
 					Thresholds:  []step{{Color: "green"}, {Value: 3600, Color: "orange"}, {Value: 10800, Color: "red"}},
 					Targets:     []target{{Expr: `time() - min(gravel_bot_news_last_success_timestamp_seconds{` + sel + `})`}}},
+			}},
+			{Title: "Match results", Panels: []panel{
+				{Title: "Match result posts", Kind: "timeseries", Width: 18, Optional: "match results are off or no series ended in the range",
+					Description: "Finished match results (ADR-0024). posted: a result went out; error: the hub, the channel or the post failed, and what is left waits for the next pass (the log says which, once).",
+					Targets:     []target{{Expr: `sum by (result) (increase(gravel_bot_match_results_total{` + sel + `}[$__rate_interval]))`, Legend: "{{result}}"}}},
+				{Title: "Since the last good match results pass", Kind: "stat", Unit: "s", Width: 6, Optional: "match results are off",
+					Description: "Orange after 5 minutes and red after 15 (five and fifteen default intervals): the hub refusing the bot (stats:read while stats are private), a channel the bot can't use, or a post failing.",
+					Thresholds:  []step{{Color: "green"}, {Value: 300, Color: "orange"}, {Value: 900, Color: "red"}},
+					Targets:     []target{{Expr: `time() - max(gravel_bot_match_results_last_success_timestamp_seconds{` + sel + `})`}}},
 			}},
 			{Title: "Moderation command", Panels: []panel{
 				{Title: "Moderation commands", Kind: "timeseries", Width: 24, Optional: "the moderation command is off or nobody used it in the range",
