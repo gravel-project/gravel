@@ -60,6 +60,10 @@ func TestDriverWhileRunning(t *testing.T) {
 		st.Join.Value != h.Address+":27015" || !strings.Contains(st.Join.Hint, "connect "+h.Address+":27015") {
 		t.Errorf("status %+v", st)
 	}
+	// The game's teams, with the key its players' team carries; the hub counts the players (#159).
+	if want := []drivers.TeamScore{{Name: "CT"}, {Name: "T", Key: "TERRORIST"}}; !slices.Equal(st.Teams, want) || st.Teams[1].TeamKey() != "TERRORIST" || st.Teams[0].TeamKey() != "CT" {
+		t.Errorf("teams %+v", st.Teams)
+	}
 	players, err := d.Players(ctx)
 	if err != nil || len(players) != 2 || players[0].Identity != steam || players[0].Team != "CT" || players[1].Identity.Subject != "" {
 		t.Errorf("players %+v %v", players, err)

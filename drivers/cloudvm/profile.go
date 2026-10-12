@@ -51,6 +51,16 @@ type Profile struct {
 	// PlayersSetting is the int setting a rung's players are written to, so the game takes as
 	// many players as the machine it runs on is sized for ("max_players"); "" writes none.
 	PlayersSetting string `yaml:"players_setting,omitempty"`
+	// Teams are the game's teams as its status shows them, each with the value its players' team
+	// carries (#159): the hub counts the players on each. Empty when the game has none.
+	Teams []Team `yaml:"teams,omitempty"`
+}
+
+// Team is one of a game's teams: the name players see, and the key its players' team carries
+// ("TERRORIST" for "T"); an empty key is the name.
+type Team struct {
+	Name string `yaml:"name"`
+	Key  string `yaml:"key,omitempty"`
 }
 
 // Port is one port the game listens on.
@@ -258,6 +268,16 @@ func (p Profile) Validate() error {
 		if s, ok := p.setting(p.PlayersSetting); !ok || s.Type != TypeInt {
 			bad("players_setting %q is not an int setting", p.PlayersSetting)
 		}
+	}
+	teams := map[string]bool{}
+	for i, t := range p.Teams {
+		switch {
+		case strings.TrimSpace(t.Name) == "":
+			bad("teams[%d]: a name is required", i)
+		case teams[strings.ToLower(t.Name)]:
+			bad("teams[%d]: %q is listed twice", i, t.Name)
+		}
+		teams[strings.ToLower(t.Name)] = true
 	}
 	return errors.Join(errs...)
 }

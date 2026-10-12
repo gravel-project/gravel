@@ -90,6 +90,11 @@ func (d *Driver) Status(ctx context.Context) (drivers.Status, error) {
 		RotationIndex: -1, NextRotationIndex: -1}
 	h, _ := d.m.Host(d.id)
 	_, s, ok := d.m.host(d.id)
+	if ok {
+		for _, t := range s.Profile.Teams {
+			out.Teams = append(out.Teams, drivers.TeamScore{Name: t.Name, Key: t.Key})
+		}
+	}
 	if ok && h.Address != "" && s.Profile.JoinPort > 0 {
 		addr := net.JoinHostPort(h.Address, strconv.Itoa(s.Profile.JoinPort))
 		out.Join = drivers.Join{Method: drivers.JoinByAddress, Value: addr, Hint: strings.ReplaceAll(s.Profile.JoinHint, "<address>", addr)}

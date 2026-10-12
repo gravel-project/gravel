@@ -133,6 +133,17 @@ type TeamScore struct {
 	Name  string
 	Color string
 	Score int64
+	// Key is the value a Player's Team carries for this team when it differs from Name (CS2's
+	// "TERRORIST" for the team shown as "T"); empty means Name.
+	Key string
+}
+
+// TeamKey is the value a Player's Team carries for the team.
+func (t TeamScore) TeamKey() string {
+	if t.Key != "" {
+		return t.Key
+	}
+	return t.Name
 }
 
 // Player is one connected player.

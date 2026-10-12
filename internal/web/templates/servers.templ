@@ -92,11 +92,22 @@ templ serverBody(p ServerPage) {
 		<p class="muted">As of { at(*p.ObservedAt) }</p>
 	}
 	if len(p.Teams) > 0 {
-		<section aria-labelledby="score-heading">
-			<h2 id="score-heading">Score</h2>
+		<section aria-labelledby="teams-heading">
+			<h2 id="teams-heading">Teams</h2>
 			<ul class="teams">
 				for _, t := range p.Teams {
-					<li><span class="team">{ t.Name }</span> <strong>{ fmt.Sprint(t.Score) }</strong></li>
+					<li>
+						<span class="team">{ t.Name }</span>
+						if t.Players != nil {
+							<strong>{ fmt.Sprint(*t.Players) }</strong> players
+						}
+						if t.Players == nil || p.Scored {
+							if t.Players != nil {
+								·
+							}
+							<strong>{ fmt.Sprint(t.Score) }</strong> pts
+						}
+					</li>
 				}
 			</ul>
 		</section>

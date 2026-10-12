@@ -225,10 +225,11 @@ type ServersPage struct {
 	Servers []ServerRow
 }
 
-// Team is a team's score on a server.
+// Team is a team on a server: its score, and its players when the hub counts them (#159).
 type Team struct {
-	Name  string
-	Score int64
+	Name    string
+	Score   int64
+	Players *int32
 }
 
 // PlayerRow is one player on a server, as members see them. Subject is their id at the game's
@@ -259,6 +260,8 @@ type ServerPage struct {
 	ObservedAt *time.Time
 	Build      string
 	Teams      []Team
+	// Scored is true once a team has a score: a match is on, and the scores show beside the counts.
+	Scored bool
 	// Players is set for members; PlayersNote says why it is not, when it is not.
 	Players     []PlayerRow
 	PlayersNote string

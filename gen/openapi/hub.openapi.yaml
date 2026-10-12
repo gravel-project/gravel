@@ -4935,9 +4935,19 @@ components:
           type: string
           title: score
           format: int64
+        players:
+          type:
+            - integer
+            - "null"
+          title: players
+          format: int32
+          description: |-
+            The players on the team at the last poll, counted from the server's players. Unset when the
+             hub doesn't know: the server's players aren't read, or the game doesn't say who is on which
+             team (#159).
       title: TeamScore
       additionalProperties: false
-      description: TeamScore is one team's (faction's) score.
+      description: TeamScore is one team's (faction's) score and, when the hub knows it, how many players it has.
     gravel.hub.v1.Theme:
       type: object
       properties:

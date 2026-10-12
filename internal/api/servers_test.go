@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -50,6 +51,57 @@ func (r *rig) withServer(t *testing.T) time.Time {
 		},
 	}
 	return at
+}
+
+// A team's players are counted from the server's players at the same poll, by the team's key in any
+// case (#159); unset when the hub can't tell.
+func TestServerTeamCounts(t *testing.T) {
+	r := newRig(t)
+	r.withServer(t)
+	anon := hubv1connect.NewServerServiceClient(http.DefaultClient, r.srv.URL)
+	base := r.obs.obs["wd-1"]
+	ct := []drivers.TeamScore{{Name: "CT"}, {Name: "T", Key: "TERRORIST"}}
+	cases := []struct {
+		name string
+		edit func(o *servers.Observation)
+		want map[string]int32 // team → players; a missing team is unset
+	}{
+		{"by name, in any case", func(o *servers.Observation) {
+			o.Players = append(o.Players, drivers.Player{Name: "Shouty", Team: "VALKYRA"})
+		}, map[string]int32{"Valkyra": 2}},
+		{"by key", func(o *servers.Observation) {
+			o.Status.Teams = ct
+			o.Players = []drivers.Player{{Team: "CT"}, {Team: "TERRORIST"}, {Team: "TERRORIST"}, {Team: "Spectator"}}
+		}, map[string]int32{"CT": 1, "T": 2}},
+		{"nobody on counts zero", func(o *servers.Observation) {
+			o.Status.Teams, o.Players = ct, nil
+		}, map[string]int32{"CT": 0, "T": 0}},
+		{"players without teams are unknown", func(o *servers.Observation) {
+			o.Players = []drivers.Player{{Name: "A"}, {Name: "B"}}
+		}, map[string]int32{}},
+		{"players not read are unknown", func(o *servers.Observation) {
+			o.Capabilities = []string{drivers.CapStatus}
+			o.Players = nil
+		}, map[string]int32{}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			o := base
+			o.Players = slices.Clone(base.Players)
+			c.edit(&o)
+			r.obs.obs["wd-1"] = o
+			got, err := anon.GetServerStatus(context.Background(), connect.NewRequest(&hubv1.GetServerStatusRequest{ServerId: "wd-1"}))
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, team := range got.Msg.GetServer().GetStatus().GetTeams() {
+				want, counted := c.want[team.GetName()]
+				if (team.Players != nil) != counted || team.GetPlayers() != want {
+					t.Errorf("%s: players %v, want %d (counted %v)", team.GetName(), team.Players, want, counted)
+				}
+			}
+		})
+	}
 }
 
 func TestServerReadsArePublicAndCarryNoControlDetails(t *testing.T) {

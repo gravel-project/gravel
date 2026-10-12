@@ -58,6 +58,8 @@ func TestProfileValidate(t *testing.T) {
 		{"bad default", func(p *Profile) { p.Settings[6].Default = "200" }, "the default"},
 		{"conflict with nothing", func(p *Profile) { p.Settings[0].Conflicts = []string{"nope"} }, `"nope" is not a setting`},
 		{"port when not a bool", func(p *Profile) { p.Ports[2].When = "server_name" }, "not a bool setting"},
+		{"team without a name", func(p *Profile) { p.Teams = append(p.Teams, Team{Key: "X"}) }, "a name is required"},
+		{"team twice", func(p *Profile) { p.Teams = append(p.Teams, Team{Name: "ct"}) }, `"ct" is listed twice`},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			p := cs2Profile(t)

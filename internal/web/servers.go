@@ -144,7 +144,8 @@ func (h *Handler) server(w http.ResponseWriter, r *http.Request) {
 		sp.Join = &templates.Join{Label: templates.JoinLabel(j.GetMethod()), Value: j.GetValue(), Hint: j.GetHint()}
 	}
 	for _, t := range s.GetStatus().GetTeams() {
-		sp.Teams = append(sp.Teams, templates.Team{Name: t.GetName(), Score: t.GetScore()})
+		sp.Teams = append(sp.Teams, templates.Team{Name: t.GetName(), Score: t.GetScore(), Players: t.Players})
+		sp.Scored = sp.Scored || t.GetScore() > 0
 	}
 
 	// Who is on: members and the owner may see it; the API refuses anyone else.

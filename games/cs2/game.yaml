@@ -83,3 +83,8 @@ cloudvm:
     - {size: c-2, players: 10}
     - {size: c-4, players: 20}
   players_setting: max_players
+  # The teams a server's card counts players on (#159); a player's team is the side the log gives
+  # them, and spectators are on neither. The log carries no running score.
+  teams:
+    - {name: CT}
+    - {name: T, key: TERRORIST}

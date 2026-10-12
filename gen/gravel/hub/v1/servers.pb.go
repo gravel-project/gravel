@@ -255,13 +255,17 @@ func (x *GameLayout) GetBoard() []string {
 	return nil
 }
 
-// TeamScore is one team's (faction's) score.
+// TeamScore is one team's (faction's) score and, when the hub knows it, how many players it has.
 type TeamScore struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Name  string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// A CSS colour, "#4CB1EF"; empty when the game has none.
-	Color         string `protobuf:"bytes,2,opt,name=color,proto3" json:"color,omitempty"`
-	Score         int64  `protobuf:"varint,3,opt,name=score,proto3" json:"score,omitempty"`
+	Color string `protobuf:"bytes,2,opt,name=color,proto3" json:"color,omitempty"`
+	Score int64  `protobuf:"varint,3,opt,name=score,proto3" json:"score,omitempty"`
+	// The players on the team at the last poll, counted from the server's players. Unset when the
+	// hub doesn't know: the server's players aren't read, or the game doesn't say who is on which
+	// team (#159).
+	Players       *int32 `protobuf:"varint,4,opt,name=players,proto3,oneof" json:"players,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -313,6 +317,13 @@ func (x *TeamScore) GetColor() string {
 func (x *TeamScore) GetScore() int64 {
 	if x != nil {
 		return x.Score
+	}
+	return 0
+}
+
+func (x *TeamScore) GetPlayers() int32 {
+	if x != nil && x.Players != nil {
+		return *x.Players
 	}
 	return 0
 }
@@ -1144,11 +1155,14 @@ const file_gravel_hub_v1_servers_proto_rawDesc = "" +
 	"\x06layout\x18\x06 \x01(\v2\x19.gravel.hub.v1.GameLayoutR\x06layout\"\"\n" +
 	"\n" +
 	"GameLayout\x12\x14\n" +
-	"\x05board\x18\x01 \x03(\tR\x05board\"K\n" +
+	"\x05board\x18\x01 \x03(\tR\x05board\"v\n" +
 	"\tTeamScore\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05color\x18\x02 \x01(\tR\x05color\x12\x14\n" +
-	"\x05score\x18\x03 \x01(\x03R\x05score\"\xe8\x04\n" +
+	"\x05score\x18\x03 \x01(\x03R\x05score\x12\x1d\n" +
+	"\aplayers\x18\x04 \x01(\x05H\x00R\aplayers\x88\x01\x01B\n" +
+	"\n" +
+	"\b_players\"\xe8\x04\n" +
 	"\fServerStatus\x12\x14\n" +
 	"\x05state\x18\x01 \x01(\tR\x05state\x12\x1c\n" +
 	"\treachable\x18\x02 \x01(\bR\treachable\x12;\n" +
@@ -1280,6 +1294,7 @@ func file_gravel_hub_v1_servers_proto_init() {
 		return
 	}
 	file_gravel_hub_v1_servers_proto_msgTypes[0].OneofWrappers = []any{}
+	file_gravel_hub_v1_servers_proto_msgTypes[3].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

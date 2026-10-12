@@ -42,12 +42,16 @@ message GameLayout {
   repeated string board = 1;
 }
 
-// TeamScore is one team's (faction's) score.
+// TeamScore is one team's (faction's) score and, when the hub knows it, how many players it has.
 message TeamScore {
   string name = 1;
   // A CSS colour, "#4CB1EF"; empty when the game has none.
   string color = 2;
   int64 score = 3;
+  // The players on the team at the last poll, counted from the server's players. Unset when the
+  // hub doesn't know: the server's players aren't read, or the game doesn't say who is on which
+  // team (#159).
+  optional int32 players = 4;
 }
 
 // ServerStatus is the hub's last observation of a server. It carries no personal data.
