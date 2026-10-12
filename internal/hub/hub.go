@@ -144,11 +144,17 @@ var games = map[string]cloudvm.GameFactory{"cs2": cs2game.New}
 var defaultImages = map[string]string{"digitalocean": "fedora-44-x64"}
 
 func (h *Hub) cloudProvider(ctx context.Context, l cloudvm.Location) (cloud.Provider, error) {
-	switch l.Provider {
+	return NewCloudProvider(l.Provider, l.Token, l.Project, h.version)
+}
+
+// NewCloudProvider is a cloud this hub makes VMs in (CloudProviders), for a token and project.
+// `gravel-hub servers apply` uses it to walk scaling ladders against the cloud's sizes.
+func NewCloudProvider(provider, token, project, version string) (cloud.Provider, error) {
+	switch provider {
 	case "digitalocean":
-		return digitalocean.New(digitalocean.Config{Token: l.Token, Project: l.Project, UserAgent: "gravel-hub/" + h.version})
+		return digitalocean.New(digitalocean.Config{Token: token, Project: project, UserAgent: "gravel-hub/" + version})
 	}
-	return nil, fmt.Errorf("hub: no cloud %q", l.Provider)
+	return nil, fmt.Errorf("hub: no cloud %q", provider)
 }
 
 // egress is the hub's own address for the game hosts' firewalls: hub.yaml's, else asked.

@@ -1,6 +1,6 @@
 // Package cloud is the seam between gravel and the clouds it makes machines on (ADR-0003,
-// ADR-0020). It is written in domain terms: instances, volumes, addresses, firewalls and the
-// operations that change them. Each cloud is a package under cloud/ that implements Provider over
+// ADR-0020). It is written in domain terms: instances, volumes and their snapshots, addresses,
+// firewalls and the operations that change them. Each cloud is a package under cloud/ that implements Provider over
 // that cloud's own SDK (cloud/digitalocean, godo); cloud/fake is the test double, and
 // cloud/cloudtest is the conformance suite every implementation passes. Nothing outside cloud/
 // imports a vendor SDK (a depguard rule enforces it).
@@ -15,6 +15,7 @@ package cloud
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 )
 
@@ -72,7 +73,12 @@ type Provider interface {
 
 	// Volumes lists the volumes matching the filter.
 	Volumes(ctx context.Context, f Filter) ([]Volume, error)
-	// CreateVolume creates an unformatted volume (the instance formats it once, on first boot).
+	// CreateVolume creates an unformatted volume (the instance formats it once, on first boot), or,
+	// with spec.FromSnapshot, a volume holding a snapshot's data, filesystem and all. A snapshot
+	// in another region than spec.Region, one whose MinVolumeGiB is more than spec.SizeGiB, and a
+	// SnapshotRef with both or neither of its fields set are refused with an error wrapping
+	// ErrInvalid that says which, before the cloud is asked to make anything; a snapshot the cloud
+	// does not have is ErrNotFound.
 	CreateVolume(ctx context.Context, spec VolumeSpec) (Volume, error)
 	// DeleteVolume destroys a detached volume and its data.
 	DeleteVolume(ctx context.Context, id string) error
@@ -80,6 +86,25 @@ type Provider interface {
 	AttachVolume(ctx context.Context, volumeID, instanceID string) (Operation, error)
 	// DetachVolume detaches a volume from an instance.
 	DetachVolume(ctx context.Context, volumeID, instanceID string) (Operation, error)
+	// CreateVolumeSnapshot copies a volume into a snapshot named name in the volume's region, with
+	// tags where the cloud tags snapshots, and returns it once the cloud has it: a volume can be
+	// made from it as soon as the call returns. The volume may be attached, but the copy is then
+	// only as consistent as a power cut would leave it, so a caller that wants a clean copy
+	// detaches the volume first (or stops its instance). Snapshot names need not be unique; a
+	// caller that finds snapshots by name keeps them so (FindVolumeSnapshot). A volume the cloud
+	// does not have is ErrNotFound.
+	CreateVolumeSnapshot(ctx context.Context, volumeID, name string, tags []string) (Snapshot, error)
+	// GetVolumeSnapshot reads one volume snapshot by id (ErrNotFound when it is gone, or when the
+	// id names something that is not a volume snapshot).
+	GetVolumeSnapshot(ctx context.Context, id string) (Snapshot, error)
+	// FindVolumeSnapshot is the volume snapshot named name in region: ErrNotFound when there is
+	// none, ErrInvalid when two or more share the name there, since either could be meant.
+	FindVolumeSnapshot(ctx context.Context, name, region string) (Snapshot, error)
+	// ListVolumeSnapshots lists the volume snapshots matching the filter, in every region.
+	ListVolumeSnapshots(ctx context.Context, f Filter) ([]Snapshot, error)
+	// DeleteVolumeSnapshot destroys a volume snapshot. Volumes made from it keep their data, and
+	// deleting the volume a snapshot was taken of leaves the snapshot.
+	DeleteVolumeSnapshot(ctx context.Context, id string) error
 	// VolumeDevice is the stable path the instance's OS sees the volume at, for cloud-init.
 	VolumeDevice(v Volume) string
 	// ReservedEgressScript is a shell script an instance runs as root at every boot, and when its
@@ -217,8 +242,61 @@ type Volume struct {
 type VolumeSpec struct {
 	Name    string
 	Region  string
-	SizeGiB int
+	SizeGiB int // at least the snapshot's MinVolumeGiB when FromSnapshot is set
 	Tags    []string
+	// FromSnapshot makes the volume from a snapshot in Region instead of empty; nil makes it empty.
+	FromSnapshot *SnapshotRef
+}
+
+// SnapshotRef names the volume snapshot a volume is made from: by its id, or by its name in the
+// VolumeSpec's region (FindVolumeSnapshot). Exactly one field is set.
+type SnapshotRef struct {
+	ID   string
+	Name string
+}
+
+// Snapshot is a point-in-time copy of a volume, kept in one region, that new volumes in that
+// region are made from. It outlives the volume it was taken of.
+type Snapshot struct {
+	ID     string
+	Name   string
+	Region string
+	// SizeGiB is the data the snapshot holds, which it bills by: fractional where the cloud says
+	// so (DigitalOcean reports 77.2326 for a 100 GiB volume holding 77 GiB).
+	SizeGiB float64
+	// MinVolumeGiB is the smallest volume that can be made from it: the cloud's own minimum where
+	// it has one (DigitalOcean's min_disk_size, the source volume's size), else SizeGiB rounded
+	// up.
+	MinVolumeGiB int
+	CreatedAt    time.Time
+	Tags         []string
+}
+
+// Check refuses a reference with both or neither of its fields set, with an error wrapping
+// ErrInvalid.
+func (r SnapshotRef) Check() error {
+	switch {
+	case r.ID != "" && r.Name != "":
+		return fmt.Errorf("cloud: snapshot id %q and name %q: %w: name a snapshot by its id or by its name, not both", r.ID, r.Name, ErrInvalid)
+	case r.ID == "" && r.Name == "":
+		return fmt.Errorf("cloud: a snapshot with neither an id nor a name: %w", ErrInvalid)
+	}
+	return nil
+}
+
+// Fits refuses to make spec's volume from the snapshot, with an error wrapping ErrInvalid that
+// says why: the snapshot is in another region, or spec.SizeGiB is smaller than its MinVolumeGiB.
+// A provider calls it before it asks the cloud for the volume.
+func (s Snapshot) Fits(spec VolumeSpec) error {
+	if s.Region != spec.Region {
+		return fmt.Errorf("cloud: volume %s in %s from snapshot %s (%s): %w: the snapshot is in %s, and a volume is made from a snapshot in its own region",
+			spec.Name, spec.Region, s.Name, s.ID, ErrInvalid, s.Region)
+	}
+	if spec.SizeGiB < s.MinVolumeGiB {
+		return fmt.Errorf("cloud: volume %s of %d GiB from snapshot %s (%s): %w: a volume made from it needs at least %d GiB",
+			spec.Name, spec.SizeGiB, s.Name, s.ID, ErrInvalid, s.MinVolumeGiB)
+	}
+	return nil
 }
 
 // Address is a reserved IPv4 address that moves between instances. It carries inbound traffic

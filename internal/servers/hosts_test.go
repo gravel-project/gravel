@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -74,6 +75,10 @@ func (f *hostRows) ListServerHostEvents(_ context.Context, _ uuid.UUID, serverID
 
 func (f *hostRows) RunningSecondsSince(context.Context, uuid.UUID, string, time.Time, time.Time) (int64, error) {
 	return 3600, nil
+}
+
+func (f *hostRows) RunningCostSince(context.Context, uuid.UUID, string, time.Time, time.Time) (float64, error) {
+	return 0.25, nil
 }
 
 func writeKey(t *testing.T, path string) {
@@ -202,7 +207,7 @@ func TestHostsEndToEnd(t *testing.T) {
 	if _, err := r.mgr.Status(ctx, "htg-cs2-1"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := r.hosts.Resize(ctx, owner, "htg-cs2-1", "dedicated-4", false, ""); !errors.Is(err, cloudvm.ErrPlayersOn) {
+	if _, err := r.hosts.Resize(ctx, owner, "htg-cs2-1", "dedicated-4", false, false, ""); !errors.Is(err, cloudvm.ErrPlayersOn) {
 		t.Errorf("resize with a player on: %v", err)
 	}
 	id, err := r.hosts.SetDesired(ctx, owner, "htg-cs2-1", cloudvm.DesiredParked, "nobody tonight")
@@ -232,5 +237,27 @@ func TestHostsEndToEnd(t *testing.T) {
 	}
 	if n := len(r.audit.Entries()); n != 2 {
 		t.Errorf("refused-before-recording requests were recorded: %d entries", n)
+	}
+}
+
+// A host's row keeps every field the Manager writes, the scaling policy's included (#37).
+func TestHostRowRoundTrip(t *testing.T) {
+	at := time.Date(2026, 10, 12, 18, 0, 0, 0, time.UTC)
+	h := cloudvm.Host{ServerID: "htg-cs2-1", LocationID: "do-sfo3",
+		Intent: cloudvm.Intent{Desired: cloudvm.DesiredRunning, TargetSize: "c-4", PinnedSize: "c-4", RequestAuditID: 7},
+		State:  cloudvm.StateRunning, Size: "c-2", DiskGiB: 25, InstanceID: "1", InstanceAddress: "203.0.113.1", VolumeID: "v",
+		Address: "198.51.100.1", AddressReserved: true, FirewallID: "f", Egress: []string{"203.0.113.4/32"}, HostKey: "k",
+		EnvSHA256: []byte{1}, StateSince: at, InstanceCreatedAt: at, EmptySince: at, BootSeconds: 40, ReadySeconds: 120,
+		PendingSize: "c-4", PendingReason: "up: 9 of 10 players for 5m0s", PendingSince: at.Add(time.Minute), LastResizeAt: at.Add(-time.Hour)}
+	row, err := hostToRow(uuid.New(), h)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := hostFromRow(row)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, h) {
+		t.Errorf("round trip:\n got %+v\nwant %+v", got, h)
 	}
 }

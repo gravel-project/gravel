@@ -191,10 +191,21 @@ func TestHubCloudVMLifecycle(t *testing.T) {
 	if insts, _ := p.Instances(ctx, cloud.Filter{}); len(insts) != 0 {
 		t.Errorf("a parked host keeps %d instances", len(insts))
 	}
+	// Parked, its volume can be copied into a snapshot a new server starts from (#166).
+	snap, err := hosts.SnapshotServerHostVolume(ctx, connect.NewRequest(&hubv1.SnapshotServerHostVolumeRequest{ServerId: "cs2-1", Name: "cs2-install"}))
+	if err != nil || snap.Msg.GetSnapshot().GetName() != "cs2-install" || snap.Msg.GetSnapshot().GetRegion() == "" || snap.Msg.GetAuditId() == 0 {
+		t.Fatalf("snapshot: %v %v", snap, err)
+	}
+	if got, err := p.FindVolumeSnapshot(ctx, "cs2-install", snap.Msg.GetSnapshot().GetRegion()); err != nil || got.ID != snap.Msg.GetSnapshot().GetId() {
+		t.Errorf("in the cloud: %+v %v", got, err)
+	}
 	if _, err := hosts.SetServerHostDesired(ctx, connect.NewRequest(&hubv1.SetServerHostDesiredRequest{ServerId: "cs2-1", Desired: "running"})); err != nil {
 		t.Fatal(err)
 	}
 	again := waitHost(cloudvm.StateRunning)
+	if _, err := hosts.SnapshotServerHostVolume(ctx, connect.NewRequest(&hubv1.SnapshotServerHostVolumeRequest{ServerId: "cs2-1"})); connect.CodeOf(err) != connect.CodeFailedPrecondition {
+		t.Errorf("a snapshot of a running host's volume: %v", err)
+	}
 	if again.GetAddress() != host.GetAddress() {
 		t.Errorf("the address changed across a park: %s → %s", host.GetAddress(), again.GetAddress())
 	}
@@ -216,6 +227,23 @@ func TestHubCloudVMLifecycle(t *testing.T) {
 			t.Fatalf("never resized: %v %v", got, err)
 		}
 		time.Sleep(50 * time.Millisecond)
+	}
+
+	// Pin the size it is at (#37), then unpin it; a second unpin has nothing to undo.
+	pinned, err := hosts.ResizeServerHost(ctx, connect.NewRequest(&hubv1.ResizeServerHostRequest{ServerId: "cs2-1", Size: "dedicated-4", Pin: true}))
+	if err != nil || pinned.Msg.GetHost().GetPinnedSize() != "dedicated-4" || pinned.Msg.GetHost().GetTargetSize() != "" {
+		t.Fatalf("pin: %v %v", pinned, err)
+	}
+	unpinned, err := hosts.UnpinServerHostSize(ctx, connect.NewRequest(&hubv1.UnpinServerHostSizeRequest{ServerId: "cs2-1"}))
+	if err != nil || unpinned.Msg.GetHost().GetPinnedSize() != "" {
+		t.Fatalf("unpin: %v %v", unpinned, err)
+	}
+	if _, err := hosts.UnpinServerHostSize(ctx, connect.NewRequest(&hubv1.UnpinServerHostSizeRequest{ServerId: "cs2-1"})); connect.CodeOf(err) != connect.CodeInvalidArgument {
+		t.Errorf("unpin with nothing pinned: %v", err)
+	}
+	// The month's cost comes from the events, each run at its own size's price, on Postgres.
+	if c := unpinned.Msg.GetHost().GetMonthCostUsd(); c <= 0 {
+		t.Errorf("month cost %v after running at two sizes", c)
 	}
 
 	ev, err := hosts.ListServerHostEvents(ctx, connect.NewRequest(&hubv1.ListServerHostEventsRequest{ServerId: "cs2-1", PageSize: 3}))
@@ -241,7 +269,7 @@ func TestHubCloudVMLifecycle(t *testing.T) {
 	for _, e := range audit.Msg.GetEntries() {
 		actions = append(actions, e.GetAction()+":"+e.GetOutcome())
 	}
-	if strings.Join(actions, ",") != "host_resize:accepted,host_resize:invalid,host_unpark:accepted,host_park:accepted,host_destroy:not_parked" {
+	if strings.Join(actions, ",") != "host_unpin:invalid,host_unpin:accepted,host_resize:accepted,host_resize:accepted,host_resize:invalid,host_snapshot:not_parked,host_unpark:accepted,host_snapshot:accepted,host_park:accepted,host_destroy:not_parked" {
 		t.Errorf("audit %v", actions)
 	}
 

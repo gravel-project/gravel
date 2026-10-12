@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -117,7 +118,7 @@ func TestWaitHonoursTheDeadline(t *testing.T) {
 	// Other methods keep the default duration of zero.
 	v := volume(t, p, "data", "fake-1")
 	_ = v
-	if got := p.Snapshot().PendingOperations; got != 1 {
+	if got := p.Counts().PendingOperations; got != 1 {
 		t.Errorf("pending operations = %d, want 1", got)
 	}
 }
@@ -134,7 +135,7 @@ func TestFaultInjection(t *testing.T) {
 				t.Fatalf("CreateInstance = %v, want the injected error", err)
 			}
 		}
-		if n := p.Snapshot().Instances; n != 0 {
+		if n := p.Counts().Instances; n != 0 {
 			t.Fatalf("a failed call made %d instances", n)
 		}
 		running(t, p, spec("vm"))
@@ -173,7 +174,7 @@ func TestFaultInjection(t *testing.T) {
 		if got, _ := p.Instance(ctx, i.ID); got.Status != cloud.StatusRunning {
 			t.Errorf("a hung stop changed the status to %s", got.Status)
 		}
-		if n := p.Snapshot().PendingOperations; n != 1 {
+		if n := p.Counts().PendingOperations; n != 1 {
 			t.Errorf("pending operations = %d, want the hung one", n)
 		}
 		do(t, p)(p.StopInstance(ctx, i.ID, false)) // only the next one hangs
@@ -287,7 +288,7 @@ func TestValidation(t *testing.T) {
 	if _, err := p.EnsureSSHKey(ctx, "k", "not-a-key"); !errors.Is(err, cloud.ErrInvalid) {
 		t.Errorf("EnsureSSHKey(junk) = %v, want ErrInvalid", err)
 	}
-	if n := p.Snapshot(); n != (fake.Snapshot{}) {
+	if n := p.Counts(); n != (fake.Counts{}) {
 		t.Errorf("refused calls made %+v", n)
 	}
 }
@@ -413,7 +414,7 @@ func TestEnsureIsIdempotent(t *testing.T) {
 	if len(got) != 1 || got[0].Inbound[0].Addresses[0] != "192.0.2.10/32" {
 		t.Errorf("Firewalls = %+v, want the rule as ensured", got)
 	}
-	if n := p.Snapshot().Firewalls; n != 1 {
+	if n := p.Counts().Firewalls; n != 1 {
 		t.Errorf("%d firewalls, want 1", n)
 	}
 
@@ -520,11 +521,122 @@ func TestConcurrentUse(t *testing.T) {
 				t.Error(err)
 			}
 			_, _ = p.Instances(ctx, cloud.Filter{Tag: "t"})
-			_ = p.Snapshot()
+			_ = p.Counts()
 		})
 	}
 	wg.Wait()
-	if s := p.Snapshot(); s.Instances != 0 || s.Volumes != 0 || s.PendingOperations != 0 {
+	if s := p.Counts(); s.Instances != 0 || s.Volumes != 0 || s.PendingOperations != 0 {
 		t.Errorf("after every goroutine cleaned up: %+v", s)
+	}
+}
+
+func TestVolumeSnapshots(t *testing.T) {
+	ctx := t.Context()
+	p := fake.New(fake.WithRegions(
+		cloud.Region{Slug: "fake-1", Available: true},
+		cloud.Region{Slug: "fake-3", Available: true},
+	))
+	src, err := p.CreateVolume(ctx, cloud.VolumeSpec{Name: "data", Region: "fake-1", SizeGiB: 50, Tags: []string{"t"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	snap, err := p.CreateVolumeSnapshot(ctx, src.ID, "seed", []string{"t"})
+	if err != nil {
+		t.Fatalf("CreateVolumeSnapshot: %v", err)
+	}
+	if snap.Region != "fake-1" || snap.MinVolumeGiB != 50 || snap.SizeGiB != 50 {
+		t.Errorf("snapshot = %+v, want fake-1 and 50 GiB", snap)
+	}
+	if p.SourceSnapshot(src.ID) != "" {
+		t.Errorf("an empty volume has source %q", p.SourceSnapshot(src.ID))
+	}
+
+	v, err := p.CreateVolume(ctx, cloud.VolumeSpec{Name: "copy", Region: "fake-1", SizeGiB: 60, FromSnapshot: &cloud.SnapshotRef{Name: "seed"}})
+	if err != nil {
+		t.Fatalf("CreateVolume from the snapshot: %v", err)
+	}
+	if got := p.SourceSnapshot(v.ID); got != snap.ID {
+		t.Errorf("SourceSnapshot = %q, want %s", got, snap.ID)
+	}
+
+	for _, c := range []struct {
+		spec cloud.VolumeSpec
+		want error
+		says string
+	}{
+		{cloud.VolumeSpec{Name: "far", Region: "fake-3", SizeGiB: 50, FromSnapshot: &cloud.SnapshotRef{ID: snap.ID}}, cloud.ErrInvalid, "the snapshot is in fake-1"},
+		{cloud.VolumeSpec{Name: "far", Region: "fake-3", SizeGiB: 50, FromSnapshot: &cloud.SnapshotRef{Name: "seed"}}, cloud.ErrNotFound, "fake-3"},
+		{cloud.VolumeSpec{Name: "small", Region: "fake-1", SizeGiB: 49, FromSnapshot: &cloud.SnapshotRef{ID: snap.ID}}, cloud.ErrInvalid, "at least 50 GiB"},
+		{cloud.VolumeSpec{Name: "both", Region: "fake-1", SizeGiB: 50, FromSnapshot: &cloud.SnapshotRef{ID: snap.ID, Name: "seed"}}, cloud.ErrInvalid, "not both"},
+		{cloud.VolumeSpec{Name: "none", Region: "fake-1", SizeGiB: 50, FromSnapshot: &cloud.SnapshotRef{}}, cloud.ErrInvalid, "neither"},
+		{cloud.VolumeSpec{Name: "gone", Region: "fake-1", SizeGiB: 50, FromSnapshot: &cloud.SnapshotRef{ID: "snap-99"}}, cloud.ErrNotFound, "snap-99"},
+	} {
+		_, err := p.CreateVolume(ctx, c.spec)
+		if !errors.Is(err, c.want) || !strings.Contains(err.Error(), c.says) {
+			t.Errorf("CreateVolume(%s) = %v, want %v saying %q", c.spec.Name, err, c.want, c.says)
+		}
+	}
+	if n := p.Counts(); n.Volumes != 2 || n.Snapshots != 1 {
+		t.Errorf("Counts = %+v, want the two volumes and the snapshot", n)
+	}
+
+	// Names need not be unique, which makes a name ambiguous.
+	dup, err := p.CreateVolumeSnapshot(ctx, v.ID, "seed", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := p.FindVolumeSnapshot(ctx, "seed", "fake-1"); !errors.Is(err, cloud.ErrInvalid) || !strings.Contains(err.Error(), dup.ID) {
+		t.Errorf("FindVolumeSnapshot of a shared name = %v, want ErrInvalid naming both", err)
+	}
+	if list, err := p.ListVolumeSnapshots(ctx, cloud.Filter{Tag: "t"}); err != nil || len(list) != 1 || list[0].ID != snap.ID {
+		t.Errorf("ListVolumeSnapshots(tag t) = %+v, %v, want only %s", list, err, snap.ID)
+	}
+
+	// The snapshot outlives its volume.
+	if err := p.DeleteVolume(ctx, src.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := p.GetVolumeSnapshot(ctx, snap.ID); err != nil {
+		t.Errorf("GetVolumeSnapshot after its volume went: %v", err)
+	}
+	for _, id := range []string{snap.ID, dup.ID} {
+		if err := p.DeleteVolumeSnapshot(ctx, id); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := p.DeleteVolumeSnapshot(ctx, snap.ID); !errors.Is(err, cloud.ErrNotFound) {
+		t.Errorf("deleting twice: %v, want ErrNotFound", err)
+	}
+	if p.SourceSnapshot(v.ID) != snap.ID {
+		t.Error("a volume forgot its source when the snapshot went")
+	}
+}
+
+func TestVolumeSnapshotFaults(t *testing.T) {
+	ctx := t.Context()
+	p := fake.New()
+	v := volume(t, p, "data", "fake-1")
+	p.FailNext("CreateVolumeSnapshot", errBoom)
+	if _, err := p.CreateVolumeSnapshot(ctx, v.ID, "seed", nil); !errors.Is(err, errBoom) {
+		t.Errorf("CreateVolumeSnapshot = %v, want the injected error", err)
+	}
+	p.RateLimitNext("ListVolumeSnapshots")
+	if _, err := p.ListVolumeSnapshots(ctx, cloud.Filter{}); !errors.Is(err, cloud.ErrRateLimited) {
+		t.Errorf("ListVolumeSnapshots = %v, want ErrRateLimited", err)
+	}
+	p.HangNext("CreateVolumeSnapshot")
+	short, cancel := context.WithTimeout(ctx, 10*time.Millisecond)
+	defer cancel()
+	if _, err := p.CreateVolumeSnapshot(short, v.ID, "seed", nil); !errors.Is(err, context.DeadlineExceeded) {
+		t.Errorf("a hung CreateVolumeSnapshot = %v, want the deadline", err)
+	}
+	if n := p.Counts().Snapshots; n != 0 {
+		t.Errorf("failed and hung calls made %d snapshots", n)
+	}
+	if _, err := p.CreateVolumeSnapshot(ctx, v.ID, "seed", nil); err != nil {
+		t.Errorf("only the next call hangs: %v", err)
+	}
+	if _, err := p.CreateVolumeSnapshot(ctx, "v-99", "seed", nil); !errors.Is(err, cloud.ErrNotFound) {
+		t.Errorf("a snapshot of a volume nothing has: %v, want ErrNotFound", err)
 	}
 }

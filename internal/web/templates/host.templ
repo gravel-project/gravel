@@ -29,8 +29,33 @@ templ HostSection(p ServerPage) {
 				<dt>Size</dt>
 				<dd>
 					{ p.Host.Size }
+					if p.Host.TierPlayers > 0 {
+						<span class="muted">({ fmt.Sprint(p.Host.TierPlayers) } players)</span>
+					}
 					if p.Host.TargetSize != "" {
 						<span class="muted">moving to { p.Host.TargetSize }</span>
+					}
+					if p.Host.Pinned != "" {
+						<span class="muted">pinned at { p.Host.Pinned }</span>
+					}
+				</dd>
+			}
+			if p.Host.Scaling {
+				<dt>Scaling</dt>
+				<dd>
+					<p>It moves between these sizes as players come and go, at a map change or when nobody is on; a move disconnects everyone for a few minutes.</p>
+					<ul>
+						for _, r := range p.Host.Ladder {
+							<li>
+								{ r.Size }: { fmt.Sprint(r.Players) } players, { usd(r.PriceUSD) } an hour
+								if r.Current {
+									<span class="muted">(now)</span>
+								}
+							</li>
+						}
+					</ul>
+					if p.Host.PendingSize != "" {
+						<p><strong>Waiting to move to { p.Host.PendingSize }</strong> since { at(p.Host.PendingSince) }: { p.Host.PendingReason }.</p>
 					}
 				</dd>
 			}
@@ -68,6 +93,9 @@ templ HostSection(p ServerPage) {
 			<form method="post" action={ templ.SafeURL("/servers/" + p.Server.ID + "/host") }>
 				<input type="hidden" name="_csrf" value={ p.CSRF }/>
 				<input type="hidden" name="action" value="resize"/>
+				if p.Host.Scaling {
+					<input type="hidden" name="scaling" value="1"/>
+				}
 				<label for="host-size">Resize the machine to</label>
 				<select id="host-size" name="size">
 					for _, s := range p.Host.Sizes {
@@ -76,6 +104,20 @@ templ HostSection(p ServerPage) {
 				</select>
 				<button type="submit">Review</button>
 			</form>
+		}
+		if p.Host.CanPin {
+			<form method="post" action={ templ.SafeURL("/servers/" + p.Server.ID + "/host") } class="inline">
+				<input type="hidden" name="_csrf" value={ p.CSRF }/>
+				<input type="hidden" name="action" value="pin"/>
+				<input type="hidden" name="size" value={ p.Host.Size }/>
+				<button type="submit">Keep it at { p.Host.Size }</button>
+			</form>
+		}
+		if p.Host.CanUnpin {
+			@hostForm(p, "unpin", "Let the policy decide the size")
+		}
+		if p.Host.CanSnapshot {
+			@hostForm(p, "snapshot", "Snapshot the disk")
 		}
 		if p.Host.CanDestroy {
 			@hostForm(p, "destroy", "Destroy the machine")
@@ -115,6 +157,12 @@ templ HostConfirmContent(p HostConfirmPage) {
 				<p>
 					<input id="host-force" type="checkbox" name="force" value="1"/>
 					<label for="host-force">Resize even if players are on</label>
+				</p>
+			}
+			if p.OfferPin {
+				<p>
+					<input id="host-pin" type="checkbox" name="pin" value="1"/>
+					<label for="host-pin">Keep it at this size (the scaling policy stops resizing it)</label>
 				</p>
 			}
 			if p.OfferDeleteVolume {

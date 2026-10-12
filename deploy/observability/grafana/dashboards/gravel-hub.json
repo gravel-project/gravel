@@ -2936,7 +2936,7 @@
       "gravelOptional": "no cloud-VM server pushed its log in the range",
       "gridPos": {
         "h": 8,
-        "w": 12,
+        "w": 6,
         "x": 0,
         "y": 104
       },
@@ -3001,8 +3001,8 @@
       "gravelOptional": "no banned player connected in the range",
       "gridPos": {
         "h": 8,
-        "w": 12,
-        "x": 12,
+        "w": 6,
+        "x": 6,
         "y": 104
       },
       "id": 52,
@@ -3033,14 +3033,396 @@
       "type": "timeseries"
     },
     {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "The players the rung of its scaling ladder each host is on is sized for (#37). No data is expected when no running server has a scaling policy.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gravelOptional": "no running server has a scaling policy",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 104
+      },
+      "id": 53,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "gravel_cloudvm_tier_players{job=\"$job\", instance=~\"$instance\"}",
+          "legendFormat": "{{server}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Rung (players)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "A scaling decision waiting for a map change, a match's end or an empty server; the host's events say why. No data is expected when no server has a scaling policy.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gravelOptional": "no server has a scaling policy",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 104
+      },
+      "id": 54,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "gravel_cloudvm_scale_pending{job=\"$job\", instance=~\"$instance\"} == 1",
+          "legendFormat": "{{server}}: {{direction}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Waiting for a boundary",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "No data is expected when no scaling decision in the range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gravelOptional": "no scaling decision in the range",
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 0,
+        "y": 112
+      },
+      "id": 55,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (server, direction, outcome) (increase(gravel_cloudvm_scale_decisions_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "{{server}} {{direction}} {{outcome}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Scaling decisions",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Resizes by direction and result: ok, refused by the provider, or failed (started again at the old size). No data is expected when no host was resized in the range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gravelOptional": "no host was resized in the range",
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 6,
+        "y": 112
+      },
+      "id": 56,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (server, direction, result) (increase(gravel_cloudvm_resizes_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "{{server}} {{direction}} {{result}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Resizes",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Snapshots of a parked host's data volume the owner asked for (#166); a new server's volume can be made from one. No data is expected when no volume snapshot in the range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gravelOptional": "no volume snapshot in the range",
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 112
+      },
+      "id": 57,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (server, result) (increase(gravel_cloudvm_volume_snapshots_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "{{server}} {{result}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Volume snapshots",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "The game's environment file on a host was not the one the hub pushed (an edit by hand, a crash mid-write), so the hub pushed it again; the host's events say when. No data is expected when no host's environment file drifted in the range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gravelOptional": "no host's environment file drifted in the range",
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 112
+      },
+      "id": 58,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (server) (increase(gravel_cloudvm_env_drift_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "{{server}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Environment file drift",
+      "type": "timeseries"
+    },
+    {
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 112
+        "y": 120
       },
-      "id": 53,
+      "id": 59,
       "panels": [],
       "title": "Stats",
       "type": "row"
@@ -3081,9 +3463,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 113
+        "y": 121
       },
-      "id": 54,
+      "id": 60,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3146,9 +3528,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 113
+        "y": 121
       },
-      "id": 55,
+      "id": 61,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3211,9 +3593,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 113
+        "y": 121
       },
-      "id": 56,
+      "id": 62,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3275,9 +3657,9 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 121
+        "y": 129
       },
-      "id": 57,
+      "id": 63,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3332,9 +3714,9 @@
         "h": 4,
         "w": 12,
         "x": 12,
-        "y": 121
+        "y": 129
       },
-      "id": 58,
+      "id": 64,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -3399,9 +3781,9 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 129
+        "y": 137
       },
-      "id": 59,
+      "id": 65,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3434,9 +3816,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 137
+        "y": 145
       },
-      "id": 60,
+      "id": 66,
       "panels": [],
       "title": "Ingestion",
       "type": "row"
@@ -3478,9 +3860,9 @@
         "h": 4,
         "w": 8,
         "x": 0,
-        "y": 138
+        "y": 146
       },
-      "id": 61,
+      "id": 67,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -3546,9 +3928,9 @@
         "h": 8,
         "w": 16,
         "x": 8,
-        "y": 138
+        "y": 146
       },
-      "id": 62,
+      "id": 68,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3581,9 +3963,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 146
+        "y": 154
       },
-      "id": 63,
+      "id": 69,
       "panels": [],
       "title": "Background jobs",
       "type": "row"
@@ -3623,9 +4005,9 @@
         "h": 8,
         "w": 16,
         "x": 0,
-        "y": 147
+        "y": 155
       },
-      "id": 64,
+      "id": 70,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3680,9 +4062,9 @@
         "h": 4,
         "w": 8,
         "x": 16,
-        "y": 147
+        "y": 155
       },
-      "id": 65,
+      "id": 71,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -3718,9 +4100,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 155
+        "y": 163
       },
-      "id": 66,
+      "id": 72,
       "panels": [],
       "title": "Runtime",
       "type": "row"
@@ -3759,9 +4141,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 156
+        "y": 164
       },
-      "id": 67,
+      "id": 73,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3822,9 +4204,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 156
+        "y": 164
       },
-      "id": 68,
+      "id": 74,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3885,9 +4267,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 156
+        "y": 164
       },
-      "id": 69,
+      "id": 75,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3948,9 +4330,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 164
+        "y": 172
       },
-      "id": 70,
+      "id": 76,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4011,9 +4393,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 164
+        "y": 172
       },
-      "id": 71,
+      "id": 77,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4074,9 +4456,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 164
+        "y": 172
       },
-      "id": 72,
+      "id": 78,
       "options": {
         "legend": {
           "displayMode": "list",

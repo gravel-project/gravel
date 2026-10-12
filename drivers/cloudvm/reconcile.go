@@ -3,6 +3,8 @@ package cloudvm
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -52,6 +54,9 @@ const (
 	CodeDuplicateInstances = "duplicate_instances"
 	CodeVolumeNotOurs      = "volume_not_ours"
 	CodeGameFailed         = "game_failed"
+	// DetailEnvDrift is the event a host records when its game's environment file is not the
+	// one the hub pushed (#169): the hub pushes it again.
+	DetailEnvDrift = "env_drift"
 )
 
 // ErrHostKeyChanged is a host presenting another SSH host key than the one the hub trusted: the
@@ -264,6 +269,7 @@ func (t *tick) waitOperation(ctx context.Context, h *Host) (bool, error) {
 			t.m.log.Warn("the resize failed; starting the host at its old size", "server", h.ServerID, "error", err.Error())
 			t.events = append(t.events, Event{ServerID: h.ServerID, At: t.now, From: h.State, To: h.State, Step: stepStart, Detail: CodeResizeFailed, Size: h.Size})
 			t.m.met.ops.WithLabelValues(h.ServerID, "resize", "error").Inc()
+			t.countResize(h, "failed")
 			return true, nil
 		}
 		return false, fail(CodeCloudFailed, err)
@@ -304,11 +310,27 @@ func (t *tick) create(ctx context.Context, h *Host) (bool, error) {
 			}
 			h.VolumeID = v.ID
 		default:
-			v, err := p.CreateVolume(ctx, cloud.VolumeSpec{Name: VolumeName(s.ID), Region: s.Location.Region, SizeGiB: s.VolumeGiB, Tags: []string{BaseTag, Tag(s.ID)}})
+			// A new volume: from the seed snapshot when the manifest names one, so the game's
+			// install is there (#166). The environment file in it is another server's; the start
+			// reads the host's hash and pushes this server's (#169).
+			spec := cloud.VolumeSpec{Name: VolumeName(s.ID), Region: s.Location.Region, SizeGiB: s.VolumeGiB, Tags: []string{BaseTag, Tag(s.ID)}}
+			if s.SeedSnapshot != nil {
+				ref := *s.SeedSnapshot
+				spec.FromSnapshot = &ref
+			}
+			v, err := p.CreateVolume(ctx, spec)
 			if err != nil {
 				return false, cloudErr(err)
 			}
 			h.VolumeID, h.EnvSHA256 = v.ID, nil
+			if s.SeedSnapshot != nil {
+				seed := s.SeedSnapshot.Name
+				if seed == "" {
+					seed = s.SeedSnapshot.ID
+				}
+				t.events = append(t.events, Event{ServerID: h.ServerID, At: t.now, From: h.State, To: h.State, Step: stepVolume, Detail: "from snapshot " + seed, Size: h.Size})
+				t.m.log.Info("made the data volume from a snapshot", "server", s.ID, "snapshot", seed)
+			}
 		}
 		h.Step = stepInstance
 		if s.AddressReserved {
@@ -425,8 +447,9 @@ func (t *tick) create(ctx context.Context, h *Host) (bool, error) {
 	return false, fmt.Errorf("cloudvm: unknown creating step %q", h.Step)
 }
 
-// remote runs a command on the host as the runtime user, trusting its key on first use.
-func (t *tick) remote(ctx context.Context, h *Host, stdin []byte, command string) error {
+// remote runs a command on the host as the runtime user, trusting its key on first use, and
+// returns what it printed.
+func (t *tick) remote(ctx context.Context, h *Host, stdin []byte, command string) ([]byte, error) {
 	rctx, cancel := context.WithTimeout(ctx, remoteRunTimeout)
 	defer cancel()
 	var in io.Reader
@@ -434,18 +457,18 @@ func (t *tick) remote(ctx context.Context, h *Host, stdin []byte, command string
 		in = bytes.NewReader(stdin)
 	}
 	target := RemoteTarget{Address: h.InstanceAddress, User: vmdoc.DefaultUser, Signer: t.s.Location.SSHKey, HostKey: h.HostKey}
-	_, key, err := t.m.opt.Remote.Run(rctx, target, in, command)
+	out, key, err := t.m.opt.Remote.Run(rctx, target, in, command)
 	if h.HostKey == "" && key != "" {
 		h.HostKey = key
 	}
 	if errors.Is(err, ErrHostKeyChanged) {
-		return fail(CodeHostKeyChanged, err)
+		return nil, fail(CodeHostKeyChanged, err)
 	}
-	return err
+	return out, err
 }
 
 func (t *tick) boot(ctx context.Context, h *Host) (bool, error) {
-	err := t.remote(ctx, h, nil, "test -e "+BootMarker)
+	_, err := t.remote(ctx, h, nil, "test -e "+BootMarker)
 	if err != nil {
 		var se *stepError
 		if errors.As(err, &se) {
@@ -482,7 +505,7 @@ func EnvScript(game string, restart bool) string {
 // pushEnv writes the game's environment file and restarts its unit (or, with restart false, only
 // writes it).
 func (t *tick) pushEnv(ctx context.Context, h *Host, env []byte, restart bool) error {
-	if err := t.remote(ctx, h, env, EnvScript(t.s.Game, restart)); err != nil {
+	if _, err := t.remote(ctx, h, env, EnvScript(t.s.Game, restart)); err != nil {
 		var se *stepError
 		if errors.As(err, &se) {
 			return err
@@ -492,19 +515,67 @@ func (t *tick) pushEnv(ctx context.Context, h *Host, env []byte, restart bool) e
 	return nil
 }
 
+// EnvHashScript is the command that prints the SHA-256 of the game's environment file on the
+// host, or "missing" when there is none. Only the hash leaves the host, never the file.
+func EnvHashScript(game string) string {
+	return "f=~/.config/" + game + "/env; if [ -f \"$f\" ]; then sha256sum \"$f\"; else echo missing; fi"
+}
+
+// hostEnvHash reads the hash of the environment file on the host: nil when there is none.
+func (t *tick) hostEnvHash(ctx context.Context, h *Host) ([]byte, error) {
+	out, err := t.remote(ctx, h, nil, EnvHashScript(t.s.Game))
+	if err != nil {
+		return nil, err
+	}
+	fields := strings.Fields(string(out))
+	if len(fields) == 0 {
+		return nil, fmt.Errorf("cloudvm: no answer from the environment file's hash")
+	}
+	if fields[0] == "missing" {
+		return nil, nil
+	}
+	sum, err := hex.DecodeString(fields[0])
+	if err != nil || len(sum) != sha256.Size {
+		return nil, fmt.Errorf("cloudvm: the environment file's hash is not a SHA-256: %q", fields[0])
+	}
+	return sum, nil
+}
+
+// envDrift records that the environment file on the host is not the one the hub pushed: by hand,
+// a crash mid-write or a break-glass change left in place (#169, HTG's first live run: a line
+// added on the volume survived a park and bound RCON to the wrong address). Never its content.
+func (t *tick) envDrift(h *Host, where string) {
+	t.events = append(t.events, Event{ServerID: h.ServerID, At: t.now, From: h.State, To: h.State, Step: h.Step, Detail: DetailEnvDrift, Size: h.Size})
+	t.m.met.envDrift.WithLabelValues(h.ServerID).Inc()
+	t.m.log.Warn("the game's environment file on the host is not the one the hub pushed; pushing it again", "server", h.ServerID, "when", where)
+}
+
 func (t *tick) start(ctx context.Context, h *Host) (bool, error) {
 	switch h.Step {
 	case stepEnv, "":
-		env, err := RenderEnv(t.s)
+		env, err := RenderEnv(t.s, h.Size)
 		if err != nil {
 			return false, err
 		}
-		if sum := envHash(env); !bytes.Equal(sum, h.EnvSHA256) {
+		// The recorded hash says what the hub pushed, not what the host has: read the host's.
+		sum := envHash(env)
+		onHost, err := t.hostEnvHash(ctx, h)
+		if err != nil {
+			var se *stepError
+			if errors.As(err, &se) {
+				return false, err
+			}
+			return false, fail(CodeSSHFailed, err)
+		}
+		if !bytes.Equal(sum, onHost) {
+			if bytes.Equal(sum, h.EnvSHA256) {
+				t.envDrift(h, "start")
+			}
 			if err := t.pushEnv(ctx, h, env, true); err != nil {
 				return false, err
 			}
-			h.EnvSHA256 = sum
 		}
+		h.EnvSHA256 = sum
 		h.Step = stepGame
 		return true, nil
 	case stepGame:
@@ -541,7 +612,7 @@ func (t *tick) status(ctx context.Context, h *Host) (GameStatus, error) {
 	if err != nil {
 		return GameStatus{}, err
 	}
-	t.m.observe(t.rt, st, t.now)
+	t.m.observe(t.rt, t.s.Scaling, st, t.now)
 	return st, nil
 }
 
@@ -555,6 +626,10 @@ func (t *tick) running(ctx context.Context, h *Host, want string) (bool, error) 
 			h.TargetSize = ""
 			return true, nil
 		}
+		if h.PendingSize != "" && h.PendingSize != h.TargetSize {
+			t.cancelScale(h, "the owner resized it to "+h.TargetSize)
+		}
+		h.LastResizeAt = t.now
 		t.to(h, StateResizing, stepQuit, h.Size+" to "+h.TargetSize)
 		return true, nil
 	}
@@ -570,11 +645,26 @@ func (t *tick) running(ctx context.Context, h *Host, want string) (bool, error) 
 			return moved, err
 		}
 	}
-	env, err := RenderEnv(t.s)
+	env, err := RenderEnv(t.s, h.Size)
 	if err != nil {
 		return false, err
 	}
-	if sum := envHash(env); !bytes.Equal(sum, h.EnvSHA256) {
+	sum := envHash(env)
+	if drift && bytes.Equal(sum, h.EnvSHA256) {
+		// The same pass looks at the file on the host; a difference takes the settings-changed path
+		// below, so a game with players on keeps running until it is empty.
+		if onHost, err := t.hostEnvHash(ctx, h); err != nil {
+			var se *stepError
+			if errors.As(err, &se) {
+				return false, err
+			}
+			t.m.log.Warn("couldn't read the game's environment file's hash on the host", "server", h.ServerID, "error", err.Error())
+		} else if !bytes.Equal(sum, onHost) {
+			t.envDrift(h, "running")
+			h.EnvSHA256 = nil
+		}
+	}
+	if !bytes.Equal(sum, h.EnvSHA256) {
 		if !known || players > 0 {
 			if h.Step != stepEnvPending {
 				h.Step = stepEnvPending
@@ -590,13 +680,23 @@ func (t *tick) running(ctx context.Context, h *Host, want string) (bool, error) 
 		t.to(h, StateStarting, stepGame, "settings changed")
 		return true, nil
 	}
+	// A pinned size the host is not at (it was unparked, so made at the server's size): resize to
+	// it while the room is still empty.
+	if h.PinnedSize != "" && h.PinnedSize != h.Size && known && players == 0 {
+		t.m.log.Info("the host is not at its pinned size; resizing while it is empty", "server", h.ServerID, "pinned", h.PinnedSize)
+		h.TargetSize = h.PinnedSize
+		return true, nil
+	}
 	if t.s.ParkAfter > 0 && known && players == 0 && !emptySince.IsZero() && t.now.Sub(emptySince) >= t.s.ParkAfter {
 		h.Desired = DesiredParked
 		t.m.log.Info("the server has been empty; parking its host", "server", h.ServerID, "empty_for", t.now.Sub(emptySince).Round(time.Second).String())
+		if h.PendingSize != "" {
+			t.cancelScale(h, "the host is parked")
+		}
 		t.to(h, StateParking, stepQuit, "idle")
 		return true, nil
 	}
-	return false, nil
+	return t.scale(ctx, h), nil
 }
 
 // checkDrift looks at the host as the cloud has it: an instance someone stopped is started, a lost
@@ -783,15 +883,24 @@ func (t *tick) resize(ctx context.Context, h *Host) (bool, error) {
 		if okFrom && h.DiskGiB > 0 {
 			from.DiskGiB = h.DiskGiB
 		}
+		dir := DirectionUp
+		if okFrom && okTo && (to.VCPUs < from.VCPUs || (to.VCPUs == from.VCPUs && to.MemoryMiB < from.MemoryMiB)) {
+			dir = DirectionDown
+		}
+		t.rt.mu.Lock()
+		t.rt.resizeDir = dir
+		t.rt.mu.Unlock()
 		if !okFrom || !okTo || t.p.CanResize(from, to) != nil {
 			t.m.log.Warn("the resize is not allowed; starting the host at its size", "server", h.ServerID, "from", h.Size, "to", h.TargetSize)
 			t.events = append(t.events, Event{ServerID: h.ServerID, At: t.now, From: h.State, To: h.State, Step: stepStart, Detail: CodeResizeFailed, Size: h.Size})
+			t.countResize(h, "refused")
 			h.TargetSize, h.Step = "", stepStart
 			return true, nil
 		}
 		op, err := t.p.ResizeInstance(ctx, h.InstanceID, h.TargetSize)
 		if err != nil {
 			if errors.Is(err, cloud.ErrResizeNotAllowed) || errors.Is(err, cloud.ErrInvalid) {
+				t.countResize(h, "refused")
 				h.TargetSize, h.Step = "", stepStart
 				return true, nil
 			}
@@ -807,6 +916,11 @@ func (t *tick) resize(ctx context.Context, h *Host) (bool, error) {
 		if err != nil {
 			return false, cloudErr(err)
 		}
+		result := "ok"
+		if inst.Size != h.TargetSize {
+			result = "failed"
+		}
+		t.countResize(h, result)
 		h.Size, h.TargetSize, h.Step = inst.Size, "", stepStart
 		return true, nil
 	case stepStart:
@@ -878,4 +992,16 @@ func (t *tick) destroy(ctx context.Context, h *Host) (bool, error) {
 		return true, nil
 	}
 	return false, fmt.Errorf("cloudvm: unknown destroying step %q", h.Step)
+}
+
+// countResize counts a resize's end by the direction its step worked out.
+func (t *tick) countResize(h *Host, result string) {
+	t.rt.mu.Lock()
+	dir := t.rt.resizeDir
+	t.rt.resizeDir = ""
+	t.rt.mu.Unlock()
+	if dir == "" {
+		dir = DirectionUp
+	}
+	t.m.met.resizes.WithLabelValues(h.ServerID, dir, result).Inc()
 }

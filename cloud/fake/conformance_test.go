@@ -47,9 +47,10 @@ func TestConformance(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			p := fake.New(tc.opts...)
 			// Registered before Run, so it runs after the suite's own cleanup: the suite must
-			// leave nothing behind but its SSH key, which the interface cannot delete.
+			// leave nothing behind (no volume, snapshot, address or firewall) but its SSH key, which the
+			// interface cannot delete.
 			t.Cleanup(func() {
-				if got, want := p.Snapshot(), (fake.Snapshot{SSHKeys: 1}); got != want {
+				if got, want := p.Counts(), (fake.Counts{SSHKeys: 1}); got != want {
 					t.Errorf("after the suite the fake holds %+v, want %+v", got, want)
 				}
 			})

@@ -65,7 +65,7 @@ func TestHubCreateUsage(t *testing.T) {
 			t.Errorf("%q: %d, want 2", args, code)
 		}
 	}
-	if s := e.cloud.Snapshot(); s != (fake.Snapshot{}) {
+	if s := e.cloud.Counts(); s != (fake.Counts{}) {
 		t.Errorf("a usage error made %+v", s)
 	}
 
@@ -77,7 +77,7 @@ func TestHubCreateUsage(t *testing.T) {
 	if strings.Contains(out+errOut, "tok-0644") {
 		t.Error("the token was printed")
 	}
-	if s := e.cloud.Snapshot(); s != (fake.Snapshot{}) {
+	if s := e.cloud.Counts(); s != (fake.Counts{}) {
 		t.Errorf("a refused token file made %+v", s)
 	}
 
@@ -119,13 +119,13 @@ func TestHubCreate(t *testing.T) {
 	}
 
 	// A second run finds everything and forgets no host key.
-	snap := e.cloud.Snapshot()
+	counts := e.cloud.Counts()
 	code, out, errOut := e.run(e.createArgs("--ssh-from-here")...)
 	if code != 0 || strings.Count(out, " unchanged") != 3 || strings.Contains(out, "created") {
 		t.Errorf("second run: %d %s\n%s", code, errOut, out)
 	}
-	if e.cloud.Snapshot() != snap || e.cloud.CallCount("CreateInstance") != 1 {
-		t.Errorf("second run changed the cloud: %+v", e.cloud.Snapshot())
+	if e.cloud.Counts() != counts || e.cloud.CallCount("CreateInstance") != 1 {
+		t.Errorf("second run changed the cloud: %+v", e.cloud.Counts())
 	}
 	if _, _, forgotten := e.remote.snapshot(); len(forgotten) != 1 {
 		t.Errorf("second run forgot %v", forgotten)
@@ -150,7 +150,7 @@ func TestHubCreateDryRunFromNothing(t *testing.T) {
 	if code != 3 || strings.Count(out, "would be created") != 3 {
 		t.Errorf("%d %s\n%s", code, errOut, out)
 	}
-	if s := e.cloud.Snapshot(); s != (fake.Snapshot{}) {
+	if s := e.cloud.Counts(); s != (fake.Counts{}) {
 		t.Errorf("a dry run made %+v", s)
 	}
 	if calls, _, _ := e.remote.snapshot(); len(calls) != 0 {
@@ -315,7 +315,7 @@ func TestHubDestroy(t *testing.T) {
 	if code != 3 || strings.Count(out, "would be deleted") != 3 {
 		t.Errorf("dry run: %d\n%s", code, out)
 	}
-	if s := e.cloud.Snapshot(); s.Instances != 1 || s.Volumes != 1 || s.Firewalls != 1 {
+	if s := e.cloud.Counts(); s.Instances != 1 || s.Volumes != 1 || s.Firewalls != 1 {
 		t.Errorf("a dry run deleted something: %+v", s)
 	}
 
@@ -323,7 +323,7 @@ func TestHubDestroy(t *testing.T) {
 	if code != 0 || !strings.Contains(out, "is kept") || !strings.Contains(out, "gravel hub create --name hub-1") {
 		t.Errorf("destroy: %d\n%s", code, out)
 	}
-	if s := e.cloud.Snapshot(); s.Instances != 0 || s.Volumes != 1 || s.Firewalls != 1 {
+	if s := e.cloud.Counts(); s.Instances != 0 || s.Volumes != 1 || s.Firewalls != 1 {
 		t.Errorf("destroy left %+v", s)
 	}
 
@@ -331,7 +331,7 @@ func TestHubDestroy(t *testing.T) {
 	if code != 0 || strings.Contains(out, "is kept") {
 		t.Errorf("full destroy: %d\n%s", code, out)
 	}
-	if s := e.cloud.Snapshot(); s.Instances != 0 || s.Volumes != 0 || s.Firewalls != 0 {
+	if s := e.cloud.Counts(); s.Instances != 0 || s.Volumes != 0 || s.Firewalls != 0 {
 		t.Errorf("full destroy left %+v", s)
 	}
 }

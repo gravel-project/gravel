@@ -13,6 +13,9 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/gravel-project/gravel/cloud"
+	"github.com/gravel-project/gravel/cloud/fake"
+	"github.com/gravel-project/gravel/drivers/cloudvm"
 	"github.com/gravel-project/gravel/internal/servers/serverstest"
 )
 
@@ -127,6 +130,43 @@ func TestCloudManifestValidation(t *testing.T) {
 		}, "game_mode needs game_type"},
 		{"map with a command", func(m *Manifest) { m.Servers[0].Settings["start_map"] = "de_mirage; quit" }, "start_map"},
 		{"name the image would mangle", func(m *Manifest) { m.Servers[0].Name = "HTG / CS2" }, "from the server's name"},
+		{"scaling beside max_players", func(m *Manifest) { m.Servers[0].VM.Scaling = &ScalingSpec{} }, "settings.max_players is the ladder's"},
+		{"scaling: size off the ladder", func(m *Manifest) {
+			delete(m.Servers[0].Settings, "max_players")
+			m.Servers[0].VM.Size = "c-8"
+			m.Servers[0].VM.Scaling = &ScalingSpec{}
+		}, "vm.size c-8 is not on the ladder"},
+		{"scaling: one rung", func(m *Manifest) {
+			delete(m.Servers[0].Settings, "max_players")
+			m.Servers[0].VM.Scaling = &ScalingSpec{Ladder: []cloudvm.Tier{{Size: "c-2", Players: 10}}}
+		}, "at least two rungs"},
+		{"scaling: players not growing", func(m *Manifest) {
+			delete(m.Servers[0].Settings, "max_players")
+			m.Servers[0].VM.Scaling = &ScalingSpec{Ladder: []cloudvm.Tier{{Size: "c-2", Players: 10}, {Size: "c-4", Players: 10}}}
+		}, "is not more than the rung below's"},
+		{"scaling: players the game refuses", func(m *Manifest) {
+			delete(m.Servers[0].Settings, "max_players")
+			m.Servers[0].VM.Scaling = &ScalingSpec{Ladder: []cloudvm.Tier{{Size: "c-2", Players: 10}, {Size: "c-4", Players: 99}}}
+		}, "99 players: max_players"},
+		{"scaling: thresholds crossed", func(m *Manifest) {
+			delete(m.Servers[0].Settings, "max_players")
+			m.Servers[0].VM.Scaling = &ScalingSpec{UpAt: 0.3, DownAt: 0.5}
+		}, "0 < down_at < up_at"},
+		{"scaling: up_at over 1", func(m *Manifest) {
+			delete(m.Servers[0].Settings, "max_players")
+			m.Servers[0].VM.Scaling = &ScalingSpec{UpAt: 1.5}
+		}, "up_at"},
+		{"scaling: hold too short", func(m *Manifest) {
+			delete(m.Servers[0].Settings, "max_players")
+			m.Servers[0].VM.Scaling = &ScalingSpec{UpFor: Duration(10 * time.Second)}
+		}, "up_for: 10s is outside"},
+		{"scaling: cooldown too short", func(m *Manifest) {
+			delete(m.Servers[0].Settings, "max_players")
+			m.Servers[0].VM.Scaling = &ScalingSpec{Cooldown: Duration(time.Minute)}
+		}, "cooldown: 1m0s is outside"},
+		{"seed: both id and name", func(m *Manifest) { m.Servers[0].VM.SeedSnapshot = &SeedSnapshot{ID: "1", Name: "x"} }, "an id or a name, one of them"},
+		{"seed: neither", func(m *Manifest) { m.Servers[0].VM.SeedSnapshot = &SeedSnapshot{} }, "an id or a name, one of them"},
+		{"seed: bad name", func(m *Manifest) { m.Servers[0].VM.SeedSnapshot = &SeedSnapshot{Name: "my install!"} }, "is not a snapshot name"},
 		{"vm on a wardogs server", func(m *Manifest) {
 			m.Games = append(m.Games, GameRef{ID: "wardogs"})
 			m.Servers = append(m.Servers, Server{ID: "wd-1", Name: "W", Game: "wardogs", Driver: "wardogs", Location: "x",
@@ -200,5 +240,128 @@ func TestCloudManifestApply(t *testing.T) {
 	}
 	if _, err := svc.Location(ctx, "do-sfo3"); err == nil {
 		t.Error("a removed location is still read")
+	}
+}
+
+// vm.scaling: {} turns the policy on with the game's ladder and the defaults; it round-trips
+// through the JSON column, and the hub's spec carries it.
+func TestCloudManifestScaling(t *testing.T) {
+	m := parseCloud(t)
+	delete(m.Servers[0].Settings, "max_players")
+	m.Servers[0].VM.Scaling = &ScalingSpec{}
+	if err := m.Validate(cloudSpecs(), cloudDrivers, []string{"digitalocean"}); err != nil {
+		t.Fatal(err)
+	}
+	p := m.Servers[0].VM.Scaling.Policy(Specs()["cs2"].CloudVM.Ladder)
+	if len(p.Ladder) != 2 || p.Ladder[1].Size != "c-4" || p.UpAt != cloudvm.DefaultUpAt || p.DownFor != cloudvm.DefaultDownFor || p.Cooldown != cloudvm.DefaultCooldown {
+		t.Errorf("policy %+v: the game's ladder and the defaults", p)
+	}
+	parsed, err := ParseManifest([]byte(strings.Replace(strings.Replace(cloudManifest, "      max_players: 10\n", "", 1),
+		"      park_after: 30m\n", "      park_after: 30m\n      scaling:\n        up_for: 2m\n        cooldown: 45m\n", 1)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sc := parsed.Servers[0].VM.Scaling
+	if sc == nil || time.Duration(sc.UpFor) != 2*time.Minute || time.Duration(sc.Cooldown) != 45*time.Minute {
+		t.Errorf("parsed scaling %+v", sc)
+	}
+}
+
+// Apply walks the ladder against the cloud (#37): a host made at c-2 can walk c-2 and c-4 both
+// ways; one made at c-4 has c-4's disk and can never come back down, so it is refused when saved.
+func TestCloudManifestApplyWalksTheLadder(t *testing.T) {
+	ctx := context.Background()
+	svc := New(serverstest.NewFakeStore(), uuid.New(), cloudDrivers, slog.New(slog.NewTextHandler(io.Discard, nil))).WithProviders("digitalocean")
+	m := parseCloud(t)
+	delete(m.Servers[0].Settings, "max_players")
+	m.Servers[0].VM.Scaling = &ScalingSpec{}
+	dir := t.TempDir()
+	write := func(name, v string) string {
+		p := filepath.Join(dir, name)
+		if err := os.WriteFile(p, []byte(v), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	m.Locations[0].TokenFile, m.Locations[0].SSHKeyFile = write("token", "do-token\n"), write("key", "k\n")
+	m.Servers[0].CredentialFile, m.Servers[0].Feed.TokenFile = write("rcon", "r\n"), write("feed", "f\n")
+	m.Servers[0].VM.PasswordFile = write("pw", "pw\n")
+	// The fake cloud with DigitalOcean's two rungs in sfo3: c-2 (25 GB disk) and c-4 (50 GB).
+	p := fake.New(fake.WithRegions(cloud.Region{Slug: "sfo3", Available: true}), fake.WithSizes(
+		cloud.Size{Slug: "c-2", VCPUs: 2, MemoryMiB: 4096, DiskGiB: 25, PriceHourly: 0.0625, Family: "cpu", DedicatedCPU: true, Regions: []string{"sfo3"}},
+		cloud.Size{Slug: "c-4", VCPUs: 4, MemoryMiB: 8192, DiskGiB: 50, PriceHourly: 0.125, Family: "cpu", DedicatedCPU: true, Regions: []string{"sfo3"}}))
+	var gotToken string
+	clouds := func(_ context.Context, l Location, token string) (cloud.Provider, error) {
+		gotToken = token
+		return p, nil
+	}
+	if _, err := svc.Apply(ctx, m, ApplyOptions{DryRun: true, CheckCredentials: true, Clouds: clouds}); err != nil {
+		t.Fatalf("a walkable ladder: %v", err)
+	}
+	if gotToken != "do-token" {
+		t.Errorf("the provider got token %q, want the location's file's first line", gotToken)
+	}
+	m.Servers[0].VM.Size = "c-4"
+	_, err := svc.Apply(ctx, m, ApplyOptions{DryRun: true, CheckCredentials: true, Clouds: clouds})
+	if err == nil || !errors.Is(err, ErrInvalidManifest) || !strings.Contains(err.Error(), "c-4 back to c-2 with the 50 GiB root disk") {
+		t.Errorf("made at the top rung: %v", err)
+	}
+	// Without Clouds (servers check, in CI) nothing asks the cloud.
+	if _, err := svc.Apply(ctx, m, ApplyOptions{DryRun: true, CheckCredentials: true}); err != nil {
+		t.Errorf("no clouds: %v", err)
+	}
+}
+
+// A seed snapshot is looked up at apply (#166): one in the location's region no bigger than the
+// volume is taken; a missing one, one in another region and one too big for the volume are not.
+func TestCloudManifestApplyChecksTheSeed(t *testing.T) {
+	ctx := context.Background()
+	svc := New(serverstest.NewFakeStore(), uuid.New(), cloudDrivers, slog.New(slog.NewTextHandler(io.Discard, nil))).WithProviders("digitalocean")
+	m := parseCloud(t)
+	dir := t.TempDir()
+	write := func(name, v string) string {
+		p := filepath.Join(dir, name)
+		if err := os.WriteFile(p, []byte(v), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	m.Locations[0].TokenFile, m.Locations[0].SSHKeyFile = write("token", "t\n"), write("key", "k\n")
+	m.Servers[0].CredentialFile, m.Servers[0].Feed.TokenFile = write("rcon", "r\n"), write("feed", "f\n")
+	m.Servers[0].VM.PasswordFile = write("pw", "pw\n")
+	p := fake.New(fake.WithRegions(cloud.Region{Slug: "sfo3", Available: true}, cloud.Region{Slug: "nyc3", Available: true}))
+	mk := func(region, name string, gib int) string {
+		v, err := p.CreateVolume(ctx, cloud.VolumeSpec{Name: name + "-src", Region: region, SizeGiB: gib})
+		if err != nil {
+			t.Fatal(err)
+		}
+		snap, err := p.CreateVolumeSnapshot(ctx, v.ID, name, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return snap.ID
+	}
+	mk("sfo3", "install", 100)
+	elsewhere := mk("nyc3", "elsewhere", 100)
+	mk("sfo3", "big", 200)
+	clouds := func(context.Context, Location, string) (cloud.Provider, error) { return p, nil }
+	for _, c := range []struct {
+		seed SeedSnapshot
+		want string
+	}{
+		{SeedSnapshot{Name: "install"}, ""},
+		{SeedSnapshot{Name: "missing"}, "not found"},
+		{SeedSnapshot{Name: "elsewhere"}, "not found"}, // by name, in the location's region only
+		{SeedSnapshot{ID: elsewhere}, "in its own region"},
+		{SeedSnapshot{Name: "big"}, "needs at least 200"},
+	} {
+		m.Servers[0].VM.SeedSnapshot = &c.seed
+		_, err := svc.Apply(ctx, m, ApplyOptions{DryRun: true, CheckCredentials: true, Clouds: clouds})
+		switch {
+		case c.want == "" && err != nil:
+			t.Errorf("%+v: %v", c.seed, err)
+		case c.want != "" && (err == nil || !errors.Is(err, ErrInvalidManifest) || !strings.Contains(err.Error(), c.want)):
+			t.Errorf("%+v: %v, want it to say %q", c.seed, err, c.want)
+		}
 	}
 }

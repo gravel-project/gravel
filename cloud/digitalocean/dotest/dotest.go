@@ -1,10 +1,11 @@
 // Package dotest is a stateful emulator of the part of DigitalOcean's v2 API that
-// cloud/digitalocean uses: Droplets and their actions, volumes and their actions, firewalls,
-// reserved IPs and their actions, SSH keys, tags, projects, regions, sizes and actions. It
-// answers in the JSON shapes of godo's own types, so the provider is exercised through the real
-// SDK, and it enforces the rules the provider relies on: a bearer token, 404 for an unknown id,
-// one volume name per region, a volume attaching only in its region, no resize to a smaller
-// disk, and one pending action per Droplet.
+// cloud/digitalocean uses: Droplets and their actions, volumes and their actions, volume
+// snapshots, firewalls, reserved IPs and their actions, SSH keys, tags, projects, regions, sizes
+// and actions. It answers in the JSON shapes of godo's own types, so the provider is exercised
+// through the real SDK, and it enforces the rules the provider relies on: a bearer token, 404 for
+// an unknown id, one volume name per region, a volume attaching only in its region, a volume
+// made from a snapshot only in the snapshot's region and at least as big as the volume it was
+// taken of, no resize to a smaller disk, and one pending action per Droplet.
 //
 // Actions finish lazily: one is "in-progress" when made and completes (its effect applied) on
 // the first request after its delay, zero by default. A test injects faults with Fault (the next
@@ -92,25 +93,29 @@ type Server struct {
 	releaseLock   int
 	releaseLockOn bool
 
-	mu          sync.Mutex
-	seq         int
-	ipSeq       int
-	regions     []godo.Region
-	sizes       []godo.Size
-	images      []godo.Image
-	droplets    map[int]*droplet
-	volumes     map[string]*godo.Volume
-	firewalls   map[string]*godo.Firewall
-	reserved    map[string]*reservedIP
-	keys        map[int]*godo.Key
-	tags        map[string]bool
-	projects    []godo.Project
-	assigned    map[string][]string // project id → URNs
-	actions     map[int]*action
-	faults      []*fault
-	failActions map[string]int
-	requests    []Request
-	remaining   int
+	mu        sync.Mutex
+	seq       int
+	ipSeq     int
+	regions   []godo.Region
+	sizes     []godo.Size
+	images    []godo.Image
+	droplets  map[int]*droplet
+	volumes   map[string]*godo.Volume
+	snapshots map[string]*volumeSnapshot
+	snapSeq   int
+	// volumeSource is the snapshot each volume made from one was made from.
+	volumeSource map[string]string
+	firewalls    map[string]*godo.Firewall
+	reserved     map[string]*reservedIP
+	keys         map[int]*godo.Key
+	tags         map[string]bool
+	projects     []godo.Project
+	assigned     map[string][]string // project id → URNs
+	actions      map[int]*action
+	faults       []*fault
+	failActions  map[string]int
+	requests     []Request
+	remaining    int
 }
 
 type droplet struct {
@@ -144,19 +149,21 @@ type fault struct {
 func New(t testing.TB, opts ...Option) *Server {
 	t.Helper()
 	s := &Server{
-		token:       Token,
-		seq:         100000,
-		droplets:    map[int]*droplet{},
-		volumes:     map[string]*godo.Volume{},
-		firewalls:   map[string]*godo.Firewall{},
-		reserved:    map[string]*reservedIP{},
-		keys:        map[int]*godo.Key{},
-		tags:        map[string]bool{},
-		assigned:    map[string][]string{},
-		actions:     map[int]*action{},
-		failActions: map[string]int{},
-		remaining:   5000,
-		projects:    []godo.Project{{ID: DefaultProjectID, Name: "Default", IsDefault: true, Purpose: "Just trying out DigitalOcean", Environment: "Development"}},
+		token:        Token,
+		seq:          100000,
+		droplets:     map[int]*droplet{},
+		volumes:      map[string]*godo.Volume{},
+		snapshots:    map[string]*volumeSnapshot{},
+		volumeSource: map[string]string{},
+		firewalls:    map[string]*godo.Firewall{},
+		reserved:     map[string]*reservedIP{},
+		keys:         map[int]*godo.Key{},
+		tags:         map[string]bool{},
+		assigned:     map[string][]string{},
+		actions:      map[int]*action{},
+		failActions:  map[string]int{},
+		remaining:    5000,
+		projects:     []godo.Project{{ID: DefaultProjectID, Name: "Default", IsDefault: true, Purpose: "Just trying out DigitalOcean", Environment: "Development"}},
 	}
 	s.regions, s.sizes, s.images = catalog()
 	for _, o := range opts {
@@ -211,7 +218,7 @@ func (s *Server) AddSSHKey(name, publicKey string) int {
 
 // Counts is how many of each resource the account holds.
 type Counts struct {
-	Droplets, Volumes, Firewalls, ReservedIPs, SSHKeys int
+	Droplets, Volumes, Snapshots, Firewalls, ReservedIPs, SSHKeys int
 }
 
 // Counts counts the account's resources, after settling what is due (a destroyed Droplet past
@@ -221,8 +228,8 @@ func (s *Server) Counts() Counts {
 	defer s.mu.Unlock()
 	s.settle()
 	return Counts{
-		Droplets: len(s.droplets), Volumes: len(s.volumes), Firewalls: len(s.firewalls),
-		ReservedIPs: len(s.reserved), SSHKeys: len(s.keys),
+		Droplets: len(s.droplets), Volumes: len(s.volumes), Snapshots: len(s.snapshots),
+		Firewalls: len(s.firewalls), ReservedIPs: len(s.reserved), SSHKeys: len(s.keys),
 	}
 }
 
@@ -260,6 +267,13 @@ func (s *Server) handler() http.Handler {
 	mux.HandleFunc("GET /v2/volumes/{id}", s.getVolume)
 	mux.HandleFunc("DELETE /v2/volumes/{id}", s.deleteVolume)
 	mux.HandleFunc("POST /v2/volumes/{id}/actions", s.volumeAction)
+	mux.HandleFunc("POST /v2/volumes/{id}/snapshots", s.createVolumeSnapshot)
+	mux.HandleFunc("GET /v2/volumes/{a}/{b}", s.volumeSubresource)
+	mux.HandleFunc("DELETE /v2/volumes/snapshots/{id}", s.deleteSnapshot)
+
+	mux.HandleFunc("GET /v2/snapshots", s.listSnapshots)
+	mux.HandleFunc("GET /v2/snapshots/{id}", s.getSnapshotByID)
+	mux.HandleFunc("DELETE /v2/snapshots/{id}", s.deleteSnapshot)
 
 	mux.HandleFunc("GET /v2/firewalls", s.listFirewalls)
 	mux.HandleFunc("POST /v2/firewalls", s.createFirewall)
@@ -460,6 +474,8 @@ func (s *Server) writeList(w http.ResponseWriter, r *http.Request, key string, i
 	case []godo.Droplet:
 		writeListPage(s, w, r, key, v)
 	case []godo.Volume:
+		writeListPage(s, w, r, key, v)
+	case []godo.Snapshot:
 		writeListPage(s, w, r, key, v)
 	case []godo.Firewall:
 		writeListPage(s, w, r, key, v)

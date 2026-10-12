@@ -10,8 +10,10 @@ import (
 	"net"
 	"net/netip"
 	"reflect"
+	"regexp"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -91,13 +93,20 @@ type ServerSpec struct {
 	IdentityProvider string
 	Location         Location
 	Profile          Profile
-	// Size is the size a host is made at; a manual resize lasts until the host is parked.
+	// Size is the size a host is made at (with a scaling policy, a rung of its ladder); a manual
+	// resize lasts until the host is parked, a pinned size until it is unpinned.
 	Size            string
 	VolumeGiB       int
 	AddressReserved bool
 	// ParkAfter parks the host after the server has been empty this long; zero never does.
 	ParkAfter time.Duration
-	Settings  map[string]string
+	// Scaling is the server's vertical scaling policy; nil keeps the host at Size (#37).
+	Scaling *Scaling
+	// SeedSnapshot is the volume snapshot a new data volume is made from, so the game's install
+	// is there already (#166); nil makes it empty. It is used only when the volume is made, never
+	// for a volume that exists.
+	SeedSnapshot *cloud.SnapshotRef
+	Settings     map[string]string
 	// The secrets: RCON, the join password and publisher token ("" for none), the feed URL with
 	// its token.
 	RCONPassword, JoinPassword, PublisherToken, FeedURL string
@@ -118,6 +127,10 @@ type Intent struct {
 	TargetSize     string
 	DestroyVolume  bool
 	ReleaseAddress bool
+	// PinnedSize is a size the owner fixed: the scaling policy stands aside, and an unparked host
+	// is resized to it once running (it is still made at the server's size, whose root disk
+	// keeps every rung of the ladder reachable). "" for none.
+	PinnedSize string
 	// RequestAuditID is the audit row of the request the next transition carries out; 0 for none.
 	RequestAuditID int64
 }
@@ -151,6 +164,12 @@ type Host struct {
 	EmptySince        time.Time
 	BootSeconds       int
 	ReadySeconds      int
+	// The scaling policy's decision waiting for a boundary: the size, why, and since when.
+	PendingSize   string
+	PendingReason string
+	PendingSince  time.Time
+	// LastResizeAt is when the last resize began; the policy's cooldown counts from it.
+	LastResizeAt time.Time
 }
 
 // Event is one transition of a host.
@@ -255,6 +274,14 @@ type hostRT struct {
 	op          string    // the operation under way ("create", "park", …), for its metrics
 	opAt        time.Time // when it started
 	failing     string    // the error code the failing gauge shows
+	// The scaling policy's runtime: since when the room is full or empty enough to move, the last
+	// boundary the game announced, a size off the ladder already warned about, and the direction
+	// of the resize under way (for its metric).
+	highSince, lowSince time.Time
+	boundaryAt          time.Time
+	boundary            string
+	offLadder           string
+	resizeDir           string
 }
 
 // NewManager builds a manager; Start schedules its jobs.
@@ -406,6 +433,19 @@ func (m *Manager) host(id string) (*hostRT, ServerSpec, bool) {
 	return rt, s, ok && sok
 }
 
+// Spec is a server's policy-relevant view as the Manager runs it: its spec without the secrets.
+func (m *Manager) Spec(id string) (ServerSpec, bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	s, ok := m.specs[id]
+	if !ok {
+		return ServerSpec{}, false
+	}
+	s.RCONPassword, s.JoinPassword, s.PublisherToken, s.FeedURL = "", "", "", ""
+	s.Location.Token, s.Location.SSHKey = "", nil
+	return s, true
+}
+
 // provider is the location's provider, made again when its token or project changes.
 func (m *Manager) provider(ctx context.Context, l Location) (cloud.Provider, error) {
 	key := sha256.Sum256([]byte(l.Provider + "\x00" + l.Project + "\x00" + l.Token))
@@ -496,18 +536,23 @@ func (m *Manager) request(ctx context.Context, id string, change func(h *Host, s
 	if err := m.persist(ctx, rt); err != nil {
 		return Host{}, err
 	}
+	m.wake(id)
+	return rt.snapshot(), nil
+}
+
+// wake runs a host's state machine soon: after a request, or a boundary a decision waits for.
+func (m *Manager) wake(id string) {
 	if m.opt.Wake != nil {
 		m.opt.Wake(id)
-	} else {
-		go func() {
-			tctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
-			defer cancel()
-			if err := m.Tick(tctx, id); err != nil {
-				m.log.Debug("a host's tick after a request failed; its job retries", "server", id, "error", err.Error())
-			}
-		}()
+		return
 	}
-	return rt.snapshot(), nil
+	go func() {
+		tctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+		defer cancel()
+		if err := m.Tick(tctx, id); err != nil {
+			m.log.Debug("a host's tick after a request or a boundary failed; its job retries", "server", id, "error", err.Error())
+		}
+	}()
 }
 
 // SetDesired asks for a host to run or to be parked. auditID is the request's audit row (0 for
@@ -527,8 +572,10 @@ func (m *Manager) SetDesired(ctx context.Context, id, desired string, auditID in
 }
 
 // Resize asks for a running host to move to another size at once (the game is stopped, the
-// instance resized and started again). With players on it refuses unless force.
-func (m *Manager) Resize(ctx context.Context, id, size string, force bool, auditID int64) (Host, error) {
+// instance resized and started again). With players on it refuses unless force. With pin the size
+// stays: the scaling policy stands aside and an unparked host comes back to it (Unpin undoes
+// that); pinning the size the host is at resizes nothing.
+func (m *Manager) Resize(ctx context.Context, id, size string, force, pin bool, auditID int64) (Host, error) {
 	rt, s, ok := m.host(id)
 	if !ok {
 		return Host{}, ErrNoSuchHost
@@ -537,24 +584,114 @@ func (m *Manager) Resize(ctx context.Context, id, size string, force bool, audit
 	if h.State != StateRunning {
 		return Host{}, ErrNotRunning
 	}
-	if size == h.Size {
+	if size == h.Size && !pin {
 		return Host{}, fmt.Errorf("%w: the host is %s already", ErrInvalidSize, size)
 	}
-	allowed, err := m.Sizes(ctx, id)
-	if err != nil {
-		return Host{}, err
-	}
-	if !slices.ContainsFunc(allowed, func(z cloud.Size) bool { return z.Slug == size }) {
-		return Host{}, fmt.Errorf("%w: %s (from %s in %s)", ErrInvalidSize, size, h.Size, s.Location.Region)
-	}
-	if n, known := m.Players(id); !force && (n > 0 || !known) {
-		return Host{}, ErrPlayersOn
+	if size != h.Size {
+		allowed, err := m.Sizes(ctx, id)
+		if err != nil {
+			return Host{}, err
+		}
+		if !slices.ContainsFunc(allowed, func(z cloud.Size) bool { return z.Slug == size }) {
+			return Host{}, fmt.Errorf("%w: %s (from %s in %s)", ErrInvalidSize, size, h.Size, s.Location.Region)
+		}
+		if n, known := m.Players(id); !force && (n > 0 || !known) {
+			return Host{}, ErrPlayersOn
+		}
 	}
 	return m.request(ctx, id, func(h *Host, _ ServerSpec) error {
 		if h.State != StateRunning {
 			return ErrNotRunning
 		}
-		h.TargetSize, h.RequestAuditID = size, auditID
+		if size != h.Size {
+			h.TargetSize = size
+		}
+		if pin {
+			h.PinnedSize = size
+		}
+		h.RequestAuditID = auditID
+		return nil
+	})
+}
+
+// SnapshotVolume copies a parked host's data volume into a snapshot a new server's volume can be
+// made from (#166). Parked only: the volume is detached, so the copy is consistent, and the
+// state machine waits for it (an unpark asked meanwhile runs after). name "" is
+// <server>-data-<game>-<build>-<date>, the game's build as the last status read had it.
+func (m *Manager) SnapshotVolume(ctx context.Context, id, name string, auditID int64) (cloud.Snapshot, error) {
+	rt, s, ok := m.host(id)
+	if !ok {
+		return cloud.Snapshot{}, ErrNoSuchHost
+	}
+	rt.tickMu.Lock()
+	defer rt.tickMu.Unlock()
+	h := rt.snapshot()
+	if h.State != StateParked || h.VolumeID == "" {
+		return cloud.Snapshot{}, ErrNotParked
+	}
+	rt.mu.Lock()
+	build := rt.lastStatus.Build
+	rt.mu.Unlock()
+	if name == "" {
+		name = SnapshotName(s.ID, s.Game, build, m.opt.Now())
+	}
+	if !snapshotNameRE.MatchString(name) {
+		return cloud.Snapshot{}, fmt.Errorf("%w: snapshot name %q: letters, digits, dots and hyphens, at most 64", ErrInvalid, name)
+	}
+	p, err := m.provider(ctx, s.Location)
+	if err != nil {
+		return cloud.Snapshot{}, err
+	}
+	snap, err := p.CreateVolumeSnapshot(ctx, h.VolumeID, name, []string{BaseTag, Tag(s.ID)})
+	result := "ok"
+	if err != nil {
+		result = "error"
+	}
+	m.met.snapshots.WithLabelValues(id, result).Inc()
+	if err != nil {
+		return cloud.Snapshot{}, cloudErr(err)
+	}
+	e := Event{ServerID: id, At: m.opt.Now(), From: h.State, To: h.State, Step: DetailSnapshot, Detail: snap.Name, Size: h.Size, AuditID: auditID}
+	if err := m.store.AppendEvent(ctx, e); err != nil {
+		m.log.Error("a volume snapshot was not recorded", "server", id, "snapshot", snap.Name, "error", err.Error())
+	}
+	m.log.Info("snapshotted the parked host's volume", "server", id, "snapshot", snap.Name, "size_gib", snap.SizeGiB)
+	return snap, nil
+}
+
+// DetailSnapshot is the event a volume snapshot records; its detail is the snapshot's name.
+const DetailSnapshot = "snapshot"
+
+// ValidSnapshotName is a snapshot name the hub makes or accepts: letters, digits, dots and hyphens,
+// a letter or digit first, at most 64.
+func ValidSnapshotName(name string) bool { return snapshotNameRE.MatchString(name) }
+
+var (
+	snapshotNameRE = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9.-]{0,63}$`)
+	notNameRE      = regexp.MustCompile(`[^A-Za-z0-9.]+`)
+)
+
+// SnapshotName is a snapshot's default name: what it is a copy of, the game's build and the day.
+func SnapshotName(server, game, build string, at time.Time) string {
+	name := VolumeName(server) + "-" + game
+	if b := strings.Trim(notNameRE.ReplaceAllString(build, "-"), "-"); b != "" {
+		name += "-" + b
+	}
+	name += "-" + at.UTC().Format("2006-01-02")
+	if len(name) > 64 {
+		name = name[:64]
+	}
+	return strings.TrimRight(name, "-.")
+}
+
+// Unpin lets the scaling policy (or, without one, the server's size at the next unpark) decide
+// the host's size again.
+func (m *Manager) Unpin(ctx context.Context, id string, auditID int64) (Host, error) {
+	return m.request(ctx, id, func(h *Host, _ ServerSpec) error {
+		if h.PinnedSize == "" {
+			return fmt.Errorf("%w: the host's size is not pinned", ErrInvalid)
+		}
+		h.PinnedSize, h.RequestAuditID = "", auditID
 		return nil
 	})
 }
@@ -647,7 +784,17 @@ func (m *Manager) Lines(serverID string, body []byte) {
 		return
 	}
 	m.met.logBatches.WithLabelValues(serverID).Inc()
-	for _, p := range g.Log(body) {
+	res := g.Log(body)
+	if res.Boundary != "" {
+		rt.mu.Lock()
+		rt.boundary, rt.boundaryAt = res.Boundary, m.opt.Now()
+		pending := rt.h.PendingSize != ""
+		rt.mu.Unlock()
+		if pending {
+			m.wake(serverID) // a decision waits for exactly this
+		}
+	}
+	for _, p := range res.Connected {
 		if !bans[p.Identity] {
 			continue
 		}
@@ -749,7 +896,7 @@ func (m *Manager) Status(ctx context.Context, id string) (GameStatus, error) {
 	if err != nil {
 		return GameStatus{}, err
 	}
-	m.observe(rt, st, m.opt.Now())
+	m.observe(rt, s.Scaling, st, m.opt.Now())
 	return st, nil
 }
 
@@ -762,8 +909,9 @@ func phaseOf(state string) string {
 	return drivers.HostProvisioning
 }
 
-// observe records a status read of a running host: the players, and since when it is empty.
-func (m *Manager) observe(rt *hostRT, st GameStatus, now time.Time) {
+// observe records a status read of a running host: the players, since when it is empty, and,
+// with a scaling policy, since when its rung has been full or empty enough to move.
+func (m *Manager) observe(rt *hostRT, sc *Scaling, st GameStatus, now time.Time) {
 	rt.mu.Lock()
 	defer rt.mu.Unlock()
 	rt.players, rt.known, rt.lastStatus, rt.statusAt = st.Players, true, st, now
@@ -773,6 +921,17 @@ func (m *Manager) observe(rt *hostRT, st GameStatus, now time.Time) {
 	case rt.h.EmptySince.IsZero():
 		rt.h.EmptySince = now
 	}
+	high, low := false, false
+	if sc != nil {
+		if rung := Rung(sc.Ladder, rt.h.Size); rung >= 0 {
+			capacity := sc.Ladder[rung].Players
+			occupancy := float64(st.Players) / float64(capacity)
+			high = rung+1 < len(sc.Ladder) && (occupancy >= sc.UpAt || st.Players >= capacity)
+			low = rung > 0 && occupancy <= sc.DownAt
+		}
+	}
+	rt.highSince = since(rt.highSince, high, now)
+	rt.lowSince = since(rt.lowSince, low, now)
 }
 
 // commit merges a tick's work into the host and writes it with its events. A request that came in

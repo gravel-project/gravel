@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"math"
 	"strings"
 	"testing"
 	"time"
@@ -101,6 +102,17 @@ func TestServerHosts(t *testing.T) {
 		*got.BootSeconds != 42 || string(got.EnvSHA256) != "\x01\x02\x03" || !strings.Contains(string(got.Operation), "create") {
 		t.Fatalf("read back %+v %v", got, err)
 	}
+	// The scaling policy's columns (migration 00018).
+	pendingSince, resized := t0.Add(2*time.Minute), t0.Add(-time.Hour)
+	h.PinnedSize, h.PendingSize, h.PendingReason, h.PendingSince, h.LastResizeAt = "c-4", "c-4", "up: 9 of 10 players for 5m0s", &pendingSince, &resized
+	if err := st.SaveServerHost(ctx, h, t0); err != nil {
+		t.Fatal(err)
+	}
+	got, err = st.GetServerHost(ctx, o.ID, "cs2-1")
+	if err != nil || got.PinnedSize != "c-4" || got.PendingSize != "c-4" || got.PendingReason != h.PendingReason ||
+		got.PendingSince == nil || !got.PendingSince.Equal(pendingSince) || got.LastResizeAt == nil || !got.LastResizeAt.Equal(resized) {
+		t.Fatalf("scaling columns read back %+v %v", got, err)
+	}
 	h.State, h.Step, h.Operation, h.Egress = "running", "", nil, nil
 	if err := st.SaveServerHost(ctx, h, t0.Add(time.Hour)); err != nil {
 		t.Fatal(err)
@@ -172,5 +184,45 @@ func TestServerHostEvents(t *testing.T) {
 		if _, err := conn.Exec(ctx, q); err == nil || !strings.Contains(err.Error(), "append-only") {
 			t.Errorf("%s: %v, want the append-only refusal", q, err)
 		}
+	}
+}
+
+// RunningCostSince prices each run at what its transition into running recorded (#37): a host
+// that ran at two rungs of a ladder costs each at its own price, and an event that changes no state
+// (a scaling decision, a drift) neither ends a run nor zeroes its price.
+func TestServerHostRunningCost(t *testing.T) {
+	st := storetest.Open(t)
+	storetest.Reset(t, st)
+	ctx := context.Background()
+	o := newOrg(t, st)
+	t0 := time.Date(2026, 10, 12, 0, 0, 0, 0, time.UTC)
+	if err := st.ApplyServers(ctx, o.ID, []store.Game{{ID: "cs2"}}, nil, []store.ManagedServer{cloudServer()}, t0); err != nil {
+		t.Fatal(err)
+	}
+	ev := func(at time.Duration, from, to, size string, price float64) {
+		t.Helper()
+		e := store.ServerHostEvent{OrganizationID: o.ID, ServerID: "cs2-1", At: t0.Add(at), FromState: from, ToState: to, Size: size, Detail: "x"}
+		if price > 0 {
+			e.PriceHourlyUSD = &price
+		}
+		if _, err := st.InsertServerHostEvent(ctx, e); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// c-2 at $0.0625 from 01:00 (a scaling decision at 01:30, which prices nothing), resizing at
+	// 02:00, c-4 at $0.125 from 02:05 until now.
+	ev(time.Hour, "starting", "running", "c-2", 0.0625)
+	ev(90*time.Minute, "running", "running", "c-2", 0)
+	ev(2*time.Hour, "running", "resizing", "c-2", 0)
+	ev(2*time.Hour+5*time.Minute, "starting", "running", "c-4", 0.125)
+	got, err := st.RunningCostSince(ctx, o.ID, "cs2-1", t0, t0.Add(4*time.Hour+5*time.Minute))
+	if want := 1*0.0625 + 2*0.125; err != nil || math.Abs(got-want) > 1e-9 {
+		t.Errorf("cost %v %v, want %v", got, err, want)
+	}
+	if got, _ := st.RunningCostSince(ctx, o.ID, "cs2-1", t0.Add(3*time.Hour+5*time.Minute), t0.Add(4*time.Hour+5*time.Minute)); math.Abs(got-0.125) > 1e-9 {
+		t.Errorf("the last hour: %v", got)
+	}
+	if secs, _ := st.RunningSecondsSince(ctx, o.ID, "cs2-1", t0, t0.Add(4*time.Hour+5*time.Minute)); secs != 3*3600 {
+		t.Errorf("seconds %d: the same-state event neither ends nor doubles a run", secs)
 	}
 }

@@ -129,7 +129,7 @@ func push(ctx context.Context, args []string) error {
 		return err
 	}
 	s.RCONPassword, s.FeedURL = *rcon, *feed
-	env, err := cloudvm.RenderEnv(s)
+	env, err := cloudvm.RenderEnv(s, s.Size)
 	if err != nil {
 		return err
 	}
@@ -189,8 +189,11 @@ func watch(ctx context.Context, args []string) error {
 		if bytes.Contains(red, []byte(*token)) {
 			fmt.Println("  REDACTION FAILED: the token is in the kept batch")
 		}
-		for _, p := range joined {
+		for _, p := range joined.Connected {
 			fmt.Printf("  connected: user %d %q as %s:%s\n", p.UserID, p.Name, p.Identity.Provider, p.Identity.Subject)
+		}
+		if joined.Boundary != "" {
+			fmt.Printf("  boundary: %s\n", joined.Boundary)
 		}
 		w.WriteHeader(http.StatusOK)
 	})

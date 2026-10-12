@@ -21,12 +21,21 @@ type Game interface {
 	Quit(ctx context.Context) error
 	// SetPassword replaces the control password (a rotation).
 	SetPassword(password string)
-	// Log reads a batch the game pushed and returns who connected in it.
-	Log(body []byte) []GamePlayer
+	// Log reads a batch the game pushed: who connected in it, and the last boundary it announced.
+	Log(body []byte) LogResult
 	// Find is a connected player by identity, as the log knows them.
 	Find(id drivers.Identity) (GamePlayer, bool)
 	// Forget clears what the log told it: the game's host went away.
 	Forget()
+}
+
+// LogResult is what a pushed log batch told the hub.
+type LogResult struct {
+	// Connected are the players who connected, in order: the moment a ban is enforced.
+	Connected []GamePlayer
+	// Boundary is the last point in the batch where a resize disconnects nobody mid-game
+	// (BoundaryMapChange, BoundaryMatchEnd); "" for none.
+	Boundary string
 }
 
 // GameStatus is one status read.

@@ -67,6 +67,9 @@ type Change struct {
 	Reset bool
 	// MatchOver is a match ending (game over); the counters start again.
 	MatchOver bool
+	// MapChange is the map the server started loading ("Loading map"): a new map, after a
+	// match's end or a changelevel.
+	MapChange string
 }
 
 // Roster is who is on the server, kept from the log stream: CS2's status lists no SteamIDs, so
@@ -157,6 +160,8 @@ func (r *Roster) Push(line string) (Change, error) {
 	case cs2log.LogFileStarted:
 		clear(r.players)
 		return Change{Reset: true}, nil
+	case cs2log.MapLoadingStarted:
+		return Change{MapChange: e.Map}, nil
 	}
 	return Change{}, nil
 }
@@ -171,7 +176,7 @@ func (r *Roster) PushBatch(body []byte) []Change {
 		if err != nil {
 			continue
 		}
-		if c.Connected != nil || c.Disconnected != nil || c.Reset || c.MatchOver {
+		if c.Connected != nil || c.Disconnected != nil || c.Reset || c.MatchOver || c.MapChange != "" {
 			out = append(out, c)
 		}
 	}

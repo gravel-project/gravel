@@ -19,10 +19,12 @@ import (
 
 // Host audit actions: what an owner or moderator asked of a cloud-VM server's host.
 const (
-	ActionHostPark    = "host_park"
-	ActionHostUnpark  = "host_unpark"
-	ActionHostResize  = "host_resize"
-	ActionHostDestroy = "host_destroy"
+	ActionHostPark     = "host_park"
+	ActionHostUnpark   = "host_unpark"
+	ActionHostResize   = "host_resize"
+	ActionHostUnpin    = "host_unpin"
+	ActionHostSnapshot = "host_snapshot"
+	ActionHostDestroy  = "host_destroy"
 )
 
 // Outcomes of a host request: accepted (the host's state machine carries it out, and its
@@ -44,6 +46,7 @@ type HostRows interface {
 	InsertServerHostEvent(ctx context.Context, e store.ServerHostEvent) (int64, error)
 	ListServerHostEvents(ctx context.Context, orgID uuid.UUID, serverID string, beforeID int64, limit int) ([]store.ServerHostEvent, error)
 	RunningSecondsSince(ctx context.Context, orgID uuid.UUID, serverID string, from, now time.Time) (int64, error)
+	RunningCostSince(ctx context.Context, orgID uuid.UUID, serverID string, from, now time.Time) (float64, error)
 }
 
 // Hosts joins the hub's servers and database to the cloud-VM driver's Manager: it is the
@@ -150,6 +153,13 @@ func (h *Hosts) spec(srv Server, locs map[string]Location, removed bool) (cloudv
 		Profile: *game.CloudVM, Size: srv.VM.Size, VolumeGiB: srv.VM.VolumeGiB, AddressReserved: srv.VM.Address != AddressEphemeral,
 		ParkAfter: time.Duration(srv.VM.ParkAfter), Settings: srv.Settings, Removed: removed,
 	}
+	if sc := srv.VM.Scaling; sc != nil {
+		policy := sc.Policy(game.CloudVM.Ladder)
+		s.Scaling = &policy
+	}
+	if seed := srv.VM.SeedSnapshot; seed != nil {
+		s.SeedSnapshot = &cloud.SnapshotRef{ID: seed.ID, Name: seed.Name}
+	}
 	read := func(path string) (string, error) {
 		if path == "" {
 			return "", nil
@@ -245,7 +255,9 @@ func hostToRow(org uuid.UUID, h cloudvm.Host) (store.ServerHost, error) {
 		AddressReserved: h.AddressReserved, FirewallID: h.FirewallID, Egress: h.Egress, HostKey: h.HostKey, EnvSHA256: h.EnvSHA256,
 		Attempts: h.Attempts, NextAttemptAt: timePtr(h.NextAttemptAt), ErrorCode: h.ErrorCode, LastError: h.LastError,
 		StateSince: h.StateSince.UTC(), InstanceCreatedAt: timePtr(h.InstanceCreatedAt), EmptySince: timePtr(h.EmptySince),
-		BootSeconds: intPtr(h.BootSeconds), ReadySeconds: intPtr(h.ReadySeconds)}
+		BootSeconds: intPtr(h.BootSeconds), ReadySeconds: intPtr(h.ReadySeconds), PinnedSize: h.PinnedSize,
+		PendingSize: h.PendingSize, PendingReason: h.PendingReason, PendingSince: timePtr(h.PendingSince),
+		LastResizeAt: timePtr(h.LastResizeAt)}
 	if h.RequestAuditID != 0 {
 		a := h.RequestAuditID
 		r.RequestAuditID = &a
@@ -262,18 +274,20 @@ func hostToRow(org uuid.UUID, h cloudvm.Host) (store.ServerHost, error) {
 
 func hostFromRow(r store.ServerHost) (cloudvm.Host, error) {
 	h := cloudvm.Host{ServerID: r.ServerID, LocationID: r.LocationID,
-		Intent: cloudvm.Intent{Desired: r.Desired, TargetSize: r.TargetSize, DestroyVolume: r.DestroyVolume, ReleaseAddress: r.ReleaseAddress},
-		State:  r.State, Step: r.Step, Size: r.Size, DiskGiB: r.DiskGiB, InstanceID: r.InstanceID, InstanceAddress: r.InstanceAddress,
+		Intent: cloudvm.Intent{Desired: r.Desired, TargetSize: r.TargetSize, DestroyVolume: r.DestroyVolume, ReleaseAddress: r.ReleaseAddress,
+			PinnedSize: r.PinnedSize},
+		State: r.State, Step: r.Step, Size: r.Size, DiskGiB: r.DiskGiB, InstanceID: r.InstanceID, InstanceAddress: r.InstanceAddress,
 		VolumeID: r.VolumeID, Address: r.Address, AddressReserved: r.AddressReserved, FirewallID: r.FirewallID, Egress: r.Egress,
 		HostKey: r.HostKey, EnvSHA256: r.EnvSHA256, Attempts: r.Attempts, ErrorCode: r.ErrorCode, LastError: r.LastError,
-		StateSince: r.StateSince}
+		StateSince: r.StateSince, PendingSize: r.PendingSize, PendingReason: r.PendingReason}
 	if r.RequestAuditID != nil {
 		h.RequestAuditID = *r.RequestAuditID
 	}
 	for _, p := range []struct {
 		dst *time.Time
 		src *time.Time
-	}{{&h.NextAttemptAt, r.NextAttemptAt}, {&h.InstanceCreatedAt, r.InstanceCreatedAt}, {&h.EmptySince, r.EmptySince}} {
+	}{{&h.NextAttemptAt, r.NextAttemptAt}, {&h.InstanceCreatedAt, r.InstanceCreatedAt}, {&h.EmptySince, r.EmptySince},
+		{&h.PendingSince, r.PendingSince}, {&h.LastResizeAt, r.LastResizeAt}} {
 		if p.src != nil {
 			*p.dst = *p.src
 		}
@@ -302,7 +316,20 @@ type HostView struct {
 	ParkAfter                  time.Duration
 	PriceHourly                float64
 	RunningSecondsMonth        int64
-	Sizes                      []cloud.Size
+	// MonthCost is the instance's cost this month so far, each run at its own size's price.
+	MonthCost float64
+	Sizes     []cloud.Size
+	// Scaling is the server's policy (nil: none), Ladder its rungs with their prices, and
+	// TierPlayers the players the rung the host is on is sized for (0 off the ladder).
+	Scaling     *cloudvm.Scaling
+	Ladder      []LadderRung
+	TierPlayers int
+}
+
+// LadderRung is one rung of a host's scaling ladder as the API shows it.
+type LadderRung struct {
+	cloudvm.Tier
+	PriceHourly float64
 }
 
 // ErrNotCloudVM is a server that is not a cloud-VM server (or has no host yet).
@@ -332,6 +359,18 @@ func (h *Hosts) Host(ctx context.Context, serverID string) (HostView, error) {
 	if secs, err := h.rows.RunningSecondsSince(ctx, h.orgID, serverID, month, now); err == nil {
 		v.RunningSecondsMonth = secs
 	}
+	if usd, err := h.rows.RunningCostSince(ctx, h.orgID, serverID, month, now); err == nil {
+		v.MonthCost = usd
+	}
+	if spec, ok := h.mgr.Spec(serverID); ok && spec.Scaling != nil {
+		v.Scaling = spec.Scaling
+		for _, t := range spec.Scaling.Ladder {
+			v.Ladder = append(v.Ladder, LadderRung{Tier: t, PriceHourly: h.mgr.Price(ctx, serverID, t.Size)})
+			if t.Size == host.Size {
+				v.TierPlayers = t.Players
+			}
+		}
+	}
 	if host.State == cloudvm.StateRunning {
 		if sizes, err := h.mgr.Sizes(ctx, serverID); err == nil {
 			v.Sizes = sizes
@@ -341,10 +380,8 @@ func (h *Hosts) Host(ctx context.Context, serverID string) (HostView, error) {
 }
 
 // MonthCostUSD is the host's instance cost this month so far (the volume and address are not in
-// it), at its current size's price.
-func (v HostView) MonthCostUSD() float64 {
-	return float64(v.RunningSecondsMonth) / 3600 * v.PriceHourly
-}
+// it), each run at the price of the size it ran at.
+func (v HostView) MonthCostUSD() float64 { return v.MonthCost }
 
 // Events are a page of a host's transitions, newest first.
 func (h *Hosts) Events(ctx context.Context, serverID string, before int64, limit int) ([]store.ServerHostEvent, bool, error) {
@@ -426,10 +463,31 @@ func (h *Hosts) SetDesired(ctx context.Context, actor Actor, serverID, desired, 
 	})
 }
 
-// Resize moves a running host to another size.
-func (h *Hosts) Resize(ctx context.Context, actor Actor, serverID, size string, force bool, reason string) (int64, error) {
-	return h.request(ctx, actor, serverID, ActionHostResize, reason, map[string]any{"size": size, "force": force}, func(id int64) error {
-		_, err := h.mgr.Resize(ctx, serverID, size, force, id)
+// Resize moves a running host to another size; with pin the size stays (the scaling policy stands
+// aside and an unparked host comes back to it).
+func (h *Hosts) Resize(ctx context.Context, actor Actor, serverID, size string, force, pin bool, reason string) (int64, error) {
+	return h.request(ctx, actor, serverID, ActionHostResize, reason, map[string]any{"size": size, "force": force, "pin": pin}, func(id int64) error {
+		_, err := h.mgr.Resize(ctx, serverID, size, force, pin, id)
+		return err
+	})
+}
+
+// SnapshotVolume copies a parked host's data volume into a snapshot (#166); name "" takes the
+// default.
+func (h *Hosts) SnapshotVolume(ctx context.Context, actor Actor, serverID, name, reason string) (int64, cloud.Snapshot, error) {
+	var snap cloud.Snapshot
+	id, err := h.request(ctx, actor, serverID, ActionHostSnapshot, reason, map[string]any{"name": name}, func(id int64) error {
+		var err error
+		snap, err = h.mgr.SnapshotVolume(ctx, serverID, name, id)
+		return err
+	})
+	return id, snap, err
+}
+
+// Unpin lets the scaling policy decide the host's size again.
+func (h *Hosts) Unpin(ctx context.Context, actor Actor, serverID, reason string) (int64, error) {
+	return h.request(ctx, actor, serverID, ActionHostUnpin, reason, map[string]any{}, func(id int64) error {
+		_, err := h.mgr.Unpin(ctx, serverID, id)
 		return err
 	})
 }

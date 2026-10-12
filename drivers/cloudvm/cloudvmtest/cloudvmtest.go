@@ -6,6 +6,8 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"io"
 	"log/slog"
@@ -17,6 +19,7 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
+	"github.com/gravel-project/gravel/cloud"
 	"github.com/gravel-project/gravel/drivers"
 	"github.com/gravel-project/gravel/drivers/cloudvm"
 )
@@ -51,13 +54,43 @@ type Remote struct {
 	HostKeys map[string]string
 	// Fail makes every command fail (after the host key is seen).
 	Fail error
-	// Env is the last environment file pushed to each address.
+	// Env is the environment file on each address: the last one pushed, or one SetEnv put there.
+	// A command that hashes it (cloudvm.EnvHashScript) answers from here.
 	Env map[string]string
+	// HashFail makes hashing the environment file fail on an address ("*": on every one).
+	HashFail map[string]error
+	// DiskOf, when set, names the disk an address's home is on, so the environment file follows
+	// the data volume from one instance to the next as it does on a real host (HomeOnVolume).
+	DiskOf func(address string) string
+}
+
+// HomeOnVolume is a DiskOf for a provider: an instance's home is its first attached volume.
+func HomeOnVolume(p cloud.Provider) func(address string) string {
+	return func(address string) string {
+		insts, err := p.Instances(context.Background(), cloud.Filter{})
+		if err != nil {
+			return address
+		}
+		for _, i := range insts {
+			if (i.PublicIPv4 == address || i.PrivateIPv4 == address) && len(i.VolumeIDs) > 0 {
+				return "volume:" + i.VolumeIDs[0]
+			}
+		}
+		return address
+	}
+}
+
+// home is where an address's files live: its disk, or the address itself.
+func (r *Remote) home(address string) string {
+	if r.DiskOf != nil {
+		return r.DiskOf(address)
+	}
+	return address
 }
 
 // NewRemote is a remote whose hosts are booted when they are first reached.
 func NewRemote() *Remote {
-	return &Remote{booted: map[string]bool{}, HostKey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFakeHostKeyFakeHostKeyFakeHostKey000", HostKeys: map[string]string{}, Env: map[string]string{}}
+	return &Remote{booted: map[string]bool{}, HostKey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFakeHostKeyFakeHostKeyFakeHostKey000", HostKeys: map[string]string{}, Env: map[string]string{}, HashFail: map[string]error{}}
 }
 
 // Boot marks a host booted.
@@ -83,6 +116,7 @@ func (r *Remote) Run(_ context.Context, t cloudvm.RemoteTarget, stdin io.Reader,
 	if stdin != nil {
 		in, _ = io.ReadAll(stdin)
 	}
+	home := r.home(t.Address) // outside the lock: DiskOf may ask the provider
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	key := r.HostKey
@@ -100,9 +134,51 @@ func (r *Remote) Run(_ context.Context, t cloudvm.RemoteTarget, stdin io.Reader,
 		return nil, key, r.Fail
 	}
 	if strings.Contains(command, "/env.tmp") {
-		r.Env[t.Address] = string(in)
+		r.Env[home] = string(in)
+	}
+	if strings.Contains(command, "sha256sum") {
+		if fail, ok := r.HashFail[t.Address]; ok {
+			return nil, key, fail
+		}
+		if fail, ok := r.HashFail["*"]; ok {
+			return nil, key, fail
+		}
+		env, ok := r.Env[home]
+		if !ok {
+			return []byte("missing\n"), key, nil
+		}
+		sum := sha256.Sum256([]byte(env))
+		return []byte(hex.EncodeToString(sum[:]) + "  /home/gravel/.config/game/env\n"), key, nil
 	}
 	return nil, key, nil
+}
+
+// SetEnv changes the environment file on a host behind the hub's back, as a hand edit would.
+func (r *Remote) SetEnv(address, env string) {
+	home := r.home(address)
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.Env[home] = env
+}
+
+// FailHash makes hashing the environment file fail on an address ("*": every one); nil clears it.
+func (r *Remote) FailHash(address string, err error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if err == nil {
+		delete(r.HashFail, address)
+		return
+	}
+	r.HashFail[address] = err
+}
+
+// EnvOn is the environment file on a host, and whether it has one.
+func (r *Remote) EnvOn(address string) (string, bool) {
+	home := r.home(address)
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	env, ok := r.Env[home]
+	return env, ok
 }
 
 // Store is an in-memory cloudvm.HostStore.
@@ -174,7 +250,7 @@ type Game struct {
 	mu       sync.Mutex
 	up       bool
 	status   cloudvm.GameStatus
-	connects map[string][]cloudvm.GamePlayer // what the next Log returns, by body
+	logs     map[string]cloudvm.LogResult // what the next Log returns, by body
 	commands []string
 	addrs    []string
 	password string
@@ -182,7 +258,7 @@ type Game struct {
 
 // NewGame is a game that answers once Up is called.
 func NewGame() *Game {
-	return &Game{connects: map[string][]cloudvm.GamePlayer{}, status: cloudvm.GameStatus{Build: "1.0", Map: "de_test", MaxPlayers: 10}}
+	return &Game{logs: map[string]cloudvm.LogResult{}, status: cloudvm.GameStatus{Build: "1.0", Map: "de_test", MaxPlayers: 10}}
 }
 
 // Factory is the game's GameFactory.
@@ -215,7 +291,18 @@ func (g *Game) SetPlayers(rows ...cloudvm.GamePlayer) {
 func (g *Game) OnLog(body string, connected ...cloudvm.GamePlayer) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	g.connects[body] = connected
+	r := g.logs[body]
+	r.Connected = connected
+	g.logs[body] = r
+}
+
+// OnBoundary makes a log body announce a boundary (cloudvm.BoundaryMapChange, BoundaryMatchEnd).
+func (g *Game) OnBoundary(body, boundary string) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	r := g.logs[body]
+	r.Boundary = boundary
+	g.logs[body] = r
 }
 
 // Commands are the commands sent (say, kick, quit).
@@ -287,10 +374,12 @@ func (g *Game) SetPassword(p string) {
 }
 
 // Log implements cloudvm.Game.
-func (g *Game) Log(body []byte) []cloudvm.GamePlayer {
+func (g *Game) Log(body []byte) cloudvm.LogResult {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	return slices.Clone(g.connects[string(body)])
+	r := g.logs[string(body)]
+	r.Connected = slices.Clone(r.Connected)
+	return r
 }
 
 // Find implements cloudvm.Game.

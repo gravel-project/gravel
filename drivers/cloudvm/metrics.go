@@ -19,6 +19,12 @@ type metrics struct {
 	price        *prometheus.GaugeVec
 	logBatches   *prometheus.CounterVec
 	bansEnforced *prometheus.CounterVec
+	envDrift     *prometheus.CounterVec
+	tier         *prometheus.GaugeVec
+	pending      *prometheus.GaugeVec
+	decisions    *prometheus.CounterVec
+	resizes      *prometheus.CounterVec
+	snapshots    *prometheus.CounterVec
 }
 
 func newMetrics(reg prometheus.Registerer) *metrics {
@@ -51,8 +57,27 @@ func newMetrics(reg prometheus.Registerer) *metrics {
 		bansEnforced: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Name: "gravel_cloudvm_bans_enforced_total", Help: "Banned players kicked as they connected to a cloud-VM server.",
 		}, []string{"server"}),
+		envDrift: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "gravel_cloudvm_env_drift_total", Help: "Times the game's environment file on a host was not the one the hub pushed, and was pushed again.",
+		}, []string{"server"}),
 	}
-	reg.MustRegister(m.state, m.since, m.failing, m.ops, m.duration, m.running, m.price, m.logBatches, m.bansEnforced)
+	m.tier = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "gravel_cloudvm_tier_players", Help: "The players the rung of its scaling ladder a running host is on is sized for; absent without a policy.",
+	}, []string{"server"})
+	m.pending = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "gravel_cloudvm_scale_pending", Help: "1 while a scaling decision waits for a boundary, by its direction.",
+	}, []string{"server", "direction"})
+	m.decisions = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "gravel_cloudvm_scale_decisions_total", Help: "Scaling decisions by direction and what became of them: decided, executed at a boundary, or cancelled.",
+	}, []string{"server", "direction", "outcome"})
+	m.resizes = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "gravel_cloudvm_resizes_total", Help: "Resizes of a host (the policy's and the owner's) by direction and result: ok, refused by the provider, or failed and started at the old size.",
+	}, []string{"server", "direction", "result"})
+	m.snapshots = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "gravel_cloudvm_volume_snapshots_total", Help: "Snapshots of a parked host's data volume an owner asked for, by result.",
+	}, []string{"server", "result"})
+	reg.MustRegister(m.state, m.since, m.failing, m.ops, m.duration, m.running, m.price, m.logBatches, m.bansEnforced, m.envDrift,
+		m.tier, m.pending, m.decisions, m.resizes, m.snapshots)
 	return m
 }
 
@@ -152,5 +177,25 @@ func (m *metrics) setPrice(server, size string, price float64, running bool) {
 	m.price.DeletePartialMatch(prometheus.Labels{"server": server})
 	if running && size != "" {
 		m.price.WithLabelValues(server, size).Set(price)
+	}
+}
+
+// setTier shows the players a host's rung is sized for; 0 removes the series.
+func (m *metrics) setTier(server string, players int) {
+	if players <= 0 {
+		m.tier.DeleteLabelValues(server)
+		return
+	}
+	m.tier.WithLabelValues(server).Set(float64(players))
+}
+
+// setPending shows a decision waiting in one direction; "" shows none.
+func (m *metrics) setPending(server, dir string) {
+	for _, d := range []string{DirectionUp, DirectionDown} {
+		v := 0.0
+		if d == dir {
+			v = 1
+		}
+		m.pending.WithLabelValues(server, d).Set(v)
 	}
 }

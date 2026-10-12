@@ -641,11 +641,12 @@ servers:
       park_after: 30m                        # optional: park after this long empty (5m–24h); absent never
       password_file: /run/secrets/cs2-join-password   # optional: the password players join with
       publisher_token_file: /run/secrets/cs2-gslt     # optional: a Game Server Login Token
+      scaling: {}                            # optional: walk the game's ladder as the room fills (below)
+      seed_snapshot: {name: cs2-install}     # optional: make a NEW volume from this snapshot (or {id: …})
     settings:                                # what the spec's cloudvm.settings declares, checked by type
       game_alias: competitive                # competitive · wingman · casual · deathmatch · custom
       map_group: mg_active
-      start_map: de_mirage
-      max_players: 10
+      start_map: de_mirage                   # max_players is the ladder's with scaling, else set it here
       tv: false
 ```
 
@@ -684,12 +685,71 @@ A step that fails keeps its state, shows a word (`error_code`: `cloud_failed`,
 host key that changes, or two instances with the server's tag, stop the host until a human looks.
 Removing a server from the manifest parks its host; destroying it is a separate request.
 
+**The VM's journal holds the publisher token.** The `joedwards32/cs2` image prints the game's
+command line when it starts, `+sv_setsteamaccount <token>` included, so the `gravel` user's
+journal on the VM (`journalctl --user -u cs2`) carries the Game Server Login Token (#170). Only
+someone with SSH to the VM can read it, and the hub's copy of the game's log never has it (CS2's
+log push doesn't carry the command line, and the log route redacts it anyway). Don't paste that
+journal anywhere; a quieter image is #170.
+
+**The environment file.** The hub pushes the game's environment file when what it renders changes
+(a setting, a rotated secret), and it reads the file's SHA-256 on the host before trusting its own
+record: at every start (a create, an unpark, a recreated instance) and on the five-minute drift
+pass while the server runs (#169). The file lives in the runtime user's home, which is the data
+volume, so a hand edit on the host outlives a park; a file that differs, or is missing, is pushed
+again and the game restarts on it, at once while starting and when the server is empty while it
+runs. Each one is an `env_drift` event on the host and `gravel_cloudvm_env_drift_total`; only the
+hash leaves the host, never the file. A host that can't be read at start fails the step (the hub
+never starts a game on a file it couldn't check); while running it is logged and left alone.
+
 **Parking and resizing.** An empty server past `park_after` is parked by the hub (its event says
 `idle`). The owner and moderators park and start a server (`SetServerHostDesired`, or the server
 page's "Server machine" section); the owner resizes it to a size the provider allows from its
 current one (`ResizeServerHost`; refused with players on unless `force`) and destroys a parked one
 (`DestroyServerHost`; the volume and the address stay unless asked). A resize disconnects everyone
-for a few minutes; the scaling policy that decides it at a map change is #37.
+for a few minutes (DigitalOcean's `c-2` to `c-4` and back: 2½ minutes each way, measured on HTG's
+server), and an owner's resize lasts until the host is parked: an unpark makes the instance at
+`vm.size` again.
+
+**Snapshots (#166).** A server's install lives on its data volume, so the full download comes
+back only for a new volume: a second server in a location, or a rebuild after a volume is lost
+(Counter-Strike 2: 73.4 GB, about half an hour inside DigitalOcean). The owner copies a parked
+host's volume into a snapshot (`SnapshotServerHostVolume`, or "Snapshot the disk" on the server
+page; parked only, so the volume is detached and the copy consistent), named
+`<server>-data-<game>-<build>-<date>` unless given a name and tagged with the server's tags; an
+event on the host records it. A server whose manifest has `vm.seed_snapshot` (by `name` in the
+location's region, or by `id`) has its volume made from it **when the volume is first made**,
+never for a volume that exists, so an unpark or a recreate always uses the server's own volume;
+then the game needs only the update since the snapshot. `servers apply` asks the cloud and refuses
+a seed it doesn't find, one in another region, and a `volume_gib` smaller than the snapshot's
+source. A snapshot holds whatever the volume does, the server's environment file with its secrets
+included: keep it like the secrets, and delete it in the cloud when it is no longer wanted (it
+bills by the gigabyte every month). A seeded server's start finds that file is not its own and
+pushes its own (the environment check above). The provider's token needs DigitalOcean's
+`block_storage_snapshot` scope (create, read, delete).
+
+**Scaling (#37).** With `vm.scaling` the hub sizes the host to its room, walking a **ladder**
+one rung at a time: the Game spec's `cloudvm.ladder` (CS2: `c-2` for 10 players, `c-4` for 20),
+or the manifest's own `scaling.ladder`. `vm.size` is the rung the host is made at, and each rung's
+players become the game's players setting (`players_setting`, CS2's `max_players`), so the
+manifest leaves that setting out. The status polls keep since when the room has been full or
+empty: a rung at least `up_at` full (0.8) for `up_for` (5m), or holding as many players as it is
+sized for, decides a move up; one at most `down_at` full (0.25) for `down_for` (30m) decides a move
+down; no decision comes within `cooldown` (30m) of the last resize. A decision is an event on the
+host (step `scale`, with its inputs: "up: 9 of 10 players for 5m0s, to c-4 (20 players) at the
+next boundary"), players are warned once in chat, and it waits for a **boundary**: the game's log
+announcing a match's end or a map loading (CS2's `Game Over` and `Loading map`), or an empty
+server. Then the host resizes as an owner's resize does, and the game restarts with the new rung's
+players. A decision the room stops supporting (an up with the room back to `down_at`, a down with
+it back to `up_at`) is dropped (step `scale_cancelled`); parking beats a move down. The owner can
+**pin** a size (`ResizeServerHost` with `pin`, or "Keep it at" on the page): the policy stands
+aside and an unparked host is resized back to the pin as soon as it runs empty, until
+`UnpinServerHostSize`. A host is always made at `vm.size`, never at a pin, because the root disk a
+host is made with never changes and never shrinks: DigitalOcean's `c-4` made as `c-4` has a 50 GB
+disk and could never come back to `c-2`'s 25. `gravel-hub servers apply` asks the cloud and
+refuses a ladder a host made at `vm.size` can't walk both ways; `servers check` (no cloud) checks
+the rest. The server page shows the rung, the ladder with its prices, a decision waiting and why,
+and the month's cost with each run at its own size's price.
 
 ```sh
 curl -s -X POST -H 'Content-Type: application/json' -b "gravel_session=…" \
@@ -1317,6 +1377,12 @@ and the digest-pin procedure.
 | `gravel_cloudvm_hourly_price_usd` | gauge | `server`, `size` | a running host's price | while it is not running |
 | `gravel_cloudvm_log_batches_total` | counter | `server` | log batches that reached the game's roster | until the first batch |
 | `gravel_cloudvm_bans_enforced_total` | counter | `server` | banned players kicked as they connected | until the first |
+| `gravel_cloudvm_env_drift_total` | counter | `server` | times the game's environment file on the host was not the one the hub pushed, and was pushed again (#169) | until the first |
+| `gravel_cloudvm_tier_players` | gauge | `server` | the players the rung of its scaling ladder a running host is on is sized for (#37) | without a policy, or off the ladder |
+| `gravel_cloudvm_scale_pending` | gauge | `server`, `direction` (`up`, `down`) | 1 while a scaling decision waits for a boundary | until the first decision |
+| `gravel_cloudvm_scale_decisions_total` | counter | `server`, `direction`, `outcome` (`decided`, `executed`, `cancelled`) | the scaling policy's decisions and what became of them | until the first |
+| `gravel_cloudvm_resizes_total` | counter | `server`, `direction`, `result` (`ok`, `refused`, `failed`) | resizes, the policy's and the owner's; a failed one started again at the old size | until the first |
+| `gravel_cloudvm_volume_snapshots_total` | counter | `server`, `result` (`ok`, `error`) | snapshots of a parked host's volume the owner asked for (#166) | until the first |
 | `gravel_stats_matches_total` | counter | `server`, `game` | matches the stats store started (ADR-0012) | until the first match |
 | `gravel_stats_rows_written_total` | counter | `server` | player rows written from polls | until someone is on |
 | `gravel_stats_record_errors_total` | counter | `server` | polls the stats store could not write | until one fails |

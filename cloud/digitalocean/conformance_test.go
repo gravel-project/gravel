@@ -50,7 +50,8 @@ func TestConformance(t *testing.T) {
 				srv.FailNextAction("unassign_ip")
 			}
 			// Registered before Run, so it runs after the suite's own cleanup: the suite must
-			// leave nothing behind but its SSH key, which the interface cannot delete.
+			// leave nothing behind (no volume, snapshot, address or firewall) but its SSH key, which the
+			// interface cannot delete.
 			t.Cleanup(func() {
 				if got, want := srv.Counts(), (dotest.Counts{SSHKeys: 1}); got != want {
 					t.Errorf("after the suite the emulator holds %+v, want %+v", got, want)
