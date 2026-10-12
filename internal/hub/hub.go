@@ -41,9 +41,11 @@ import (
 	"github.com/gravel-project/gravel/internal/ingest"
 	"github.com/gravel-project/gravel/internal/jobs"
 	"github.com/gravel-project/gravel/internal/metricnames"
+	"github.com/gravel-project/gravel/internal/objectstore"
 	"github.com/gravel-project/gravel/internal/org"
 	"github.com/gravel-project/gravel/internal/publicaddr"
 	"github.com/gravel-project/gravel/internal/ratelimit"
+	"github.com/gravel-project/gravel/internal/results"
 	"github.com/gravel-project/gravel/internal/servers"
 	"github.com/gravel-project/gravel/internal/session"
 	"github.com/gravel-project/gravel/internal/stats"
@@ -82,6 +84,7 @@ type Hub struct {
 	servers    *servers.Service
 	hosts      *servers.Hosts
 	leases     *servers.Leases
+	results    *results.Service
 	cloudvm    *cloudvm.Manager
 	monitor    *servers.Monitor
 	moderation *servers.Moderation
@@ -348,6 +351,25 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 	h.ingest.SetLogSource("cs2", ingest.LogSource{Headers: cs2.LogHeaders, Redact: cs2.RedactLog})
 	h.ingest.SetLogTap(h.cloudvm)
 	h.ingest.SetAddressPin(h.cloudvm)
+	// Match results and demos from a server's match plugin (ADR-0024): from the server's own host,
+	// demos to the object store when the hub has a bucket.
+	var objects objectstore.Store
+	if d := cfg.Demos; d.Enabled() {
+		s3, err := objectstore.NewS3(objectstore.S3Config{Endpoint: d.Endpoint, Region: d.Region, Bucket: d.Bucket, AccessKey: d.AccessKey,
+			SecretKey: d.SecretKey, PathStyle: d.PathStyle})
+		if err != nil {
+			return nil, fmt.Errorf("hub: demos: %w", err)
+		}
+		objects = s3
+	}
+	mapName := func(server string) string {
+		if o, ok := h.monitor.Observation(server); ok {
+			return o.Status.Map
+		}
+		return ""
+	}
+	h.results = results.New(st, o.ID, h.leases, mapName, objects, int64(cfg.Demos.MaxMiB)<<20, h.registry, logger)
+	h.ingest.SetPluginSinks(h.results, h.results)
 	h.jobs.Start(jobs.Job{Name: "ingest_feeds", Every: servers.ReconcileEvery, Immediate: true, Run: h.refreshFeeds})
 	h.jobs.Start(jobs.Job{Name: "ingest_prune", Every: ingest.PruneEvery, Run: func(ctx context.Context) error {
 		return ingest.Prune(ctx, st, time.Now(), logger)
@@ -461,7 +483,9 @@ func (h *Hub) buildAPI() *http.ServeMux {
 	mux.Handle(hubv1connect.NewServerHostServiceHandler(api.NewHostServer(h.hosts, moderation, h.org, h.logger), interceptors))
 	mux.Handle(hubv1connect.NewServerLeaseServiceHandler(api.NewLeaseServer(h.leases, moderation, h.logger), interceptors))
 	mux.Handle(hubv1connect.NewServerConfigServiceHandler(api.NewConfigServer(h.moderation, h.org, h.logger), interceptors))
-	mux.Handle(hubv1connect.NewStatsServiceHandler(api.NewStatsServer(h.stats, h.participation, h.org, h.ids, h.logger), interceptors))
+	statsAPI := api.NewStatsServer(h.stats, h.participation, h.org, h.ids, h.logger)
+	statsAPI.SetResults(h.results)
+	mux.Handle(hubv1connect.NewStatsServiceHandler(statsAPI, interceptors))
 	mux.Handle(hubv1connect.NewAppServiceHandler(api.NewAppServer(h.apps, h.logger), interceptors))
 	return mux
 }
@@ -511,6 +535,8 @@ func (h *Hub) buildPublic() http.Handler {
 	top := http.NewServeMux()
 	top.Handle("POST "+ingest.Path, h.metrics.HTTP("ingest", h.ingest))
 	top.Handle("POST "+ingest.LogPath, h.metrics.HTTP("ingest_log", http.HandlerFunc(h.ingest.ServeLog)))
+	top.Handle("POST "+ingest.EventsPath, h.metrics.HTTP("ingest_events", http.HandlerFunc(h.ingest.ServeEvents)))
+	top.Handle("POST "+ingest.DemoPath, h.metrics.HTTP("ingest_demo", http.HandlerFunc(h.ingest.ServeDemo)))
 	top.Handle("/", httpx.Chain(mux, csrf.Handler, h.sess.Middleware, h.apps.Middleware))
 	return httpx.Chain(top,
 		httpx.RequestID,

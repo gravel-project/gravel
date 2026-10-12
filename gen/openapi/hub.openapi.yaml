@@ -1897,6 +1897,88 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.GetBoardNameResponse'
+  /gravel.hub.v1.StatsService/GetMatchDemo:
+    post:
+      tags:
+        - gravel.hub.v1.StatsService
+      summary: GetMatchDemo
+      description: |-
+        GetMatchDemo is a link to download a map's demo, good for 15 minutes; not_found when the map
+         has none. Who may GetBoard.
+      operationId: gravel.hub.v1.StatsService.GetMatchDemo
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.GetMatchDemoRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.GetMatchDemoResponse'
+  /gravel.hub.v1.StatsService/GetMatchResult:
+    post:
+      tags:
+        - gravel.hub.v1.StatsService
+      summary: GetMatchResult
+      description: |-
+        GetMatchResult is a series with its maps and each player's totals on each map, players shown
+         as on a board: a member's name when they chose it, else a pseudonym. Who may GetBoard.
+      operationId: gravel.hub.v1.StatsService.GetMatchResult
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.GetMatchResultRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.GetMatchResultResponse'
   /gravel.hub.v1.StatsService/GetMemberProfile:
     post:
       tags:
@@ -2023,6 +2105,47 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.GetSessionRecapResponse'
+  /gravel.hub.v1.StatsService/ListMatchResults:
+    post:
+      tags:
+        - gravel.hub.v1.StatsService
+      summary: ListMatchResults
+      description: |-
+        ListMatchResults is the series a match plugin reported (MatchZy, ADR-0024), newest first,
+         without their maps and players. Who may GetBoard.
+      operationId: gravel.hub.v1.StatsService.ListMatchResults
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.ListMatchResultsRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.ListMatchResultsResponse'
   /gravel.hub.v1.StatsService/ListMatches:
     post:
       tags:
@@ -3337,6 +3460,47 @@ components:
           title: to
       title: GetBoardResponse
       additionalProperties: false
+    gravel.hub.v1.GetMatchDemoRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+        mapNumber:
+          type: integer
+          title: map_number
+          format: int32
+      title: GetMatchDemoRequest
+      additionalProperties: false
+    gravel.hub.v1.GetMatchDemoResponse:
+      type: object
+      properties:
+        url:
+          type: string
+          title: url
+        expiresAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: expires_at
+      title: GetMatchDemoResponse
+      additionalProperties: false
+    gravel.hub.v1.GetMatchResultRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+      title: GetMatchResultRequest
+      additionalProperties: false
+    gravel.hub.v1.GetMatchResultResponse:
+      type: object
+      properties:
+        result:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.MatchResult'
+          title: result
+      title: GetMatchResultResponse
+      additionalProperties: false
     gravel.hub.v1.GetMeRequest:
       type: object
       title: GetMeRequest
@@ -3976,6 +4140,40 @@ components:
              full pass begins its incremental reads here instead of paging through the history.
       title: ListIdentityEventsResponse
       additionalProperties: false
+    gravel.hub.v1.ListMatchResultsRequest:
+      type: object
+      properties:
+        serverId:
+          type: string
+          title: server_id
+        leaseId:
+          type: string
+          title: lease_id
+        endedOnly:
+          type: boolean
+          title: ended_only
+        endedAfter:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: ended_after
+          description: Only series that ended after this (a bot's next look).
+        pageSize:
+          type: integer
+          title: page_size
+          format: int32
+          description: At most this many (50 when 0, at most 200).
+      title: ListMatchResultsRequest
+      additionalProperties: false
+    gravel.hub.v1.ListMatchResultsResponse:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.MatchResult'
+          title: results
+      title: ListMatchResultsResponse
+      additionalProperties: false
     gravel.hub.v1.ListMatchesRequest:
       type: object
       properties:
@@ -4173,6 +4371,151 @@ components:
           title: user
       title: LookupUserResponse
       additionalProperties: false
+    gravel.hub.v1.MatchResult:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+        serverId:
+          type: string
+          title: server_id
+        leaseId:
+          type: string
+          title: lease_id
+          description: The lease the server was under (a PUG), if any.
+        team1Name:
+          type: string
+          title: team1_name
+        team2Name:
+          type: string
+          title: team2_name
+        numMaps:
+          type: integer
+          title: num_maps
+          format: int32
+        team1Score:
+          type: integer
+          title: team1_score
+          format: int32
+          description: Maps won, once the series ended.
+        team2Score:
+          type: integer
+          title: team2_score
+          format: int32
+        winner:
+          type: string
+          title: winner
+          description: '"team1", "team2", "none" (a draw), or "" while it lasts.'
+        startedAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: started_at
+        endedAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: ended_at
+        maps:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.MatchResultMap'
+          title: maps
+        players:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.MatchResultPlayer'
+          title: players
+      title: MatchResult
+      additionalProperties: false
+      description: MatchResult is one series a server's match plugin ran.
+    gravel.hub.v1.MatchResultMap:
+      type: object
+      properties:
+        mapNumber:
+          type: integer
+          title: map_number
+          format: int32
+          description: From 0, in the order played.
+        mapName:
+          type: string
+          title: map_name
+        team1Score:
+          type: integer
+          title: team1_score
+          format: int32
+        team2Score:
+          type: integer
+          title: team2_score
+          format: int32
+        winner:
+          type: string
+          title: winner
+        startedAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: started_at
+        endedAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: ended_at
+        hasDemo:
+          type: boolean
+          title: has_demo
+      title: MatchResultMap
+      additionalProperties: false
+      description: MatchResultMap is one map of a series.
+    gravel.hub.v1.MatchResultPlayer:
+      type: object
+      properties:
+        mapNumber:
+          type: integer
+          title: map_number
+          format: int32
+        name:
+          type: string
+          title: name
+        pseudonymous:
+          type: boolean
+          title: pseudonymous
+        userId:
+          type: string
+          title: user_id
+          description: The member, when shown by name.
+        team:
+          type: string
+          title: team
+          description: '"team1" or "team2".'
+        kills:
+          type: integer
+          title: kills
+          format: int32
+        deaths:
+          type: integer
+          title: deaths
+          format: int32
+        assists:
+          type: integer
+          title: assists
+          format: int32
+        damage:
+          type: integer
+          title: damage
+          format: int32
+        headshotKills:
+          type: integer
+          title: headshot_kills
+          format: int32
+        mvps:
+          type: integer
+          title: mvps
+          format: int32
+        score:
+          type: integer
+          title: score
+          format: int32
+      title: MatchResultPlayer
+      additionalProperties: false
+      description: MatchResultPlayer is a player's totals on one map, shown as a board shows them.
     gravel.hub.v1.MatchSummary:
       type: object
       properties:

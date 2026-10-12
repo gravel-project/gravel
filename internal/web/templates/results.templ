@@ -1,0 +1,85 @@
+package templates
+
+import "fmt"
+
+// Result is the whole match result page (ADR-0024).
+templ Result(p ResultPage) {
+	@Layout(p.Page) {
+		@ResultContent(p)
+	}
+}
+
+// ResultContent is a match result inside its game's overlay.
+templ ResultContent(p ResultPage) {
+	@GameScope(p.Game) {
+		<h1>{ p.Team1 } { fmt.Sprintf("%d–%d", p.Score1, p.Score2) } { p.Team2 }</h1>
+		<p class="meta">
+			{ p.ServerName } · { p.Started }
+			if !p.Ended {
+				· <strong>in progress</strong>
+			} else if p.Winner == "team1" {
+				· { p.Team1 } won
+			} else if p.Winner == "team2" {
+				· { p.Team2 } won
+			} else if p.Winner == "none" {
+				· a draw
+			}
+		</p>
+		<p><a href={ templ.SafeURL("/servers/" + p.ServerID) }>The server's page</a></p>
+		if len(p.Maps) == 0 {
+			<p class="muted">No map has been played yet.</p>
+		}
+		for _, m := range p.Maps {
+			<section aria-labelledby={ fmt.Sprintf("map-%d-heading", m.Number) }>
+				<h2 id={ fmt.Sprintf("map-%d-heading", m.Number) }>
+					{ fmt.Sprintf("Map %d", m.Number) }
+					if m.Name != "" {
+						: { m.Name }
+					}
+					· { fmt.Sprintf("%d–%d", m.Score1, m.Score2) }
+				</h2>
+				if m.DemoURL != "" {
+					<p><a href={ templ.SafeURL(m.DemoURL) }>Download the demo</a></p>
+				}
+				@resultTeam(p.Team1, m.Players1, fmt.Sprintf("map-%d-team1", m.Number))
+				@resultTeam(p.Team2, m.Players2, fmt.Sprintf("map-%d-team2", m.Number))
+			</section>
+		}
+	}
+}
+
+templ resultTeam(team string, players []ResultPlayer, id string) {
+	if len(players) > 0 {
+		<table aria-describedby={ id }>
+			<caption id={ id }>{ team }</caption>
+			<thead>
+				<tr>
+					<th scope="col">Player</th>
+					<th scope="col" class="num">Kills</th>
+					<th scope="col" class="num">Deaths</th>
+					<th scope="col" class="num">Assists</th>
+					<th scope="col" class="num">Damage</th>
+					<th scope="col" class="num">MVPs</th>
+				</tr>
+			</thead>
+			<tbody>
+				for _, pl := range players {
+					<tr>
+						<td>
+							if pl.UserID != "" {
+								<a href={ templ.SafeURL("/members/" + pl.UserID) }>{ pl.Name }</a>
+							} else {
+								{ pl.Name }
+							}
+						</td>
+						<td class="num">{ fmt.Sprint(pl.Kills) }</td>
+						<td class="num">{ fmt.Sprint(pl.Deaths) }</td>
+						<td class="num">{ fmt.Sprint(pl.Assists) }</td>
+						<td class="num">{ fmt.Sprint(pl.Damage) }</td>
+						<td class="num">{ fmt.Sprint(pl.MVPs) }</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+	}
+}

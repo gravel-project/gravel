@@ -77,43 +77,56 @@ func (h *Handler) SetLogSource(source string, s LogSource) {
 	h.log.sources[source] = s
 }
 
-// ServeLog stores one log batch. Like ServeHTTP it answers with no body: 200 stored, 401 no valid
-// token or not from the server's host, 413 too large, 429 slow down, 503 not stored.
-func (h *Handler) ServeLog(w http.ResponseWriter, r *http.Request) {
-	httpx.SetLogPath(r.Context(), strings.TrimSuffix(LogPath, "{token}")+"<redacted>")
-	token := strings.TrimSpace(r.PathValue("token"))
-	server, source, ok := "", "", false
+// fromHost checks a request a server's own host makes (its log, its match plugin's events and
+// demos): the server's feed token, the address of the server's host, and the per-server rate. On a
+// refusal it has answered (401, or 429) and ok is false.
+func (h *Handler) fromHost(w http.ResponseWriter, r *http.Request, token string) (server, source string, ok bool) {
 	if token != "" {
 		server, source, ok = h.keys.Match(token)
 	}
 	h.log.mu.RLock()
-	tap, pin, src := h.log.tap, h.log.pin, h.log.sources[source]
+	pin := h.log.pin
 	h.log.mu.RUnlock()
 	if ok && pin != nil {
 		want, running := pin.SourceAddresses(server)
 		got, err := netip.ParseAddr(ratelimit.ClientIP(r))
 		if !running || err != nil || !slices.ContainsFunc(want, func(a netip.Addr) bool { return a.Unmap() == got.Unmap() }) {
 			h.count(server, source, "address_mismatch")
-			h.logger.Warn("ingest: a log batch with a server's token came from another address", "server", server)
+			h.logger.Warn("ingest: a request with a server's token came from another address", "server", server, "path", r.URL.Path)
 			w.WriteHeader(http.StatusUnauthorized)
-			return
+			return "", "", false
 		}
 	}
 	if !ok {
 		if allowed, retry := h.failures.Allow(ratelimit.ClientIP(r)); !allowed {
 			h.count(unknown, unknown, "rate_limited")
 			tooMany(w, retry)
-			return
+			return "", "", false
 		}
 		h.count(unknown, unknown, "unauthorized")
 		w.WriteHeader(http.StatusUnauthorized)
-		return
+		return "", "", false
 	}
 	if allowed, retry := h.servers.Allow(server); !allowed {
 		h.count(server, source, "rate_limited")
 		tooMany(w, retry)
+		return "", "", false
+	}
+	return server, source, true
+}
+
+// ServeLog stores one log batch. Like ServeHTTP it answers with no body: 200 stored, 401 no valid
+// token or not from the server's host, 413 too large, 429 slow down, 503 not stored.
+func (h *Handler) ServeLog(w http.ResponseWriter, r *http.Request) {
+	httpx.SetLogPath(r.Context(), strings.TrimSuffix(LogPath, "{token}")+"<redacted>")
+	token := strings.TrimSpace(r.PathValue("token"))
+	server, source, ok := h.fromHost(w, r, token)
+	if !ok {
 		return
 	}
+	h.log.mu.RLock()
+	tap, src := h.log.tap, h.log.sources[source]
+	h.log.mu.RUnlock()
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, MaxLogBody))
 	if err != nil {
 		var tooLarge *http.MaxBytesError

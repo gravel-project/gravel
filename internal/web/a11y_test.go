@@ -259,6 +259,14 @@ func TestAccessibility(t *testing.T) {
 			return templates.HostConfirm(templates.HostConfirmPage{Page: p, ServerID: "htg-cs2-1", ServerName: "HTG CS2", Action: "expect", Players: "10", For: "3h",
 				Reason: "PUG 3 filled", Question: "Expect 10 players on HTG CS2 for the next 3h?", Warning: "Until then the machine is sized for them."})
 		},
+		"/fixture/result": func() templ.Component {
+			p := base
+			p.Title, p.User = "Alpha vs Bravo", jo
+			return templates.Result(templates.ResultPage{Page: p, ID: "r1", ServerID: "htg-cs2-1", ServerName: "HTG CS2", Team1: "Alpha", Team2: "Bravo",
+				Score1: 1, Winner: "team1", Started: "Oct 14, 01:00 UTC", Ended: true, Maps: []templates.ResultMap{{Number: 1, Name: "de_nuke", Score1: 13, Score2: 9,
+					Winner: "team1", DemoURL: "/results/r1/demo/0", Players1: []templates.ResultPlayer{{Name: "Jo", UserID: "u1", Kills: 21, Deaths: 12}},
+					Players2: []templates.ResultPlayer{{Name: "Brave Falcon", Pseudonymous: true, Kills: 15, Deaths: 18}}}}})
+		},
 		"/fixture/confirm": func() templ.Component {
 			p := base
 			p.Title, p.User, p.CSRF = "Confirm", owner, "csrf"
@@ -315,7 +323,7 @@ func TestAccessibility(t *testing.T) {
 		"/fixture/servers", "/fixture/servers-demo", "/fixture/server", "/fixture/server-anonymous", "/fixture/server-game-overlay", "/fixture/boards", "/fixture/member-self", "/fixture/member", "/fixture/members",
 		"/fixture/participation", "/fixture/participation-empty", "/fixture/member-participation", "/fixture/recap", "/fixture/recap-nobody",
 		"/fixture/server-moderator", "/fixture/server-host", "/fixture/server-host-parked", "/fixture/host-confirm", "/fixture/confirm", "/fixture/log", "/fixture/account-apps", "/fixture/consent",
-		"/fixture/account-proof", "/fixture/proof", "/fixture/proof-proven", "/fixture/host-expect"}
+		"/fixture/account-proof", "/fixture/proof", "/fixture/proof-proven", "/fixture/host-expect", "/fixture/result"}
 	// A fixture left out of the list would never be scanned and the run would still pass.
 	for path := range fixtures {
 		if !slices.Contains(paths, path) {

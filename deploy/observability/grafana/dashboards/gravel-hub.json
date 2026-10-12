@@ -2715,6 +2715,136 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
+      "description": "Events a server's match plugin (MatchZy) posted (ADR-0024), by result: recorded, ignored (one the hub keeps nothing of), error. No data is expected when no match plugin posted an event in the range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gravelOptional": "no match plugin posted an event in the range",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 108
+      },
+      "id": 48,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (event, result) (increase(gravel_match_events_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "{{event}} {{result}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Match events",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Demos a server's match plugin uploaded to the hub's object store, by result. No data is expected when no demo was uploaded in the range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gravelOptional": "no demo was uploaded in the range",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 108
+      },
+      "id": 49,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (result) (increase(gravel_match_demos_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "{{result}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Match demos",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
       "description": "loaded, or vanilla when the set didn't load (a game patch broke it, a bad pin) and the server ran without it (#176). No data is expected when no lease asked for a plugin set in the range.",
       "fieldConfig": {
         "defaults": {
@@ -2745,10 +2875,10 @@
       "gridPos": {
         "h": 8,
         "w": 6,
-        "x": 18,
-        "y": 100
+        "x": 0,
+        "y": 116
       },
-      "id": 48,
+      "id": 50,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2781,9 +2911,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 108
+        "y": 124
       },
-      "id": 49,
+      "id": 51,
       "panels": [],
       "title": "Cloud VMs",
       "type": "row"
@@ -2817,9 +2947,9 @@
         "h": 4,
         "w": 6,
         "x": 0,
-        "y": 109
+        "y": 125
       },
-      "id": 50,
+      "id": 52,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -2886,9 +3016,9 @@
         "h": 4,
         "w": 6,
         "x": 6,
-        "y": 109
+        "y": 125
       },
-      "id": 51,
+      "id": 53,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -2947,9 +3077,9 @@
         "h": 4,
         "w": 6,
         "x": 12,
-        "y": 109
+        "y": 125
       },
-      "id": 52,
+      "id": 54,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -3008,9 +3138,9 @@
         "h": 4,
         "w": 6,
         "x": 18,
-        "y": 109
+        "y": 125
       },
-      "id": 53,
+      "id": 55,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -3076,9 +3206,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 113
+        "y": 129
       },
-      "id": 54,
+      "id": 56,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3141,9 +3271,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 113
+        "y": 129
       },
-      "id": 55,
+      "id": 57,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3206,9 +3336,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 113
+        "y": 129
       },
-      "id": 56,
+      "id": 58,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3271,9 +3401,9 @@
         "h": 8,
         "w": 6,
         "x": 0,
-        "y": 121
+        "y": 137
       },
-      "id": 57,
+      "id": 59,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3336,9 +3466,9 @@
         "h": 8,
         "w": 6,
         "x": 6,
-        "y": 121
+        "y": 137
       },
-      "id": 58,
+      "id": 60,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3394,9 +3524,9 @@
         "h": 4,
         "w": 6,
         "x": 12,
-        "y": 121
+        "y": 137
       },
-      "id": 59,
+      "id": 61,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -3455,9 +3585,9 @@
         "h": 4,
         "w": 6,
         "x": 18,
-        "y": 121
+        "y": 137
       },
-      "id": 60,
+      "id": 62,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -3516,9 +3646,9 @@
         "h": 4,
         "w": 6,
         "x": 0,
-        "y": 129
+        "y": 145
       },
-      "id": 61,
+      "id": 63,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -3584,9 +3714,9 @@
         "h": 8,
         "w": 6,
         "x": 6,
-        "y": 129
+        "y": 145
       },
-      "id": 62,
+      "id": 64,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3649,9 +3779,9 @@
         "h": 8,
         "w": 6,
         "x": 12,
-        "y": 129
+        "y": 145
       },
-      "id": 63,
+      "id": 65,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3714,9 +3844,9 @@
         "h": 8,
         "w": 6,
         "x": 18,
-        "y": 129
+        "y": 145
       },
-      "id": 64,
+      "id": 66,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3779,9 +3909,9 @@
         "h": 8,
         "w": 6,
         "x": 0,
-        "y": 137
+        "y": 153
       },
-      "id": 65,
+      "id": 67,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3814,9 +3944,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 145
+        "y": 161
       },
-      "id": 66,
+      "id": 68,
       "panels": [],
       "title": "Stats",
       "type": "row"
@@ -3857,9 +3987,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 146
+        "y": 162
       },
-      "id": 67,
+      "id": 69,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3922,9 +4052,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 146
+        "y": 162
       },
-      "id": 68,
+      "id": 70,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3987,9 +4117,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 146
+        "y": 162
       },
-      "id": 69,
+      "id": 71,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4051,9 +4181,9 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 154
+        "y": 170
       },
-      "id": 70,
+      "id": 72,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4108,9 +4238,9 @@
         "h": 4,
         "w": 12,
         "x": 12,
-        "y": 154
+        "y": 170
       },
-      "id": 71,
+      "id": 73,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -4175,9 +4305,9 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 162
+        "y": 178
       },
-      "id": 72,
+      "id": 74,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4210,9 +4340,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 170
+        "y": 186
       },
-      "id": 73,
+      "id": 75,
       "panels": [],
       "title": "Ingestion",
       "type": "row"
@@ -4254,9 +4384,9 @@
         "h": 4,
         "w": 8,
         "x": 0,
-        "y": 171
+        "y": 187
       },
-      "id": 74,
+      "id": 76,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -4322,9 +4452,9 @@
         "h": 8,
         "w": 16,
         "x": 8,
-        "y": 171
+        "y": 187
       },
-      "id": 75,
+      "id": 77,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4357,9 +4487,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 179
+        "y": 195
       },
-      "id": 76,
+      "id": 78,
       "panels": [],
       "title": "Background jobs",
       "type": "row"
@@ -4399,9 +4529,9 @@
         "h": 8,
         "w": 16,
         "x": 0,
-        "y": 180
+        "y": 196
       },
-      "id": 77,
+      "id": 79,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4456,9 +4586,9 @@
         "h": 4,
         "w": 8,
         "x": 16,
-        "y": 180
+        "y": 196
       },
-      "id": 78,
+      "id": 80,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -4494,9 +4624,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 188
+        "y": 204
       },
-      "id": 79,
+      "id": 81,
       "panels": [],
       "title": "Runtime",
       "type": "row"
@@ -4535,9 +4665,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 189
+        "y": 205
       },
-      "id": 80,
+      "id": 82,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4598,9 +4728,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 189
+        "y": 205
       },
-      "id": 81,
+      "id": 83,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4661,9 +4791,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 189
+        "y": 205
       },
-      "id": 82,
+      "id": 84,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4724,9 +4854,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 197
+        "y": 213
       },
-      "id": 83,
+      "id": 85,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4787,9 +4917,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 197
+        "y": 213
       },
-      "id": 84,
+      "id": 86,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4850,9 +4980,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 197
+        "y": 213
       },
-      "id": 85,
+      "id": 87,
       "options": {
         "legend": {
           "displayMode": "list",

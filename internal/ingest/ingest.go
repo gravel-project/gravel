@@ -162,6 +162,8 @@ type Handler struct {
 	last    *prometheus.GaugeVec
 	// log is the log-push route's configuration (log.go).
 	log logConfig
+	// plugin is the match plugin's routes' (plugin.go).
+	plugin pluginConfig
 }
 
 // NewHandler builds the route and registers its metrics.

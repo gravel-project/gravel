@@ -56,6 +56,15 @@ const (
 	// StatsServiceGetSessionRecapProcedure is the fully-qualified name of the StatsService's
 	// GetSessionRecap RPC.
 	StatsServiceGetSessionRecapProcedure = "/gravel.hub.v1.StatsService/GetSessionRecap"
+	// StatsServiceListMatchResultsProcedure is the fully-qualified name of the StatsService's
+	// ListMatchResults RPC.
+	StatsServiceListMatchResultsProcedure = "/gravel.hub.v1.StatsService/ListMatchResults"
+	// StatsServiceGetMatchResultProcedure is the fully-qualified name of the StatsService's
+	// GetMatchResult RPC.
+	StatsServiceGetMatchResultProcedure = "/gravel.hub.v1.StatsService/GetMatchResult"
+	// StatsServiceGetMatchDemoProcedure is the fully-qualified name of the StatsService's GetMatchDemo
+	// RPC.
+	StatsServiceGetMatchDemoProcedure = "/gravel.hub.v1.StatsService/GetMatchDemo"
 )
 
 // StatsServiceClient is a client for the gravel.hub.v1.StatsService service.
@@ -84,6 +93,15 @@ type StatsServiceClient interface {
 	// overlap it and the top five by kills. The window is at most 24 hours and must have ended.
 	// The same access as GetBoard.
 	GetSessionRecap(context.Context, *connect.Request[v1.GetSessionRecapRequest]) (*connect.Response[v1.GetSessionRecapResponse], error)
+	// ListMatchResults is the series a match plugin reported (MatchZy, ADR-0024), newest first,
+	// without their maps and players. Who may GetBoard.
+	ListMatchResults(context.Context, *connect.Request[v1.ListMatchResultsRequest]) (*connect.Response[v1.ListMatchResultsResponse], error)
+	// GetMatchResult is a series with its maps and each player's totals on each map, players shown
+	// as on a board: a member's name when they chose it, else a pseudonym. Who may GetBoard.
+	GetMatchResult(context.Context, *connect.Request[v1.GetMatchResultRequest]) (*connect.Response[v1.GetMatchResultResponse], error)
+	// GetMatchDemo is a link to download a map's demo, good for 15 minutes; not_found when the map
+	// has none. Who may GetBoard.
+	GetMatchDemo(context.Context, *connect.Request[v1.GetMatchDemoRequest]) (*connect.Response[v1.GetMatchDemoResponse], error)
 }
 
 // NewStatsServiceClient constructs a client for the gravel.hub.v1.StatsService service. By default,
@@ -145,6 +163,24 @@ func NewStatsServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(statsServiceMethods.ByName("GetSessionRecap")),
 			connect.WithClientOptions(opts...),
 		),
+		listMatchResults: connect.NewClient[v1.ListMatchResultsRequest, v1.ListMatchResultsResponse](
+			httpClient,
+			baseURL+StatsServiceListMatchResultsProcedure,
+			connect.WithSchema(statsServiceMethods.ByName("ListMatchResults")),
+			connect.WithClientOptions(opts...),
+		),
+		getMatchResult: connect.NewClient[v1.GetMatchResultRequest, v1.GetMatchResultResponse](
+			httpClient,
+			baseURL+StatsServiceGetMatchResultProcedure,
+			connect.WithSchema(statsServiceMethods.ByName("GetMatchResult")),
+			connect.WithClientOptions(opts...),
+		),
+		getMatchDemo: connect.NewClient[v1.GetMatchDemoRequest, v1.GetMatchDemoResponse](
+			httpClient,
+			baseURL+StatsServiceGetMatchDemoProcedure,
+			connect.WithSchema(statsServiceMethods.ByName("GetMatchDemo")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -158,6 +194,9 @@ type statsServiceClient struct {
 	recordParticipation   *connect.Client[v1.RecordParticipationRequest, v1.RecordParticipationResponse]
 	getParticipationBoard *connect.Client[v1.GetParticipationBoardRequest, v1.GetParticipationBoardResponse]
 	getSessionRecap       *connect.Client[v1.GetSessionRecapRequest, v1.GetSessionRecapResponse]
+	listMatchResults      *connect.Client[v1.ListMatchResultsRequest, v1.ListMatchResultsResponse]
+	getMatchResult        *connect.Client[v1.GetMatchResultRequest, v1.GetMatchResultResponse]
+	getMatchDemo          *connect.Client[v1.GetMatchDemoRequest, v1.GetMatchDemoResponse]
 }
 
 // GetBoard calls gravel.hub.v1.StatsService.GetBoard.
@@ -200,6 +239,21 @@ func (c *statsServiceClient) GetSessionRecap(ctx context.Context, req *connect.R
 	return c.getSessionRecap.CallUnary(ctx, req)
 }
 
+// ListMatchResults calls gravel.hub.v1.StatsService.ListMatchResults.
+func (c *statsServiceClient) ListMatchResults(ctx context.Context, req *connect.Request[v1.ListMatchResultsRequest]) (*connect.Response[v1.ListMatchResultsResponse], error) {
+	return c.listMatchResults.CallUnary(ctx, req)
+}
+
+// GetMatchResult calls gravel.hub.v1.StatsService.GetMatchResult.
+func (c *statsServiceClient) GetMatchResult(ctx context.Context, req *connect.Request[v1.GetMatchResultRequest]) (*connect.Response[v1.GetMatchResultResponse], error) {
+	return c.getMatchResult.CallUnary(ctx, req)
+}
+
+// GetMatchDemo calls gravel.hub.v1.StatsService.GetMatchDemo.
+func (c *statsServiceClient) GetMatchDemo(ctx context.Context, req *connect.Request[v1.GetMatchDemoRequest]) (*connect.Response[v1.GetMatchDemoResponse], error) {
+	return c.getMatchDemo.CallUnary(ctx, req)
+}
+
 // StatsServiceHandler is an implementation of the gravel.hub.v1.StatsService service.
 type StatsServiceHandler interface {
 	// GetBoard ranks the players of a server, a game or the organization over a window. Public when
@@ -226,6 +280,15 @@ type StatsServiceHandler interface {
 	// overlap it and the top five by kills. The window is at most 24 hours and must have ended.
 	// The same access as GetBoard.
 	GetSessionRecap(context.Context, *connect.Request[v1.GetSessionRecapRequest]) (*connect.Response[v1.GetSessionRecapResponse], error)
+	// ListMatchResults is the series a match plugin reported (MatchZy, ADR-0024), newest first,
+	// without their maps and players. Who may GetBoard.
+	ListMatchResults(context.Context, *connect.Request[v1.ListMatchResultsRequest]) (*connect.Response[v1.ListMatchResultsResponse], error)
+	// GetMatchResult is a series with its maps and each player's totals on each map, players shown
+	// as on a board: a member's name when they chose it, else a pseudonym. Who may GetBoard.
+	GetMatchResult(context.Context, *connect.Request[v1.GetMatchResultRequest]) (*connect.Response[v1.GetMatchResultResponse], error)
+	// GetMatchDemo is a link to download a map's demo, good for 15 minutes; not_found when the map
+	// has none. Who may GetBoard.
+	GetMatchDemo(context.Context, *connect.Request[v1.GetMatchDemoRequest]) (*connect.Response[v1.GetMatchDemoResponse], error)
 }
 
 // NewStatsServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -283,6 +346,24 @@ func NewStatsServiceHandler(svc StatsServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(statsServiceMethods.ByName("GetSessionRecap")),
 		connect.WithHandlerOptions(opts...),
 	)
+	statsServiceListMatchResultsHandler := connect.NewUnaryHandler(
+		StatsServiceListMatchResultsProcedure,
+		svc.ListMatchResults,
+		connect.WithSchema(statsServiceMethods.ByName("ListMatchResults")),
+		connect.WithHandlerOptions(opts...),
+	)
+	statsServiceGetMatchResultHandler := connect.NewUnaryHandler(
+		StatsServiceGetMatchResultProcedure,
+		svc.GetMatchResult,
+		connect.WithSchema(statsServiceMethods.ByName("GetMatchResult")),
+		connect.WithHandlerOptions(opts...),
+	)
+	statsServiceGetMatchDemoHandler := connect.NewUnaryHandler(
+		StatsServiceGetMatchDemoProcedure,
+		svc.GetMatchDemo,
+		connect.WithSchema(statsServiceMethods.ByName("GetMatchDemo")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/gravel.hub.v1.StatsService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case StatsServiceGetBoardProcedure:
@@ -301,6 +382,12 @@ func NewStatsServiceHandler(svc StatsServiceHandler, opts ...connect.HandlerOpti
 			statsServiceGetParticipationBoardHandler.ServeHTTP(w, r)
 		case StatsServiceGetSessionRecapProcedure:
 			statsServiceGetSessionRecapHandler.ServeHTTP(w, r)
+		case StatsServiceListMatchResultsProcedure:
+			statsServiceListMatchResultsHandler.ServeHTTP(w, r)
+		case StatsServiceGetMatchResultProcedure:
+			statsServiceGetMatchResultHandler.ServeHTTP(w, r)
+		case StatsServiceGetMatchDemoProcedure:
+			statsServiceGetMatchDemoHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -340,4 +427,16 @@ func (UnimplementedStatsServiceHandler) GetParticipationBoard(context.Context, *
 
 func (UnimplementedStatsServiceHandler) GetSessionRecap(context.Context, *connect.Request[v1.GetSessionRecapRequest]) (*connect.Response[v1.GetSessionRecapResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.StatsService.GetSessionRecap is not implemented"))
+}
+
+func (UnimplementedStatsServiceHandler) ListMatchResults(context.Context, *connect.Request[v1.ListMatchResultsRequest]) (*connect.Response[v1.ListMatchResultsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.StatsService.ListMatchResults is not implemented"))
+}
+
+func (UnimplementedStatsServiceHandler) GetMatchResult(context.Context, *connect.Request[v1.GetMatchResultRequest]) (*connect.Response[v1.GetMatchResultResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.StatsService.GetMatchResult is not implemented"))
+}
+
+func (UnimplementedStatsServiceHandler) GetMatchDemo(context.Context, *connect.Request[v1.GetMatchDemoRequest]) (*connect.Response[v1.GetMatchDemoResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.StatsService.GetMatchDemo is not implemented"))
 }

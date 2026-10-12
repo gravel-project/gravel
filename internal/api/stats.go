@@ -18,6 +18,7 @@ import (
 	"github.com/gravel-project/gravel/internal/apps"
 	"github.com/gravel-project/gravel/internal/identity"
 	"github.com/gravel-project/gravel/internal/org"
+	"github.com/gravel-project/gravel/internal/results"
 	"github.com/gravel-project/gravel/internal/stats"
 	"github.com/gravel-project/gravel/internal/store"
 )
@@ -33,6 +34,7 @@ type StatsServer struct {
 	org           *org.Service
 	members       MemberReader
 	logger        *slog.Logger
+	results       *results.Service // match results (ADR-0024); nil: none
 }
 
 // MemberReader reads a member with their linked identities (identity.Service).

@@ -261,6 +261,27 @@ func (b *Boards) show(ctx context.Context, keys []store.PlayerKey) ([]shownAs, e
 	return out, nil
 }
 
+// ShownAs is how a page shows a player: the name a member chose to be shown by, or a pseudonym.
+type ShownAs struct {
+	Name         string
+	Pseudonymous bool
+	UserID       uuid.UUID // the member, when shown by name
+}
+
+// ShowAs resolves identities to how a page shows them, in order: a match result's players
+// (ADR-0024), the same way a board does.
+func (b *Boards) ShowAs(ctx context.Context, keys []store.PlayerKey) ([]ShownAs, error) {
+	shown, err := b.show(ctx, keys)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]ShownAs, len(shown))
+	for i, s := range shown {
+		out[i] = ShownAs(s)
+	}
+	return out, nil
+}
+
 // window turns a query's window into instants in the organization's timezone, and the game a
 // season limits the board to.
 func (b *Boards) window(set org.Stats, q Query) (from, to time.Time, game string, err error) {

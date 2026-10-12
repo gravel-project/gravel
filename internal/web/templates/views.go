@@ -638,3 +638,37 @@ func JoinLabel(method string) string {
 		return "Join"
 	}
 }
+
+// ResultPage is a match result (ADR-0024): a series, its maps and its players.
+type ResultPage struct {
+	Page
+	ID, ServerID, ServerName string
+	Team1, Team2             string
+	Score1, Score2           int
+	Winner                   string // team1, team2, none, or "" while it lasts
+	Started                  string
+	Ended                    bool
+	Maps                     []ResultMap
+}
+
+// ResultMap is one map of a result, numbered from 1.
+type ResultMap struct {
+	Number             int
+	Name               string
+	Score1, Score2     int
+	Winner             string
+	DemoURL            string
+	Players1, Players2 []ResultPlayer
+}
+
+// ResultPlayer is a player's totals on a map, named as on a board.
+type ResultPlayer struct {
+	Name         string
+	Pseudonymous bool
+	UserID       string
+	Kills        int
+	Deaths       int
+	Assists      int
+	Damage       int
+	MVPs         int
+}

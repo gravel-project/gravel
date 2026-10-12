@@ -524,6 +524,14 @@ func (l *Leases) end(ctx context.Context, row store.ServerLease, state, reason s
 	return nil
 }
 
+// LiveLease is a server's live lease, if it has one.
+func (l *Leases) LiveLease(serverID string) (uuid.UUID, bool) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	row, ok := l.live[serverID]
+	return row.ID, ok
+}
+
 // MatchEnded marks a server's live lease's match over (a MatchZy series_end): the lease lasts its
 // release_after more, so players see the result, then ends.
 func (l *Leases) MatchEnded(ctx context.Context, serverID string) {

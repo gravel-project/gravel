@@ -386,6 +386,31 @@ func TestHubCloudVMLifecycle(t *testing.T) {
 		!strings.Contains(env, "CS2_STARTMAP=de_nuke\n") {
 		t.Errorf("the leased server's env:\n%s", env)
 	}
+	// MatchZy's events (ADR-0024) from the server's host: the series is recorded under the lease,
+	// and its end starts the lease's last minutes.
+	for _, ev := range []string{
+		`{"event":"series_start","matchid":5,"team1":{"id":"","name":"Alpha"},"team2":{"id":"","name":"Bravo"},"num_maps":1}`,
+		`{"event":"series_end","matchid":5,"winner":{"side":"3","team":"team1"},"team1_series_score":1,"team2_series_score":0,"time_until_restore":0}`,
+	} {
+		req, _ := http.NewRequestWithContext(ctx, http.MethodPost, base+"/api/ingest/matchzy", strings.NewReader(ev))
+		req.Header.Set("X-Test-Client", running[0].PublicIPv4)
+		req.Header.Set("Authorization", "Bearer feed-token")
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("an event: %d", resp.StatusCode)
+		}
+	}
+	if l, err := leases.GetServerLease(ctx, connect.NewRequest(&hubv1.GetServerLeaseRequest{LeaseId: leaseID})); err != nil || l.Msg.GetLease().GetState() != "ending" {
+		t.Errorf("after the series ended: %v %v", l, err)
+	}
+	res, err := hubv1connect.NewStatsServiceClient(owned, base).ListMatchResults(ctx, connect.NewRequest(&hubv1.ListMatchResultsRequest{LeaseId: leaseID}))
+	if err != nil || len(res.Msg.GetResults()) != 1 || res.Msg.GetResults()[0].GetWinner() != "team1" || res.Msg.GetResults()[0].GetTeam1Name() != "Alpha" {
+		t.Errorf("the lease's result: %v %v", res, err)
+	}
 	if again, err := leases.RequestServerLease(ctx, connect.NewRequest(&hubv1.RequestServerLeaseRequest{Pool: "pug", HolderRef: "pug-2"})); connect.CodeOf(err) != connect.CodeFailedPrecondition {
 		t.Errorf("a second lease of a pool of one: %v %v", again, err)
 	}
