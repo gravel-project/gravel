@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -103,13 +104,31 @@ var ErrClaimRejected = errors.New("claim rejected")
 // and hash matches the unexpired stored token. The token is cleared in the same statement, so
 // it can't be used twice. The caller compares hashes in constant time before calling; the
 // predicate here is what makes the claim atomic under concurrent attempts.
-func (s *Store) ClaimOrganization(ctx context.Context, id uuid.UUID, hash []byte, ownerUserID uuid.UUID, now time.Time) (Organization, error) {
-	o, err := scanOrganization(s.pool.QueryRow(ctx,
+//
+// The claim is an event (ownership.claimed) in the same transaction, by the new owner; it carries
+// nothing of the token.
+func (s *Store) ClaimOrganization(ctx context.Context, id uuid.UUID, hash []byte, by Actor, now time.Time) (Organization, error) {
+	if by.UserID == nil {
+		return Organization{}, errors.New("store: claim organization: no owner")
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return Organization{}, fmt.Errorf("store: claim organization: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	o, err := scanOrganization(tx.QueryRow(ctx,
 		`UPDATE organizations
 		    SET claimed_at = $3, owner_user_id = $4, claim_token_hash = NULL, claim_token_expires_at = NULL
 		  WHERE id = $1 AND claimed_at IS NULL AND claim_token_hash = $2 AND claim_token_expires_at > $3
-		 RETURNING `+organizationColumns, id, hash, now, ownerUserID))
+		 RETURNING `+organizationColumns, id, hash, now, *by.UserID))
 	if err == nil {
+		if err := s.appendEvent(ctx, tx, by.event(Event{OrganizationID: id, At: now, Kind: "ownership.claimed", SubjectUserID: by.UserID,
+			Summary: "{user} claimed the hub and became its owner", Source: "organizations.claim", SourceID: id.String()})); err != nil {
+			return Organization{}, err
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return Organization{}, fmt.Errorf("store: claim organization: %w", err)
+		}
 		return o, nil
 	}
 	if !errors.Is(err, ErrNotFound) {
@@ -125,12 +144,36 @@ func (s *Store) ClaimOrganization(ctx context.Context, id uuid.UUID, hash []byte
 	return Organization{}, ErrClaimRejected
 }
 
-// UpdateOrganizationSettings replaces the settings document. ErrNotFound for an unknown id.
-func (s *Store) UpdateOrganizationSettings(ctx context.Context, id uuid.UUID, settings json.RawMessage, at time.Time) (Organization, error) {
-	o, err := scanOrganization(s.pool.QueryRow(ctx,
-		`UPDATE organizations SET settings = $2, settings_updated_at = $3 WHERE id = $1 RETURNING `+organizationColumns, id, settings, at))
-	if err != nil && !errors.Is(err, ErrNotFound) {
+// UpdateOrganizationSettings replaces the settings document and records it (settings.updated, by
+// by, naming the top-level sections that changed) in one transaction. ErrNotFound for an unknown
+// id.
+func (s *Store) UpdateOrganizationSettings(ctx context.Context, id uuid.UUID, settings json.RawMessage, at time.Time, by Actor, sections []string) (Organization, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
 		return Organization{}, fmt.Errorf("store: update organization settings: %w", err)
 	}
-	return o, err
+	defer func() { _ = tx.Rollback(ctx) }()
+	o, err := scanOrganization(tx.QueryRow(ctx,
+		`UPDATE organizations SET settings = $2, settings_updated_at = $3 WHERE id = $1 RETURNING `+organizationColumns, id, settings, at))
+	if errors.Is(err, ErrNotFound) {
+		return Organization{}, err
+	}
+	if err != nil {
+		return Organization{}, fmt.Errorf("store: update organization settings: %w", err)
+	}
+	if sections == nil {
+		sections = []string{}
+	}
+	summary := "The settings were saved unchanged"
+	if len(sections) > 0 {
+		summary = "The settings changed: " + strings.Join(sections, ", ")
+	}
+	if err := s.appendEvent(ctx, tx, by.event(Event{OrganizationID: id, At: at, Kind: "settings.updated", Summary: summary,
+		Detail: map[string]any{"sections": sections, "settings_updated_at": at.UTC().Format(time.RFC3339Nano)}, Source: "organizations.settings"})); err != nil {
+		return Organization{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Organization{}, fmt.Errorf("store: update organization settings: %w", err)
+	}
+	return o, nil
 }

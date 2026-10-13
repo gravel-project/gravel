@@ -126,7 +126,7 @@ func TestModerationIsTheOwnersOrAnAppsWithTheScope(t *testing.T) {
 	}
 
 	owner := r.user(t, "Owner", "1")
-	if _, err := r.org.Claim(ctx, r.token, owner.ID); err != nil {
+	if _, err := r.org.Claim(ctx, r.token, store.Actor{UserID: &owner.ID}); err != nil {
 		t.Fatal(err)
 	}
 	asOwner := hubv1connect.NewModerationServiceClient(cookieClient(http.DefaultClient, r.login(t, owner.ID)), r.srv.URL)
@@ -296,7 +296,7 @@ func TestModeratorRole(t *testing.T) {
 	r.drv.caps = allCaps
 	ctx := context.Background()
 	owner := r.user(t, "Owner", "1")
-	if _, err := r.org.Claim(ctx, r.token, owner.ID); err != nil {
+	if _, err := r.org.Claim(ctx, r.token, store.Actor{UserID: &owner.ID}); err != nil {
 		t.Fatal(err)
 	}
 	sam := r.user(t, "Sam", "2")

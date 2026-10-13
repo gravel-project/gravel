@@ -36,6 +36,34 @@ type Event struct {
 	RequestID string
 }
 
+// Actor is who made a change whose own row doesn't say: a member in person, an app, a member's
+// token (both), or neither, from the hub's command line on the host.
+type Actor struct {
+	UserID *uuid.UUID
+	AppID  *uuid.UUID
+	// Via is how the change came: ViaAPI (the API, the pages through it included) or ViaCLI.
+	Via       string
+	RequestID string
+}
+
+// How a change came to the hub.
+const (
+	ViaAPI = "api"
+	ViaCLI = "cli"
+)
+
+// event fills an event's actor and request from a, and records how it came in its detail.
+func (a Actor) event(e Event) Event {
+	e.ActorUserID, e.ActorAppID, e.RequestID = a.UserID, a.AppID, a.RequestID
+	if e.Detail == nil {
+		e.Detail = map[string]any{}
+	}
+	if a.Via != "" {
+		e.Detail["via"] = a.Via
+	}
+	return e
+}
+
 // rowQuerier is a transaction or the pool.
 type rowQuerier interface {
 	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row

@@ -15,6 +15,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/gravel-project/gravel/internal/httpx"
 	"github.com/gravel-project/gravel/internal/store"
 )
 
@@ -207,7 +208,8 @@ func (s *Service) Authorize(ctx context.Context, req AuthorizationRequest, userI
 		} else if !errors.Is(err, store.ErrNotFound) {
 			return "", Authorization{}, err
 		}
-		if err := s.st.SaveAppGrant(ctx, store.AppGrant{UserID: userID, AppID: auth.App.ID, Scopes: granted, GrantedAt: now}); err != nil {
+		by := store.Actor{UserID: &userID, Via: store.ViaAPI, RequestID: httpx.RequestIDFromContext(ctx)}
+		if err := s.st.SaveAppGrant(ctx, store.AppGrant{UserID: userID, AppID: auth.App.ID, Scopes: granted, GrantedAt: now}, by); err != nil {
 			return "", Authorization{}, err
 		}
 		s.logger.InfoContext(ctx, "app allowed", "app", auth.App.Name, "client_id", auth.App.ClientID, "user_id", userID, "scopes", granted)
@@ -291,7 +293,7 @@ func (s *Service) RevokeGrant(ctx context.Context, userID uuid.UUID, clientID st
 	if a.OrganizationID != s.orgID {
 		return 0, store.ErrNotFound
 	}
-	n, err := s.st.DeleteAppGrant(ctx, userID, a.ID)
+	n, err := s.st.DeleteAppGrant(ctx, userID, a.ID, s.now(), store.Actor{UserID: &userID, Via: store.ViaAPI, RequestID: httpx.RequestIDFromContext(ctx)})
 	if err != nil {
 		return 0, err
 	}

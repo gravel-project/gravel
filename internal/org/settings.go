@@ -1,6 +1,7 @@
 package org
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -20,6 +21,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/gravel-project/gravel/discord/seedhours"
+	"github.com/gravel-project/gravel/internal/store"
 )
 
 // SettingsVersion is the settings document format this build reads and writes.
@@ -1331,8 +1333,10 @@ func (s *Service) Settings(ctx context.Context) (Settings, time.Time, error) {
 	return set, at, nil
 }
 
-// UpdateSettings validates and stores a whole document; the caller checks who may.
-func (s *Service) UpdateSettings(ctx context.Context, set Settings) (Settings, error) {
+// UpdateSettings validates and stores a whole document, recorded in the events log as by's with the
+// top-level sections that changed (settings.updated); the caller checks who may. A document that
+// fails validation stores and records nothing.
+func (s *Service) UpdateSettings(ctx context.Context, set Settings, by store.Actor) (Settings, error) {
 	set = set.Normalized()
 	if err := set.Validate(); err != nil {
 		return Settings{}, err
@@ -1350,9 +1354,46 @@ func (s *Service) UpdateSettings(ctx context.Context, set Settings) (Settings, e
 	if err != nil {
 		return Settings{}, fmt.Errorf("org: settings: %w", err)
 	}
-	if _, err := s.st.UpdateOrganizationSettings(ctx, o.ID, raw, s.now()); err != nil {
+	sections, err := changedSections(o.Settings, raw)
+	if err != nil {
 		return Settings{}, err
 	}
-	s.logger.Info("organization settings updated", "organization_id", o.ID, "nav_links", len(set.Nav), "discord_roles", len(set.Discord.RoleIDs()))
+	if _, err := s.st.UpdateOrganizationSettings(ctx, o.ID, raw, s.now(), by, sections); err != nil {
+		return Settings{}, err
+	}
+	s.logger.Info("organization settings updated", "organization_id", o.ID, "sections", sections, "nav_links", len(set.Nav), "discord_roles", len(set.Discord.RoleIDs()))
 	return set, nil
+}
+
+// changedSections are the top-level keys of the settings document whose value differs between the
+// stored document and the new one, sorted: what a settings.updated event names. A stored document
+// that is empty or not an object counts as having no sections.
+func changedSections(stored, next json.RawMessage) ([]string, error) {
+	var before, after map[string]json.RawMessage
+	if len(bytes.TrimSpace(stored)) > 0 {
+		_ = json.Unmarshal(stored, &before) // a stored null or non-object: every section is new
+	}
+	if err := json.Unmarshal(next, &after); err != nil {
+		return nil, fmt.Errorf("org: settings: %w", err)
+	}
+	same := func(a, b json.RawMessage) bool {
+		var ca, cb bytes.Buffer
+		if json.Compact(&ca, a) != nil || json.Compact(&cb, b) != nil {
+			return bytes.Equal(a, b)
+		}
+		return bytes.Equal(ca.Bytes(), cb.Bytes())
+	}
+	changed := []string{}
+	for k, v := range after {
+		if old, ok := before[k]; !ok || !same(old, v) {
+			changed = append(changed, k)
+		}
+	}
+	for k := range before {
+		if _, ok := after[k]; !ok {
+			changed = append(changed, k)
+		}
+	}
+	slices.Sort(changed)
+	return changed, nil
 }

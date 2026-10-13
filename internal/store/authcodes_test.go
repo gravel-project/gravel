@@ -29,7 +29,7 @@ func TestMemberTokensCodesAndGrants(t *testing.T) {
 	}
 	app := store.App{ID: uuid.New(), OrganizationID: o.ID, Name: "Muster", ClientID: "gravel_muster", SecretHash: []byte("x"), Scopes: []string{"stats:read"},
 		RedirectURIs: []string{"https://muster.example/cb", "http://127.0.0.1:8765/cb"}, CreatedAt: now}
-	if err := st.CreateApp(ctx, app); err != nil {
+	if err := st.CreateApp(ctx, app, store.Actor{}); err != nil {
 		t.Fatal(err)
 	}
 	got, err := st.GetAppByClientID(ctx, "gravel_muster")
@@ -104,10 +104,10 @@ func TestMemberTokensCodesAndGrants(t *testing.T) {
 	if _, err := st.GetAppGrant(ctx, jo.ID, app.ID); !errors.Is(err, store.ErrNotFound) {
 		t.Errorf("no grant yet: %v", err)
 	}
-	if err := st.SaveAppGrant(ctx, store.AppGrant{UserID: jo.ID, AppID: app.ID, Scopes: []string{"stats:read"}, GrantedAt: now}); err != nil {
+	if err := st.SaveAppGrant(ctx, store.AppGrant{UserID: jo.ID, AppID: app.ID, Scopes: []string{"stats:read"}, GrantedAt: now}, store.Actor{}); err != nil {
 		t.Fatal(err)
 	}
-	if err := st.SaveAppGrant(ctx, store.AppGrant{UserID: jo.ID, AppID: app.ID, Scopes: []string{"identity:read", "stats:read"}, GrantedAt: now.Add(time.Minute)}); err != nil {
+	if err := st.SaveAppGrant(ctx, store.AppGrant{UserID: jo.ID, AppID: app.ID, Scopes: []string{"identity:read", "stats:read"}, GrantedAt: now.Add(time.Minute)}, store.Actor{}); err != nil {
 		t.Fatal(err)
 	}
 	g, err := st.GetAppGrant(ctx, jo.ID, app.ID)
@@ -123,7 +123,7 @@ func TestMemberTokensCodesAndGrants(t *testing.T) {
 		t.Fatal(err)
 	}
 	pending := code("code-5")
-	n, err := st.DeleteAppGrant(ctx, jo.ID, app.ID)
+	n, err := st.DeleteAppGrant(ctx, jo.ID, app.ID, time.Now(), store.Actor{})
 	if err != nil || n != 1 {
 		t.Errorf("delete grant: %d %v", n, err)
 	}
@@ -133,7 +133,7 @@ func TestMemberTokensCodesAndGrants(t *testing.T) {
 	if _, err := st.RedeemAuthorizationCode(ctx, pending.CodeHash, now, memberToken("tok-5")); !errors.Is(err, store.ErrNotFound) {
 		t.Errorf("a revoked grant's code: %v", err)
 	}
-	if _, err := st.DeleteAppGrant(ctx, jo.ID, app.ID); !errors.Is(err, store.ErrNotFound) {
+	if _, err := st.DeleteAppGrant(ctx, jo.ID, app.ID, time.Now(), store.Actor{}); !errors.Is(err, store.ErrNotFound) {
 		t.Errorf("delete twice: %v", err)
 	}
 
@@ -178,11 +178,11 @@ func TestMemberTokensCodesAndGrants(t *testing.T) {
 	}
 
 	// Revoking the app takes its grants and codes with it.
-	if err := st.SaveAppGrant(ctx, store.AppGrant{UserID: jo.ID, AppID: app.ID, Scopes: []string{"stats:read"}, GrantedAt: now}); err != nil {
+	if err := st.SaveAppGrant(ctx, store.AppGrant{UserID: jo.ID, AppID: app.ID, Scopes: []string{"stats:read"}, GrantedAt: now}, store.Actor{}); err != nil {
 		t.Fatal(err)
 	}
 	last := code("code-7")
-	if err := st.RevokeApp(ctx, app.ID, now); err != nil {
+	if err := st.RevokeApp(ctx, app.ID, now, store.Actor{}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := st.GetAppGrant(ctx, jo.ID, app.ID); !errors.Is(err, store.ErrNotFound) {

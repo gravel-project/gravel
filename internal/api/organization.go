@@ -15,6 +15,7 @@ import (
 	hubv1 "github.com/gravel-project/gravel/gen/gravel/hub/v1"
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
 	"github.com/gravel-project/gravel/internal/authz"
+	"github.com/gravel-project/gravel/internal/httpx"
 	"github.com/gravel-project/gravel/internal/org"
 	"github.com/gravel-project/gravel/internal/store"
 )
@@ -51,7 +52,7 @@ func (s *OrganizationServer) ClaimOwnership(ctx context.Context, req *connect.Re
 	if strings.TrimSpace(req.Msg.GetToken()) == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("token is required"))
 	}
-	o, err := s.org.Claim(ctx, req.Msg.GetToken(), uid)
+	o, err := s.org.Claim(ctx, req.Msg.GetToken(), store.Actor{UserID: &uid, Via: store.ViaAPI, RequestID: httpx.RequestIDFromContext(ctx)})
 	if err != nil {
 		return nil, mapError(ctx, s.logger, err)
 	}
@@ -69,10 +70,11 @@ func (s *OrganizationServer) GetOrganizationSettings(ctx context.Context, _ *con
 
 // UpdateOrganizationSettings replaces the settings; the owner only.
 func (s *OrganizationServer) UpdateOrganizationSettings(ctx context.Context, req *connect.Request[hubv1.UpdateOrganizationSettingsRequest]) (*connect.Response[hubv1.UpdateOrganizationSettingsResponse], error) {
-	if _, err := s.access.Require(ctx, authz.SettingsWrite, authz.Target{}); err != nil {
+	p, err := s.access.Require(ctx, authz.SettingsWrite, authz.Target{})
+	if err != nil {
 		return nil, err
 	}
-	set, err := s.org.UpdateSettings(ctx, settingsFromProto(req.Msg.GetSettings()))
+	set, err := s.org.UpdateSettings(ctx, settingsFromProto(req.Msg.GetSettings()), changedBy(ctx, p))
 	if err != nil {
 		return nil, mapError(ctx, s.logger, err)
 	}

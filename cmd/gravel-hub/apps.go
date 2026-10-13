@@ -89,7 +89,7 @@ func appsCreate(ctx context.Context, args []string, stdout, stderr io.Writer) in
 		return 1
 	}
 	defer closeStore()
-	created, err := svc.Create(ctx, *name, strings.Split(*scopes, ","), redirects...)
+	created, err := svc.Create(ctx, store.Actor{Via: store.ViaCLI}, *name, strings.Split(*scopes, ","), redirects...)
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		if errors.Is(err, apps.ErrInvalidName) || errors.Is(err, apps.ErrInvalidScope) || errors.Is(err, apps.ErrInvalidRedirectURI) {
@@ -167,7 +167,7 @@ func appsRevoke(ctx context.Context, args []string, stdout, stderr io.Writer) in
 		return 1
 	}
 	defer closeStore()
-	if err := svc.Revoke(ctx, strings.TrimSpace(*clientID)); err != nil {
+	if err := svc.Revoke(ctx, store.Actor{Via: store.ViaCLI}, strings.TrimSpace(*clientID)); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			fmt.Fprintf(stderr, "no app with client id %s, or it is already revoked\n", *clientID)
 			return 1

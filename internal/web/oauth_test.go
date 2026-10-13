@@ -15,6 +15,7 @@ import (
 	hubv1 "github.com/gravel-project/gravel/gen/gravel/hub/v1"
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
 	"github.com/gravel-project/gravel/internal/apps"
+	"github.com/gravel-project/gravel/internal/store"
 	"github.com/gravel-project/gravel/internal/web"
 )
 
@@ -23,7 +24,7 @@ const musterCallback = "http://127.0.0.1:8765/auth/callback"
 // muster registers Muster with two scopes and the loopback redirect URI.
 func (r *rig) muster(t *testing.T) apps.Created {
 	t.Helper()
-	c, err := r.apps.Create(context.Background(), "Muster", []string{apps.ScopeStatsRead, apps.ScopeIdentityRead}, musterCallback)
+	c, err := r.apps.Create(context.Background(), store.Actor{}, "Muster", []string{apps.ScopeStatsRead, apps.ScopeIdentityRead}, musterCallback)
 	if err != nil {
 		t.Fatal(err)
 	}

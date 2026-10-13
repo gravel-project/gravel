@@ -14,6 +14,7 @@ import (
 
 	"github.com/gravel-project/gravel/internal/identity"
 	"github.com/gravel-project/gravel/internal/org"
+	"github.com/gravel-project/gravel/internal/store"
 	"github.com/gravel-project/gravel/internal/store/storetest"
 )
 
@@ -87,7 +88,7 @@ func TestUsersBootstrapAnUnownedHub(t *testing.T) {
 	if err != nil || in.User.ID != u.ID {
 		t.Fatalf("login: %v", err)
 	}
-	if got, err := orgSvc.Claim(ctx, claimToken, in.User.ID); err != nil || got.OwnerUserID == nil || *got.OwnerUserID != u.ID {
+	if got, err := orgSvc.Claim(ctx, claimToken, store.Actor{UserID: &in.User.ID}); err != nil || got.OwnerUserID == nil || *got.OwnerUserID != u.ID {
 		t.Fatalf("claim: %v %+v", err, got)
 	}
 

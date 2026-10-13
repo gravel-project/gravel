@@ -3,6 +3,7 @@ package appstest
 import (
 	"bytes"
 	"context"
+	"slices"
 	"sort"
 	"time"
 
@@ -88,14 +89,25 @@ func (f *FakeStore) GetAppGrant(_ context.Context, userID, appID uuid.UUID) (sto
 	return g, nil
 }
 
-func (f *FakeStore) SaveAppGrant(_ context.Context, g store.AppGrant) error {
+func (f *FakeStore) SaveAppGrant(_ context.Context, g store.AppGrant, by store.Actor) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if err := f.fail("SaveAppGrant"); err != nil {
 		return err
 	}
 	g.ClientID, g.AppName = "", ""
-	f.Grants[GrantKey{g.UserID, g.AppID}] = g
+	k := GrantKey{g.UserID, g.AppID}
+	old, had := f.Grants[k]
+	widened := !had
+	for _, sc := range g.Scopes {
+		if !slices.Contains(old.Scopes, sc) {
+			widened = true
+		}
+	}
+	f.Grants[k] = g
+	if widened {
+		f.record("app.granted", by)
+	}
 	return nil
 }
 
@@ -123,7 +135,7 @@ func (f *FakeStore) ListAppGrants(_ context.Context, userID uuid.UUID) ([]store.
 	return out, nil
 }
 
-func (f *FakeStore) DeleteAppGrant(_ context.Context, userID, appID uuid.UUID) (int64, error) {
+func (f *FakeStore) DeleteAppGrant(_ context.Context, userID, appID uuid.UUID, _ time.Time, by store.Actor) (int64, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if err := f.fail("DeleteAppGrant"); err != nil {
@@ -134,6 +146,7 @@ func (f *FakeStore) DeleteAppGrant(_ context.Context, userID, appID uuid.UUID) (
 		return 0, store.ErrNotFound
 	}
 	delete(f.Grants, k)
+	f.record("app.grant_revoked", by)
 	var n int64
 	for id, t := range f.Tokens {
 		if t.AppID == appID && t.UserID != nil && *t.UserID == userID {

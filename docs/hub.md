@@ -1384,8 +1384,16 @@ Notifiers (#196), the admin dashboard (#193) and the CLI (#194) read it; so can 
 - **Kinds and severities** are fixed (`internal/events`): `info` (it happened), `notice` (a person
   did something worth seeing), `warning` (something may need a person soon), `critical`
   (something needs a person now). Logins are not events: they are every visit.
+- **Who:** an event names the member or app that acted (a member's token names both), and the
+  claim, settings and app events say how the change came in `detail.via`: `api` (the API, the
+  pages through it included) or `cli` (`gravel-hub settings apply`, `gravel-hub apps create|revoke`
+  on the host, which no member signs in to). An event never carries a secret: not the claim token,
+  not an app's secret.
 - **Backfill:** migration 00026 turns the history the hub already kept (`identity_events`,
-  `role_changes`, finished `audit_log` rows, `server_host_events`) into events, oldest first.
+  `role_changes`, finished `audit_log` rows, `server_host_events`) into events, oldest first;
+  migration 00027 adds the owner claim, every app's registration and revocation and the grants
+  members hold to apps, marked `"backfilled": true` (nobody recorded who registered an app, so
+  those have no actor). Settings updates before 00027 were never recorded.
 - **Backups:** with `backup.status_file` set, the hub reads it every five minutes and writes
   `backup.failed`, `backup.stale` (no good base backup for 26 hours) or `backup.recovered` when the
   state changes; each is keyed by the run it is about, so a restart writes nothing twice.
@@ -1402,6 +1410,12 @@ Notifiers (#196), the admin dashboard (#193) and the CLI (#194) read it; so can 
 | `identity.password_set` | notice | A local account's first password was set from its link |
 | `identity.password_reset` | notice | A local account's password was reset from its link |
 | `identity.password_reset_issued` | notice | Staff or the host issued a password link |
+| `ownership.claimed` | notice | A member claimed the hub with the one-time token and became its owner |
+| `settings.updated` | notice | The Organization settings were replaced; `detail.sections` names the top-level sections that changed (none when the same document was saved again) and `detail.settings_updated_at` the new version's time |
+| `app.created` | notice | An app was registered (`detail`: its name, client id, scopes and redirect URIs) |
+| `app.revoked` | notice | An app was revoked: its tokens, codes and members' grants are gone (`detail.grants_removed`) |
+| `app.granted` | info | A member let an app act for them, or widened what it may do (`detail.added`); the same consent again is no event |
+| `app.grant_revoked` | info | A member took back an app's access, with the tokens it held |
 | `role.granted` | notice | A member was granted a role, everywhere or for a game |
 | `role.revoked` | notice | A member lost a role |
 | `moderation.kick` | notice | A player was kicked |
@@ -1448,8 +1462,7 @@ Notifiers (#196), the admin dashboard (#193) and the CLI (#194) read it; so can 
 | `backup.stale` | warning | No base backup has succeeded for over 26 hours |
 | `backup.recovered` | info | A base backup succeeded again |
 
-Not yet events: the owner claim, settings updates and app registrations (#189); a server becoming
-unreachable or recovering (#190).
+Not yet events: a server becoming unreachable or recovering (#190).
 
 ## Pages (gravel#18)
 

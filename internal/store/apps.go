@@ -52,20 +52,37 @@ func scanApp(row pgx.Row) (App, error) {
 	return a, err
 }
 
-// CreateApp inserts an app.
-func (s *Store) CreateApp(ctx context.Context, a App) error {
+// CreateApp inserts an app and records it (app.created, by by) in one transaction.
+func (s *Store) CreateApp(ctx context.Context, a App, by Actor) error {
 	if a.Scopes == nil {
 		a.Scopes = []string{}
 	}
 	if a.RedirectURIs == nil {
 		a.RedirectURIs = []string{}
 	}
-	if _, err := s.pool.Exec(ctx,
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("store: create app: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if _, err := tx.Exec(ctx,
 		`INSERT INTO apps (`+appColumns+`) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
 		a.ID, a.OrganizationID, a.Name, a.ClientID, a.SecretHash, a.Scopes, a.RedirectURIs, a.CreatedAt, a.RevokedAt); err != nil {
 		return fmt.Errorf("store: create app: %w", err)
 	}
+	if err := s.appendEvent(ctx, tx, by.event(Event{OrganizationID: a.OrganizationID, At: a.CreatedAt, Kind: "app.created",
+		Summary: fmt.Sprintf("The app %q was registered", a.Name), Detail: appDetail(a), Source: "apps.created", SourceID: a.ID.String()})); err != nil {
+		return err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("store: create app: %w", err)
+	}
 	return nil
+}
+
+// appDetail is what an app's events say about it: never its secret.
+func appDetail(a App) map[string]any {
+	return map[string]any{"app_id": a.ID.String(), "client_id": a.ClientID, "name": a.Name, "scopes": nonNilStrings(a.Scopes), "redirect_uris": nonNilStrings(a.RedirectURIs)}
 }
 
 // GetApp returns an app, revoked or not, or ErrNotFound.
@@ -108,26 +125,33 @@ func (s *Store) ListApps(ctx context.Context, orgID uuid.UUID) ([]App, error) {
 }
 
 // RevokeApp marks an app revoked and deletes its tokens (its own and its members'), the grants
-// members gave it and its authorization codes, in one transaction. ErrNotFound when the app does
-// not exist or is already revoked.
-func (s *Store) RevokeApp(ctx context.Context, id uuid.UUID, at time.Time) error {
+// members gave it and its authorization codes, and records it (app.revoked, by by), in one
+// transaction. ErrNotFound when the app does not exist or is already revoked.
+func (s *Store) RevokeApp(ctx context.Context, id uuid.UUID, at time.Time, by Actor) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("store: revoke app: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	tag, err := tx.Exec(ctx, `UPDATE apps SET revoked_at = $2 WHERE id = $1 AND revoked_at IS NULL`, id, at)
+	a, err := scanApp(tx.QueryRow(ctx, `UPDATE apps SET revoked_at = $2 WHERE id = $1 AND revoked_at IS NULL RETURNING `+appColumns, id, at))
+	if errors.Is(err, ErrNotFound) {
+		return ErrNotFound
+	}
 	if err != nil {
 		return fmt.Errorf("store: revoke app: %w", err)
-	}
-	if tag.RowsAffected() == 0 {
-		return ErrNotFound
 	}
 	if _, err := tx.Exec(ctx, `DELETE FROM app_tokens WHERE app_id = $1`, id); err != nil {
 		return fmt.Errorf("store: revoke app: delete tokens: %w", err)
 	}
-	if _, err := tx.Exec(ctx, `DELETE FROM app_grants WHERE app_id = $1`, id); err != nil {
+	grants, err := tx.Exec(ctx, `DELETE FROM app_grants WHERE app_id = $1`, id)
+	if err != nil {
 		return fmt.Errorf("store: revoke app: delete grants: %w", err)
+	}
+	detail := appDetail(a)
+	detail["grants_removed"] = grants.RowsAffected()
+	if err := s.appendEvent(ctx, tx, by.event(Event{OrganizationID: a.OrganizationID, At: at, Kind: "app.revoked",
+		Summary: fmt.Sprintf("The app %q was revoked", a.Name), Detail: detail, Source: "apps.revoked", SourceID: a.ID.String()})); err != nil {
+		return err
 	}
 	if _, err := tx.Exec(ctx, `DELETE FROM authorization_codes WHERE app_id = $1`, id); err != nil {
 		return fmt.Errorf("store: revoke app: delete codes: %w", err)

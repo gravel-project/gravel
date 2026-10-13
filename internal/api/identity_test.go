@@ -124,7 +124,7 @@ func TestLookupUserIsOwnerOnly(t *testing.T) {
 	if _, err := joClient.LookupUser(ctx, req()); connect.CodeOf(err) != connect.CodePermissionDenied {
 		t.Errorf("before the claim nobody is owner: %v", err)
 	}
-	if _, err := r.org.Claim(ctx, r.token, jo.ID); err != nil {
+	if _, err := r.org.Claim(ctx, r.token, store.Actor{UserID: &jo.ID}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := samClient.LookupUser(ctx, req()); connect.CodeOf(err) != connect.CodePermissionDenied {
@@ -152,7 +152,7 @@ func TestGetMeCapabilities(t *testing.T) {
 	r := newRig(t)
 	ctx := context.Background()
 	owner := r.user(t, "Owner", "1")
-	if _, err := r.org.Claim(ctx, r.token, owner.ID); err != nil {
+	if _, err := r.org.Claim(ctx, r.token, store.Actor{UserID: &owner.ID}); err != nil {
 		t.Fatal(err)
 	}
 	mod := r.user(t, "Mod", "2")

@@ -52,6 +52,14 @@ var kinds = []Kind{
 	{"identity.password_set", Notice, "a local account's first password was set from its link"},
 	{"identity.password_reset", Notice, "a local account's password was reset from its link"},
 	{"identity.password_reset_issued", Notice, "staff or the host issued a password link"},
+	// The hub itself: who owns it and how it is set up.
+	{"ownership.claimed", Notice, "a member claimed the hub with the one-time token and became its owner"},
+	{"settings.updated", Notice, "the Organization settings were replaced"},
+	// Apps (ADR-0008, ADR-0015): registered, revoked, and the access members give them.
+	{"app.created", Notice, "an app was registered"},
+	{"app.revoked", Notice, "an app was revoked: its tokens and members' grants are gone"},
+	{"app.granted", Info, "a member let an app act for them, or widened what it may do"},
+	{"app.grant_revoked", Info, "a member took back an app's access"},
 	// Roles.
 	{"role.granted", Notice, "a member was granted a role, everywhere or for a game"},
 	{"role.revoked", Notice, "a member lost a role"},

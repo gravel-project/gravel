@@ -12,6 +12,7 @@ import (
 
 	hubv1 "github.com/gravel-project/gravel/gen/gravel/hub/v1"
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
+	"github.com/gravel-project/gravel/internal/store"
 )
 
 func TestClaimFlowOverGRPC(t *testing.T) {
@@ -45,6 +46,10 @@ func TestClaimFlowOverGRPC(t *testing.T) {
 	_, err = client.ClaimOwnership(ctx, connect.NewRequest(&hubv1.ClaimOwnershipRequest{Token: r.token}))
 	if connect.CodeOf(err) != connect.CodeFailedPrecondition {
 		t.Errorf("second claim: %v", err)
+	}
+	// The claim is recorded once, as the member's, through the API; the refusals are not (#189).
+	if rec := r.orgSt.Recorded; len(rec) != 1 || rec[0].Kind != "ownership.claimed" || *rec[0].By.UserID != u.ID || rec[0].By.AppID != nil || rec[0].By.Via != store.ViaAPI {
+		t.Errorf("recorded: %+v", rec)
 	}
 	got, _ = anon.GetOrganization(ctx, connect.NewRequest(&hubv1.GetOrganizationRequest{}))
 	if got.Msg.GetOrganization().GetOwnerUserId() != u.ID.String() {

@@ -169,6 +169,21 @@ func sessionCaller(ctx context.Context) (uuid.UUID, error) {
 	return s.UserID, nil
 }
 
+// changedBy is who a change the events log records was made by (ADR-0028): the member in person,
+// an app, or a member through an app's token (both), through the API.
+func changedBy(ctx context.Context, p authz.Principal) store.Actor {
+	a := store.Actor{Via: store.ViaAPI, RequestID: httpx.RequestIDFromContext(ctx)}
+	if p.UserID != uuid.Nil {
+		uid := p.UserID
+		a.UserID = &uid
+	}
+	if p.AppID != uuid.Nil {
+		app := p.AppID
+		a.AppID = &app
+	}
+	return a
+}
+
 // actor is who a moderation or configuration call is recorded as: an app acting for itself (or
 // for someone it names in onBehalf), a member in person, or a member through an app's token, who
 // is recorded with the app (ADR-0015 §4). A member's token never acts on behalf of anyone.

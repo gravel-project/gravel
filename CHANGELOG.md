@@ -32,6 +32,10 @@ patch release is everything else.
 
 ### Added
 
+- The owner claim, settings updates, apps and members' grants to apps leave an event (#189; ADR-0028, H1, #182). Each is written in the same transaction as the change, says who made it (the member, the app, or the command line on the host as `detail.via: cli`), and carries no secret.
+  - **Kinds:** `ownership.claimed`; `settings.updated` with the top-level `sections` that changed and `settings_updated_at`; `app.created` and `app.revoked` (from `gravel-hub apps create|revoke`); `app.granted` when a member allows an app or widens what it may do, `app.grant_revoked` when they take it back. 58 kinds now.
+  - **Migration 00027** backfills the claim, every app's registration and revocation and the grants members hold, oldest first, marked `"backfilled": true`.
+  - **Docs:** `docs/hub.md` "Events".
 - The admin dashboard's scaffold at **`/admin`** (#191, [ADR-0029](docs/adr/0029-the-admin-dashboard-is-a-static-client-in-the-binary.md) proposed; H1, #182): a React and TypeScript client of the hub's API in `web/admin/`, built with Vite and embedded in the binary. It signs in with the session cookie (no session sends you to the login and back), shows a demo hub's banner, follows the host's theme in light and dark, polls every 5 s while the tab is visible, and lists the pages your capabilities allow; this first version has the shell and an overview of your roles and capabilities. The fleet, events and the rest follow (#192, #193).
   - **Building the hub needs Node.js** (24, `web/admin/.nvmrc`): `make build` and `make image` build the bundle first (`make admin`). A plain `go build` still works; that binary answers 503 at `/admin` and says so in its log.
   - **Served** under the pages' Content-Security-Policy: the index for every route, hashed assets cached as immutable. `web.CSP` is exported for it, and `web.Handler.Register` takes a `web.Mux`.

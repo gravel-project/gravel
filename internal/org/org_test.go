@@ -55,10 +55,10 @@ func TestEnsureBuiltinRotatesWhileUnowned(t *testing.T) {
 	if first == second || second == "" {
 		t.Error("a restart while unowned must mint a new token")
 	}
-	if _, err := s.Claim(context.Background(), first, owner); !errors.Is(err, ErrInvalidToken) {
+	if _, err := s.Claim(context.Background(), first, store.Actor{UserID: &owner}); !errors.Is(err, ErrInvalidToken) {
 		t.Errorf("the rotated-away token must be refused: %v", err)
 	}
-	if _, err := s.Claim(context.Background(), second, owner); err != nil {
+	if _, err := s.Claim(context.Background(), second, store.Actor{UserID: &owner}); err != nil {
 		t.Errorf("current token must work: %v", err)
 	}
 }
@@ -103,7 +103,7 @@ func TestCreateBuiltinIfAbsentKeepsTheClaimToken(t *testing.T) {
 	if len(f.Writes) != 0 || o.Name != "x" {
 		t.Errorf("an existing organization is neither renamed nor re-tokened: writes %v, name %q", f.Writes, o.Name)
 	}
-	if _, err := s.Claim(context.Background(), token, owner); err != nil {
+	if _, err := s.Claim(context.Background(), token, store.Actor{UserID: &owner}); err != nil {
 		t.Errorf("the token serve printed must still claim: %v", err)
 	}
 }
@@ -121,17 +121,17 @@ func TestClaimOnce(t *testing.T) {
 	s, _ := newTestService(f)
 	_, token, _ := s.EnsureBuiltin(context.Background(), "x")
 
-	if _, err := s.Claim(context.Background(), "nope", owner); !errors.Is(err, ErrInvalidToken) {
+	if _, err := s.Claim(context.Background(), "nope", store.Actor{UserID: &owner}); !errors.Is(err, ErrInvalidToken) {
 		t.Errorf("wrong token: %v", err)
 	}
-	if _, err := s.Claim(context.Background(), "", owner); !errors.Is(err, ErrInvalidToken) {
+	if _, err := s.Claim(context.Background(), "", store.Actor{UserID: &owner}); !errors.Is(err, ErrInvalidToken) {
 		t.Errorf("empty token: %v", err)
 	}
-	o, err := s.Claim(context.Background(), " "+token+"\n", owner)
+	o, err := s.Claim(context.Background(), " "+token+"\n", store.Actor{UserID: &owner})
 	if err != nil || !o.Owned() || o.ClaimTokenHash != nil || o.OwnerUserID == nil || *o.OwnerUserID != owner {
 		t.Fatalf("claim: %v %+v", err, o)
 	}
-	if _, err := s.Claim(context.Background(), token, owner); !errors.Is(err, ErrAlreadyOwned) {
+	if _, err := s.Claim(context.Background(), token, store.Actor{UserID: &owner}); !errors.Is(err, ErrAlreadyOwned) {
 		t.Errorf("second use must say owned: %v", err)
 	}
 	o2, tok2, err := s.EnsureBuiltin(context.Background(), "x")
@@ -145,7 +145,7 @@ func TestClaimExpired(t *testing.T) {
 	s, now := newTestService(f)
 	_, token, _ := s.EnsureBuiltin(context.Background(), "x")
 	*now = now.Add(16 * time.Minute)
-	if _, err := s.Claim(context.Background(), token, owner); !errors.Is(err, ErrInvalidToken) {
+	if _, err := s.Claim(context.Background(), token, store.Actor{UserID: &owner}); !errors.Is(err, ErrInvalidToken) {
 		t.Errorf("expired token must be refused: %v", err)
 	}
 }
@@ -161,7 +161,7 @@ func TestClaimRaceLosesToStore(t *testing.T) {
 	snapshot.ClaimedAt = nil
 	racy := &racingStore{FakeStore: f, snapshot: snapshot}
 	s.st = racy
-	if _, err := s.Claim(context.Background(), token, owner); !errors.Is(err, ErrAlreadyOwned) {
+	if _, err := s.Claim(context.Background(), token, store.Actor{UserID: &owner}); !errors.Is(err, ErrAlreadyOwned) {
 		t.Errorf("want ErrAlreadyOwned from the atomic predicate, got %v", err)
 	}
 }
@@ -181,7 +181,7 @@ func TestStoreErrorsPropagate(t *testing.T) {
 	if _, _, err := s.EnsureBuiltin(context.Background(), "x"); err == nil {
 		t.Error("want error")
 	}
-	if _, err := s.Claim(context.Background(), "t", owner); err == nil {
+	if _, err := s.Claim(context.Background(), "t", store.Actor{UserID: &owner}); err == nil {
 		t.Error("want error")
 	}
 }
