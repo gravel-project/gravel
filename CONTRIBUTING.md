@@ -13,9 +13,11 @@ not open an issue: follow [SECURITY.md](SECURITY.md).
 
 ## Build and test
 
-You need Git, GNU Make, Go (the version in `go.mod`) and podman. `make check` dry-runs the quadlet
-units with podman's quadlet generator, and `make up` runs the stack with `podman compose`. Every
-other tool is pinned at the top of the `Makefile` and installed into `.bin/` by `make tools`.
+You need Git, GNU Make, Go (the version in `go.mod`), Node.js (the version in `web/admin/.nvmrc`,
+for the admin dashboard the hub embeds) and podman. `make check` dry-runs the quadlet units with
+podman's quadlet generator, and `make up` runs the stack with `podman compose`. Every other tool is
+pinned at the top of the `Makefile` and installed into `.bin/` by `make tools`; the dashboard's npm
+packages are pinned by `web/admin/package-lock.json` and installed by `make admin`.
 
 Fork the repository on GitHub, then:
 
@@ -24,7 +26,7 @@ git clone https://github.com/<you>/gravel.git
 cd gravel
 git switch -c fix/short-name   # a branch per pull request
 make tools        # the pinned CLIs into .bin/ (buf, golangci-lint, govulncheck, ko, templ, ...)
-make check        # gofmt, vet, buf lint, golangci-lint, govulncheck, generate drift, unit tests, quadlet dry-run
+make check        # gofmt, vet, buf lint, golangci-lint, govulncheck, generate drift, the dashboard's checks and build, unit tests, quadlet dry-run
 ```
 
 `make check` is what CI runs, except the jobs below; run it before every push. `make help` lists
@@ -46,7 +48,15 @@ Also, when they apply:
 
 - `make generate` after editing a `.proto` file, a `.templ` page or the dashboard definitions
   (`internal/tools/dashboards/defs.go`). The generated code is committed and CI fails on drift.
-- `make a11y` when a page changes (axe over the pages; needs Node.js and Chrome).
+- `make a11y` when a page or the admin dashboard changes (axe over the pages and `/admin`; needs
+  Chrome).
+- `make admin-check` while working on the admin dashboard (`web/admin/`, [ADR-0029](docs/adr/0029-the-admin-dashboard-is-a-static-client-in-the-binary.md)):
+  ESLint, `tsc` and Vitest with axe over each route on fake services (`web/admin/src/test/rig.tsx`).
+  `npm --prefix web/admin run dev` serves it with live reload on http://localhost:5173/admin/ and
+  proxies the API and the hub's pages to a hub on 127.0.0.1:8080 (`make up`; `GRAVEL_HUB` names
+  another). No `style` prop
+  and nothing inline: the hub's CSP refuses them, and lint and a test say so. A change to a
+  `.proto` regenerates `web/admin/src/gen/` with `make generate`.
 - `make hub-vm` when the cloud-init document (`internal/vmdoc/templates/`, `internal/hubvm/templates/`), the stock
   units (`deploy/quadlet/`) or `deploy/hub-vm.sh` change: a stock hub booted in a local KVM VM,
   then a new instance on the same data disk (needs qemu, `/dev/kvm`, genisoimage and ssh; CI's

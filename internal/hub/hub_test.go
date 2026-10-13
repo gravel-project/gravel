@@ -23,6 +23,8 @@ import (
 	"github.com/gravel-project/gravel/internal/identity"
 	"github.com/gravel-project/gravel/internal/identity/identitytest"
 	"github.com/gravel-project/gravel/internal/store/storetest"
+	"github.com/gravel-project/gravel/internal/web"
+	"github.com/gravel-project/gravel/internal/web/admin"
 )
 
 func testConfig(t *testing.T) config.Config {
@@ -327,6 +329,15 @@ func TestRunServesAndStops(t *testing.T) {
 	}
 	if resp := get(t, browser(t), "http://"+h.PublicAddr().String()+"/login"); resp.StatusCode != 200 {
 		t.Errorf("login page with no providers still renders: %d", resp.StatusCode)
+	}
+	// The admin dashboard (ADR-0029) is wired in front of the pages: its index when this test
+	// binary embeds a bundle (make admin ran), else the 503 that says it was not built.
+	want := http.StatusServiceUnavailable
+	if admin.New(admin.Bundle()).Built() {
+		want = http.StatusOK
+	}
+	if resp := get(t, browser(t), "http://"+h.PublicAddr().String()+"/admin/people"); resp.StatusCode != want || resp.Header.Get("Content-Security-Policy") != web.CSP {
+		t.Errorf("/admin/people: %d with CSP %q, want %d with the pages' CSP", resp.StatusCode, resp.Header.Get("Content-Security-Policy"), want)
 	}
 	cancel()
 	select {
