@@ -28,7 +28,7 @@ th, td { text-align: left; padding: .4rem .5rem; border-bottom: 1px solid var(--
 .flash-ok { background: var(--ok); }
 .flash-err { background: var(--err); }
 label { display: block; margin-top: .5rem; }
-input[type=text] { font: inherit; padding: .4rem; width: 100%; max-width: 32rem; margin: .25rem 0; color: inherit; background: transparent; border: 1px solid var(--line); border-radius: .25rem; }
+input[type=text], input[type=password] { font: inherit; padding: .4rem; width: 100%; max-width: 32rem; margin: .25rem 0; color: inherit; background: transparent; border: 1px solid var(--line); border-radius: .25rem; }
 /* Servers and leaderboards (gravel#18). */
 .cards { list-style: none; padding: 0; display: grid; gap: .75rem; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); }
 .card { border: 1px solid var(--line); border-radius: .5rem; padding: .75rem 1rem; }

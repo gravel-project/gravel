@@ -146,6 +146,9 @@ func settingsToProto(set org.Settings, at time.Time) *hubv1.OrganizationSettings
 			p.Stats.Seasons = append(p.Stats.Seasons, &hubv1.StatsSeason{Name: se.Name, Game: se.Game, From: se.From, To: se.To})
 		}
 	}
+	if l := set.LocalAccounts; !l.IsZero() {
+		p.LocalAccounts = &hubv1.LocalAccountsSettings{Registration: l.Registration, MinPasswordLength: int32(l.MinPasswordLength)} //nolint:gosec // bounded by validation
+	}
 	for id, g := range set.Games {
 		if p.Games == nil {
 			p.Games = map[string]*hubv1.GameSettings{}
@@ -224,6 +227,9 @@ func settingsFromProto(p *hubv1.OrganizationSettings) org.Settings {
 		RawRetentionMonths: int(st.GetRawRetentionMonths())}
 	for _, se := range st.GetSeasons() {
 		set.Stats.Seasons = append(set.Stats.Seasons, org.Season{Name: se.GetName(), Game: se.GetGame(), From: se.GetFrom(), To: se.GetTo()})
+	}
+	if l := p.GetLocalAccounts(); l != nil {
+		set.LocalAccounts = org.LocalAccounts{Registration: l.GetRegistration(), MinPasswordLength: int(l.GetMinPasswordLength())}
 	}
 	for id, g := range p.GetGames() {
 		if set.Games == nil {

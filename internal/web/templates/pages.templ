@@ -1,5 +1,7 @@
 package templates
 
+import "strconv"
+
 // Login is the whole login page.
 templ Login(p LoginPage) {
 	@Layout(p.Page) {
@@ -11,15 +13,68 @@ templ Login(p LoginPage) {
 templ LoginContent(p LoginPage) {
 	@FlashView(p.Flash)
 	<h1>Log in</h1>
+	if p.Local && p.LocalFirst {
+		@localLoginForm(p)
+	}
 	if len(p.Providers) > 0 {
 		<ul class="providers">
 			for _, pr := range p.Providers {
-				<li><a class="button" href={ templ.SafeURL("/auth/" + pr.Name + "/start") }>Log in with { pr.DisplayName }</a></li>
+				<li>
+					<a class="button" href={ templ.SafeURL("/auth/" + pr.Name + "/start") }>Log in with { pr.DisplayName }</a>
+					if pr.LastUsed {
+						<span class="muted">last used here</span>
+					}
+				</li>
 			}
 		</ul>
-	} else {
+	}
+	if p.Local && !p.LocalFirst {
+		@localLoginForm(p)
+	}
+	if len(p.Providers) == 0 && !p.Local {
 		<p>No login provider is configured on this hub yet.</p>
 	}
+}
+
+// localLoginForm is the username and password form (ADR-0026). It posts with no session, so it
+// carries no CSRF token: cross-origin posts are refused before any page runs.
+templ localLoginForm(p LoginPage) {
+	<section aria-labelledby="local-heading">
+		<h2 id="local-heading">Username and password</h2>
+		<form method="post" action="/auth/local/login">
+			<label for="local-username">Username</label>
+			<input type="text" id="local-username" name="username" value={ p.Username } autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="32" required/>
+			<label for="local-password">Password</label>
+			<input type="password" id="local-password" name="password" autocomplete="current-password" maxlength="1024" required/>
+			<p><button type="submit">Log in</button></p>
+		</form>
+		if p.Register {
+			<p>No account yet? <a href="/auth/local/register">Make one</a>.</p>
+		}
+	</section>
+}
+
+// Register is the whole registration page.
+templ Register(p RegisterPage) {
+	@Layout(p.Page) {
+		@RegisterContent(p)
+	}
+}
+
+// RegisterContent is the registration form.
+templ RegisterContent(p RegisterPage) {
+	@FlashView(p.Flash)
+	<h1>Make an account</h1>
+	<form method="post" action="/auth/local/register">
+		<label for="register-username">Username</label>
+		<p class="muted" id="register-username-hint">3 to 32 letters a-z, digits, and . _ - ; it starts with a letter or a digit. Others see it.</p>
+		<input type="text" id="register-username" name="username" value={ p.Username } aria-describedby="register-username-hint" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="32" required/>
+		<label for="register-password">Password</label>
+		<p class="muted" id="register-password-hint">At least { strconv.Itoa(p.MinPasswordLength) } characters. A sentence you'll remember works well.</p>
+		<input type="password" id="register-password" name="password" aria-describedby="register-password-hint" autocomplete="new-password" minlength={ strconv.Itoa(p.MinPasswordLength) } maxlength="1024" required/>
+		<p><button type="submit">Make the account</button></p>
+	</form>
+	<p>Already have one? <a href="/login">Log in</a>.</p>
 }
 
 // Account is the whole account page.
@@ -82,6 +137,18 @@ templ AccountContent(p AccountPage) {
 					<li><a class="button" href={ templ.SafeURL("/auth/" + pr.Name + "/link") }>Link { pr.DisplayName }</a></li>
 				}
 			</ul>
+		}
+		if p.Local != nil {
+			<h3>Log in with a username and password too</h3>
+			<form method="post" action="/account/local">
+				<input type="hidden" name="_csrf" value={ p.CSRF }/>
+				<label for="account-local-username">Username</label>
+				<input type="text" id="account-local-username" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="32" required/>
+				<label for="account-local-password">Password</label>
+				<p class="muted" id="account-local-password-hint">At least { strconv.Itoa(p.Local.MinPasswordLength) } characters.</p>
+				<input type="password" id="account-local-password" name="password" aria-describedby="account-local-password-hint" autocomplete="new-password" minlength={ strconv.Itoa(p.Local.MinPasswordLength) } maxlength="1024" required/>
+				<p><button type="submit">Set the username and password</button></p>
+			</form>
 		}
 		for _, pr := range p.RoleProviders {
 			<p class="muted">After linking or unlinking an account, update what { pr.DisplayName } knows, so its linked roles follow.</p>

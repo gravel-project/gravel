@@ -186,6 +186,17 @@ func summarize(s org.Settings) string {
 	if !s.Stats.IsZero() {
 		out += ", stats " + describeStats(s.Stats)
 	}
+	if l := s.LocalAccounts; !l.IsZero() {
+		reg := "registration closed"
+		if l.Open() {
+			reg = "registration open"
+		}
+		minLen := l.MinPasswordLength
+		if minLen == 0 {
+			minLen = org.DefaultMinPasswordLength
+		}
+		out += fmt.Sprintf(", local accounts (%s, passwords of %d+ characters)", reg, minLen)
+	}
 	if len(s.Games) > 0 {
 		out += ", games " + describeGames(s.Games)
 	}

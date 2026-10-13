@@ -33,6 +33,7 @@ import (
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
 	"github.com/gravel-project/gravel/internal/httpx"
 	"github.com/gravel-project/gravel/internal/identity"
+	"github.com/gravel-project/gravel/internal/ratelimit"
 	"github.com/gravel-project/gravel/internal/session"
 	"github.com/gravel-project/gravel/internal/web/templates"
 )
@@ -68,6 +69,12 @@ type Handler struct {
 	// intent is "unknown" on a failure, because the attempt that knew it is consumed by then. The
 	// hub counts them.
 	Observe func(provider string, intent identity.Intent, result string)
+	// ObserveLocal, when set, is told how every local login and registration ended (ADR-0026):
+	// "ok", "refused", "locked", "invalid", "rate_limited" or "error". The hub counts them.
+	ObserveLocal func(result string)
+	// LocalLimiter, when set, bounds local logins and registrations per client address: each
+	// hashes a password.
+	LocalLimiter *ratelimit.Limiter
 	// ObserveAuthorization, when set, is told how every request at the authorization endpoint
 	// ended: "issued" (a code went back to the app), "denied" (the member pressed Cancel),
 	// "rejected" (an unknown app or redirect URI, or a request the app got an error for) or
@@ -122,6 +129,10 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /servers/{id}/log", h.auditLog)
 	mux.HandleFunc("GET /members", h.members)
 	mux.HandleFunc("POST /members/role", h.setRole)
+	mux.HandleFunc("POST /auth/local/login", h.localLogin)
+	mux.HandleFunc("GET /auth/local/register", h.registerForm)
+	mux.HandleFunc("POST /auth/local/register", h.register)
+	mux.HandleFunc("POST /account/local", h.setLocal)
 	mux.HandleFunc("GET /auth/{provider}/start", h.startLogin)
 	mux.HandleFunc("GET /auth/{provider}/link", h.startLink)
 	mux.HandleFunc("GET /auth/{provider}/roles", h.startRoles)
@@ -167,22 +178,53 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 	if returnTo != "" {
 		h.rememberReturn(w, returnTo)
 	}
+	h.loginPage(w, r, http.StatusOK, nil, "")
+}
+
+// loginPage renders the login page: the providers that sign members in, the provider this browser
+// last used first, and the username and password form when the hub has local accounts. flash and
+// username are a refused local login's.
+func (h *Handler) loginPage(w http.ResponseWriter, r *http.Request, status int, flash *templates.Flash, username string) {
 	p, b, err := h.page(r, "Log in")
 	if err != nil {
 		h.serverError(w, r, err)
 		return
 	}
-	lp := templates.LoginPage{Page: p.Page}
+	if flash != nil {
+		p.Flash = flash
+	}
+	last := ""
+	if c, err := r.Cookie(h.sess.CookieName(session.CookieLastProvider)); err == nil {
+		last = c.Value
+	}
+	lp := templates.LoginPage{Page: p.Page, Local: h.ids.LocalEnabled(), Username: username}
 	for _, reg := range h.ids.Providers() {
 		if reg.Login {
-			lp.Providers = append(lp.Providers, templates.Provider{Name: reg.Provider.Name(), DisplayName: reg.Provider.DisplayName()})
+			pr := templates.Provider{Name: reg.Provider.Name(), DisplayName: reg.Provider.DisplayName(), LastUsed: reg.Provider.Name() == last}
+			if pr.LastUsed {
+				lp.Providers = append([]templates.Provider{pr}, lp.Providers...)
+			} else {
+				lp.Providers = append(lp.Providers, pr)
+			}
 		}
 	}
-	h.render(w, r, http.StatusOK, b, templates.Login(lp), templates.LoginContent(lp))
+	if lp.Local {
+		lp.LocalFirst = last == identity.ProviderLocal || len(lp.Providers) == 0
+		if policy, err := h.ids.LocalPolicy(r.Context()); err == nil {
+			lp.Register = policy.RegistrationOpen
+		} else {
+			h.logger.WarnContext(r.Context(), "local account policy unreadable", "error", err.Error())
+		}
+	}
+	h.render(w, r, status, b, templates.Login(lp), templates.LoginContent(lp))
 }
 
-// canLogIn reports whether any provider signs members in (not only links an account).
+// canLogIn reports whether anyone can sign in: a provider that logs in (not only links), or
+// local accounts.
 func (h *Handler) canLogIn() bool {
+	if h.ids.LocalEnabled() {
+		return true
+	}
 	for _, reg := range h.ids.Providers() {
 		if reg.Login {
 			return true
@@ -248,6 +290,13 @@ func (h *Handler) accountPage(r *http.Request, flash *templates.Flash) (template
 		if _, ok := reg.Provider.(identity.Publisher); ok && reg.Login && linked[pr.Name] {
 			ap.RoleProviders = append(ap.RoleProviders, pr)
 		}
+	}
+	if h.ids.LocalEnabled() && !linked[identity.ProviderLocal] {
+		policy, err := h.ids.LocalPolicy(r.Context())
+		if err != nil {
+			return ap, b, fmt.Errorf("local account policy: %w", err)
+		}
+		ap.Local = &templates.LocalForm{MinPasswordLength: policy.MinPasswordLength}
 	}
 	if err := h.proofOffer(r, b, &ap); err != nil {
 		return ap, b, fmt.Errorf("proof servers: %w", err)
@@ -355,6 +404,7 @@ func (h *Handler) callback(w http.ResponseWriter, r *http.Request) {
 			h.serverError(w, r, err)
 			return
 		}
+		h.rememberProvider(w, provider)
 		if returnTo != "" {
 			http.Redirect(w, r, returnTo, http.StatusSeeOther)
 			return
@@ -569,6 +619,9 @@ func (h *Handler) authorized(w http.ResponseWriter, r *http.Request) bool {
 }
 
 func (h *Handler) providerDisplay(name string) string {
+	if name == identity.ProviderLocal {
+		return "Username and password"
+	}
 	if reg, ok := h.ids.Provider(name); ok {
 		return reg.Provider.DisplayName()
 	}

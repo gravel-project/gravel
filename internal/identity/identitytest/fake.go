@@ -31,6 +31,8 @@ type FakeStore struct {
 	Attempts   map[string]store.AuthAttempt
 	// RoleChanges are the grants and revocations SetUserRole made, in order.
 	RoleChanges []RoleChange
+	// Locals are local accounts' credentials by username (ADR-0026), removed with the identity.
+	Locals map[string]store.LocalCredential
 }
 
 // NewFakeStore returns an empty store.
@@ -38,6 +40,7 @@ func NewFakeStore() *FakeStore {
 	return &FakeStore{
 		Users: map[uuid.UUID]store.User{}, Identities: map[string]store.Identity{},
 		Sessions: map[string]store.Session{}, Attempts: map[string]store.AuthAttempt{},
+		Locals: map[string]store.LocalCredential{},
 	}
 }
 
@@ -79,6 +82,7 @@ func (f *FakeStore) RegisterUser(_ context.Context, u store.User, ident store.Id
 	ident.UserID = u.ID
 	ident.LinkedAt = at
 	ident.LastLoginAt = &at
+	f.keepCredential(&ident)
 	f.Identities[key(ident.Provider, ident.Subject)] = ident
 	f.event(u.ID, ident.Provider, ident.Subject, store.IdentityEventRegistered, at)
 	return u, nil
@@ -94,6 +98,7 @@ func (f *FakeStore) LinkIdentity(_ context.Context, ident store.Identity) error 
 		return store.ErrIdentityExists
 	}
 	ident.LinkedAt = ident.VerifiedAt
+	f.keepCredential(&ident)
 	f.Identities[key(ident.Provider, ident.Subject)] = ident
 	f.event(ident.UserID, ident.Provider, ident.Subject, store.IdentityEventLinked, ident.VerifiedAt)
 	return nil
@@ -191,6 +196,9 @@ func (f *FakeStore) UnlinkIdentity(_ context.Context, userID uuid.UUID, provider
 		return store.ErrLastIdentity
 	}
 	delete(f.Identities, key(provider, subject))
+	if provider == store.ProviderLocal {
+		delete(f.Locals, subject) // ON DELETE CASCADE
+	}
 	f.event(userID, provider, subject, store.IdentityEventUnlinked, at)
 	return nil
 }
@@ -566,4 +574,73 @@ func (f *FakeStore) Changes() []RoleChange {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return slices.Clone(f.RoleChanges)
+}
+
+// keepCredential moves a local account's credential off the identity into Locals, as the store
+// writes it to local_credentials.
+func (f *FakeStore) keepCredential(ident *store.Identity) {
+	if ident.Credential == nil {
+		return
+	}
+	c := *ident.Credential
+	c.Subject = ident.Subject
+	f.Locals[ident.Subject] = c
+	ident.Credential = nil
+}
+
+func (f *FakeStore) GetLocalCredential(_ context.Context, subject string) (store.LocalCredential, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.fail("GetLocalCredential"); err != nil {
+		return store.LocalCredential{}, err
+	}
+	c, ok := f.Locals[subject]
+	if !ok {
+		return store.LocalCredential{}, store.ErrNotFound
+	}
+	return c, nil
+}
+
+// RecordLocalFailure is the store's statement in Go: the failure that reaches the threshold
+// locks the account for Base·2^lockouts, at most Max.
+func (f *FakeStore) RecordLocalFailure(_ context.Context, subject string, now time.Time, l store.Lockout) (store.LocalCredential, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.fail("RecordLocalFailure"); err != nil {
+		return store.LocalCredential{}, err
+	}
+	c, ok := f.Locals[subject]
+	if !ok {
+		return store.LocalCredential{}, store.ErrNotFound
+	}
+	if c.FailedAttempts+1 >= l.Threshold {
+		d := l.Base << min(c.Lockouts, 30)
+		if d > l.Max || d <= 0 {
+			d = l.Max
+		}
+		until := now.Add(d)
+		c.FailedAttempts, c.Lockouts, c.LockedUntil = 0, c.Lockouts+1, &until
+	} else {
+		c.FailedAttempts++
+	}
+	f.Locals[subject] = c
+	return c, nil
+}
+
+func (f *FakeStore) RecordLocalSuccess(_ context.Context, subject, rehash string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.fail("RecordLocalSuccess"); err != nil {
+		return err
+	}
+	c, ok := f.Locals[subject]
+	if !ok {
+		return store.ErrNotFound
+	}
+	c.FailedAttempts, c.Lockouts, c.LockedUntil = 0, 0, nil
+	if rehash != "" {
+		c.PasswordHash = rehash
+	}
+	f.Locals[subject] = c
+	return nil
 }

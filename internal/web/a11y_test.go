@@ -77,6 +77,26 @@ func TestAccessibility(t *testing.T) {
 				{ClientID: "gravel_a", Name: "Muster", GrantedAt: now, Scopes: []templates.Scope{{Name: "stats:read", Description: "Read leaderboards, match lists and members' stats"}}},
 				{ClientID: "gravel_b", Name: "Seeding tracker", GrantedAt: now}}})
 		},
+		// Local accounts (ADR-0026): the login form after a refusal, registration, and the
+		// account page offering a username and password.
+		"/fixture/login-local": func() templ.Component {
+			p := base
+			p.Title, p.CanLogIn = "Log in", true
+			p.Flash = &templates.Flash{Kind: "err", Text: "That username and password don't match an account that may log in now."}
+			return templates.Login(templates.LoginPage{Page: p, Local: true, LocalFirst: true, Register: true, Username: "neckbeard",
+				Providers: []templates.Provider{{Name: "discord", DisplayName: "Discord"}}})
+		},
+		"/fixture/register": func() templ.Component {
+			p := base
+			p.Title, p.CanLogIn = "Make an account", true
+			p.Flash = &templates.Flash{Kind: "err", Text: "A password has at least 12 characters."}
+			return templates.Register(templates.RegisterPage{Page: p, Username: "neckbeard", MinPasswordLength: 12})
+		},
+		"/fixture/account-local": func() templ.Component {
+			p := base
+			p.Title, p.User, p.CSRF = "Account", jo, "csrf"
+			return templates.Account(templates.AccountPage{Page: p, Identities: identities[:1], Local: &templates.LocalForm{MinPasswordLength: 12}})
+		},
 		"/fixture/consent": func() templ.Component {
 			p := base
 			p.Title, p.User, p.CSRF = "Sign in to Muster", jo, "csrf"
@@ -323,7 +343,8 @@ func TestAccessibility(t *testing.T) {
 		"/fixture/servers", "/fixture/servers-demo", "/fixture/server", "/fixture/server-anonymous", "/fixture/server-game-overlay", "/fixture/boards", "/fixture/member-self", "/fixture/member", "/fixture/members",
 		"/fixture/participation", "/fixture/participation-empty", "/fixture/member-participation", "/fixture/recap", "/fixture/recap-nobody",
 		"/fixture/server-moderator", "/fixture/server-host", "/fixture/server-host-parked", "/fixture/host-confirm", "/fixture/confirm", "/fixture/log", "/fixture/account-apps", "/fixture/consent",
-		"/fixture/account-proof", "/fixture/proof", "/fixture/proof-proven", "/fixture/host-expect", "/fixture/result"}
+		"/fixture/account-proof", "/fixture/proof", "/fixture/proof-proven", "/fixture/host-expect", "/fixture/result",
+		"/fixture/login-local", "/fixture/register", "/fixture/account-local"}
 	// A fixture left out of the list would never be scanned and the run would still pass.
 	for path := range fixtures {
 		if !slices.Contains(paths, path) {

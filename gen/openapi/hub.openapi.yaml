@@ -4365,6 +4365,23 @@ components:
           description: Empty on the last page.
       title: ListUsersResponse
       additionalProperties: false
+    gravel.hub.v1.LocalAccountsSettings:
+      type: object
+      properties:
+        registration:
+          type: string
+          title: registration
+          description: '"closed" (the default, empty: staff create accounts) or "open" (anyone may register).'
+        minPasswordLength:
+          type: integer
+          title: min_password_length
+          format: int32
+          description: The shortest password in characters; 0 is the default, 12; else 8 to 128.
+      title: LocalAccountsSettings
+      additionalProperties: false
+      description: |-
+        LocalAccountsSettings is who may register a username and password when the hub has local
+         accounts on (hub.yaml auth.local.enabled; ADR-0026).
     gravel.hub.v1.LogoutRequest:
       type: object
       title: LogoutRequest
@@ -4728,6 +4745,10 @@ components:
               - $ref: '#/components/schemas/gravel.hub.v1.GameSettings'
             title: value
           description: Per-game settings by game id; at most 20, each a game this hub ships.
+        localAccounts:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.LocalAccountsSettings'
+          title: local_accounts
       title: OrganizationSettings
       additionalProperties: false
       description: |-

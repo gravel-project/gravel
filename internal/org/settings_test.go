@@ -664,3 +664,35 @@ func TestSettingsValidateGameMaps(t *testing.T) {
 		t.Errorf("round trip: %+v %v\n%s", again.Games, err, out)
 	}
 }
+
+// Local accounts' settings (ADR-0026): closed by default, a minimum password length in range.
+func TestSettingsValidateLocalAccounts(t *testing.T) {
+	for _, l := range []LocalAccounts{{}, {Registration: RegistrationClosed}, {Registration: RegistrationOpen, MinPasswordLength: 8}, {MinPasswordLength: 128}} {
+		if err := (Settings{Version: 1, LocalAccounts: l}).Validate(); err != nil {
+			t.Errorf("%+v: %v", l, err)
+		}
+	}
+	if (LocalAccounts{}).Open() || (LocalAccounts{Registration: RegistrationClosed}).Open() || !(LocalAccounts{Registration: RegistrationOpen}).Open() || !(LocalAccounts{}).IsZero() {
+		t.Error("defaults")
+	}
+	err := Settings{Version: 1, LocalAccounts: LocalAccounts{Registration: "invite", MinPasswordLength: 7}}.Validate()
+	for _, want := range []string{`local_accounts.registration: "invite" is not "closed" or "open"`, "local_accounts.min_password_length: 7 is not 0"} {
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("missing %q in %v", want, err)
+		}
+	}
+	if err := (Settings{Version: 1, LocalAccounts: LocalAccounts{MinPasswordLength: 129}}).Validate(); err == nil {
+		t.Error("129 accepted")
+	}
+	m, err := ParseManifest([]byte("local_accounts:\n  registration: open\n  min_password_length: 16\n"))
+	if err != nil || !m.LocalAccounts.Open() || m.LocalAccounts.MinPasswordLength != 16 {
+		t.Fatalf("manifest: %+v %v", m.LocalAccounts, err)
+	}
+	out, err := m.Manifest()
+	if err != nil || !strings.Contains(string(out), "local_accounts:\n    registration: open\n    min_password_length: 16") && !strings.Contains(string(out), "local_accounts:\n  registration: open\n  min_password_length: 16") {
+		t.Errorf("manifest out: %v\n%s", err, out)
+	}
+	if out, _ := (Settings{Version: 1}).Manifest(); strings.Contains(string(out), "local_accounts") {
+		t.Errorf("the default is written:\n%s", out)
+	}
+}

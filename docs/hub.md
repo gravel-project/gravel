@@ -69,6 +69,8 @@ auth:
     enabled: true
     api_key_file: /run/secrets/gravel-steam-api-key   # optional: persona name and avatar; or GRAVEL_STEAM_API_KEY
     login: false                 # link-only by default
+  local:
+    enabled: false               # usernames and passwords, no provider needed ([Local accounts](#local-accounts-adr-0026))
 rate_limit:
   per_ip:   {requests_per_minute: 120, burst: 40}    # anonymous requests, per client address
   per_user: {requests_per_minute: 600, burst: 100}   # authenticated requests, per user
@@ -167,6 +169,9 @@ every page works without it):
 | `GET /auth/{provider}/link` | begin a link, logged in |
 | `GET /auth/{provider}/roles` | begin Discord's Linked Roles verification: a login that also publishes the member's linked accounts to Discord (below) |
 | `GET /auth/{provider}/callback` | the provider's return |
+| `POST /auth/local/login` | a username and password ([Local accounts](#local-accounts-adr-0026)); 401 with one answer for every refusal, 429 past the per-address limit |
+| `GET`, `POST /auth/local/register` | make a local account and log in, when `local_accounts.registration` is `open`; 404 otherwise |
+| `POST /account/local` | give the logged-in member a username and password, with the CSRF token |
 | `POST /auth/logout` | this session (`Logout`), or every session with `everywhere=1` (`RevokeSessions`) |
 | `POST /account/unlink`, `POST /account/claim`, `POST /account/apps/revoke` | forms; every POST carries the session's CSRF token in `_csrf`; with `HX-Request: true` the answer is the page's content, else a redirect |
 | `GET /theme.css` | the theme's tokens as custom properties, with an ETag |
@@ -300,6 +305,9 @@ stats:                       # the boards ([Stats](#stats-adr-0012))
       game: wardogs          # optional: one game's matches
       from: "2026-10-15"     # included
       to: "2027-01-15"       # excluded
+local_accounts:              # with auth.local.enabled ([Local accounts](#local-accounts-adr-0026))
+  registration: closed       # closed (the default: staff make accounts) or open (anyone may register)
+  min_password_length: 12    # the shortest password, in characters (default 12; 8 to 128)
 games:                       # a game's overlay on its pages, by game id; at most 20 ([Game overlays](#game-overlays-gravel66))
   wardogs:
     theme:
@@ -1349,8 +1357,9 @@ limit applies in front of all of it.
 
 ## Login (ADR-0004)
 
-A member logs in with a provider whose `login` is true (Discord by default) and links the others
-(Steam by default) from the account page. Every attempt is a row bound to the browser by an auth
+A member logs in with a provider whose `login` is true (Discord by default), or with a username
+and password ([Local accounts](#local-accounts-adr-0026)), and links the others (Steam by default)
+from the account page. Every attempt is a row bound to the browser by an auth
 cookie and to the provider's callback by a state value, consumed once: a replayed, forged or
 expired callback is refused, and a link must finish in the session that started it. A
 `(provider, subject)` pair belongs to one user; linking one another member holds is refused, and
@@ -1374,6 +1383,41 @@ so is unlinking the last one (a provider-only account would be unreachable).
   cloudflared); otherwise everyone shares the proxy's bucket. Set it only when nothing else can
   reach the listener: the header is trusted as given.
 - Expired sessions and attempts are pruned every ten minutes.
+
+### Local accounts (ADR-0026)
+
+With `auth.local.enabled: true` a username and a password are one more way in, with no provider
+at all: the hub needs no Discord application to have members or an owner. A local account is the
+identity `("local", <username>)`, unique across the hub, linked and unlinked like any other; its
+password is stored beside it as an argon2id hash and goes with it when it is unlinked.
+
+- **Logging in:** the login page shows a username and password form (first, when this browser
+  last logged in with it), which posts to `/auth/local/login`. A wrong password, an unknown
+  username and a locked account get one answer and cost one hash each, so the page says nothing
+  about which.
+- **Registration** is the host's choice, `local_accounts.registration` in the Organization
+  settings: `closed` by default, when staff make accounts (#187), or `open`, when
+  `/auth/local/register` takes anyone. Closed, that page is 404.
+- **A member who signed in with Discord** sets a username and password on the account page, then
+  logs in with either. One local account a member; a username another member holds is refused.
+- **Usernames** are 3 to 32 of `a-z`, `0-9`, `.`, `_` and `-`, starting with a letter or a digit,
+  compared after NFKC and lower case (`Neckbeard` and `ｎｅｃｋｂｅａｒｄ` are one name). `admin`,
+  `administrator`, `gravel`, `moderator`, `operator`, `owner`, `root`, `staff`, `support` and
+  `system` are reserved.
+- **Passwords** are at least `local_accounts.min_password_length` characters (12 by default),
+  at most 1024 bytes, and never the username; compared after NFKC. No other rule: a long sentence
+  is the advice.
+- **Hashing:** argon2id at OWASP's minimum (19 MiB, 2 passes, 1 lane), as a PHC string, no pepper.
+  A hash made with older parameters is replaced at the next good login.
+- **Lockout:** five failures in a row lock an account for 15 minutes; each lockout since the last
+  good login doubles it, up to a day. A good login clears it. Failures while locked don't count.
+- **Limits:** local logins and registrations are also limited to 10 a minute per client address
+  (5 at once), on top of the pages' own limit, because each hashes a password.
+- **Email** is optional and only ever for recovery (#187); the hub never matches or merges
+  accounts by email.
+- `gravel_local_logins_total{result}` counts `ok`, `refused`, `locked`, `invalid` (a refused
+  registration), `rate_limited` and `error`, on the hub dashboard's Login row, and
+  `gravel_identities{provider="local"}` the local accounts.
 
 ### Proof in game (ADR-0022)
 

@@ -113,6 +113,8 @@ type Identity struct {
 type Provider struct {
 	Name        string
 	DisplayName string
+	// LastUsed marks the provider this browser last logged in with: the login page lists it first.
+	LastUsed bool
 }
 
 // Page is what every page starts from.
@@ -133,15 +135,35 @@ type Page struct {
 	Game *Game
 }
 
-// LoginPage lists the providers a member can sign in with.
+// LoginPage lists the providers a member can sign in with, and the username and password form
+// when the hub has local accounts (ADR-0026).
 type LoginPage struct {
 	Page
 	Providers []Provider
+	// Local offers the form; LocalFirst puts it above the providers (this browser last used it);
+	// Register links to registration, which the host opened.
+	Local, LocalFirst, Register bool
+	// Username is what the member typed, kept after a refusal.
+	Username string
+}
+
+// RegisterPage is the form that makes a local account, when the host opened registration.
+type RegisterPage struct {
+	Page
+	Username          string
+	MinPasswordLength int
+}
+
+// LocalForm offers a member with no local account a username and password (ADR-0026).
+type LocalForm struct {
+	MinPasswordLength int
 }
 
 // AccountPage is the member's account.
 type AccountPage struct {
 	Page
+	// Local offers a username and password when the hub has local accounts and the member has none.
+	Local         *LocalForm
 	Identities    []Identity
 	LinkProviders []Provider
 	// RoleProviders are linked providers that show the member's linked accounts (Discord's

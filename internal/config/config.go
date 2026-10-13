@@ -188,6 +188,14 @@ type Auth struct {
 	AttemptTTL time.Duration `yaml:"attempt_ttl"`
 	Discord    Discord       `yaml:"discord"`
 	Steam      Steam         `yaml:"steam"`
+	Local      Local         `yaml:"local"`
+}
+
+// Local is local accounts (ADR-0026): a username and a password, with no provider at all. Off by
+// default; the Organization settings' local_accounts say whether anyone may register (closed by
+// default: staff create accounts) and the shortest password.
+type Local struct {
+	Enabled bool `yaml:"enabled"`
 }
 
 // Discord is the Discord OAuth2 application: scope identify for login and linking, plus
@@ -451,7 +459,7 @@ func (c Config) Validate() error {
 			bad("auth.discord: no client secret; set %s, auth.discord.client_secret_file or auth.discord.client_secret", EnvDiscordClientSecret)
 		}
 	}
-	if (c.Auth.Discord.Enabled && c.Auth.Discord.Login) || (c.Auth.Steam.Enabled && c.Auth.Steam.Login) {
+	if (c.Auth.Discord.Enabled && c.Auth.Discord.Login) || (c.Auth.Steam.Enabled && c.Auth.Steam.Login) || c.Auth.Local.Enabled {
 		// fine: somebody can log in
 	} else if c.Auth.Discord.Enabled || c.Auth.Steam.Enabled {
 		bad("auth: every enabled provider is link-only, so nobody can log in; set login: true on one")
