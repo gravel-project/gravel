@@ -1,6 +1,6 @@
 # ADR-0027: Capabilities, five roles as bundles, grants with a game scope, and ownership transfer
 
-**Status:** accepted (2026-10-13, with #184 in #231) · **Changes:** how every procedure decides who may call it; supersedes ADR-0013 §1 and §3, amends ADR-0013 §4 and §5, ADR-0008 §4, ADR-0004 §6, ADR-0023 §7 and README "Human roles" · **Decided in:** John's design session *gravel — Design Session: Hub, Spines & Dashboard* (2026-10-10 to 12), handbook D35 · **Built in three steps:** #184 (§1, §2 and §7: capabilities, who holds them, the access matrix; no behaviour change), #185 (§3 to §5: five roles, game scope, granter rules; **Breaking**), #197 (§6: ownership transfer) · **Part of:** H1 (#182), framed by ADR-0025
+**Status:** accepted (2026-10-13, with #184 in #231) · **Changes:** how every procedure decides who may call it; supersedes ADR-0013 §1 and §3, amends ADR-0013 §4 and §5, ADR-0008 §4, ADR-0004 §6, ADR-0023 §7 and README "Human roles" · **Decided in:** John's design session *gravel — Design Session: Hub, Spines & Dashboard* (2026-10-10 to 12), handbook D35 · **Built in three steps:** #184 (§1, §2 and §7: capabilities, who holds them, the access matrix; no behaviour change), #185 (§3 to §5: five roles, game scope, granter rules; **Breaking**), #197 (§6: ownership transfer; as built below) · **Part of:** H1 (#182), framed by ADR-0025
 
 ## Context
 
@@ -86,3 +86,12 @@ The design doc's role table is the target:
 - **App scopes:** `servers:operate` and `roles:grant` (moderator only) became scopes an app may hold. An app holding `servers:moderate` lost park and unpark, which moved to `servers:operate`; no first-party app of Hidden Token Gaming's called them.
 - **The Members page** lists every member's grants with remove buttons and a grant form (role, every game or one) for anyone holding `roles:grant`; the Members link shows to them.
 
+
+## As built (#197, 2026-10-13): §6, ownership transfer
+
+- **Three procedures, in person only:** `NominateOwner` checks `org:transfer` (the owner alone; no app may hold it); `AcceptOwnership` and `CancelOwnershipTransfer` admit any member through their session and the store decides (the nominee accepts or declines, the owner cancels). Members' tokens are refused for all three.
+- **The nomination is three columns on `organizations`** (migration 00029), set and cleared together, and never the owner. A new nomination replaces the old one. An expired one is cleared only by a decline, a cancel or a new nomination: nothing runs at the expiry, and an accept after it is refused.
+- **Accepting is one transaction:** the row is locked, one `UPDATE … WHERE owner_user_id = $old AND pending_owner_user_id = $me AND pending_owner_expires_at > $now` moves the owner, the old owner gets an instance-wide `admin` grant (by the new owner), and the events are written. Concurrent accepts serialise on the lock; the first wins and the rest find no nomination.
+- **Who sees the nomination:** `GetOrganization` carries it to the owner and the nominee only.
+- **Events:** `ownership.nominated`, `ownership.transfer_cancelled`, `ownership.declined` (notice) and `ownership.transferred` (warning, so a notifier's default filter carries it), each by the member who acted.
+- **The pages:** the Members page has the owner's *Hand the hub to …*, the account page the nominee's Accept and Decline and the owner's Cancel. The admin dashboard's people page (H1-19) will carry the same handshake.

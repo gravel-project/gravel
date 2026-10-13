@@ -135,6 +135,7 @@ func (h *Handler) Register(mux Mux) {
 	mux.HandleFunc("GET /servers/{id}/log", h.auditLog)
 	mux.HandleFunc("GET /members", h.members)
 	mux.HandleFunc("POST /members/role", h.setRole)
+	mux.HandleFunc("POST /members/nominate", h.nominateOwner)
 	mux.HandleFunc("POST /auth/local/login", h.localLogin)
 	mux.HandleFunc("GET /auth/local/register", h.registerForm)
 	mux.HandleFunc("POST /auth/local/register", h.register)
@@ -148,6 +149,9 @@ func (h *Handler) Register(mux Mux) {
 	mux.HandleFunc("POST /auth/logout", h.logout)
 	mux.HandleFunc("POST /account/unlink", h.unlink)
 	mux.HandleFunc("POST /account/claim", h.claim)
+	mux.HandleFunc("POST /account/ownership/accept", h.acceptOwnership)
+	mux.HandleFunc("POST /account/ownership/decline", h.endNomination)
+	mux.HandleFunc("POST /account/ownership/cancel", h.endNomination)
 	mux.HandleFunc("POST /account/apps/revoke", h.revokeApp)
 	mux.HandleFunc("POST /account/prove", h.startProof)
 	mux.HandleFunc("GET /account/prove/{id}", h.proofStatus)
@@ -572,6 +576,52 @@ func (h *Handler) claim(w http.ResponseWriter, r *http.Request) {
 	h.accountDone(w, r, b, flash)
 }
 
+// acceptOwnership takes the hub over, for the member the owner nominated (#197).
+func (h *Handler) acceptOwnership(w http.ResponseWriter, r *http.Request) {
+	if !h.authorized(w, r) {
+		return
+	}
+	ctx, b := withBrowser(r)
+	_, err := h.orgAPI.AcceptOwnership(ctx, connect.NewRequest(&hubv1.AcceptOwnershipRequest{}))
+	var flash templates.Flash
+	switch connect.CodeOf(err) {
+	case connect.CodeFailedPrecondition:
+		flash = templates.Flash{Kind: "err", Text: "You can't accept: " + connectMessage(err) + "."}
+	default:
+		if err != nil {
+			h.apiError(w, r, b, err)
+			return
+		}
+		flash = templates.Flash{Kind: "ok", Text: "You own this hub now. The old owner stays on as an admin."}
+	}
+	h.accountDone(w, r, b, flash)
+}
+
+// endNomination ends a nomination to take the hub over: the nominee declines it, the owner
+// cancels it (#197). The API tells the two apart.
+func (h *Handler) endNomination(w http.ResponseWriter, r *http.Request) {
+	if !h.authorized(w, r) {
+		return
+	}
+	ctx, b := withBrowser(r)
+	_, err := h.orgAPI.CancelOwnershipTransfer(ctx, connect.NewRequest(&hubv1.CancelOwnershipTransferRequest{}))
+	var flash templates.Flash
+	switch connect.CodeOf(err) {
+	case connect.CodeFailedPrecondition, connect.CodePermissionDenied:
+		flash = templates.Flash{Kind: "err", Text: "There is no nomination of yours to end."}
+	default:
+		if err != nil {
+			h.apiError(w, r, b, err)
+			return
+		}
+		flash = templates.Flash{Kind: "ok", Text: "Nomination cancelled: nothing changed."}
+		if strings.HasSuffix(r.URL.Path, "/decline") {
+			flash.Text = "You declined: nothing changed."
+		}
+	}
+	h.accountDone(w, r, b, flash)
+}
+
 // accountDone ends a form on the account page: htmx gets the fresh content with the flash
 // inline, a plain browser gets the flash as a cookie and a redirect.
 func (h *Handler) accountDone(w http.ResponseWriter, r *http.Request, b *browser, flash templates.Flash) {
@@ -652,7 +702,12 @@ func (h *Handler) page(r *http.Request, title string) (pageData, *browser, error
 	if err != nil {
 		return p, b, fmt.Errorf("GetOrganization: %w", err)
 	}
-	p.Org = templates.Org{Name: org.Msg.GetOrganization().GetName(), Owned: org.Msg.GetOrganization().GetOwned(), Demo: org.Msg.GetOrganization().GetDemo()}
+	o := org.Msg.GetOrganization()
+	p.Org = templates.Org{Name: o.GetName(), Owned: o.GetOwned(), Demo: o.GetDemo()}
+	if id := o.GetPendingOwnerUserId(); id != "" {
+		exp := o.GetPendingOwnerExpiresAt().AsTime()
+		p.Org.Pending = &templates.PendingOwner{UserID: id, Name: o.GetPendingOwnerName(), ExpiresAt: exp, Expired: !exp.After(time.Now())}
+	}
 	if s, ok := session.FromContext(r.Context()); ok {
 		me, err := h.idAPI.GetMe(ctx, connect.NewRequest(&hubv1.GetMeRequest{}))
 		switch {

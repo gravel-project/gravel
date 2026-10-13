@@ -137,6 +137,7 @@ Public listener (`server.listen`), HTTP/1.1 and unencrypted HTTP/2 so gRPC works
 |---|---|
 | `/gravel.hub.v1.OrganizationService/GetOrganization` | Connect procedure; POST JSON `{}` or call it over gRPC / gRPC-Web |
 | `/gravel.hub.v1.OrganizationService/ClaimOwnership` | Connect procedure; `{"token": "…"}`; needs a session, binds the caller as owner |
+| `/gravel.hub.v1.OrganizationService/NominateOwner`, `AcceptOwnership`, `CancelOwnershipTransfer` | hand the hub over in two steps ([Ownership transfer](#ownership-transfer-adr-0027-6)): the owner nominates (`{"user_id": "…"}`, `org:transfer`), the nominee accepts within 7 days, either ends it; in person only |
 | `/gravel.hub.v1.OrganizationService/GetOrganizationSettings` | the Organization settings (theme, navigation, the Discord mapping, stats, the games' overlays); public, but the notifiers only to a caller holding `settings:write` |
 | `/gravel.hub.v1.OrganizationService/UpdateOrganizationSettings` | replace them; the owner only; `invalid_argument` names every invalid field |
 | `/gravel.hub.v1.IdentityService/GetMe` | the caller and their linked identities; needs a session, or a member's token from an app (no scope needed: how an app learns who signed in, ADR-0015) |
@@ -1434,7 +1435,7 @@ read and goes in #199.
 | `settings:write` | `UpdateOrganizationSettings` | admins |
 | `events:read` | `ListEvents` | admins, operators, moderators (a game-scoped grant: that game's events); apps |
 | `servers:manage`, `apps:manage`, `metrics:read`, `stats:erase` | named now; their procedures arrive with H1 | per the roles above |
-| `org:transfer` | ownership transfer (#197) | the owner alone |
+| `org:transfer` | `NominateOwner` ([Ownership transfer](#ownership-transfer-adr-0027-6)) | the owner alone, in person |
 
 **The access matrix.** `internal/api/testdata/access_matrix.txt` is every procedure's answer to every
 kind of caller, and `TestAccessMatrix` fails when it changes. A change to who may call what is a
@@ -1807,6 +1808,28 @@ a session answers `unauthenticated`, a second call `failed_precondition` (the hu
 wrong or expired token `permission_denied`, an empty token `invalid_argument`. An owned hub never
 mints a token again. A claim made by 0.1.0 bound no user; migration 2 reopens it, so such a hub
 logs a fresh token after the upgrade.
+
+## Ownership transfer (ADR-0027 §6)
+
+The owner hands the hub to another member in two steps, each in person (a session, never an app
+or a member's token):
+
+1. **Nominate.** On **Members**, the owner's *Hand the hub to …* names a member of this hub, not
+   themselves; over the API, `OrganizationService.NominateOwner {"user_id": "…"}` (`org:transfer`).
+   The nominee has **7 days** to accept. A new nomination replaces the old one. Until the nominee
+   accepts, nothing changes: the owner owns the hub.
+2. **Accept.** The nominee's account page says *You were nominated to own this hub*, with Accept
+   and Decline; over the API, `AcceptOwnership {}`. Accepting is one transaction: the owner moves
+   in one guarded update (so the hub has exactly one owner at every moment, and a second accept
+   finds nothing), the old owner gets an **admin** grant (everything but `org:transfer`), and the
+   events log records both.
+
+Either side can end it: the owner cancels on their account page, the nominee declines on theirs
+(`CancelOwnershipTransfer {}`). An expired nomination can only be declined or replaced; nothing
+runs when it expires. The nomination (who, until when) shows in `GetOrganization` to the owner and
+the nominee only. Events: `ownership.nominated`, `ownership.transfer_cancelled`,
+`ownership.declined` (notice) and `ownership.transferred` (warning, so a notifier with the default
+filter tells the hub's people), with the old owner's `role.granted`.
 
 ## Backups (ADR-0006)
 

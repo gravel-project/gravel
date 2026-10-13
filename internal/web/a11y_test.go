@@ -117,6 +117,21 @@ func TestAccessibility(t *testing.T) {
 			p.Flash = &templates.Flash{Kind: "err", Text: "You cannot unlink your only account."}
 			return templates.Account(templates.AccountPage{Page: p, Identities: identities, RoleProviders: []templates.Provider{{Name: "discord", DisplayName: "Discord"}}})
 		},
+		// The ownership handover (#197): the nominee's prompt, and the owner's pending nomination.
+		"/fixture/account-nominated": func() templ.Component {
+			p := base
+			p.Title, p.User, p.CSRF = "Account", jo, "csrf"
+			p.Org.Owned = true
+			p.Org.Pending = &templates.PendingOwner{UserID: jo.ID, Name: "Jo", ExpiresAt: now.Add(7 * 24 * time.Hour)}
+			return templates.Account(templates.AccountPage{Page: p, Identities: identities})
+		},
+		"/fixture/account-handover": func() templ.Component {
+			p := base
+			p.Title, p.User, p.CSRF = "Account", owner, "csrf"
+			p.Org.Owned = true
+			p.Org.Pending = &templates.PendingOwner{UserID: "u2", Name: "Sam", ExpiresAt: now.Add(-time.Hour), Expired: true}
+			return templates.Account(templates.AccountPage{Page: p, Identities: identities})
+		},
 		// A member's apps (ADR-0015) on the account page, and the consent page.
 		"/fixture/account-apps": func() templ.Component {
 			p := base
@@ -409,6 +424,7 @@ func TestAccessibility(t *testing.T) {
 	defer srv.Close()
 
 	paths := []string{"/login", "/fixture/account-unowned", "/fixture/account-owner", "/fixture/error",
+		"/fixture/account-nominated", "/fixture/account-handover",
 		"/fixture/servers", "/fixture/servers-demo", "/fixture/server", "/fixture/server-anonymous", "/fixture/server-game-overlay", "/fixture/boards", "/fixture/member-self", "/fixture/member", "/fixture/members",
 		"/fixture/participation", "/fixture/participation-empty", "/fixture/member-participation", "/fixture/recap", "/fixture/recap-nobody",
 		"/fixture/server-moderator", "/fixture/server-host", "/fixture/server-host-parked", "/fixture/host-confirm", "/fixture/confirm", "/fixture/log", "/fixture/account-apps", "/fixture/consent",

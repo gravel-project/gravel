@@ -32,6 +32,12 @@ patch release is everything else.
 
 ### Added
 
+- **Ownership transfer in two steps** (#197, ADR-0027 §6; H1, #182): the owner nominates a member, who accepts within 7 days; the old owner becomes an admin (`docs/hub.md`, Ownership transfer).
+  - **The API:** `OrganizationService.NominateOwner` (`org:transfer`), `AcceptOwnership` and `CancelOwnershipTransfer` (the nominee declines with it too), each in person only: apps and members' tokens are refused, and the access matrix lists all three. `Organization` gains `pending_owner_user_id`, `pending_owner_name` and `pending_owner_expires_at`, shown to the owner and the nominee only.
+  - **Storage:** migration **00029** adds `organizations.pending_owner_user_id`, `pending_owner_nominated_at` and `pending_owner_expires_at`, set and cleared together. Accepting is one transaction: a guarded update moves the owner (exactly one at every moment; a racing second accept finds nothing), the old owner's `admin` grant and the events.
+  - **Events:** `ownership.nominated`, `ownership.transfer_cancelled`, `ownership.declined` (notice) and `ownership.transferred` (warning).
+  - **The pages:** Members has *Hand the hub to …* for the owner and marks the nominee; the account page shows the nominee *You were nominated to own this hub* with Accept and Decline, and the owner the pending nomination with Cancel.
+
 - **The fleet page** in the admin dashboard (#192; H1, #182): `/admin` shows what is up, who is playing and what is wrong, trouble first, from `GetFleetSummary` (`docs/hub.md`, Admin dashboard).
   - **On the page:** a strip (servers up of those not idle, players of the public slots, alarms open), the alarms (critical first, with their server and since when), and every server in the hub's order with its health and why, for how long, players against capacity, map, last poll and its time, and its host's and lease's state; a down or degraded row is marked and each name opens the server's member page. Times count on the hub's clock; the page says **Stale** after a failed poll or 15 s without an answer; an empty fleet says how to add servers.
   - **Moved:** the dashboard's former Overview (your roles and capabilities) is **Your access** at `/admin/access`.

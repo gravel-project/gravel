@@ -1016,6 +1016,88 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.UnbanPlayerResponse'
+  /gravel.hub.v1.OrganizationService/AcceptOwnership:
+    post:
+      tags:
+        - gravel.hub.v1.OrganizationService
+      summary: AcceptOwnership
+      description: |-
+        AcceptOwnership makes the nominee the owner, and the old owner an admin, in one transaction:
+         the nominee in person. failed_precondition when there is no unexpired nomination for them.
+      operationId: gravel.hub.v1.OrganizationService.AcceptOwnership
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.AcceptOwnershipRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.AcceptOwnershipResponse'
+  /gravel.hub.v1.OrganizationService/CancelOwnershipTransfer:
+    post:
+      tags:
+        - gravel.hub.v1.OrganizationService
+      summary: CancelOwnershipTransfer
+      description: |-
+        CancelOwnershipTransfer ends the nomination: the owner cancels it, or the nominee declines
+         it, in person. failed_precondition when there is none.
+      operationId: gravel.hub.v1.OrganizationService.CancelOwnershipTransfer
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.CancelOwnershipTransferRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.CancelOwnershipTransferResponse'
   /gravel.hub.v1.OrganizationService/ClaimOwnership:
     post:
       tags:
@@ -1179,6 +1261,48 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.ListEventsResponse'
+  /gravel.hub.v1.OrganizationService/NominateOwner:
+    post:
+      tags:
+        - gravel.hub.v1.OrganizationService
+      summary: NominateOwner
+      description: |-
+        NominateOwner names the member who may take the hub over, for 7 days, replacing any earlier
+         nomination (ADR-0027 §6): org:transfer, the owner in person. invalid_argument for the owner
+         themselves, not_found for someone who isn't a member.
+      operationId: gravel.hub.v1.OrganizationService.NominateOwner
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.NominateOwnerRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.NominateOwnerResponse'
   /gravel.hub.v1.OrganizationService/TestNotifier:
     post:
       tags:
@@ -2588,6 +2712,19 @@ components:
         - "2024-12-25T12:00:00Z"
       format: date-time
       description: A point in time in RFC 3339 format, with up to nanosecond precision. Output uses UTC (`Z`); input may use an offset from UTC.
+    gravel.hub.v1.AcceptOwnershipRequest:
+      type: object
+      title: AcceptOwnershipRequest
+      additionalProperties: false
+    gravel.hub.v1.AcceptOwnershipResponse:
+      type: object
+      properties:
+        organization:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.Organization'
+          title: organization
+      title: AcceptOwnershipResponse
+      additionalProperties: false
     gravel.hub.v1.Actor:
       type: object
       properties:
@@ -2975,6 +3112,19 @@ components:
           title: audit_id
           format: int64
       title: BroadcastResponse
+      additionalProperties: false
+    gravel.hub.v1.CancelOwnershipTransferRequest:
+      type: object
+      title: CancelOwnershipTransferRequest
+      additionalProperties: false
+    gravel.hub.v1.CancelOwnershipTransferResponse:
+      type: object
+      properties:
+        organization:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.Organization'
+          title: organization
+      title: CancelOwnershipTransferResponse
       additionalProperties: false
     gravel.hub.v1.ClaimOwnershipRequest:
       type: object
@@ -5287,6 +5437,24 @@ components:
       title: NavLink
       additionalProperties: false
       description: NavLink is a navigation extension link.
+    gravel.hub.v1.NominateOwnerRequest:
+      type: object
+      properties:
+        userId:
+          type: string
+          title: user_id
+          description: 'The member to hand the hub to: a member of this hub, not the owner.'
+      title: NominateOwnerRequest
+      additionalProperties: false
+    gravel.hub.v1.NominateOwnerResponse:
+      type: object
+      properties:
+        organization:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.Organization'
+          title: organization
+      title: NominateOwnerResponse
+      additionalProperties: false
     gravel.hub.v1.Notifier:
       type: object
       properties:
@@ -5395,6 +5563,19 @@ components:
           description: |-
             Whether this hub is a demo (hub.yaml demo: true): its members, matches and stats are made up,
              and a client says so wherever it shows them.
+        pendingOwnerUserId:
+          type: string
+          title: pending_owner_user_id
+          description: |-
+            The member the owner nominated to take the hub over (#197), their name, and until when they
+             may accept; set only for the owner and the nominee, unset when there is no nomination.
+        pendingOwnerName:
+          type: string
+          title: pending_owner_name
+        pendingOwnerExpiresAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: pending_owner_expires_at
       title: Organization
       additionalProperties: false
       description: |-
