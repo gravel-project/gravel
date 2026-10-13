@@ -20,6 +20,7 @@ patch release is everything else.
 
 ### Added
 
+- ADR-0025 (proposed; accepted when merged): the hub as a product (#183; H1, #182). gravel owns the truth and stands with no Discord, Steam or cloud configured; the **unplug test** (`make unplug`, #198) is H1's gate; three personas (Neckbeard, VPS Dad, K8s bro) are the acceptance criteria and four deployment tiers (a single machine, Compose on a cloud box, a cloud VM the CLI makes, a Kubernetes cluster) are where it runs. New `docs/tiers.md`; the README's principles gain the design session's five and its build order gains H1 before the operator (K1, after P5); `docs/hub.md` "Running it" is a tier table; ADR-0001 is amended with the Compose tier.
 - A server's status card can show its join password while the server runs (#180, for hidden-token-gaming's casual CS2 server, whose password was pinned in Discord for good):
   - **The manifest:** `vm.share_password: true` on a cloud-VM server (it needs `vm.password_file`).
   - **The API:** `ServerJoin.password`, set in `ListServers` and `GetServerStatus` only for an app whose token carries `servers:read`, only while the server is up, and never while a lease is live (a lease's password stays the holder's, ADR-0023 §3). Anonymous callers, members, a member's token an app holds and the web pages get it empty; ADR-0010 §1 is amended for this one exception. The hub reads the file each time and keeps nothing.

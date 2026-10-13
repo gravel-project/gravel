@@ -1479,18 +1479,15 @@ migration has a `-- +goose Down` section so tests can reset a database.
 
 ## Running it
 
-- **Development:** `make up` builds the image with ko, writes dev secrets into podman's secret
-  store and starts hub + Postgres 17 with `podman compose` (`deploy/compose.yaml`). Host ports
-  come from `GRAVEL_PORT` and `GRAVEL_INTERNAL_PORT` (8080 and 9090 by default). `make down` stops
-  it and keeps the Postgres volume.
-- **Production:** the quadlet units in `deploy/quadlet/` as rootless systemd user units, with
-  the backup set from `deploy/quadlet/backup/`; see `deploy/README.md`. The config file must be
-  readable by uid 65532, the container's user (mode 0644 is fine: it holds no secrets).
-- **A hub on a cloud VM:** `gravel hub create` makes the host (a firewall, a data volume that is
-  the runtime user's home, a Fedora instance from a cloud-init document) through a cloud provider,
-  and `--profile stock` installs these same units on it with secrets generated on the host;
-  `destroy` then `create` replaces the host with its data intact
-  ([docs/cli.md](cli.md), [ADR-0020](adr/0020-the-hubs-own-host-made-by-the-cli-through-the-cloud-provider.md)).
+One hub, four tiers ([tiers.md](tiers.md), [ADR-0025](adr/0025-hub-as-a-product-the-unplug-test-tiers-and-personas.md)); the single-machine tier always stays viable.
+
+| Tier | Run it with | Status |
+|---|---|---|
+| **Development** | `make up` builds the image with ko, writes dev secrets into podman's secret store and starts hub + Postgres 17 with `podman compose` (`deploy/compose.yaml`). Host ports come from `GRAVEL_PORT` and `GRAVEL_INTERNAL_PORT` (8080 and 9090 by default). `make down` stops it and keeps the Postgres volume | In |
+| **1 · A single machine** | The quadlet units in `deploy/quadlet/` as rootless systemd user units, with the backup set from `deploy/quadlet/backup/`, the bot and the observability set as opt-ins; see `deploy/README.md`. The config file must be readable by uid 65532, the container's user (mode 0644 is fine: it holds no secrets) | In |
+| **2 · Compose on a cloud box** | A production Compose file with the quadlets' digest pins and secrets from files, for a box you install on yourself; `docker compose up` on a fresh box gives a working hub with a local owner | #210 (H1) |
+| **3 · A cloud VM the CLI makes** | `gravel hub create` makes the host (a firewall, a data volume that is the runtime user's home, a Fedora instance from a cloud-init document) through a cloud provider, and `--profile stock` installs tier 1's units on it with secrets generated on the host; `destroy` then `create` replaces the host with its data intact ([docs/cli.md](cli.md), [ADR-0020](adr/0020-the-hubs-own-host-made-by-the-cli-through-the-cloud-provider.md)) | In |
+| **4 · A Kubernetes cluster** | The operator projects hub resources into the cluster and Agones runs the managed servers; Helm and OLM packaging | K1, after P5 (#21) |
 
 The image is built by ko from `cmd/gravel-hub` on `gcr.io/distroless/static-debian12:nonroot`,
 runs as uid 65532, and has the binary at `/ko-app/gravel-hub` (`.ko.yaml`). Releases push it to
