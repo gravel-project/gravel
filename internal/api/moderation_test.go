@@ -141,9 +141,7 @@ func TestModerationIsTheOwnersOrAnAppsWithTheScope(t *testing.T) {
 
 	// The bot acts for Discord account 42, a member the owner made a moderator (ADR-0013).
 	mod := r.user(t, "Mod", "42")
-	if _, err := r.ids.SetRole(ctx, mod.ID, store.RoleModerator, true, owner.ID); err != nil {
-		t.Fatal(err)
-	}
+	r.grant(t, owner.ID, mod.ID, store.RoleModerator)
 	bot := hubv1connect.NewModerationServiceClient(bearerClient(http.DefaultClient, r.bearer(t, "htg-bot", apps.ScopeServersModerate)), r.srv.URL)
 	if _, err := bot.BanPlayer(ctx, connect.NewRequest(&hubv1.BanPlayerRequest{ServerId: "wd-1", Subject: steamA, Reason: "cheating",
 		OnBehalfOf: &hubv1.Actor{Provider: "discord", Subject: "42"}})); err != nil {
@@ -322,8 +320,8 @@ func TestModeratorRole(t *testing.T) {
 	if _, code := grant(samC, true, store.RoleModerator); code != connect.CodePermissionDenied {
 		t.Errorf("a member granting themselves: %v", code)
 	}
-	if _, code := grant(ownerC, true, "admin"); code != connect.CodeInvalidArgument {
-		t.Errorf("an unknown role: %v", code)
+	if _, code := grant(ownerC, true, "owner"); code != connect.CodeInvalidArgument {
+		t.Errorf("a role a grant can't carry: %v", code)
 	}
 	if _, err := mods(samC).KickPlayer(ctx, connect.NewRequest(kick)); connect.CodeOf(err) != connect.CodePermissionDenied {
 		t.Errorf("a member before the grant: %v", err)

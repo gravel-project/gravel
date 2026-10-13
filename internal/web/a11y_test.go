@@ -217,12 +217,17 @@ func TestAccessibility(t *testing.T) {
 		},
 		"/fixture/members": func() templ.Component {
 			p := base
-			p.Title, p.User, p.CSRF = "Members", owner, "csrf"
-			p.Flash = &templates.Flash{Kind: "ok", Text: "Sam is now a moderator."}
-			return templates.Members(templates.MembersPage{Page: p, NextURL: "/members?page=x", Members: []templates.MemberRow{
-				{ID: "u1", DisplayName: "Jo", Accounts: "Discord, Steam", Joined: now, Owner: true},
-				{ID: "u2", DisplayName: "Sam", Accounts: "Discord", Joined: now, Moderator: true},
-				{ID: "u3", DisplayName: "Ana", Accounts: "Discord, Steam", Joined: now}}})
+			granter := *owner
+			granter.CanGrant = true
+			p.Title, p.User, p.CSRF = "Members", &granter, "csrf"
+			p.Flash = &templates.Flash{Kind: "ok", Text: "Sam is now operator for cs2."}
+			return templates.Members(templates.MembersPage{Page: p, NextURL: "/members?page=x",
+				Roles:  []templates.Option{{Value: "moderator", Label: "moderator", Selected: true}, {Value: "operator", Label: "operator"}, {Value: "admin", Label: "admin"}},
+				Scopes: []templates.Option{{Value: "", Label: "Every game", Selected: true}, {Value: "cs2", Label: "Counter-Strike 2"}},
+				Members: []templates.MemberRow{
+					{ID: "u1", DisplayName: "Jo", Accounts: "Discord, Steam", Joined: now, Owner: true},
+					{ID: "u2", DisplayName: "Sam", Accounts: "Discord", Joined: now, Grants: []templates.GrantView{{Role: "moderator", Label: "moderator"}, {Role: "operator", GameID: "cs2", Label: "operator · Counter-Strike 2"}}},
+					{ID: "u3", DisplayName: "Ana", Accounts: "Discord, Steam", Joined: now}}})
 		},
 		"/fixture/server-moderator": func() templ.Component {
 			p := base

@@ -40,6 +40,7 @@ var memberProcedures = map[string]string{
 	hubv1connect.IdentityServiceLookupUserProcedure:                  apps.ScopeIdentityRead,
 	hubv1connect.IdentityServiceListUsersProcedure:                   apps.ScopeIdentityRead,
 	hubv1connect.IdentityServiceListIdentityEventsProcedure:          apps.ScopeIdentityRead,
+	hubv1connect.IdentityServiceListRoleGrantsProcedure:              apps.ScopeIdentityRead,
 	hubv1connect.OrganizationServiceGetOrganizationProcedure:         "",
 	hubv1connect.OrganizationServiceGetOrganizationSettingsProcedure: "",
 	hubv1connect.ServerServiceListGamesProcedure:                     "",
@@ -56,8 +57,8 @@ var memberProcedures = map[string]string{
 	hubv1connect.ModerationServiceListAuditLogProcedure:              apps.ScopeServersModerate,
 	hubv1connect.ServerHostServiceGetServerHostProcedure:             apps.ScopeServersRead,
 	hubv1connect.ServerHostServiceListServerHostEventsProcedure:      apps.ScopeServersRead,
-	hubv1connect.ServerHostServiceSetServerHostDesiredProcedure:      apps.ScopeServersModerate,
-	hubv1connect.ServerHostServiceSetServerHostExpectationProcedure:  apps.ScopeServersModerate,
+	hubv1connect.ServerHostServiceSetServerHostDesiredProcedure:      apps.ScopeServersOperate,
+	hubv1connect.ServerHostServiceSetServerHostExpectationProcedure:  apps.ScopeServersOperate,
 	// ResizeServerHost, UnpinServerHostSize, SnapshotServerHostVolume and DestroyServerHost are the owner's, in person, and stay out.
 	// StartProof and GetProof (gravel#5) are the member's, in person: an app never proves an account for them.
 	// CreateLocalAccount and IssuePasswordReset (gravel#187) are staff's, in person: a link is a password for an hour.
@@ -197,12 +198,56 @@ type Members interface {
 	Me(ctx context.Context, userID uuid.UUID) (identity.User, error)
 }
 
+// ServerGames finds a server's game, so a game-scoped grant applies to the servers of its game,
+// those added later included (ADR-0027 §4).
+type ServerGames interface {
+	Server(ctx context.Context, id string) (servers.Server, error)
+}
+
 // Access resolves who is calling into an authz.Principal and checks a capability against it
 // (ADR-0027). Every service that checks a capability shares one.
 type Access struct {
 	org     *org.Service
 	members Members
+	servers ServerGames // nil: no game-scoped check can match a server
 	logger  *slog.Logger
+}
+
+// WithServers lets a check on a server match a grant for its game.
+func (a *Access) WithServers(s ServerGames) *Access {
+	a.servers = s
+	return a
+}
+
+// target fills in the game of t's server, read at call time. An unknown server leaves it empty:
+// only an instance-wide grant admits, and the procedure says not found.
+func (a *Access) target(ctx context.Context, t authz.Target) authz.Target {
+	if t.GameID != "" || t.ServerID == "" || a.servers == nil {
+		return t
+	}
+	if srv, err := a.servers.Server(ctx, t.ServerID); err == nil {
+		t.GameID = srv.Game
+	}
+	return t
+}
+
+// RequireAny returns the caller when they hold c instance-wide or for at least one game: a list
+// that is not per server, which Visible then filters.
+func (a *Access) RequireAny(ctx context.Context, c authz.Capability) (authz.Principal, error) {
+	p, err := a.Principal(ctx)
+	if err != nil {
+		return authz.Principal{}, err
+	}
+	if all, games := p.Scope(c); all || len(games) > 0 {
+		return p, nil
+	}
+	return authz.Principal{}, refused(p.Check(c, authz.Target{}))
+}
+
+// Visible reports whether p holds c for the server: a row of an instance-wide list a game-scoped
+// caller may see.
+func (a *Access) Visible(ctx context.Context, p authz.Principal, c authz.Capability, serverID string) bool {
+	return p.Has(c, a.target(ctx, authz.Target{ServerID: serverID}))
 }
 
 // NewAccess builds the resolver over the organization (who owns it) and the members (their roles).
@@ -250,7 +295,7 @@ func (a *Access) member(ctx context.Context, uid uuid.UUID) (authz.Principal, er
 	case err != nil:
 		return authz.Principal{}, mapError(ctx, a.logger, err)
 	}
-	return authz.ForMember(uid, false, u.Roles), nil
+	return authz.ForMember(uid, false, u.AuthzGrants()), nil
 }
 
 // Require returns the caller when they hold c for t; else CodeUnauthenticated for nobody and
@@ -260,6 +305,7 @@ func (a *Access) Require(ctx context.Context, c authz.Capability, t authz.Target
 	if err != nil {
 		return authz.Principal{}, err
 	}
+	t = a.target(ctx, t)
 	if err := p.Check(c, t); err != nil {
 		return authz.Principal{}, refused(err)
 	}
@@ -289,7 +335,7 @@ func (a *Access) RequireFor(ctx context.Context, c authz.Capability, t authz.Tar
 	if err != nil {
 		return authz.Principal{}, err
 	}
-	if !m.Has(c, t) {
+	if !m.Has(c, a.target(ctx, t)) {
 		return authz.Principal{}, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("on_behalf_of does not hold %q", c))
 	}
 	return p, nil

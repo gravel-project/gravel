@@ -193,15 +193,15 @@ func (s *Store) SeedDemo(ctx context.Context, orgID uuid.UUID, h DemoHistory) er
 func seedMembers(ctx context.Context, tx pgx.Tx, orgID uuid.UUID, members []DemoMember) error {
 	for _, m := range members {
 		u := m.User
-		roles := u.Roles
-		if roles == nil {
-			roles = []string{}
-		}
-		if _, err := tx.Exec(ctx, `INSERT INTO users (id, organization_id, display_name, created_at, last_login_at, roles, show_name_on_boards)
-			VALUES ($1, $2, $3, $4, $5, $6, $7)`, u.ID, orgID, u.DisplayName, u.CreatedAt, u.LastLoginAt, roles, m.ShowName); err != nil {
+		if _, err := tx.Exec(ctx, `INSERT INTO users (id, organization_id, display_name, created_at, last_login_at, show_name_on_boards)
+			VALUES ($1, $2, $3, $4, $5, $6)`, u.ID, orgID, u.DisplayName, u.CreatedAt, u.LastLoginAt, m.ShowName); err != nil {
 			return fmt.Errorf("store: seed demo: member: %w", err)
 		}
-		for _, role := range roles {
+		for _, role := range u.Roles { // instance-wide grants (ADR-0027)
+			if _, err := tx.Exec(ctx, `INSERT INTO role_grants (organization_id, user_id, role, granted_at) VALUES ($1, $2, $3, $4)`,
+				orgID, u.ID, role, u.CreatedAt); err != nil {
+				return fmt.Errorf("store: seed demo: role: %w", err)
+			}
 			if _, err := tx.Exec(ctx, `INSERT INTO role_changes (user_id, role, granted, by_user_id, at) VALUES ($1, $2, true, NULL, $3)`,
 				u.ID, role, u.CreatedAt); err != nil {
 				return fmt.Errorf("store: seed demo: role: %w", err)

@@ -24,9 +24,7 @@ func TestLeaseServiceCallers(t *testing.T) {
 		t.Fatal(err)
 	}
 	mod := r.user(t, "Mod", "3")
-	if _, err := r.ids.SetRole(ctx, mod.ID, store.RoleModerator, true, owner.ID); err != nil {
-		t.Fatal(err)
-	}
+	r.grant(t, owner.ID, mod.ID, store.RoleModerator)
 	member := r.user(t, "Member", "2")
 	client := func(c *http.Client) hubv1connect.ServerLeaseServiceClient {
 		return hubv1connect.NewServerLeaseServiceClient(c, r.srv.URL)

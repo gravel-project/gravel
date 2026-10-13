@@ -1,6 +1,6 @@
 # ADR-0027: Capabilities, five roles as bundles, grants with a game scope, and ownership transfer
 
-**Status:** proposed (2026-10-13; accepted when John merges #184's pull request) · **Changes:** how every procedure decides who may call it; supersedes ADR-0013 §1 and §3, amends ADR-0013 §4 and §5, ADR-0008 §4, ADR-0004 §6, ADR-0023 §7 and README "Human roles" · **Decided in:** John's design session *gravel — Design Session: Hub, Spines & Dashboard* (2026-10-10 to 12), handbook D35 · **Built in three steps:** #184 (§1, §2 and §7: capabilities, who holds them, the access matrix; no behaviour change), #185 (§3 to §5: five roles, game scope, granter rules; **Breaking**), #197 (§6: ownership transfer) · **Part of:** H1 (#182), framed by ADR-0025
+**Status:** accepted (2026-10-13, with #184 in #231) · **Changes:** how every procedure decides who may call it; supersedes ADR-0013 §1 and §3, amends ADR-0013 §4 and §5, ADR-0008 §4, ADR-0004 §6, ADR-0023 §7 and README "Human roles" · **Decided in:** John's design session *gravel — Design Session: Hub, Spines & Dashboard* (2026-10-10 to 12), handbook D35 · **Built in three steps:** #184 (§1, §2 and §7: capabilities, who holds them, the access matrix; no behaviour change), #185 (§3 to §5: five roles, game scope, granter rules; **Breaking**), #197 (§6: ownership transfer) · **Part of:** H1 (#182), framed by ADR-0025
 
 ## Context
 
@@ -75,3 +75,14 @@ The design doc's role table is the target:
 - #185 is **Breaking**: moderators lose park and unpark, which move to operator; the migration grants every existing moderator both moderator and operator, so Hidden Token Gaming's staff notice nothing until the owner prunes. Moderators gain `identity:read` and `stats:read`. Muster's staff check and the bot's `/wd` keep reading `User.roles`, which keeps the instance-wide role names.
 - `users.roles` is read until #185 and dropped by #199 after the grants have run Hidden Token Gaming for a week.
 - Not decided here: custom roles (no: bundles are fixed); per-server scope (no: a game is the grain); a capability for billing (GRVL's).
+
+## As built (#185, 2026-10-13)
+
+- **Grants** are rows of `role_grants` (migration 00025): a member, a role, an optional game that must be one the hub has, who granted it (a member, an app, or neither for the migration). `role_changes` gained the game and the app. `User.roles` is now the member's instance-wide grants by name; `User.grants` carries every grant with its game; `ListRoleGrants` lists them (`identity:read`).
+- **A game-scoped grant gives only the bundle's scopable capabilities** (`servers:*`, `roles:grant`, `events:read`), for that game; the rest (`identity:read`, `stats:read`, `settings:write`…) needs an instance-wide grant. `roles:grant` is scopable so a game-scoped admin grants within their game, as §5 says.
+- **The game is resolved at call time** from the server a procedure names, so a server added to a game later is covered. The two lists that span servers, the audit log and the lease list, admit a caller holding the capability for any game and show them that game's rows.
+- **Leasing in person** needs `servers:lease` everywhere: a lease names a pool, not a server, and leases are an app's (Muster) in practice.
+- **The member base keeps `servers:read`** (who is on a server, on every member's server page); §3's table says so.
+- **App scopes:** `servers:operate` and `roles:grant` (moderator only) became scopes an app may hold. An app holding `servers:moderate` lost park and unpark, which moved to `servers:operate`; no first-party app of Hidden Token Gaming's called them.
+- **The Members page** lists every member's grants with remove buttons and a grant form (role, every game or one) for anyone holding `roles:grant`; the Members link shows to them.
+

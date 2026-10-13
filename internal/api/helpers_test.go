@@ -17,6 +17,7 @@ import (
 	"github.com/gravel-project/gravel/internal/api"
 	"github.com/gravel-project/gravel/internal/apps"
 	"github.com/gravel-project/gravel/internal/apps/appstest"
+	"github.com/gravel-project/gravel/internal/authz"
 	"github.com/gravel-project/gravel/internal/identity"
 	"github.com/gravel-project/gravel/internal/identity/identitytest"
 	"github.com/gravel-project/gravel/internal/identity/proof"
@@ -111,7 +112,7 @@ func newRig(t *testing.T, idOpts ...rigIdentity) *rig {
 	mod := servers.NewModeration(r.srvs, r.drv, r.audit, serverstest.NewBanStore(), o.ID, prometheus.NewRegistry(), logger)
 	mux := http.NewServeMux()
 	member := connect.WithInterceptors(api.MemberTokens()) // as the hub wires it (ADR-0015)
-	access := api.NewAccess(r.org, r.ids, logger)
+	access := api.NewAccess(r.org, r.ids, logger).WithServers(r.srvs)
 	mux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(r.org, access, logger), member))
 	idAPI := api.NewIdentityServer(r.ids, r.sess, r.org, access, logger).WithBaseURL("https://hub.example.com")
 	r.proofSt = prooftest.NewFakeStore()
@@ -235,4 +236,14 @@ func (emptyResults) GetMatchResult(context.Context, uuid.UUID, uuid.UUID) (store
 
 func (emptyResults) ListMatchResults(context.Context, uuid.UUID, store.MatchResultFilter) ([]store.MatchResult, error) {
 	return nil, nil
+}
+
+// grant gives a member roles, instance-wide, as the owner would (ADR-0027).
+func (r *rig) grant(t *testing.T, owner, member uuid.UUID, roles ...string) {
+	t.Helper()
+	for _, role := range roles {
+		if _, err := r.ids.SetRole(context.Background(), authz.ForMember(owner, true, nil), member, role, "", true); err != nil {
+			t.Fatal(err)
+		}
+	}
 }

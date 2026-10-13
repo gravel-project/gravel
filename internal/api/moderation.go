@@ -146,9 +146,19 @@ func (s *ModerationServer) ListServerBans(ctx context.Context, req *connect.Requ
 
 // ListAuditLog is the audit log, newest first.
 func (s *ModerationServer) ListAuditLog(ctx context.Context, req *connect.Request[hubv1.ListAuditLogRequest]) (*connect.Response[hubv1.ListAuditLogResponse], error) {
-	if _, err := s.access.Require(ctx, authz.ServersModerate, authz.Target{ServerID: req.Msg.GetServerId()}); err != nil {
+	// One server's log needs servers:moderate for it; every server's, for at least one game, and a
+	// game-scoped moderator then sees their games' entries only.
+	var p authz.Principal
+	var err error
+	if id := req.Msg.GetServerId(); id != "" {
+		p, err = s.access.Require(ctx, authz.ServersModerate, authz.Target{ServerID: id})
+	} else {
+		p, err = s.access.RequireAny(ctx, authz.ServersModerate)
+	}
+	if err != nil {
 		return nil, err
 	}
+	all, _ := p.Scope(authz.ServersModerate)
 	before, err := decodeAuditToken(req.Msg.GetPageToken())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
@@ -159,7 +169,18 @@ func (s *ModerationServer) ListAuditLog(ctx context.Context, req *connect.Reques
 	}
 	out := &hubv1.ListAuditLogResponse{}
 	names := map[uuid.UUID]string{} // each acting member's name, read once a page
+	visible := map[string]bool{}    // each server's, read once a page
 	for _, e := range entries {
+		if !all {
+			v, seen := visible[e.ServerID]
+			if !seen {
+				v = s.access.Visible(ctx, p, authz.ServersModerate, e.ServerID)
+				visible[e.ServerID] = v
+			}
+			if !v {
+				continue
+			}
+		}
 		p := auditEntry(e)
 		if id := e.ActorUserID; id != nil {
 			if _, ok := names[*id]; !ok {

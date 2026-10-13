@@ -156,9 +156,7 @@ func TestGetMeCapabilities(t *testing.T) {
 		t.Fatal(err)
 	}
 	mod := r.user(t, "Mod", "2")
-	if _, err := r.ids.SetRole(ctx, mod.ID, store.RoleModerator, true, owner.ID); err != nil {
-		t.Fatal(err)
-	}
+	r.grant(t, owner.ID, mod.ID, store.RoleModerator)
 	member := r.user(t, "Member", "3")
 	caps := func(cookie string) []string {
 		t.Helper()
@@ -177,7 +175,7 @@ func TestGetMeCapabilities(t *testing.T) {
 	if slices.Contains(ownerCaps, "participation:write") {
 		t.Errorf("the owner holds an app's own capability: %v", ownerCaps)
 	}
-	if got := caps(r.login(t, mod.ID)); !slices.Equal(got, []string{"servers:read", "servers:moderate", "servers:lease"}) {
+	if got := caps(r.login(t, mod.ID)); !slices.Equal(got, []string{"identity:read", "servers:read", "servers:moderate", "servers:lease", "stats:read", "events:read"}) {
 		t.Errorf("moderator = %v", got)
 	}
 	if got := caps(r.login(t, member.ID)); !slices.Equal(got, []string{"servers:read"}) {
@@ -187,7 +185,7 @@ func TestGetMeCapabilities(t *testing.T) {
 	// A member's token reads the member as they are in person; the token's own scopes narrow what
 	// it may call, not what the member holds.
 	me, err := hubv1connect.NewIdentityServiceClient(memberClient(r.memberToken(t, mod.ID, nil)), r.srv.URL).GetMe(ctx, connect.NewRequest(&hubv1.GetMeRequest{}))
-	if err != nil || !slices.Equal(me.Msg.GetUser().GetCapabilities(), []string{"servers:read", "servers:moderate", "servers:lease"}) {
+	if err != nil || !slices.Equal(me.Msg.GetUser().GetCapabilities(), []string{"identity:read", "servers:read", "servers:moderate", "servers:lease", "stats:read", "events:read"}) {
 		t.Errorf("moderator through a token: %v %v", me, err)
 	}
 
