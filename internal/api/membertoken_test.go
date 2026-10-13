@@ -196,9 +196,7 @@ func TestMemberTokenIsNeverTheApp(t *testing.T) {
 		t.Fatal(err)
 	}
 	mod := r.user(t, "Mod", "42")
-	if _, err := r.ids.SetRole(ctx, mod.ID, store.RoleModerator, true, owner.ID); err != nil {
-		t.Fatal(err)
-	}
+	r.grant(t, owner.ID, mod.ID, store.RoleModerator)
 	member := r.user(t, "Member", "7")
 	scopes := []string{apps.ScopeServersModerate, apps.ScopeServersConfigure}
 	kick := &hubv1.KickPlayerRequest{ServerId: "wd-1", Subject: steamA, Reason: "afk"}

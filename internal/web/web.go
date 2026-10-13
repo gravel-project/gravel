@@ -652,7 +652,8 @@ func (h *Handler) page(r *http.Request, title string) (pageData, *browser, error
 		switch {
 		case err == nil:
 			u := me.Msg.GetUser()
-			p.User = &templates.User{ID: u.GetId(), DisplayName: u.GetDisplayName(), Owner: u.GetOwner(), Moderator: slices.Contains(u.GetRoles(), "moderator")}
+			p.User = &templates.User{ID: u.GetId(), DisplayName: u.GetDisplayName(), Owner: u.GetOwner(),
+				Moderator: holdsSomewhere(u, "servers:moderate", "moderator", "admin"), CanGrant: holdsSomewhere(u, "roles:grant", "admin")}
 			p.CSRF = s.CSRFToken
 			for _, i := range u.GetIdentities() {
 				v := templates.Identity{Provider: i.GetProvider(), Subject: i.GetSubject(), DisplayName: i.GetDisplayName(), AvatarURL: i.GetAvatarUrl(), Method: i.GetVerificationMethod(), VerifiedAt: i.GetVerifiedAt().AsTime()}
@@ -763,4 +764,13 @@ func (h *Handler) renderWithPolicy(w http.ResponseWriter, r *http.Request, statu
 	hdr.Set("Vary", "HX-Request, Cookie")
 	w.WriteHeader(status)
 	_, _ = buf.WriteTo(w)
+}
+
+// holdsSomewhere reports whether a member holds a capability instance-wide (capabilities) or for
+// some game (a game-scoped grant of one of roles, whose bundle has it; ADR-0027 §4).
+func holdsSomewhere(u *hubv1.User, capability string, roles ...string) bool {
+	if u.GetOwner() || slices.Contains(u.GetCapabilities(), capability) {
+		return true
+	}
+	return slices.ContainsFunc(u.GetGrants(), func(g *hubv1.RoleGrant) bool { return g.GetGameId() != "" && slices.Contains(roles, g.GetRole()) })
 }

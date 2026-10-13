@@ -500,7 +500,7 @@ func (h *Hub) buildAPI() *http.ServeMux {
 	mux := http.NewServeMux()
 	// A member's token (ADR-0015) is held to its scopes before any procedure runs.
 	interceptors := connect.WithInterceptors(h.metrics.Interceptor(), ratelimit.Interceptor(h.scopes(), h.rejected), api.MemberTokens())
-	access := api.NewAccess(h.org, h.ids, h.logger) // who is calling, for every capability check (ADR-0027)
+	access := api.NewAccess(h.org, h.ids, h.logger).WithServers(h.servers) // who is calling, for every capability check (ADR-0027)
 	mux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(h.org, access, h.logger), interceptors))
 	identityAPI := api.NewIdentityServer(h.ids, h.sess, h.org, access, h.logger).WithBaseURL(h.cfg.Auth.BaseURL)
 	identityAPI.SetProofs(h.proofs, h.servers, h.monitor)

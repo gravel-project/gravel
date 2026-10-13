@@ -134,7 +134,8 @@ Public listener (`server.listen`), HTTP/1.1 and unencrypted HTTP/2 so gRPC works
 | `/gravel.hub.v1.IdentityService/RevokeSessions` | log out everywhere; answers how many sessions ended and clears the cookie |
 | `/gravel.hub.v1.IdentityService/LookupUser` | `{"provider": "discord", "subject": "…"}` → the user and their identities, for role sync; an app with `identity:read`, or the owner |
 | `/gravel.hub.v1.IdentityService/ListUsers` | `{"page_size": 100, "page_token": "…"}` → members with their identities, oldest first, and the next page's token; role sync's full pass; `identity:read` or the owner |
-| `/gravel.hub.v1.IdentityService/SetUserRole` | `{"user_id": "…", "role": "moderator", "granted": true}` → the member with their roles and capabilities ([Capabilities](#capabilities-adr-0027)); every change recorded; `roles:grant` (the owner, in person) |
+| `/gravel.hub.v1.IdentityService/SetUserRole` | `{"user_id": "…", "role": "operator", "game_id": "cs2", "granted": true}` → the member with their roles, grants and capabilities ([Roles](#roles)); `roles:grant` for the grant's scope, admin grants by the owner only, an app moderator only, never one's own; every change recorded |
+| `/gravel.hub.v1.IdentityService/ListRoleGrants` | `{"user_id": "…"}` (or `{}` for everyone) → who holds which role where; `identity:read` |
 | `/gravel.hub.v1.IdentityService/ListIdentityEvents` | `{"after_id": 0, "limit": 100}` → the identity log after a position, oldest first, the id to continue from, and the log's newest id (`head_id`, where a reader that just made a full pass starts); role sync's incremental pass; `identity:read` or the owner |
 | `/gravel.hub.v1.ServerService/ListGames` | the enabled games, their identity provider, bands, layout and `no_paid_perks`; public |
 | `/gravel.hub.v1.ServerService/ListServers` | every server with its last observation (state, reachable, players and max, map, teams with their scores and, when the hub can count them, their players, capabilities, build, `observed_at`); public, no personal data, never a control address |
@@ -473,7 +474,9 @@ curl -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{
 |---|---|
 | `identity:read` | `LookupUser`, `ListUsers`, `ListIdentityEvents`: members and their identities, for role sync |
 | `servers:read` | `ListServerPlayers`: who is on a server, for a live card (the rest of `ServerService` is public), and a server's shared join password in `ServerStatus.join` (`vm.share_password`, #180) |
-| `servers:moderate` | `ModerationService`: kick, ban, unban, message, broadcast and move players, list a server's bans, read the audit log; `SetServerHostDesired` and `SetServerHostExpectation`: park and unpark a cloud-VM server |
+| `servers:moderate` | `ModerationService`: kick, ban, unban, message, broadcast and move players, list a server's bans, read the audit log |
+| `servers:operate` | `SetServerHostDesired` and `SetServerHostExpectation`: park and unpark a cloud-VM server, and say how many players to expect |
+| `roles:grant` | `SetUserRole`, for moderator grants only: Discord role sync's ceiling ([Roles](#roles)) |
 | `servers:lease` | `ServerLeaseService`: take a leasable server for a match and give it back ([Server leases](#server-leases-adr-0023)) |
 | `servers:configure` | `ServerConfigService`: read, plan and apply a server's configuration |
 | `stats:read` | `StatsService`'s boards, match lists and match results while the settings keep stats private |
@@ -1295,35 +1298,64 @@ scopes are the same names, so one word says what a role, a member's token and an
 | Caller | Holds |
 |---|---|
 | Nobody | Nothing: a procedure that needs a capability answers `unauthenticated` |
-| A member in person | `servers:read`, plus their roles' capabilities |
-| A moderator in person | `servers:read`, `servers:moderate`, `servers:lease` |
+| A member in person | `servers:read`, plus their grants' roles (below) |
 | The owner in person | Every capability a person can hold (not `participation:write`, which is an app's own) |
 | A member's token | What the member holds, narrowed to the token's scopes ([Members sign in to apps](#members-sign-in-to-apps-adr-0015)) |
 | An app | Its scopes, of the capabilities an app may hold ([Service credentials](#service-credentials-adr-0008)) |
 
-A caller who lacks the capability gets `permission_denied`. An app with `servers:moderate` that
-names `on_behalf_of` acts only for a member who holds `servers:moderate` themselves; without it, it
-acts for itself. A lease's `on_behalf_of` names the member the lease is for, who must be a member of
-the hub. `GetMe` and `ListUsers` return each member's `capabilities`.
+A caller who lacks the capability gets `permission_denied`. An app that names `on_behalf_of` acts
+only for a member who holds the capability themselves; without it, it acts for itself. A lease's
+`on_behalf_of` names the member the lease is for, who must be a member of the hub. `GetMe` and
+`ListUsers` return each member's `roles` (instance-wide grants), `grants` (with their game) and
+`capabilities` (what they hold instance-wide).
 
-| Capability | Admits | Held by today |
+### Roles
+
+Five roles, fixed bundles of capabilities (ADR-0027 §3):
+
+| Role | Holds | How someone gets it |
 |---|---|---|
-| `identity:read` | `LookupUser`, `ListUsers`, `ListIdentityEvents` | the owner; apps |
-| `servers:read` | `ListServerPlayers`, `GetServerHost`, `ListServerHostEvents` | every member; apps |
-| `servers:moderate` | `ModerationService`; `SetServerHostDesired`, `SetServerHostExpectation` (park, unpark) | the owner, moderators; apps |
-| `servers:lease` | `ServerLeaseService` | the owner, moderators in person; apps |
-| `servers:configure` | `ServerConfigService` | the owner; apps |
-| `stats:read` | the boards, match lists and match results while stats are private | the owner; apps |
-| `participation:write` | `RecordParticipation` | apps only |
-| `servers:provision` | `ResizeServerHost`, `UnpinServerHostSize`, `SnapshotServerHostVolume`, `DestroyServerHost` | the owner in person |
-| `roles:grant` | `SetUserRole` | the owner in person |
-| `settings:write` | `UpdateOrganizationSettings` | the owner in person |
-| `servers:operate`, `servers:manage`, `members:manage`, `apps:manage`, `events:read`, `metrics:read`, `stats:erase`, `org:transfer` | named now; their procedures arrive with H1 (#185 to #204) | the owner |
+| Owner | Every capability a person can hold, `org:transfer` included | The owner claim; exactly one, never a grant |
+| Admin | Everything but `org:transfer`, including what costs money (`servers:provision`), settings, roles and apps | A grant, by the owner only |
+| Operator | `servers:read`, `servers:operate` (park, unpark, the expectation), `servers:configure`, `servers:lease`, `events:read`, `stats:read`, `metrics:read` | A grant |
+| Moderator | `servers:read`, `servers:moderate`, `servers:lease`, `identity:read`, `events:read`, `stats:read` | A grant |
+| Member | `servers:read` | Being a member |
 
-**Roles.** The owner grants members the **moderator** role on the Members page (`/members`) or with
-`IdentityService.SetUserRole`. Every grant and revocation is kept in `role_changes` (who, by whom,
-when), which can't be changed. Five roles with a game scope (owner, admin, operator, moderator,
-member) and ownership transfer follow in #185 and #197 (ADR-0027 §3 to §6).
+**A grant can be for one game** (`game_id`): it gives the role's **scopable** capabilities
+(`servers:*`, `roles:grant`, `events:read`) for that game's servers, those added later included,
+and the rest of the bundle not at all. A game-scoped admin can't change the settings or the servers
+manifest; a game-scoped moderator sees the instance-wide audit log and lease list filtered to their
+games. Leasing in person needs `servers:lease` everywhere; leases are mostly an app's (Muster).
+
+**Who may grant what** (ADR-0027 §5): a grant needs `roles:grant` for its scope (everywhere for an
+instance-wide grant, or for the game); only the owner changes an admin grant; an app holding
+`roles:grant` changes moderator grants only (so Discord role sync can never grant more); nobody
+changes their own. Grants are made on the Members page (`/members`, for anyone holding
+`roles:grant`) or with `IdentityService.SetUserRole`; `ListRoleGrants` lists them
+(`identity:read`). Every grant and revocation is kept in `role_changes` (who or which app, the game,
+when), which can't be changed.
+
+**From ADR-0013's roles** (migration 00025): every member who held `moderator` holds a moderator
+grant and an operator grant, so park and unpark, which moved to operator, still work for them.
+Prune the operator grants on the Members page where they don't belong. `users.roles` is no longer
+read and goes in #199.
+
+| Capability | Admits | Held by |
+|---|---|---|
+| `identity:read` | `LookupUser`, `ListUsers`, `ListIdentityEvents`, `ListRoleGrants` | admins, moderators; apps |
+| `servers:read` | `ListServerPlayers`, `GetServerHost`, `ListServerHostEvents` | every member; apps |
+| `servers:moderate` | `ModerationService` | admins, moderators; apps |
+| `servers:operate` | `SetServerHostDesired`, `SetServerHostExpectation` (park, unpark, the expectation) | admins, operators; apps |
+| `servers:lease` | `ServerLeaseService` | admins, operators, moderators; apps |
+| `servers:configure` | `ServerConfigService` | admins, operators; apps |
+| `servers:provision` | `ResizeServerHost`, `UnpinServerHostSize`, `SnapshotServerHostVolume`, `DestroyServerHost` | admins |
+| `stats:read` | the boards, match lists and match results while stats are private | admins, operators, moderators; apps |
+| `participation:write` | `RecordParticipation` | apps only |
+| `roles:grant` | `SetUserRole` | admins; apps (moderator only) |
+| `members:manage` | `CreateLocalAccount`, `IssuePasswordReset` | admins |
+| `settings:write` | `UpdateOrganizationSettings` | admins |
+| `servers:manage`, `apps:manage`, `events:read`, `metrics:read`, `stats:erase` | named now; their procedures arrive with H1 | per the roles above |
+| `org:transfer` | ownership transfer (#197) | the owner alone |
 
 **The access matrix.** `internal/api/testdata/access_matrix.txt` is every procedure's answer to every
 kind of caller, and `TestAccessMatrix` fails when it changes. A change to who may call what is a

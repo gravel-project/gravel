@@ -68,17 +68,17 @@ type Spec struct {
 var specs = []Spec{
 	{Name: IdentityRead, Apps: true, About: "look up members and their identities (LookupUser, ListUsers, ListIdentityEvents)"},
 	{Name: ServersRead, Apps: true, Scopable: true, About: "see who is on a server and its host: names and provider identities (ListServerPlayers, GetServerHost, ListServerHostEvents)"},
-	{Name: ServersModerate, Apps: true, Scopable: true, About: "kick, ban, unban, message, broadcast to and move a server's players, list its bans, read the audit log, and park or unpark a cloud-VM server (ModerationService, SetServerHostDesired, SetServerHostExpectation)"},
+	{Name: ServersModerate, Apps: true, Scopable: true, About: "kick, ban, unban, message, broadcast to and move a server's players, list its bans and read the audit log (ModerationService)"},
 	{Name: ServersLease, Apps: true, Scopable: true, About: "take a leasable server for a match and give it back (ServerLeaseService)"},
 	{Name: ServersConfigure, Apps: true, Scopable: true, About: "read, plan and apply a server's configuration (ServerConfigService)"},
 	{Name: StatsRead, Apps: true, About: "read the stats and participation boards, match lists and match results while stats are not public (StatsService)"},
 	{Name: ParticipationWrite, Apps: true, AppOnly: true, About: "record participation events from a first-party app (StatsService RecordParticipation)"},
 
-	{Name: ServersOperate, Scopable: true, About: "start, park and restart existing servers at their size (#185)"},
+	{Name: ServersOperate, Apps: true, Scopable: true, About: "park and unpark a cloud-VM server and set what it should expect: an existing server at its size (SetServerHostDesired, SetServerHostExpectation)"},
 	{Name: ServersProvision, Scopable: true, About: "resize, pin, snapshot and destroy a cloud-VM server's host: anything that changes what the hub spends (ResizeServerHost, UnpinServerHostSize, SnapshotServerHostVolume, DestroyServerHost)"},
 	{Name: ServersManage, About: "add, change and remove servers: the servers manifest (#195)"},
 	{Name: MembersManage, About: "create local accounts and issue their set-password and reset links (CreateLocalAccount, IssuePasswordReset)"},
-	{Name: RolesGrant, About: "grant and revoke members' roles (SetUserRole)"},
+	{Name: RolesGrant, Apps: true, Scopable: true, About: "grant and revoke members' roles (SetUserRole, ListRoleGrants); an app grants moderator only, and a game-scoped holder only within that game"},
 	{Name: SettingsWrite, About: "change the Organization settings (UpdateOrganizationSettings)"},
 	{Name: AppsManage, About: "register and revoke first-party apps (#195)"},
 	{Name: EventsRead, Scopable: true, About: "read the hub's events log (#188)"},
@@ -110,38 +110,55 @@ func AppScopes() []string {
 	return out
 }
 
-// Role names a bundle of capabilities.
+// Role names a bundle of capabilities (ADR-0027 §3). The bundles are fixed here, not
+// host-editable, so "role sync never grants admin" holds.
 type Role string
 
-// The roles this package knows. ADR-0027 has five (owner, admin, operator, moderator, member);
-// admin and operator arrive with role grants (#185), which also replace Moderator's transitional
-// bundle with ADR-0027's.
+// The five roles. Owner is never a grant (exactly one, organizations.owner_user_id); Member is the
+// base every registered member holds; Admin, Operator and Moderator are granted.
 const (
 	Owner     Role = "owner"
+	Admin     Role = "admin"
+	Operator  Role = "operator"
 	Moderator Role = "moderator"
 	Member    Role = "member"
 )
 
-// bundles are each role's capabilities. Until #185 they are exactly what the hub admitted before
-// capabilities (ADR-0013): a moderator moderates, parks and unparks, and leases; every member
-// sees who is on a server.
+// GrantableRoles are the roles a grant may carry, highest first.
+var GrantableRoles = []Role{Admin, Operator, Moderator}
+
+// IsGrantable reports whether r is a role a grant may carry.
+func IsGrantable(r string) bool { return slices.Contains(GrantableRoles, Role(r)) }
+
 var bundles = map[Role][]Capability{
-	Moderator: {ServersRead, ServersModerate, ServersLease},
-	Member:    {ServersRead},
+	// Operate is an existing host at its size; provision is anything that changes spend.
+	Operator:  {ServersRead, ServersOperate, ServersConfigure, ServersLease, EventsRead, StatsRead, MetricsRead},
+	Moderator: {ServersRead, ServersModerate, ServersLease, IdentityRead, EventsRead, StatsRead},
+	// Every signed-in member sees who is on a server: the server page shows it.
+	Member: {ServersRead},
 }
 
-// Bundle is a role's capabilities. The owner's is every capability a person can hold.
+// Bundle is a role's capabilities. The owner's is every capability a person can hold; an admin's
+// is the owner's but org:transfer.
 func Bundle(r Role) []Capability {
-	if r == Owner {
+	switch r {
+	case Owner, Admin:
 		var out []Capability
 		for _, s := range specs {
-			if !s.AppOnly {
+			if !s.AppOnly && (r == Owner || s.Name != OrgTransfer) {
 				out = append(out, s.Name)
 			}
 		}
 		return out
 	}
 	return slices.Clone(bundles[r])
+}
+
+// Grant is a role a member holds: instance-wide, or for one game (GameID) when the role's
+// capabilities are scopable (ADR-0027 §4).
+type Grant struct {
+	Role   string
+	GameID string // "" is instance-wide
 }
 
 // Kind is how a caller reached the hub.
@@ -174,7 +191,8 @@ type Target struct {
 	GameID   string
 }
 
-// Principal is a caller and the capabilities they hold.
+// Principal is a caller and the capabilities they hold: instance-wide, and per game from
+// game-scoped grants.
 type Principal struct {
 	Kind Kind
 	// UserID is the member (InPerson, MemberToken).
@@ -184,29 +202,48 @@ type Principal struct {
 	AppName string
 	// Owner says the member owns the hub.
 	Owner bool
-	caps  []Capability
+	// Grants are the member's grants as given (InPerson, MemberToken).
+	Grants []Grant
+	caps   []Capability
+	scoped map[string][]Capability // game id -> capabilities held for that game alone
 }
 
 // Nobody is the anonymous caller.
 func Nobody() Principal { return Principal{} }
 
-// ForMember is a member in person: the owner holds Bundle(Owner); anyone else the member base
-// and their roles' bundles. A role this package doesn't know adds nothing.
-func ForMember(userID uuid.UUID, owner bool, roles []string) Principal {
-	p := Principal{Kind: InPerson, UserID: userID, Owner: owner}
+// ForMember is a member in person: the owner holds Bundle(Owner); anyone else the member base and
+// their grants' bundles. An instance-wide grant adds its whole bundle everywhere; a game-scoped
+// one adds only the bundle's scopable capabilities, and only for that game. A role this package
+// doesn't know adds nothing.
+func ForMember(userID uuid.UUID, owner bool, grants []Grant) Principal {
+	p := Principal{Kind: InPerson, UserID: userID, Owner: owner, Grants: slices.Clone(grants)}
 	if owner {
 		p.caps = Bundle(Owner)
 		return p
 	}
-	set := Bundle(Member)
-	for _, r := range roles {
-		for _, c := range bundles[Role(r)] {
-			if !slices.Contains(set, c) {
-				set = append(set, c)
+	p.caps = Bundle(Member)
+	for _, g := range grants {
+		if !IsGrantable(g.Role) {
+			continue
+		}
+		for _, c := range Bundle(Role(g.Role)) {
+			if g.GameID == "" {
+				if !slices.Contains(p.caps, c) {
+					p.caps = append(p.caps, c)
+				}
+				continue
+			}
+			if s, ok := Lookup(string(c)); !ok || !s.Scopable {
+				continue
+			}
+			if p.scoped == nil {
+				p.scoped = map[string][]Capability{}
+			}
+			if !slices.Contains(p.scoped[g.GameID], c) {
+				p.scoped[g.GameID] = append(p.scoped[g.GameID], c)
 			}
 		}
 	}
-	p.caps = set
 	return p
 }
 
@@ -215,7 +252,19 @@ func ForMember(userID uuid.UUID, owner bool, roles []string) Principal {
 func (p Principal) Through(appID uuid.UUID, appName string, scopes []string) Principal {
 	q := p
 	q.Kind, q.AppID, q.AppName = MemberToken, appID, appName
-	q.caps = slices.DeleteFunc(slices.Clone(p.caps), func(c Capability) bool { return !slices.Contains(scopes, string(c)) })
+	keep := func(cs []Capability) []Capability {
+		return slices.DeleteFunc(slices.Clone(cs), func(c Capability) bool { return !slices.Contains(scopes, string(c)) })
+	}
+	q.caps = keep(p.caps)
+	q.scoped = nil
+	for game, cs := range p.scoped {
+		if k := keep(cs); len(k) > 0 {
+			if q.scoped == nil {
+				q.scoped = map[string][]Capability{}
+			}
+			q.scoped[game] = k
+		}
+	}
 	return q
 }
 
@@ -231,7 +280,7 @@ func ForApp(appID uuid.UUID, name string, scopes []string) Principal {
 	return p
 }
 
-// Capabilities is what the caller holds, in Specs order.
+// Capabilities is what the caller holds instance-wide, in Specs order.
 func (p Principal) Capabilities() []Capability {
 	var out []Capability
 	for _, s := range specs {
@@ -242,8 +291,29 @@ func (p Principal) Capabilities() []Capability {
 	return out
 }
 
-// Has reports whether the caller holds c for t.
-func (p Principal) Has(c Capability, _ Target) bool { return slices.Contains(p.caps, c) }
+// Has reports whether the caller holds c for t: instance-wide, or for t's game.
+func (p Principal) Has(c Capability, t Target) bool {
+	if slices.Contains(p.caps, c) {
+		return true
+	}
+	return t.GameID != "" && slices.Contains(p.scoped[t.GameID], c)
+}
+
+// Scope says where the caller holds c: everywhere (all), or only for the games listed, sorted.
+// Neither means nowhere. A list that isn't per server (the audit log, leases) shows a scoped
+// caller only their games' rows.
+func (p Principal) Scope(c Capability) (all bool, games []string) {
+	if slices.Contains(p.caps, c) {
+		return true, nil
+	}
+	for game, cs := range p.scoped {
+		if slices.Contains(cs, c) {
+			games = append(games, game)
+		}
+	}
+	slices.Sort(games)
+	return false, games
+}
 
 // The refusals Check returns, for the API to map: ErrUnauthenticated when nobody is calling,
 // ErrDenied when the caller lacks the capability.

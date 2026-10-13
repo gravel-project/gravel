@@ -153,7 +153,7 @@ func Layout(p Page) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if p.User != nil && p.User.Owner {
+		if p.User != nil && p.User.CanGrant {
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<a href=\"/members\">Members</a> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err

@@ -190,7 +190,7 @@ func (h *Handler) host(w http.ResponseWriter, r *http.Request) {
 		return
 	case connect.CodePermissionDenied:
 		b.relay(w)
-		h.fail(w, r, http.StatusForbidden, "Not yours to do", "Moderators can park and start a server and say how many players to expect; only the hub's owner can resize, pin, snapshot or destroy its machine.")
+		h.fail(w, r, http.StatusForbidden, "Not yours to do", "Operators can park and start a server and say how many players to expect; resizing, pinning, snapshotting or destroying its machine is for the owner and admins.")
 		return
 	case connect.CodeNotFound, connect.CodeInvalidArgument, connect.CodeFailedPrecondition, connect.CodeUnavailable:
 		h.setFlash(w, "err", "Nothing done: "+connectMessage(err)+".")

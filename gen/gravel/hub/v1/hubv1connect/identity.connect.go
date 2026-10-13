@@ -61,6 +61,9 @@ const (
 	// IdentityServiceIssuePasswordResetProcedure is the fully-qualified name of the IdentityService's
 	// IssuePasswordReset RPC.
 	IdentityServiceIssuePasswordResetProcedure = "/gravel.hub.v1.IdentityService/IssuePasswordReset"
+	// IdentityServiceListRoleGrantsProcedure is the fully-qualified name of the IdentityService's
+	// ListRoleGrants RPC.
+	IdentityServiceListRoleGrantsProcedure = "/gravel.hub.v1.IdentityService/ListRoleGrants"
 	// IdentityServiceStartProofProcedure is the fully-qualified name of the IdentityService's
 	// StartProof RPC.
 	IdentityServiceStartProofProcedure = "/gravel.hub.v1.IdentityService/StartProof"
@@ -89,8 +92,9 @@ type IdentityServiceClient interface {
 	// ListIdentityEvents returns the identity log after a position, oldest first: a reconciler's
 	// incremental pass. An app with identity:read, or the owner.
 	ListIdentityEvents(context.Context, *connect.Request[v1.ListIdentityEventsRequest]) (*connect.Response[v1.ListIdentityEventsResponse], error)
-	// SetUserRole grants or revokes a member's role (ADR-0013); every change is recorded with who
-	// made it. The owner only; the owner holds every power already and needs no role.
+	// SetUserRole grants or revokes a member's role, instance-wide or for one game (ADR-0027 §5):
+	// roles:grant for that scope; only the owner changes an admin grant; an app changes moderator
+	// only; nobody changes their own. Every change is recorded with who made it.
 	SetUserRole(context.Context, *connect.Request[v1.SetUserRoleRequest]) (*connect.Response[v1.SetUserRoleResponse], error)
 	// CreateLocalAccount makes a member with a local account (ADR-0026) and returns the one-time link
 	// that sets its password: how staff give someone an account while registration is closed.
@@ -99,6 +103,8 @@ type IdentityServiceClient interface {
 	// IssuePasswordReset returns a one-time link that resets a local account's password; the
 	// account's earlier unused links stop working. members:manage, in person.
 	IssuePasswordReset(context.Context, *connect.Request[v1.IssuePasswordResetRequest]) (*connect.Response[v1.IssuePasswordResetResponse], error)
+	// ListRoleGrants lists who holds which role where. identity:read.
+	ListRoleGrants(context.Context, *connect.Request[v1.ListRoleGrantsRequest]) (*connect.Response[v1.ListRoleGrantsResponse], error)
 	// StartProof draws a one-time code the caller types in a game server's chat to prove the account
 	// they play as (gravel#5): the server's log names the account, and the hub links it to the
 	// caller (or proves an existing link again; another member's account stays theirs). Good for ten
@@ -180,6 +186,12 @@ func NewIdentityServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 			connect.WithSchema(identityServiceMethods.ByName("IssuePasswordReset")),
 			connect.WithClientOptions(opts...),
 		),
+		listRoleGrants: connect.NewClient[v1.ListRoleGrantsRequest, v1.ListRoleGrantsResponse](
+			httpClient,
+			baseURL+IdentityServiceListRoleGrantsProcedure,
+			connect.WithSchema(identityServiceMethods.ByName("ListRoleGrants")),
+			connect.WithClientOptions(opts...),
+		),
 		startProof: connect.NewClient[v1.StartProofRequest, v1.StartProofResponse](
 			httpClient,
 			baseURL+IdentityServiceStartProofProcedure,
@@ -207,6 +219,7 @@ type identityServiceClient struct {
 	setUserRole        *connect.Client[v1.SetUserRoleRequest, v1.SetUserRoleResponse]
 	createLocalAccount *connect.Client[v1.CreateLocalAccountRequest, v1.CreateLocalAccountResponse]
 	issuePasswordReset *connect.Client[v1.IssuePasswordResetRequest, v1.IssuePasswordResetResponse]
+	listRoleGrants     *connect.Client[v1.ListRoleGrantsRequest, v1.ListRoleGrantsResponse]
 	startProof         *connect.Client[v1.StartProofRequest, v1.StartProofResponse]
 	getProof           *connect.Client[v1.GetProofRequest, v1.GetProofResponse]
 }
@@ -261,6 +274,11 @@ func (c *identityServiceClient) IssuePasswordReset(ctx context.Context, req *con
 	return c.issuePasswordReset.CallUnary(ctx, req)
 }
 
+// ListRoleGrants calls gravel.hub.v1.IdentityService.ListRoleGrants.
+func (c *identityServiceClient) ListRoleGrants(ctx context.Context, req *connect.Request[v1.ListRoleGrantsRequest]) (*connect.Response[v1.ListRoleGrantsResponse], error) {
+	return c.listRoleGrants.CallUnary(ctx, req)
+}
+
 // StartProof calls gravel.hub.v1.IdentityService.StartProof.
 func (c *identityServiceClient) StartProof(ctx context.Context, req *connect.Request[v1.StartProofRequest]) (*connect.Response[v1.StartProofResponse], error) {
 	return c.startProof.CallUnary(ctx, req)
@@ -291,8 +309,9 @@ type IdentityServiceHandler interface {
 	// ListIdentityEvents returns the identity log after a position, oldest first: a reconciler's
 	// incremental pass. An app with identity:read, or the owner.
 	ListIdentityEvents(context.Context, *connect.Request[v1.ListIdentityEventsRequest]) (*connect.Response[v1.ListIdentityEventsResponse], error)
-	// SetUserRole grants or revokes a member's role (ADR-0013); every change is recorded with who
-	// made it. The owner only; the owner holds every power already and needs no role.
+	// SetUserRole grants or revokes a member's role, instance-wide or for one game (ADR-0027 §5):
+	// roles:grant for that scope; only the owner changes an admin grant; an app changes moderator
+	// only; nobody changes their own. Every change is recorded with who made it.
 	SetUserRole(context.Context, *connect.Request[v1.SetUserRoleRequest]) (*connect.Response[v1.SetUserRoleResponse], error)
 	// CreateLocalAccount makes a member with a local account (ADR-0026) and returns the one-time link
 	// that sets its password: how staff give someone an account while registration is closed.
@@ -301,6 +320,8 @@ type IdentityServiceHandler interface {
 	// IssuePasswordReset returns a one-time link that resets a local account's password; the
 	// account's earlier unused links stop working. members:manage, in person.
 	IssuePasswordReset(context.Context, *connect.Request[v1.IssuePasswordResetRequest]) (*connect.Response[v1.IssuePasswordResetResponse], error)
+	// ListRoleGrants lists who holds which role where. identity:read.
+	ListRoleGrants(context.Context, *connect.Request[v1.ListRoleGrantsRequest]) (*connect.Response[v1.ListRoleGrantsResponse], error)
 	// StartProof draws a one-time code the caller types in a game server's chat to prove the account
 	// they play as (gravel#5): the server's log names the account, and the hub links it to the
 	// caller (or proves an existing link again; another member's account stays theirs). Good for ten
@@ -378,6 +399,12 @@ func NewIdentityServiceHandler(svc IdentityServiceHandler, opts ...connect.Handl
 		connect.WithSchema(identityServiceMethods.ByName("IssuePasswordReset")),
 		connect.WithHandlerOptions(opts...),
 	)
+	identityServiceListRoleGrantsHandler := connect.NewUnaryHandler(
+		IdentityServiceListRoleGrantsProcedure,
+		svc.ListRoleGrants,
+		connect.WithSchema(identityServiceMethods.ByName("ListRoleGrants")),
+		connect.WithHandlerOptions(opts...),
+	)
 	identityServiceStartProofHandler := connect.NewUnaryHandler(
 		IdentityServiceStartProofProcedure,
 		svc.StartProof,
@@ -412,6 +439,8 @@ func NewIdentityServiceHandler(svc IdentityServiceHandler, opts ...connect.Handl
 			identityServiceCreateLocalAccountHandler.ServeHTTP(w, r)
 		case IdentityServiceIssuePasswordResetProcedure:
 			identityServiceIssuePasswordResetHandler.ServeHTTP(w, r)
+		case IdentityServiceListRoleGrantsProcedure:
+			identityServiceListRoleGrantsHandler.ServeHTTP(w, r)
 		case IdentityServiceStartProofProcedure:
 			identityServiceStartProofHandler.ServeHTTP(w, r)
 		case IdentityServiceGetProofProcedure:
@@ -463,6 +492,10 @@ func (UnimplementedIdentityServiceHandler) CreateLocalAccount(context.Context, *
 
 func (UnimplementedIdentityServiceHandler) IssuePasswordReset(context.Context, *connect.Request[v1.IssuePasswordResetRequest]) (*connect.Response[v1.IssuePasswordResetResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.IdentityService.IssuePasswordReset is not implemented"))
+}
+
+func (UnimplementedIdentityServiceHandler) ListRoleGrants(context.Context, *connect.Request[v1.ListRoleGrantsRequest]) (*connect.Response[v1.ListRoleGrantsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.IdentityService.ListRoleGrants is not implemented"))
 }
 
 func (UnimplementedIdentityServiceHandler) StartProof(context.Context, *connect.Request[v1.StartProofRequest]) (*connect.Response[v1.StartProofResponse], error) {

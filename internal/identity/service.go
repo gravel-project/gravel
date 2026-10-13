@@ -11,12 +11,12 @@ import (
 	"io"
 	"log/slog"
 	"net/url"
-	"slices"
 	"sort"
 	"time"
 
 	"github.com/google/uuid"
 
+	"github.com/gravel-project/gravel/internal/authz"
 	"github.com/gravel-project/gravel/internal/store"
 )
 
@@ -37,7 +37,8 @@ type Store interface {
 	ListIdentitiesForUsers(ctx context.Context, userIDs []uuid.UUID) ([]store.Identity, error)
 	ListIdentityEventsAfter(ctx context.Context, afterID int64, limit int) ([]store.IdentityEvent, error)
 	IdentityEventsHead(ctx context.Context) (int64, error)
-	SetUserRole(ctx context.Context, userID uuid.UUID, role string, granted bool, by *uuid.UUID, at time.Time) (store.User, error)
+	SetRoleGrant(ctx context.Context, userID uuid.UUID, role, gameID string, granted bool, ch store.RoleChange) (bool, error)
+	RoleGrants(ctx context.Context, userIDs []uuid.UUID) ([]store.RoleGrant, error)
 }
 
 // Registration is a provider and what it may be used for.
@@ -376,22 +377,20 @@ func (s *Service) identity(acct Account, now time.Time) store.Identity {
 	}
 }
 
-// User is a user with their linked identities.
+// User is a user with their linked identities and role grants.
 type User struct {
 	store.User
 	Identities []store.Identity
+	Grants     []store.RoleGrant
 }
 
-// ErrUnknownRole is a role the hub does not have (store.Roles lists them).
-var ErrUnknownRole = errors.New("identity: no such role")
-
-// SetRole grants or revokes a member's role (ADR-0013); by is who did it, recorded with the
-// change. The API allows it to the owner only.
-func (s *Service) SetRole(ctx context.Context, userID uuid.UUID, role string, granted bool, by uuid.UUID) (store.User, error) {
-	if !slices.Contains(store.Roles, role) {
-		return store.User{}, ErrUnknownRole
+// AuthzGrants are the user's grants as authz takes them.
+func (u User) AuthzGrants() []authz.Grant {
+	out := make([]authz.Grant, len(u.Grants))
+	for i, g := range u.Grants {
+		out[i] = authz.Grant{Role: g.Role, GameID: g.GameID}
 	}
-	return s.st.SetUserRole(ctx, userID, role, granted, &by, s.now())
+	return out
 }
 
 // Me returns a user and their identities; store.ErrNotFound for an unknown id.
@@ -404,7 +403,11 @@ func (s *Service) Me(ctx context.Context, userID uuid.UUID) (User, error) {
 	if err != nil {
 		return User{}, err
 	}
-	return User{User: u, Identities: ids}, nil
+	grants, err := s.st.RoleGrants(ctx, []uuid.UUID{userID})
+	if err != nil {
+		return User{}, err
+	}
+	return User{User: u, Identities: ids, Grants: grants}, nil
 }
 
 // Lookup resolves a (provider, subject) pair to its user and their identities;
@@ -437,9 +440,19 @@ func (s *Service) ListUsers(ctx context.Context, after *store.UserCursor, limit 
 	for _, id := range idents {
 		byUser[id.UserID] = append(byUser[id.UserID], id)
 	}
+	grants := map[uuid.UUID][]store.RoleGrant{}
+	if len(ids) > 0 {
+		gs, err := s.st.RoleGrants(ctx, ids)
+		if err != nil {
+			return nil, err
+		}
+		for _, g := range gs {
+			grants[g.UserID] = append(grants[g.UserID], g)
+		}
+	}
 	out := make([]User, len(users))
 	for i, u := range users {
-		out[i] = User{User: u, Identities: byUser[u.ID]}
+		out[i] = User{User: u, Identities: byUser[u.ID], Grants: grants[u.ID]}
 	}
 	return out, nil
 }

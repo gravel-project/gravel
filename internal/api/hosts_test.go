@@ -25,9 +25,9 @@ func TestHostServiceCallers(t *testing.T) {
 		t.Fatal(err)
 	}
 	mod := r.user(t, "Mod", "3")
-	if _, err := r.ids.SetRole(ctx, mod.ID, store.RoleModerator, true, owner.ID); err != nil {
-		t.Fatal(err)
-	}
+	r.grant(t, owner.ID, mod.ID, store.RoleModerator)
+	op := r.user(t, "Op", "4")
+	r.grant(t, owner.ID, op.ID, store.RoleOperator)
 	member := r.user(t, "Member", "2")
 	client := func(c *http.Client) hubv1connect.ServerHostServiceClient {
 		return hubv1connect.NewServerHostServiceClient(c, r.srv.URL)
@@ -36,9 +36,11 @@ func TestHostServiceCallers(t *testing.T) {
 		"anonymous": client(http.DefaultClient),
 		"member":    client(cookieClient(http.DefaultClient, r.login(t, member.ID))),
 		"moderator": client(cookieClient(http.DefaultClient, r.login(t, mod.ID))),
+		"operator":  client(cookieClient(http.DefaultClient, r.login(t, op.ID))),
 		"owner":     client(cookieClient(http.DefaultClient, r.login(t, owner.ID))),
 		"reader":    client(bearerClient(http.DefaultClient, r.bearer(t, "reader", apps.ScopeServersRead))),
 		"bot":       client(bearerClient(http.DefaultClient, r.bearer(t, "bot", apps.ScopeServersModerate))),
+		"operating": client(bearerClient(http.DefaultClient, r.bearer(t, "operating", "servers:operate"))),
 	}
 	type call func(hubv1connect.ServerHostServiceClient) error
 	calls := map[string]call{
@@ -79,10 +81,13 @@ func TestHostServiceCallers(t *testing.T) {
 	want := map[string]map[string]connect.Code{
 		"anonymous": {"get": anon, "park": anon, "expect": anon, "resize": anon, "unpin": anon, "snapshot": anon, "destroy": anon},
 		"member":    {"get": admitted, "park": denied, "expect": denied, "resize": denied, "unpin": denied, "snapshot": denied, "destroy": denied},
-		"moderator": {"get": admitted, "park": admitted, "expect": admitted, "resize": denied, "unpin": denied, "snapshot": denied, "destroy": denied},
+		// Park, unpark and the expectation are an operator's (ADR-0027 §3): a moderator has none of it.
+		"moderator": {"get": admitted, "park": denied, "expect": denied, "resize": denied, "unpin": denied, "snapshot": denied, "destroy": denied},
+		"operator":  {"get": admitted, "park": admitted, "expect": admitted, "resize": denied, "unpin": denied, "snapshot": denied, "destroy": denied},
 		"owner":     {"get": admitted, "park": admitted, "expect": admitted, "resize": admitted, "unpin": admitted, "snapshot": admitted, "destroy": admitted},
 		"reader":    {"get": admitted, "park": denied, "expect": denied, "resize": denied, "unpin": denied, "snapshot": denied, "destroy": denied},
-		"bot":       {"get": denied, "park": admitted, "expect": admitted, "resize": denied, "unpin": denied, "snapshot": denied, "destroy": denied},
+		"bot":       {"get": denied, "park": denied, "expect": denied, "resize": denied, "unpin": denied, "snapshot": denied, "destroy": denied},
+		"operating": {"get": denied, "park": admitted, "expect": admitted, "resize": denied, "unpin": denied, "snapshot": denied, "destroy": denied},
 	}
 	for who, c := range callers {
 		for name, f := range calls {
