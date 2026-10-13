@@ -255,10 +255,21 @@ func authSummary(cfg config.Config) string {
 		}
 		parts = append(parts, fmt.Sprintf("steam (%s, %s)", role(cfg.Auth.Steam.Login), key))
 	}
-	if len(parts) == 0 {
+	local := cfg.Auth.Local.Enabled
+	if len(parts) == 0 && !local {
 		return "none"
 	}
-	return strings.Join(parts, ", ") + " at " + cfg.Auth.BaseURL
+	out := ""
+	if len(parts) > 0 {
+		out = strings.Join(parts, ", ") + " at " + cfg.Auth.BaseURL
+	}
+	if local {
+		if out != "" {
+			out += ", and "
+		}
+		out += "local accounts (a username and password; registration per the Organization settings)"
+	}
+	return out
 }
 
 func healthcheck(ctx context.Context, args []string, stderr io.Writer) int {

@@ -292,6 +292,15 @@ message StatsSettings {
   int32 raw_retention_months = 5;
 }
 
+// LocalAccountsSettings is who may register a username and password when the hub has local
+// accounts on (hub.yaml auth.local.enabled; ADR-0026).
+message LocalAccountsSettings {
+  // "closed" (the default, empty: staff create accounts) or "open" (anyone may register).
+  string registration = 1;
+  // The shortest password in characters; 0 is the default, 12; else 8 to 128.
+  int32 min_password_length = 2;
+}
+
 // OrganizationSettings is the Organization settings resource: every host-configurable knob in
 // one document (theme and navigation, the Discord role mapping; token lifetimes and layout
 // overrides join it with their features). Version is the document format.
@@ -305,6 +314,7 @@ message OrganizationSettings {
   StatsSettings stats = 6;
   // Per-game settings by game id; at most 20, each a game this hub ships.
   map<string, GameSettings> games = 7;
+  LocalAccountsSettings local_accounts = 8;
 }
 
 message GetOrganizationSettingsRequest {}

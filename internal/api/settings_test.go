@@ -43,7 +43,8 @@ func TestOrganizationSettings(t *testing.T) {
 			News: &hubv1.DiscordNews{Feeds: []*hubv1.DiscordNewsFeed{{AppId: 730, Channel: "1300000000000000105", Label: "Counter-Strike 2", Color: 0xde9b35},
 				{AppId: 271590, Channel: "1300000000000000105", Label: "Grand Theft Auto V", Feeds: []string{"steam_community_announcements", "steam_updates"}}}},
 			MatchResults: &hubv1.DiscordMatchResults{Channel: "1300000000000000106", Servers: []string{"htg-cs2-1"}}},
-		Stats: &hubv1.StatsSettings{MinMatches: 5, Timezone: "America/Chicago", RawRetentionMonths: 6, Seasons: []*hubv1.StatsSeason{{Name: "Season 02", Game: "wardogs", From: "2026-10-15", To: "2027-01-15"}}},
+		Stats:         &hubv1.StatsSettings{MinMatches: 5, Timezone: "America/Chicago", RawRetentionMonths: 6, Seasons: []*hubv1.StatsSeason{{Name: "Season 02", Game: "wardogs", From: "2026-10-15", To: "2027-01-15"}}},
+		LocalAccounts: &hubv1.LocalAccountsSettings{Registration: "open", MinPasswordLength: 16},
 		Games: map[string]*hubv1.GameSettings{"wardogs": {
 			Theme: &hubv1.GameTheme{Light: &hubv1.ThemeTokens{Accent: "#8a5a00"}, Dark: &hubv1.ThemeTokens{Accent: "#f0b429"}, BannerUrl: "https://hiddentoken.com/brand/wardogs.png", BannerAlt: "War Dogs"},
 			Nav:   []*hubv1.NavLink{{Label: "Playbook", Url: "https://hiddentoken.com/wardogs/"}, {Label: "Config", Url: "/servers/htg-wardogs-1", Role: "owner"}},
@@ -104,6 +105,9 @@ func TestOrganizationSettings(t *testing.T) {
 	}
 	if st := got.Msg.GetSettings().GetStats(); st.GetMinMatches() != 5 || st.GetRawRetentionMonths() != 6 || st.GetTimezone() != "America/Chicago" || len(st.GetSeasons()) != 1 || st.GetSeasons()[0].GetGame() != "wardogs" || st.GetPublic() {
 		t.Errorf("stats read back: %v", st)
+	}
+	if l := got.Msg.GetSettings().GetLocalAccounts(); l.GetRegistration() != "open" || l.GetMinPasswordLength() != 16 {
+		t.Errorf("local accounts read back: %v", l)
 	}
 
 	// The games are public too: the pages read them anonymously.

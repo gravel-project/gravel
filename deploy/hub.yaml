@@ -33,6 +33,10 @@ auth:
   steam:
     enabled: false
     api_key_file: /run/secrets/gravel-steam-api-key
+  # Local accounts (ADR-0026): a username and a password, no provider needed. Who may register is
+  # the Organization settings' local_accounts (closed by default).
+  local:
+    enabled: false
 
 # Stats (docs/hub.md "Stats"): the key pseudonyms are chosen with. Development only, inline; a
 # deployment uses stats.pseudonym_key_file and a podman secret, and keeps the key once set.

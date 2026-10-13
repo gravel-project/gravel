@@ -26,6 +26,7 @@ import (
 	"github.com/gravel-project/gravel/internal/identity/proof/prooftest"
 	"github.com/gravel-project/gravel/internal/org"
 	"github.com/gravel-project/gravel/internal/org/orgtest"
+	"github.com/gravel-project/gravel/internal/ratelimit"
 	"github.com/gravel-project/gravel/internal/session"
 	"github.com/gravel-project/gravel/internal/web"
 	"github.com/gravel-project/gravel/internal/web/templates"
@@ -53,6 +54,24 @@ type rig struct {
 	proofs  *proof.Service
 	proofSt *prooftest.FakeStore
 	leases  *fakeLeases
+	// local is the local accounts policy the identity service reads (withLocal), and locals how
+	// each local login and registration ended (ObserveLocal).
+	local  *identity.LocalPolicy
+	locals []string
+}
+
+// rigOption changes the rig before its identity service and pages are built.
+type rigOption func(r *rig, ids *[]identity.Option, h *[]func(*web.Handler))
+
+// withLocal turns local accounts on (ADR-0026) with policy, which the test may change later
+// through r.local; limiter, when set, bounds local logins per address.
+func withLocal(policy identity.LocalPolicy, limiter *ratelimit.Limiter) rigOption {
+	return func(r *rig, ids *[]identity.Option, h *[]func(*web.Handler)) {
+		r.local = &policy
+		*ids = append(*ids, identity.WithLocalAccounts(r.idSt, func(context.Context) (identity.LocalPolicy, error) { return *r.local, nil }),
+			identity.WithPasswordParams(identity.PasswordParams{MemoryKiB: 64, Passes: 1, Lanes: 1, SaltLen: 16, KeyLen: 32}))
+		*h = append(*h, func(w *web.Handler) { w.LocalLimiter = limiter })
+	}
 }
 
 // testTheme has a logo, a favicon, header and footer links, an owner-only link and one bad
@@ -91,7 +110,7 @@ func newRigWithTheme(t *testing.T, theme templates.Theme) *rig {
 
 // newRigWith is newRigWithTheme; without login it registers no provider, as a hub with no auth
 // section (a demo hub) runs.
-func newRigWith(t *testing.T, theme templates.Theme, login bool) *rig {
+func newRigWith(t *testing.T, theme templates.Theme, login bool, opts ...rigOption) *rig {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	r := &rig{idSt: identitytest.NewFakeStore(), servers: newFakeServers(), stats: &fakeStats{}, mod: &fakeMod{}, hosts: newFakeHosts()}
@@ -112,7 +131,12 @@ func newRigWith(t *testing.T, theme templates.Theme, login bool) *rig {
 	if !login {
 		regs = nil
 	}
-	ids := identity.New(r.idSt, o.ID, regs, 10*time.Minute, logger)
+	var idOpts []identity.Option
+	var webOpts []func(*web.Handler)
+	for _, opt := range opts {
+		opt(r, &idOpts, &webOpts)
+	}
+	ids := identity.New(r.idSt, o.ID, regs, 10*time.Minute, logger, idOpts...)
 	sess := session.New(r.idSt, time.Hour, false, logger)
 	r.sess = sess
 	r.appSt = appstest.NewFakeStore()
@@ -142,6 +166,10 @@ func newRigWith(t *testing.T, theme templates.Theme, login bool) *rig {
 		r.results = append(r.results, provider+"/"+string(intent)+"/"+result)
 	}
 	h.ObserveAuthorization = func(result string) { r.authz = append(r.authz, result) }
+	h.ObserveLocal = func(result string) { r.locals = append(r.locals, result) }
+	for _, f := range webOpts {
+		f(h)
+	}
 	pages := http.NewServeMux()
 	h.Register(pages)
 	// The public listener as the hub has it: the API for bearer tokens, the token and

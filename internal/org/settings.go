@@ -36,6 +36,9 @@ type Settings struct {
 	Nav     []NavLink `json:"nav,omitempty" yaml:"nav,omitempty"`
 	Discord Discord   `json:"discord,omitzero" yaml:"discord,omitempty"`
 	Stats   Stats     `json:"stats,omitzero" yaml:"stats,omitempty"`
+	// LocalAccounts is who may register a username and password, when hub.yaml turns local
+	// accounts on (ADR-0026).
+	LocalAccounts LocalAccounts `json:"local_accounts,omitzero" yaml:"local_accounts,omitempty"`
 	// Games are per-game settings by game id ("wardogs"), each a game this hub ships.
 	Games map[string]GameSettings `json:"games,omitempty" yaml:"games,omitempty"`
 }
@@ -89,6 +92,36 @@ type Stats struct {
 	// pending counsel.
 	RawRetentionMonths int `json:"raw_retention_months,omitempty" yaml:"raw_retention_months,omitempty"`
 }
+
+// LocalAccounts is the host's choice for local accounts (ADR-0026). Zero values are the defaults:
+// registration closed (staff create accounts), passwords of at least 12 characters.
+type LocalAccounts struct {
+	// Registration is RegistrationClosed (the default, "") or RegistrationOpen: anyone who reaches
+	// the hub may make an account at /auth/local/register.
+	Registration string `json:"registration,omitempty" yaml:"registration,omitempty"`
+	// MinPasswordLength is the shortest password, in characters: 0 is the default, 12; else 8 to 128.
+	MinPasswordLength int `json:"min_password_length,omitempty" yaml:"min_password_length,omitempty"`
+}
+
+// Registration values.
+const (
+	RegistrationClosed = "closed"
+	RegistrationOpen   = "open"
+)
+
+// Password length limits of LocalAccounts.MinPasswordLength (identity's, restated: org can't
+// import identity).
+const (
+	DefaultMinPasswordLength = 12
+	MinMinPasswordLength     = 8
+	MaxMinPasswordLength     = 128
+)
+
+// IsZero reports whether every value is the default.
+func (l LocalAccounts) IsZero() bool { return l == LocalAccounts{} }
+
+// Open reports whether anyone may register.
+func (l LocalAccounts) Open() bool { return l.Registration == RegistrationOpen }
 
 // Season is a named window of matches: From (included) to To (excluded), dates in Stats.Timezone.
 // Game limits it to one game's matches; empty is every game.
@@ -574,6 +607,7 @@ func (s Settings) Validate() error {
 	}
 	validateDiscord(s.Discord, bad)
 	validateStats(s.Stats, bad)
+	validateLocalAccounts(s.LocalAccounts, bad)
 	validateGames(s.Games, bad)
 	if len(errs) == 0 {
 		return nil
@@ -1000,6 +1034,15 @@ func validateSeeding(d Discord, bad func(string, ...any)) {
 		if utf8.RuneCountInString(note) > MaxSeedingNote || strings.ContainsFunc(note, unicode.IsControl) {
 			bad("%s.note: one line of at most %d characters", field, MaxSeedingNote)
 		}
+	}
+}
+
+func validateLocalAccounts(l LocalAccounts, bad func(string, ...any)) {
+	if l.Registration != "" && l.Registration != RegistrationClosed && l.Registration != RegistrationOpen {
+		bad("local_accounts.registration: %q is not %q or %q", l.Registration, RegistrationClosed, RegistrationOpen)
+	}
+	if l.MinPasswordLength != 0 && (l.MinPasswordLength < MinMinPasswordLength || l.MinPasswordLength > MaxMinPasswordLength) {
+		bad("local_accounts.min_password_length: %d is not 0 (the default, %d) or between %d and %d", l.MinPasswordLength, DefaultMinPasswordLength, MinMinPasswordLength, MaxMinPasswordLength)
 	}
 }
 

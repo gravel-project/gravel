@@ -25,6 +25,14 @@ patch release is everything else.
 
 ### Added
 
+- Local accounts: a username and a password are one more way in (#186, [ADR-0026](docs/adr/0026-local-accounts-a-username-and-password-are-a-provider.md) proposed; H1, #182). A hub with no Discord application can have members and an owner.
+  - **Config:** `hub.yaml` `auth.local.enabled` (off by default); `config check` names it.
+  - **Settings:** `local_accounts` in the Organization settings: `registration` `closed` (the default) or `open`, and `min_password_length` (12 by default, 8 to 128); `LocalAccountsSettings` in the API; `settings check` says them.
+  - **Accounts:** the identity `("local", <username>)` with its credential in migration **00023**, `local_credentials`. Usernames are 3 to 32 of `a-z 0-9 . _ -`, compared after NFKC and lower case, with reserved names. Passwords are NFKC, at least the host's minimum, never the username, hashed with argon2id (19 MiB, 2 passes, 1 lane; rehashed at the next login when the parameters change).
+  - **Pages:** a username and password form on `/login` (first when the browser last used it: the `gravel_last_provider` cookie); `/auth/local/register` when registration is open; "Log in with a username and password too" on the account page (`POST /account/local`).
+  - **Refusals and lockout:** one answer for an unknown username, a wrong password and a locked account; five failures lock an account for 15 minutes, doubling to a day, cleared by a good login; 10 local logins a minute per address.
+  - **Metrics:** `gravel_local_logins_total{result}` on the hub dashboard's Login row; `gravel_identities{provider="local"}`.
+  - **Tests:** hashing and rehash, usernames, the one answer, the lockout growing and clearing (fake and Postgres), registration closed and open, a password beside Discord, unlink, a local-only hub offering the form, the rate limit, the settings, and axe over the three new forms.
 - ADR-0025 (proposed; accepted when merged): the hub as a product (#183; H1, #182). gravel owns the truth and stands with no Discord, Steam or cloud configured; the **unplug test** (`make unplug`, #198) is H1's gate; three personas (Neckbeard, VPS Dad, K8s bro) are the acceptance criteria and four deployment tiers (a single machine, Compose on a cloud box, a cloud VM the CLI makes, a Kubernetes cluster) are where it runs. New `docs/tiers.md`; the README's principles gain the design session's five and its build order gains H1 before the operator (K1, after P5); `docs/hub.md` "Running it" is a tier table; ADR-0001 is amended with the Compose tier.
 - A server's status card can show its join password while the server runs (#180, for hidden-token-gaming's casual CS2 server, whose password was pinned in Discord for good):
   - **The manifest:** `vm.share_password: true` on a cloud-VM server (it needs `vm.password_file`).

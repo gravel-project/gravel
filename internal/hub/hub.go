@@ -109,9 +109,11 @@ type Hub struct {
 	limitedTotal *prometheus.CounterVec
 	// oauthAuthorizations counts how the authorization endpoint ended (ADR-0015).
 	oauthAuthorizations *prometheus.CounterVec
-	api                 *http.ServeMux
-	public              http.Handler
-	internal            http.Handler
+	// localLogins counts local account logins and registrations by result (ADR-0026).
+	localLogins *prometheus.CounterVec
+	api         *http.ServeMux
+	public      http.Handler
+	internal    http.Handler
 
 	listeners *listeners
 }
@@ -240,7 +242,17 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 	if regs == nil {
 		regs = h.buildProviders()
 	}
-	h.ids = identity.New(st, o.ID, regs, cfg.Auth.AttemptTTL, logger, identity.WithOrganizationName(o.Name))
+	idOpts := []identity.Option{identity.WithOrganizationName(o.Name)}
+	if cfg.Auth.Local.Enabled { // ADR-0026: who may register is read from the settings at each call
+		idOpts = append(idOpts, identity.WithLocalAccounts(st, func(ctx context.Context) (identity.LocalPolicy, error) {
+			set, _, err := h.org.Settings(ctx)
+			if err != nil {
+				return identity.LocalPolicy{}, err
+			}
+			return identity.LocalPolicy{RegistrationOpen: set.LocalAccounts.Open(), MinPasswordLength: set.LocalAccounts.MinPasswordLength}, nil
+		}))
+	}
+	h.ids = identity.New(st, o.ID, regs, cfg.Auth.AttemptTTL, logger, idOpts...)
 	h.sess = session.New(st, cfg.Auth.SessionTTL, cfg.Auth.Secure(), logger)
 	h.perIP = ratelimit.New(cfg.RateLimit.PerIP.RequestsPerMinute, cfg.RateLimit.PerIP.Burst)
 	h.perUser = ratelimit.New(cfg.RateLimit.PerUser.RequestsPerMinute, cfg.RateLimit.PerUser.Burst)
@@ -265,10 +277,16 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 	for _, reg := range h.ids.Providers() {
 		providerNames = append(providerNames, reg.Provider.Name())
 	}
+	if h.ids.LocalEnabled() {
+		providerNames = append(providerNames, identity.ProviderLocal)
+	}
+	h.localLogins = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "gravel_local_logins_total", Help: "Local account logins and registrations by result: ok, refused (an unknown username or a wrong password), locked, invalid (a malformed or closed registration), rate_limited, error.",
+	}, []string{"result"})
 	h.oauthAuthorizations = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "gravel_oauth_authorizations_total", Help: "Requests at the authorization endpoint by result (issued, denied, rejected, error).",
 	}, []string{"result"})
-	h.registry.MustRegister(buildInfo, h.authTotal, h.limitedTotal, h.oauthAuthorizations, backup.NewCollector(cfg.Backup.StatusFile, st, logger), newStatsCollector(st, providerNames, logger))
+	h.registry.MustRegister(buildInfo, h.authTotal, h.limitedTotal, h.oauthAuthorizations, h.localLogins, backup.NewCollector(cfg.Backup.StatusFile, st, logger), newStatsCollector(st, providerNames, logger))
 	// First-party apps (ADR-0008, ADR-0015): app tokens live apps.token_ttl, members' tokens an hour.
 	h.apps = apps.New(st, o.ID, cfg.Apps.TokenTTL, logger, apps.WithMetrics(h.registry))
 	h.metrics = httpx.NewMetrics(h.registry)
@@ -387,6 +405,10 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 		h.authTotal.WithLabelValues(provider, string(intent), result).Inc()
 	}
 	h.web.ObserveAuthorization = func(result string) { h.oauthAuthorizations.WithLabelValues(result).Inc() }
+	h.web.ObserveLocal = func(result string) { h.localLogins.WithLabelValues(result).Inc() }
+	// Local logins hash a password each (ADR-0026): 10 a minute per address, 5 at once, on top of
+	// the pages' own per-address limit.
+	h.web.LocalLimiter = ratelimit.New(10, 5)
 
 	h.public = h.buildPublic()
 	h.internal = h.buildInternal()
@@ -622,6 +644,9 @@ func (h *Hub) Prune(ctx context.Context) {
 	}
 	ips, users, appsSwept := h.perIP.Sweep(), h.perUser.Sweep(), h.perApp.Sweep()
 	h.ingest.Sweep()
+	if h.web != nil && h.web.LocalLimiter != nil {
+		h.web.LocalLimiter.Sweep()
+	}
 	h.logger.Debug("pruned", "sessions", sessions, "attempts", attempts, "app_tokens", tokens, "proofs", proofs, "ip_buckets", ips, "user_buckets", users, "app_buckets", appsSwept)
 }
 

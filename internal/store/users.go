@@ -43,6 +43,9 @@ type Identity struct {
 	VerifiedAt         time.Time
 	LinkedAt           time.Time
 	LastLoginAt        *time.Time
+	// Credential is a local account's password (ProviderLocal), written with the identity by
+	// RegisterUser and LinkIdentity in the same transaction; never read back here.
+	Credential *LocalCredential
 }
 
 // Identity events, as written to identity_events.
@@ -188,6 +191,14 @@ func insertIdentity(ctx context.Context, tx pgx.Tx, ident Identity, event string
 	}
 	if err != nil {
 		return fmt.Errorf("store: insert identity: %w", err)
+	}
+	if ident.Credential != nil {
+		if ident.Provider != ProviderLocal {
+			return fmt.Errorf("store: insert identity: a credential is a local account's, not %s's", ident.Provider)
+		}
+		if err := insertLocalCredential(ctx, tx, ident.Subject, *ident.Credential); err != nil {
+			return err
+		}
 	}
 	return appendIdentityEvent(ctx, tx, ident.UserID, ident.Provider, ident.Subject, event, ident.VerifiedAt)
 }

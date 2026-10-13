@@ -34,6 +34,9 @@ const (
 	// CookieReturn holds the same-origin path a login returns to (the authorization endpoint
 	// that sent the member to log in, ADR-0015).
 	CookieReturn = "return"
+	// CookieLastProvider names the provider this browser last logged in with ("local" for a
+	// username and password), so the login page offers it first. It says nothing about who.
+	CookieLastProvider = "last_provider"
 )
 
 // CSRFField is the form field (and header) that carries the session's CSRF token.

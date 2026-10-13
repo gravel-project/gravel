@@ -57,6 +57,8 @@ type Service struct {
 	attemptTTL time.Duration
 	logger     *slog.Logger
 	orgName    string
+	local      *localAccounts // nil: local accounts are off (ADR-0026)
+	pwParams   PasswordParams
 
 	now  func() time.Time
 	rand io.Reader
@@ -75,7 +77,7 @@ func WithOrganizationName(name string) Option { return func(s *Service) { s.orgN
 // New builds a service. orgID is the organization new users belong to (the built-in one);
 // attemptTTL bounds how long a member has to come back from a provider.
 func New(st Store, orgID uuid.UUID, providers []Registration, attemptTTL time.Duration, logger *slog.Logger, opts ...Option) *Service {
-	s := &Service{st: st, orgID: orgID, attemptTTL: attemptTTL, logger: logger, byName: map[string]Registration{}, now: time.Now, rand: rand.Reader}
+	s := &Service{st: st, orgID: orgID, attemptTTL: attemptTTL, logger: logger, byName: map[string]Registration{}, now: time.Now, rand: rand.Reader, pwParams: DefaultPasswordParams}
 	for _, r := range providers {
 		s.byName[r.Provider.Name()] = r
 		s.providers = append(s.providers, r)

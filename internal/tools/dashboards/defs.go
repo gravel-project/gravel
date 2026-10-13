@@ -84,6 +84,9 @@ func hubDashboard() dashboard {
 				{Title: "Proofs in game", Kind: "timeseries", Width: 12, Optional: "nobody proved an account in game during the range",
 					Description: "One-time codes typed in a game server's chat (gravel#5): started, linked, proven (again), taken (another member's account; nothing moved), bad_code, limited. Many bad codes from one server is someone guessing.",
 					Targets:     []target{{Expr: `sum by (channel, result) (increase(gravel_identity_proofs_total{` + sel + `}[$__rate_interval]))`, Legend: "{{channel}} {{result}}"}}},
+				{Title: "Username and password logins", Kind: "timeseries", Width: 12, Optional: "local accounts are off, or nobody used them in the range",
+					Description: "Local account logins and registrations (ADR-0026): ok, refused (an unknown username or a wrong password), locked (5 failures in a row lock an account for 15 minutes, doubling), invalid (a refused username or password at registration), rate_limited, error. Many refused from one hub is someone guessing.",
+					Targets:     []target{{Expr: `sum by (result) (increase(gravel_local_logins_total{` + sel + `}[$__rate_interval]))`, Legend: "{{result}}"}}},
 			}},
 			{Title: "First-party apps", Panels: []panel{
 				{Title: "Sign-ins to apps", Kind: "timeseries", Width: 8, Optional: "no app signed a member in during the range",
