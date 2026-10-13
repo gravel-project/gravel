@@ -13,6 +13,7 @@ import (
 	hubv1 "github.com/gravel-project/gravel/gen/gravel/hub/v1"
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
 	"github.com/gravel-project/gravel/internal/apps"
+	"github.com/gravel-project/gravel/internal/store"
 )
 
 func TestServerConfigIsTheOwnersOrAnAppsWithTheScope(t *testing.T) {
@@ -66,7 +67,7 @@ func TestServerConfigIsTheOwnersOrAnAppsWithTheScope(t *testing.T) {
 	}
 
 	owner := r.user(t, "Owner", "1")
-	if _, err := r.org.Claim(ctx, r.token, owner.ID); err != nil {
+	if _, err := r.org.Claim(ctx, r.token, store.Actor{UserID: &owner.ID}); err != nil {
 		t.Fatal(err)
 	}
 	asOwner := hubv1connect.NewServerConfigServiceClient(cookieClient(http.DefaultClient, r.login(t, owner.ID)), r.srv.URL)

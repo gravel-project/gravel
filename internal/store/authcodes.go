@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -132,15 +134,53 @@ func (s *Store) GetAppGrant(ctx context.Context, userID, appID uuid.UUID) (AppGr
 	return g, nil
 }
 
-// SaveAppGrant inserts the member's grant to an app, or replaces its scopes and time.
-func (s *Store) SaveAppGrant(ctx context.Context, g AppGrant) error {
+// SaveAppGrant inserts the member's grant to an app, or replaces its scopes and time. A new grant,
+// or one that now admits a scope it didn't, is recorded (app.granted, by by) in the same
+// transaction; the same grant given again is not.
+func (s *Store) SaveAppGrant(ctx context.Context, g AppGrant, by Actor) error {
 	if g.Scopes == nil {
 		g.Scopes = []string{}
 	}
-	if _, err := s.pool.Exec(ctx,
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("store: save app grant: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var before []string
+	had := true
+	if err := tx.QueryRow(ctx, `SELECT scopes FROM app_grants WHERE user_id = $1 AND app_id = $2 FOR UPDATE`, g.UserID, g.AppID).Scan(&before); errors.Is(err, pgx.ErrNoRows) {
+		had = false
+	} else if err != nil {
+		return fmt.Errorf("store: save app grant: %w", err)
+	}
+	if _, err := tx.Exec(ctx,
 		`INSERT INTO app_grants (user_id, app_id, scopes, granted_at) VALUES ($1, $2, $3, $4)
 		 ON CONFLICT (user_id, app_id) DO UPDATE SET scopes = EXCLUDED.scopes, granted_at = EXCLUDED.granted_at`,
 		g.UserID, g.AppID, g.Scopes, g.GrantedAt); err != nil {
+		return fmt.Errorf("store: save app grant: %w", err)
+	}
+	var added []string
+	for _, sc := range g.Scopes {
+		if !slices.Contains(before, sc) {
+			added = append(added, sc)
+		}
+	}
+	if !had || len(added) > 0 {
+		a, err := scanApp(tx.QueryRow(ctx, `SELECT `+appColumns+` FROM apps WHERE id = $1`, g.AppID))
+		if err != nil {
+			return fmt.Errorf("store: save app grant: %w", err)
+		}
+		summary := fmt.Sprintf("{user} let %q act for them", a.Name)
+		if had {
+			summary = fmt.Sprintf("{user} let %q do more for them: %s", a.Name, strings.Join(added, ", "))
+		}
+		if err := s.appendEvent(ctx, tx, by.event(Event{OrganizationID: a.OrganizationID, At: g.GrantedAt, Kind: "app.granted", SubjectUserID: &g.UserID,
+			Summary: summary, Detail: map[string]any{"app_id": a.ID.String(), "client_id": a.ClientID, "name": a.Name, "scopes": g.Scopes, "added": nonNilStrings(added)},
+			Source: "app_grants", SourceID: grantEventID(g.UserID, g.AppID, g.GrantedAt)})); err != nil {
+			return err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("store: save app grant: %w", err)
 	}
 	return nil
@@ -173,8 +213,9 @@ func (s *Store) ListAppGrants(ctx context.Context, userID uuid.UUID) ([]AppGrant
 
 // DeleteAppGrant revokes a member's grant to an app with everything it gave the app: the
 // member's tokens for it and the codes not yet exchanged, in one transaction. It reports how many
-// tokens went; ErrNotFound when there was no grant.
-func (s *Store) DeleteAppGrant(ctx context.Context, userID, appID uuid.UUID) (int64, error) {
+// tokens went; ErrNotFound when there was no grant. It is recorded (app.grant_revoked, by by) in
+// the same transaction.
+func (s *Store) DeleteAppGrant(ctx context.Context, userID, appID uuid.UUID, at time.Time, by Actor) (int64, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("store: delete app grant: %w", err)
@@ -194,8 +235,24 @@ func (s *Store) DeleteAppGrant(ctx context.Context, userID, appID uuid.UUID) (in
 	if _, err := tx.Exec(ctx, `DELETE FROM authorization_codes WHERE user_id = $1 AND app_id = $2`, userID, appID); err != nil {
 		return 0, fmt.Errorf("store: delete app grant: codes: %w", err)
 	}
+	a, err := scanApp(tx.QueryRow(ctx, `SELECT `+appColumns+` FROM apps WHERE id = $1`, appID))
+	if err != nil {
+		return 0, fmt.Errorf("store: delete app grant: %w", err)
+	}
+	if err := s.appendEvent(ctx, tx, by.event(Event{OrganizationID: a.OrganizationID, At: at, Kind: "app.grant_revoked", SubjectUserID: &userID,
+		Summary: fmt.Sprintf("{user} took back %q's access", a.Name),
+		Detail:  map[string]any{"app_id": a.ID.String(), "client_id": a.ClientID, "name": a.Name, "tokens_removed": tokens.RowsAffected()},
+		Source:  "app_grants.revoked", SourceID: grantEventID(userID, appID, at)})); err != nil {
+		return 0, err
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return 0, fmt.Errorf("store: delete app grant: %w", err)
 	}
 	return tokens.RowsAffected(), nil
+}
+
+// grantEventID keys a grant's event by the member, the app and the instant (in microseconds, what
+// Postgres keeps), so migration 00027's backfill of a grant and its live event are the same row.
+func grantEventID(userID, appID uuid.UUID, at time.Time) string {
+	return fmt.Sprintf("%s:%s:%d", userID, appID, at.UnixMicro())
 }

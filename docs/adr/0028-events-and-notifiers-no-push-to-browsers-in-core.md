@@ -18,6 +18,7 @@ The hub wrote what happened in five places: `audit_log` (moderation and host act
 ## Consequences
 
 - #188: migration 00026 (`events` with its trigger and backfill), `internal/events`, the writers (identity, roles, the audit log's outcomes, host transitions and failures, leases, match results, backups through a status-file watcher), `ListEvents`, `events.retention_days`, `gravel_events_total{kind}`. `events:read` became an app scope and a member-token scope.
+- #189: the owner claim (`ownership.claimed`), settings updates (`settings.updated`, with the top-level sections that changed), apps (`app.created`, `app.revoked`) and members' grants to apps (`app.granted`, `app.grant_revoked`) are events, each in its change's transaction with who made it; a change from the host's command line says `detail.via: cli`. Migration 00027 backfills the claim, the apps and the grants members hold.
 - `audit_log` stays the full moderation record (reasons, targets); its event is the outcome, for people and notifiers. A deployment's history is in the log from the day it upgrades, backfilled.
 - A single-statement writer (a host event, a lease) became a short transaction; the cost is one more round trip per write.
 - Not decided here: notifier backoff and the `notifier.failing` alarm's threshold (#196); the fleet's health rule and alarms (#190).

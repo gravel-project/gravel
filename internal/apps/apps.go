@@ -109,11 +109,11 @@ var (
 
 // Store is what the service needs from the database.
 type Store interface {
-	CreateApp(ctx context.Context, a store.App) error
+	CreateApp(ctx context.Context, a store.App, by store.Actor) error
 	GetApp(ctx context.Context, id uuid.UUID) (store.App, error)
 	GetAppByClientID(ctx context.Context, clientID string) (store.App, error)
 	ListApps(ctx context.Context, orgID uuid.UUID) ([]store.App, error)
-	RevokeApp(ctx context.Context, id uuid.UUID, at time.Time) error
+	RevokeApp(ctx context.Context, id uuid.UUID, at time.Time, by store.Actor) error
 	CreateAppToken(ctx context.Context, t store.AppToken) error
 	GetAppTokenByHash(ctx context.Context, hash []byte, now time.Time) (store.AppToken, store.App, error)
 	DeleteExpiredAppTokens(ctx context.Context, now time.Time) (int64, error)
@@ -122,9 +122,9 @@ type Store interface {
 	RedeemAuthorizationCode(ctx context.Context, hash []byte, now time.Time, issue func(store.AuthorizationCode) (store.AppToken, error)) (store.AuthorizationCode, error)
 	DeleteExpiredAuthorizationCodes(ctx context.Context, before time.Time) (int64, error)
 	GetAppGrant(ctx context.Context, userID, appID uuid.UUID) (store.AppGrant, error)
-	SaveAppGrant(ctx context.Context, g store.AppGrant) error
+	SaveAppGrant(ctx context.Context, g store.AppGrant, by store.Actor) error
 	ListAppGrants(ctx context.Context, userID uuid.UUID) ([]store.AppGrant, error)
-	DeleteAppGrant(ctx context.Context, userID, appID uuid.UUID) (int64, error)
+	DeleteAppGrant(ctx context.Context, userID, appID uuid.UUID, at time.Time, by store.Actor) (int64, error)
 }
 
 // Service registers apps, issues their tokens and resolves a token to its app.
@@ -163,7 +163,7 @@ type Created struct {
 // Create registers an app with a name, scopes and the redirect URIs its web pages sign members
 // in through (none for a service that only uses client credentials). The client id and the
 // secret are random; the secret comes back once, in Created, and only its hash is kept.
-func (s *Service) Create(ctx context.Context, name string, scopes []string, redirectURIs ...string) (Created, error) {
+func (s *Service) Create(ctx context.Context, by store.Actor, name string, scopes []string, redirectURIs ...string) (Created, error) {
 	name = strings.TrimSpace(name)
 	if name == "" || len(name) > MaxNameLength {
 		return Created{}, fmt.Errorf("%w: a name is required, at most %d characters", ErrInvalidName, MaxNameLength)
@@ -196,7 +196,7 @@ func (s *Service) Create(ctx context.Context, name string, scopes []string, redi
 		ID: uuid.New(), OrganizationID: s.orgID, Name: name, ClientID: clientIDPrefix + hex.EncodeToString(idBytes),
 		SecretHash: hash(secret), Scopes: scopes, RedirectURIs: uris, CreatedAt: s.now(),
 	}
-	if err := s.st.CreateApp(ctx, a); err != nil {
+	if err := s.st.CreateApp(ctx, a, by); err != nil {
 		return Created{}, err
 	}
 	s.logger.Info("app registered", "app", a.Name, "client_id", a.ClientID, "scopes", a.Scopes, "redirect_uris", a.RedirectURIs)
@@ -211,12 +211,12 @@ func (s *Service) List(ctx context.Context) ([]store.App, error) {
 // Revoke ends an app: its tokens (its own and its members'), the grants members gave it and its
 // unexchanged codes are deleted, and no new token is issued. store.ErrNotFound for an unknown
 // client id or one already revoked.
-func (s *Service) Revoke(ctx context.Context, clientID string) error {
+func (s *Service) Revoke(ctx context.Context, by store.Actor, clientID string) error {
 	a, err := s.st.GetAppByClientID(ctx, clientID)
 	if err != nil {
 		return err
 	}
-	if err := s.st.RevokeApp(ctx, a.ID, s.now()); err != nil {
+	if err := s.st.RevokeApp(ctx, a.ID, s.now(), by); err != nil {
 		return err
 	}
 	s.logger.Info("app revoked", "app", a.Name, "client_id", a.ClientID)

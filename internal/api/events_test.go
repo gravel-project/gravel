@@ -19,7 +19,7 @@ func TestListEvents(t *testing.T) {
 	r := newRig(t)
 	ctx := context.Background()
 	owner := r.user(t, "Owner", "1")
-	if _, err := r.org.Claim(ctx, r.token, owner.ID); err != nil {
+	if _, err := r.org.Claim(ctx, r.token, store.Actor{UserID: &owner.ID}); err != nil {
 		t.Fatal(err)
 	}
 	at := time.Date(2026, 10, 13, 1, 0, 0, 0, time.UTC)

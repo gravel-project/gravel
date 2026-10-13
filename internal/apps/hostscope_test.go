@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gravel-project/gravel/internal/apps"
+	"github.com/gravel-project/gravel/internal/store"
 )
 
 // A host's own scopes (host:…): gravel checks their shape, stores them on the app, carries them in
@@ -28,7 +29,7 @@ func TestHostScopes(t *testing.T) {
 	now := time.Date(2026, 10, 10, 12, 0, 0, 0, time.UTC)
 	svc, _ := newService(t, &now)
 	ctx := context.Background()
-	c, err := svc.Create(ctx, "htg-bot", []string{"host:muster:write", apps.ScopeIdentityRead, "host:muster:read", "host:muster:write"}, "https://muster.example/callback")
+	c, err := svc.Create(ctx, store.Actor{}, "htg-bot", []string{"host:muster:write", apps.ScopeIdentityRead, "host:muster:read", "host:muster:write"}, "https://muster.example/callback")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,7 +37,7 @@ func TestHostScopes(t *testing.T) {
 		t.Errorf("stored scopes = %v, want %v (de-duplicated, sorted)", c.App.Scopes, want)
 	}
 	for _, bad := range [][]string{{"host:Muster"}, {"host:"}, {"muster:write"}, {"admin"}} {
-		if _, err := svc.Create(ctx, "x", bad); !errors.Is(err, apps.ErrInvalidScope) {
+		if _, err := svc.Create(ctx, store.Actor{}, "x", bad); !errors.Is(err, apps.ErrInvalidScope) {
 			t.Errorf("Create(%v): %v, want ErrInvalidScope", bad, err)
 		}
 	}

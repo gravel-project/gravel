@@ -33,7 +33,7 @@ func TestCreateLocalAccountAndReset(t *testing.T) {
 	r := newRig(t, withLocalLinks)
 	ctx := context.Background()
 	owner := r.user(t, "Owner", "1")
-	if _, err := r.org.Claim(ctx, r.token, owner.ID); err != nil {
+	if _, err := r.org.Claim(ctx, r.token, store.Actor{UserID: &owner.ID}); err != nil {
 		t.Fatal(err)
 	}
 	mod := r.user(t, "Mod", "2")

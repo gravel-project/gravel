@@ -3,6 +3,7 @@ package api_test
 import (
 	"context"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 
@@ -11,6 +12,7 @@ import (
 
 	hubv1 "github.com/gravel-project/gravel/gen/gravel/hub/v1"
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
+	"github.com/gravel-project/gravel/internal/store"
 )
 
 func TestOrganizationSettings(t *testing.T) {
@@ -61,15 +63,21 @@ func TestOrganizationSettings(t *testing.T) {
 	if _, err := joClient.UpdateOrganizationSettings(ctx, connect.NewRequest(&hubv1.UpdateOrganizationSettingsRequest{Settings: want})); connect.CodeOf(err) != connect.CodePermissionDenied {
 		t.Errorf("a member before any claim: %v", err)
 	}
-	if _, err := r.org.Claim(ctx, r.token, jo.ID); err != nil {
+	if _, err := r.org.Claim(ctx, r.token, store.Actor{UserID: &jo.ID}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := samClient.UpdateOrganizationSettings(ctx, connect.NewRequest(&hubv1.UpdateOrganizationSettingsRequest{Settings: want})); connect.CodeOf(err) != connect.CodePermissionDenied {
 		t.Errorf("a member: %v", err)
 	}
+	before := len(r.orgSt.Recorded)
 	upd, err := joClient.UpdateOrganizationSettings(ctx, connect.NewRequest(&hubv1.UpdateOrganizationSettingsRequest{Settings: want}))
 	if err != nil {
 		t.Fatal(err)
+	}
+	// Recorded once, as the owner's, through the API, with the sections that changed (#189).
+	if rec := r.orgSt.Recorded[before:]; len(rec) != 1 || rec[0].Kind != "settings.updated" || *rec[0].By.UserID != jo.ID || rec[0].By.Via != store.ViaAPI ||
+		!slices.Contains(rec[0].Sections, "theme") || !slices.Contains(rec[0].Sections, "discord") {
+		t.Errorf("recorded: %+v", rec)
 	}
 	s := upd.Msg.GetSettings()
 	if s.GetVersion() != 1 || s.GetUpdatedAt() == nil || s.GetTheme().GetDark().GetAccent() != "#3ee07a" || s.GetTheme().GetLogoUrl() != "https://hiddentoken.com/brand/mark.svg" || len(s.GetNav()) != 3 || s.GetNav()[0].GetPlacement() != "header" || s.GetNav()[1].GetPlacement() != "footer" || s.GetNav()[2].GetRole() != "owner" {

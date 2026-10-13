@@ -18,6 +18,7 @@ import (
 	"github.com/gravel-project/gravel/internal/config"
 	"github.com/gravel-project/gravel/internal/hub"
 	"github.com/gravel-project/gravel/internal/org"
+	"github.com/gravel-project/gravel/internal/store"
 	"github.com/gravel-project/gravel/internal/store/storetest"
 )
 
@@ -48,7 +49,7 @@ func TestParticipationFromAnApp(t *testing.T) {
 	asApp := func(name string, scopes ...string) hubv1connect.StatsServiceClient {
 		t.Helper()
 		svc := apps.New(st, o.ID, time.Hour, quiet())
-		c, err := svc.Create(ctx, name, scopes)
+		c, err := svc.Create(ctx, store.Actor{}, name, scopes)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -98,7 +99,7 @@ func TestParticipationFromAnApp(t *testing.T) {
 	if _, err := anon.GetParticipationBoard(ctx, connect.NewRequest(&hubv1.GetParticipationBoardRequest{})); connect.CodeOf(err) != connect.CodeUnauthenticated {
 		t.Errorf("a private board, anonymously: %v", err)
 	}
-	if _, err := org.New(st, cfg.Claim.TokenTTL, quiet()).UpdateSettings(ctx, org.Settings{Stats: org.Stats{Public: true}}); err != nil {
+	if _, err := org.New(st, cfg.Claim.TokenTTL, quiet()).UpdateSettings(ctx, org.Settings{Stats: org.Stats{Public: true}}, store.Actor{}); err != nil {
 		t.Fatal(err)
 	}
 	board, err := anon.GetParticipationBoard(ctx, connect.NewRequest(&hubv1.GetParticipationBoardRequest{}))

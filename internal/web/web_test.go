@@ -28,6 +28,7 @@ import (
 	"github.com/gravel-project/gravel/internal/org/orgtest"
 	"github.com/gravel-project/gravel/internal/ratelimit"
 	"github.com/gravel-project/gravel/internal/session"
+	"github.com/gravel-project/gravel/internal/store"
 	"github.com/gravel-project/gravel/internal/web"
 	"github.com/gravel-project/gravel/internal/web/templates"
 )
@@ -590,7 +591,7 @@ func TestThemeFromSettings(t *testing.T) {
 	if _, err := orgSvc.UpdateSettings(context.Background(), org.Settings{
 		Theme: org.Theme{Dark: org.Tokens{Accent: "#3ee07a", Background: "#070b17"}, Light: org.Tokens{Accent: "#0a7a3a"}, Font: "Archivo, system-ui, sans-serif", LogoURL: "https://hiddentoken.com/brand/mark.svg", FaviconURL: "https://hiddentoken.com/favicon.svg"},
 		Nav:   []org.NavLink{{Label: "Discord", URL: "https://discord.gg/x"}, {Label: "Rules", URL: "https://hiddentoken.com/rules/", Placement: "footer"}, {Label: "Admin", URL: "/admin", Role: "owner"}},
-	}); err != nil {
+	}, store.Actor{}); err != nil {
 		t.Fatal(err)
 	}
 	_, css = get(t, c, srv.URL+"/theme.css")

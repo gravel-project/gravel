@@ -21,7 +21,7 @@ func TestGameScopedGrants(t *testing.T) {
 	r.drv.caps = allCaps
 	ctx := context.Background()
 	owner := r.user(t, "Owner", "1")
-	if _, err := r.org.Claim(ctx, r.token, owner.ID); err != nil {
+	if _, err := r.org.Claim(ctx, r.token, store.Actor{UserID: &owner.ID}); err != nil {
 		t.Fatal(err)
 	}
 	ownerC := cookieClient(http.DefaultClient, r.login(t, owner.ID))
@@ -103,7 +103,7 @@ func TestAppGrantsModeratorOnly(t *testing.T) {
 	r := newRig(t)
 	ctx := context.Background()
 	owner := r.user(t, "Owner", "1")
-	if _, err := r.org.Claim(ctx, r.token, owner.ID); err != nil {
+	if _, err := r.org.Claim(ctx, r.token, store.Actor{UserID: &owner.ID}); err != nil {
 		t.Fatal(err)
 	}
 	sam := r.user(t, "Sam", "2")

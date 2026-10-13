@@ -34,7 +34,7 @@ func TestAuditLogIsAppendOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 	app := store.App{ID: uuid.New(), OrganizationID: o.ID, Name: "htg-bot", ClientID: "gravel_bot", SecretHash: []byte("x"), CreatedAt: t0}
-	if err := st.CreateApp(ctx, app); err != nil {
+	if err := st.CreateApp(ctx, app, store.Actor{}); err != nil {
 		t.Fatal(err)
 	}
 

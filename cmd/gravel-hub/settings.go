@@ -119,7 +119,7 @@ func settingsApply(ctx context.Context, args []string, stdout, stderr io.Writer)
 		fmt.Fprintf(stdout, "settings would change (%s)\n", summarize(want))
 		return 3
 	}
-	if _, err := svc.UpdateSettings(ctx, want); err != nil {
+	if _, err := svc.UpdateSettings(ctx, want, store.Actor{Via: store.ViaCLI}); err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1
 	}

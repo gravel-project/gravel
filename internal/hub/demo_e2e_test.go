@@ -22,6 +22,7 @@ import (
 	"github.com/gravel-project/gravel/internal/identity"
 	"github.com/gravel-project/gravel/internal/org"
 	"github.com/gravel-project/gravel/internal/servers"
+	"github.com/gravel-project/gravel/internal/store"
 	"github.com/gravel-project/gravel/internal/store/storetest"
 	"github.com/gravel-project/gravel/internal/web/templates"
 )
@@ -80,7 +81,7 @@ func TestDemoHub(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := org.New(st, cfg.Claim.TokenTTL, quiet()).UpdateSettings(ctx, org.Settings{Stats: org.Stats{Public: true}}); err != nil {
+	if _, err := org.New(st, cfg.Claim.TokenTTL, quiet()).UpdateSettings(ctx, org.Settings{Stats: org.Stats{Public: true}}, store.Actor{}); err != nil {
 		t.Fatal(err)
 	}
 

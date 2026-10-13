@@ -63,7 +63,7 @@ func TestServiceCredentials(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	created, err := apps.New(st, o.ID, time.Hour, quiet()).Create(ctx, "bot", []string{apps.ScopeIdentityRead})
+	created, err := apps.New(st, o.ID, time.Hour, quiet()).Create(ctx, store.Actor{}, "bot", []string{apps.ScopeIdentityRead})
 	if err != nil {
 		t.Fatal(err)
 	}

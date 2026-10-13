@@ -14,6 +14,7 @@ import (
 
 	hubv1 "github.com/gravel-project/gravel/gen/gravel/hub/v1"
 	"github.com/gravel-project/gravel/internal/org"
+	"github.com/gravel-project/gravel/internal/store"
 )
 
 // GetSessionRecap answers with the fake's recap over the request's window, or recapErr.
@@ -60,7 +61,7 @@ func recapURL(r *rig, server string, floor string) string {
 
 func TestRecapPage(t *testing.T) {
 	r := newRig(t)
-	if _, err := r.org.UpdateSettings(context.Background(), org.Settings{Stats: org.Stats{Timezone: "America/Chicago"}}); err != nil {
+	if _, err := r.org.UpdateSettings(context.Background(), org.Settings{Stats: org.Stats{Timezone: "America/Chicago"}}, store.Actor{}); err != nil {
 		t.Fatal(err)
 	}
 	ended := timestamppb.New(time.Date(2026, 10, 7, 23, 44, 0, 0, time.UTC))

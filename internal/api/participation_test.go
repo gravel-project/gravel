@@ -132,7 +132,7 @@ func TestRecordParticipationAccess(t *testing.T) {
 	ctx := context.Background()
 	member := r.user(t, "Ana", "100")
 	owner := r.user(t, "Olive", "300")
-	if _, err := r.org.Claim(ctx, r.token, owner.ID); err != nil {
+	if _, err := r.org.Claim(ctx, r.token, store.Actor{UserID: &owner.ID}); err != nil {
 		t.Fatal(err)
 	}
 	client := func(c *http.Client) hubv1connect.StatsServiceClient {
@@ -322,7 +322,7 @@ func TestParticipationBoardAndProfile(t *testing.T) {
 		t.Fatal(err)
 	}
 	owner := r.user(t, "Olive", "300")
-	if _, err := r.org.Claim(ctx, r.token, owner.ID); err != nil {
+	if _, err := r.org.Claim(ctx, r.token, store.Actor{UserID: &owner.ID}); err != nil {
 		t.Fatal(err)
 	}
 	r.stats.members[store.PlayerKey{Provider: "discord", Subject: "100"}] = store.BoardMember{UserID: ana.ID, DisplayName: "Ana", ShowName: true}
@@ -387,7 +387,7 @@ func TestParticipationBoardAndProfile(t *testing.T) {
 		t.Errorf("this week: %v %v", w, code)
 	}
 	// Public stats: anyone.
-	if _, err := r.org.UpdateSettings(ctx, org.Settings{Stats: org.Stats{Public: true}}); err != nil {
+	if _, err := r.org.UpdateSettings(ctx, org.Settings{Stats: org.Stats{Public: true}}, store.Actor{}); err != nil {
 		t.Fatal(err)
 	}
 	if got, code := board(anon, &hubv1.GetParticipationBoardRequest{Kind: "seeding"}); code != 0 || len(got.GetEntries()) != 1 {

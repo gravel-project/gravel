@@ -43,7 +43,7 @@ func newCodeRig(t *testing.T) *codeRig {
 	t.Helper()
 	now := time.Date(2026, 10, 10, 12, 0, 0, 0, time.UTC)
 	svc, st := newService(t, &now)
-	m, err := svc.Create(context.Background(), "Muster", []string{apps.ScopeIdentityRead, apps.ScopeStatsRead, apps.ScopeServersConfigure}, redirect, "http://127.0.0.1:8765/cb")
+	m, err := svc.Create(context.Background(), store.Actor{}, "Muster", []string{apps.ScopeIdentityRead, apps.ScopeStatsRead, apps.ScopeServersConfigure}, redirect, "http://127.0.0.1:8765/cb")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +79,7 @@ func TestValidateRedirectURI(t *testing.T) {
 	}
 	now := time.Now()
 	svc, _ := newService(t, &now)
-	if _, err := svc.Create(context.Background(), "bad", nil, "http://muster.example/cb"); !errors.Is(err, apps.ErrInvalidRedirectURI) {
+	if _, err := svc.Create(context.Background(), store.Actor{}, "bad", nil, "http://muster.example/cb"); !errors.Is(err, apps.ErrInvalidRedirectURI) {
 		t.Errorf("Create with a plain-http redirect: %v", err)
 	}
 }
@@ -88,11 +88,11 @@ func TestValidateRedirectURI(t *testing.T) {
 func TestCheckAuthorizationRefusals(t *testing.T) {
 	r := newCodeRig(t)
 	ctx := context.Background()
-	revoked, err := r.svc.Create(ctx, "Old", nil, redirect)
+	revoked, err := r.svc.Create(ctx, store.Actor{}, "Old", nil, redirect)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := r.svc.Revoke(ctx, revoked.App.ClientID); err != nil {
+	if err := r.svc.Revoke(ctx, store.Actor{}, revoked.App.ClientID); err != nil {
 		t.Fatal(err)
 	}
 	for name, tc := range map[string]struct {
@@ -257,7 +257,7 @@ func TestExchange(t *testing.T) {
 	if _, err := r.svc.Exchange(ctx, id, "wrong", code, redirect, verifier); !errors.Is(err, apps.ErrInvalidClient) {
 		t.Errorf("wrong secret: %v", err)
 	}
-	other, err := r.svc.Create(ctx, "Other", nil, redirect)
+	other, err := r.svc.Create(ctx, store.Actor{}, "Other", nil, redirect)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -266,7 +266,7 @@ func TestExchange(t *testing.T) {
 	}
 	// An app revoked between the code and the exchange gets nothing.
 	code = r.code(t, "")
-	if err := r.svc.Revoke(ctx, id); err != nil {
+	if err := r.svc.Revoke(ctx, store.Actor{}, id); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := r.svc.Exchange(ctx, id, secret, code, redirect, verifier); !errors.Is(err, apps.ErrInvalidClient) {
@@ -304,6 +304,12 @@ func TestRevokeGrantAndPrune(t *testing.T) {
 	}
 	if _, err := r.svc.RevokeGrant(ctx, r.member, r.muster.App.ClientID); !errors.Is(err, store.ErrNotFound) {
 		t.Errorf("revoke twice: %v", err)
+	}
+	// The member's consent and its taking back are theirs, through the API (#189).
+	for _, kind := range []string{"app.granted", "app.grant_revoked"} {
+		if by := r.st.Actors[kind]; len(by) != 1 || *by[0].UserID != r.member || by[0].AppID != nil || by[0].Via != store.ViaAPI {
+			t.Errorf("%s recorded as %+v", kind, by)
+		}
 	}
 	if _, err := r.svc.RevokeGrant(ctx, r.member, "gravel_nope"); !errors.Is(err, store.ErrNotFound) {
 		t.Errorf("revoke an unknown app: %v", err)
@@ -344,7 +350,7 @@ func TestIntrospect(t *testing.T) {
 	}
 	// Another organization's token, in the same store, is inactive here.
 	otherOrg := apps.New(r.st, uuid.New(), time.Hour, quiet(), apps.WithClock(func() time.Time { return *r.now }))
-	foreign, err := otherOrg.Create(ctx, "Theirs", nil)
+	foreign, err := otherOrg.Create(ctx, store.Actor{}, "Theirs", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -432,7 +438,7 @@ func TestIntrospectHandler(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Any app of the organization may ask (a service the app talks to has its own credentials).
-	checker, err := r.svc.Create(ctx, "checker", nil)
+	checker, err := r.svc.Create(ctx, store.Actor{}, "checker", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

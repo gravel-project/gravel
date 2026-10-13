@@ -142,7 +142,7 @@ func TestSeedDemoRefusesARealDatabase(t *testing.T) {
 			}
 		},
 		"a registered bot and nobody signed in": func(t *testing.T, st *store.Store, o store.Organization) {
-			if err := st.CreateApp(ctx, store.App{ID: uuid.New(), OrganizationID: o.ID, Name: "htg-bot", ClientID: "gravel_bot", SecretHash: []byte("x"), CreatedAt: t0}); err != nil {
+			if err := st.CreateApp(ctx, store.App{ID: uuid.New(), OrganizationID: o.ID, Name: "htg-bot", ClientID: "gravel_bot", SecretHash: []byte("x"), CreatedAt: t0}, store.Actor{}); err != nil {
 				t.Fatal(err)
 			}
 		},
