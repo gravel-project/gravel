@@ -1,0 +1,23 @@
+# ADR-0028: Events and notifiers; no push to browsers in core
+
+**Status:** proposed (2026-10-13; accepted when John merges #188's pull request) · **Changes:** where the hub records what it did and how people hear about it; amends ADR-0010 §5 (the audit log stays, and each finished entry is an event too), the README's review-queue line, and ADR-0023 §8's wording on how a lease's holder learns of its state · **Decided in:** John's design session *gravel — Design Session: Hub, Spines & Dashboard* (2026-10-10 to 12), handbook D35 · **Built in steps:** #188 (§1 to §4: the log, its writers, the cursor, retention), #189 (the claim, settings and app events), #190 (server health events and alarms), #196 (§5 and §6: notifiers) · **Part of:** H1 (#182), the unplug test (ADR-0025)
+
+## Context
+
+The hub wrote what happened in five places: `audit_log` (moderation and host actions, one server each, so an organization-level action had nowhere to go), `identity_events`, `role_changes`, `server_host_events`, and the results tables. The Discord bot polled each of them to tell people. Take the bot away and the hub told nobody anything, which fails the unplug test: "tells its owner what is wrong" needs a channel that isn't Discord. The design session asked for gravel-native events and actions, with how they reach people a pluggable notifier seam, and Discord as one plugin.
+
+## Decision
+
+1. **One append-only `events` table**, written in each source's own transaction, so the log never says something happened that didn't and never misses something that did. A row says when, what kind, how severe, who acted (a member, an app, the member an app acted for), on which server and game, about which member, one line a person reads, a few words more, and where it came from (`source`, `source_id`, unique), so a backfill or a replayed source writes nothing twice. A trigger refuses every UPDATE, DELETE and TRUNCATE except the prune, which marks its own transaction.
+2. **Kinds and severities are a registry in Go** (`internal/events`): `area.word` names, each with a fixed severity, `info`, `notice`, `warning` or `critical`. A writer that names a kind the registry lacks fails its transaction; a test holds every kind a writer can produce to the registry. Logins are not events: they are every visit.
+3. **Read by cursor.** `OrganizationService.ListEvents` with `after_id` follows the log oldest first; without it the newest come first and `before_id` pages back; `head_id` is the newest id when read. `events:read` admits; a caller holding it for some games (ADR-0027 §4) reads those games' events. Ids are a `bigint` identity, so following the log needs no clock.
+4. **Retention** is `events.retention_days` in the Organization settings, 400 days by default (30 to 3650); the prune job deletes older events. The history the hub had before the log is backfilled once, by the migration, oldest first.
+5. **Notifiers carry events to people** (#196): `notify.Notifier` with three defaults, a webhook (JSON, signed; a Discord-webhook flavour so a hub with no bot still posts to Discord), ntfy, and email. Which notifiers exist, and which kinds, severities, games and servers each takes, are in the Organization settings; their secrets are in `hub.yaml`. A dispatcher job follows the log with one cursor per notifier, so one failing never holds up another. The bot becomes one more reader of the same log.
+6. **No push to browsers in core.** The admin dashboard polls (`ListEvents` every few seconds, ADR-0029); there is no WebSocket or server-sent events endpoint for pages. Connect server-streams stay for apps and agents that need them (`WatchServerLease`, ADR-0023).
+
+## Consequences
+
+- #188: migration 00026 (`events` with its trigger and backfill), `internal/events`, the writers (identity, roles, the audit log's outcomes, host transitions and failures, leases, match results, backups through a status-file watcher), `ListEvents`, `events.retention_days`, `gravel_events_total{kind}`. `events:read` became an app scope and a member-token scope.
+- `audit_log` stays the full moderation record (reasons, targets); its event is the outcome, for people and notifiers. A deployment's history is in the log from the day it upgrades, backfilled.
+- A single-statement writer (a host event, a lease) became a short transaction; the cost is one more round trip per write.
+- Not decided here: notifier backoff and the `notifier.failing` alarm's threshold (#196); the fleet's health rule and alarms (#190).

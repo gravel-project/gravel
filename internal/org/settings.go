@@ -39,6 +39,8 @@ type Settings struct {
 	// LocalAccounts is who may register a username and password, when hub.yaml turns local
 	// accounts on (ADR-0026).
 	LocalAccounts LocalAccounts `json:"local_accounts,omitzero" yaml:"local_accounts,omitempty"`
+	// Events is how long the events log keeps what it holds (ADR-0028).
+	Events Events `json:"events,omitzero" yaml:"events,omitempty"`
 	// Games are per-game settings by game id ("wardogs"), each a game this hub ships.
 	Games map[string]GameSettings `json:"games,omitempty" yaml:"games,omitempty"`
 }
@@ -119,6 +121,30 @@ const (
 
 // IsZero reports whether every value is the default.
 func (l LocalAccounts) IsZero() bool { return l == LocalAccounts{} }
+
+// Events is the events log's retention (ADR-0028).
+type Events struct {
+	// RetentionDays is how long an event is kept: 0 is the default, 400; else 30 to 3650.
+	RetentionDays int `json:"retention_days,omitempty" yaml:"retention_days,omitempty"`
+}
+
+// Events retention limits.
+const (
+	DefaultEventsRetentionDays = 400
+	MinEventsRetentionDays     = 30
+	MaxEventsRetentionDays     = 3650
+)
+
+// IsZero reports whether every value is the default.
+func (e Events) IsZero() bool { return e == Events{} }
+
+// RetentionDaysOrDefault is the days events are kept.
+func (e Events) RetentionDaysOrDefault() int {
+	if e.RetentionDays == 0 {
+		return DefaultEventsRetentionDays
+	}
+	return e.RetentionDays
+}
 
 // Open reports whether anyone may register.
 func (l LocalAccounts) Open() bool { return l.Registration == RegistrationOpen }
@@ -608,6 +634,9 @@ func (s Settings) Validate() error {
 	validateDiscord(s.Discord, bad)
 	validateStats(s.Stats, bad)
 	validateLocalAccounts(s.LocalAccounts, bad)
+	if d := s.Events.RetentionDays; d != 0 && (d < MinEventsRetentionDays || d > MaxEventsRetentionDays) {
+		bad("events.retention_days: %d is not 0 (the default, %d) or between %d and %d", d, DefaultEventsRetentionDays, MinEventsRetentionDays, MaxEventsRetentionDays)
+	}
 	validateGames(s.Games, bad)
 	if len(errs) == 0 {
 		return nil

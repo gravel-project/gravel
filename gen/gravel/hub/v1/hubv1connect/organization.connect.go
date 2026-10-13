@@ -45,6 +45,9 @@ const (
 	// OrganizationServiceUpdateOrganizationSettingsProcedure is the fully-qualified name of the
 	// OrganizationService's UpdateOrganizationSettings RPC.
 	OrganizationServiceUpdateOrganizationSettingsProcedure = "/gravel.hub.v1.OrganizationService/UpdateOrganizationSettings"
+	// OrganizationServiceListEventsProcedure is the fully-qualified name of the OrganizationService's
+	// ListEvents RPC.
+	OrganizationServiceListEventsProcedure = "/gravel.hub.v1.OrganizationService/ListEvents"
 )
 
 // OrganizationServiceClient is a client for the gravel.hub.v1.OrganizationService service.
@@ -60,6 +63,9 @@ type OrganizationServiceClient interface {
 	// UpdateOrganizationSettings replaces the settings. The owner only; invalid_argument names
 	// every invalid field.
 	UpdateOrganizationSettings(context.Context, *connect.Request[v1.UpdateOrganizationSettingsRequest]) (*connect.Response[v1.UpdateOrganizationSettingsResponse], error)
+	// ListEvents reads the events log by cursor (ADR-0028): events:read, and a caller holding it
+	// for some games sees those games' events only.
+	ListEvents(context.Context, *connect.Request[v1.ListEventsRequest]) (*connect.Response[v1.ListEventsResponse], error)
 }
 
 // NewOrganizationServiceClient constructs a client for the gravel.hub.v1.OrganizationService
@@ -97,6 +103,12 @@ func NewOrganizationServiceClient(httpClient connect.HTTPClient, baseURL string,
 			connect.WithSchema(organizationServiceMethods.ByName("UpdateOrganizationSettings")),
 			connect.WithClientOptions(opts...),
 		),
+		listEvents: connect.NewClient[v1.ListEventsRequest, v1.ListEventsResponse](
+			httpClient,
+			baseURL+OrganizationServiceListEventsProcedure,
+			connect.WithSchema(organizationServiceMethods.ByName("ListEvents")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -106,6 +118,7 @@ type organizationServiceClient struct {
 	claimOwnership             *connect.Client[v1.ClaimOwnershipRequest, v1.ClaimOwnershipResponse]
 	getOrganizationSettings    *connect.Client[v1.GetOrganizationSettingsRequest, v1.GetOrganizationSettingsResponse]
 	updateOrganizationSettings *connect.Client[v1.UpdateOrganizationSettingsRequest, v1.UpdateOrganizationSettingsResponse]
+	listEvents                 *connect.Client[v1.ListEventsRequest, v1.ListEventsResponse]
 }
 
 // GetOrganization calls gravel.hub.v1.OrganizationService.GetOrganization.
@@ -128,6 +141,11 @@ func (c *organizationServiceClient) UpdateOrganizationSettings(ctx context.Conte
 	return c.updateOrganizationSettings.CallUnary(ctx, req)
 }
 
+// ListEvents calls gravel.hub.v1.OrganizationService.ListEvents.
+func (c *organizationServiceClient) ListEvents(ctx context.Context, req *connect.Request[v1.ListEventsRequest]) (*connect.Response[v1.ListEventsResponse], error) {
+	return c.listEvents.CallUnary(ctx, req)
+}
+
 // OrganizationServiceHandler is an implementation of the gravel.hub.v1.OrganizationService service.
 type OrganizationServiceHandler interface {
 	GetOrganization(context.Context, *connect.Request[v1.GetOrganizationRequest]) (*connect.Response[v1.GetOrganizationResponse], error)
@@ -141,6 +159,9 @@ type OrganizationServiceHandler interface {
 	// UpdateOrganizationSettings replaces the settings. The owner only; invalid_argument names
 	// every invalid field.
 	UpdateOrganizationSettings(context.Context, *connect.Request[v1.UpdateOrganizationSettingsRequest]) (*connect.Response[v1.UpdateOrganizationSettingsResponse], error)
+	// ListEvents reads the events log by cursor (ADR-0028): events:read, and a caller holding it
+	// for some games sees those games' events only.
+	ListEvents(context.Context, *connect.Request[v1.ListEventsRequest]) (*connect.Response[v1.ListEventsResponse], error)
 }
 
 // NewOrganizationServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -174,6 +195,12 @@ func NewOrganizationServiceHandler(svc OrganizationServiceHandler, opts ...conne
 		connect.WithSchema(organizationServiceMethods.ByName("UpdateOrganizationSettings")),
 		connect.WithHandlerOptions(opts...),
 	)
+	organizationServiceListEventsHandler := connect.NewUnaryHandler(
+		OrganizationServiceListEventsProcedure,
+		svc.ListEvents,
+		connect.WithSchema(organizationServiceMethods.ByName("ListEvents")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/gravel.hub.v1.OrganizationService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case OrganizationServiceGetOrganizationProcedure:
@@ -184,6 +211,8 @@ func NewOrganizationServiceHandler(svc OrganizationServiceHandler, opts ...conne
 			organizationServiceGetOrganizationSettingsHandler.ServeHTTP(w, r)
 		case OrganizationServiceUpdateOrganizationSettingsProcedure:
 			organizationServiceUpdateOrganizationSettingsHandler.ServeHTTP(w, r)
+		case OrganizationServiceListEventsProcedure:
+			organizationServiceListEventsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -207,4 +236,8 @@ func (UnimplementedOrganizationServiceHandler) GetOrganizationSettings(context.C
 
 func (UnimplementedOrganizationServiceHandler) UpdateOrganizationSettings(context.Context, *connect.Request[v1.UpdateOrganizationSettingsRequest]) (*connect.Response[v1.UpdateOrganizationSettingsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.OrganizationService.UpdateOrganizationSettings is not implemented"))
+}
+
+func (UnimplementedOrganizationServiceHandler) ListEvents(context.Context, *connect.Request[v1.ListEventsRequest]) (*connect.Response[v1.ListEventsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.OrganizationService.ListEvents is not implemented"))
 }

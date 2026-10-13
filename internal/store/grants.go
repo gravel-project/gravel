@@ -70,9 +70,23 @@ func (s *Store) SetRoleGrant(ctx context.Context, userID uuid.UUID, role, gameID
 	if n == 0 {
 		return false, nil
 	}
-	if _, err := tx.Exec(ctx, `INSERT INTO role_changes (user_id, role, granted, by_user_id, by_app_id, game_id, at) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-		userID, role, granted, ch.By, ch.ByApp, game, ch.At); err != nil {
+	var changeID int64
+	if err := tx.QueryRow(ctx, `INSERT INTO role_changes (user_id, role, granted, by_user_id, by_app_id, game_id, at) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+		userID, role, granted, ch.By, ch.ByApp, game, ch.At).Scan(&changeID); err != nil {
 		return false, fmt.Errorf("store: set role grant: record: %w", err)
+	}
+	kind, verb := "role.revoked", " lost "
+	if granted {
+		kind, verb = "role.granted", " was granted "
+	}
+	scope := ""
+	if gameID != "" {
+		scope = " for " + gameID
+	}
+	if err := s.appendEvent(ctx, tx, Event{OrganizationID: orgID, At: ch.At, Kind: kind, ActorUserID: ch.By, ActorAppID: ch.ByApp,
+		SubjectUserID: &userID, GameID: gameID, Summary: "{user}" + verb + role + scope, Detail: map[string]any{"role": role, "game_id": gameID},
+		Source: "role_changes", SourceID: fmt.Sprint(changeID)}); err != nil {
+		return false, err
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return false, fmt.Errorf("store: set role grant: %w", err)

@@ -67,7 +67,7 @@ func (s *Store) CreatePasswordLink(ctx context.Context, l PasswordLink) error {
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`, l.ID, l.TokenHash, ProviderLocal, l.Subject, l.Purpose, l.IssuedBy, l.IssuedAt, l.ExpiresAt); err != nil {
 		return fmt.Errorf("store: create password link: %w", err)
 	}
-	if err := appendIdentityEvent(ctx, tx, userID, ProviderLocal, l.Subject, IdentityEventPasswordLinkIssued, l.IssuedAt); err != nil {
+	if err := s.appendIdentityEvent(ctx, tx, userID, ProviderLocal, l.Subject, IdentityEventPasswordLinkIssued, l.IssuedAt); err != nil {
 		return err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -118,7 +118,7 @@ func (s *Store) UsePasswordLink(ctx context.Context, tokenHash []byte, now time.
 	if l.Purpose == PasswordLinkSet {
 		event = IdentityEventPasswordSet
 	}
-	if err := appendIdentityEvent(ctx, tx, userID, ProviderLocal, l.Subject, event, now); err != nil {
+	if err := s.appendIdentityEvent(ctx, tx, userID, ProviderLocal, l.Subject, event, now); err != nil {
 		return PasswordLink{}, uuid.Nil, err
 	}
 	if err := tx.Commit(ctx); err != nil {

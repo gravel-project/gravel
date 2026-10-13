@@ -252,6 +252,11 @@ func hubDashboard() dashboard {
 					Description: "prune runs every 10 minutes, servers_reconcile and ingest_feeds every 30 seconds, ingest_prune hourly, server_poll at each server's interval.",
 					Targets:     []target{{Expr: `time() - max by (exported_job) (gravel_hub_job_last_success_timestamp_seconds{` + sel + `})`, Legend: "{{exported_job}}"}}},
 			}},
+			{Title: "Events", Panels: []panel{
+				{Title: "Events appended by kind", Kind: "timeseries", Width: 24, Optional: "nothing happened in the range",
+					Description: "The events log (ADR-0028): every action, transition and grant, appended in its source's transaction; notifiers and the admin dashboard read it. backup.failed and host.failing are the ones to look at.",
+					Targets:     []target{{Expr: `sum by (kind) (increase(gravel_events_total{` + sel + `}[$__rate_interval]))`, Legend: "{{kind}}"}}},
+			}},
 			runtimeRow(),
 		},
 	}

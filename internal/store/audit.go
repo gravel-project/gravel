@@ -3,7 +3,9 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -70,13 +72,30 @@ func (s *Store) InsertAuditEntry(ctx context.Context, e AuditEntry) (int64, erro
 // FinishAuditEntry records an entry's outcome; ErrNotFound when the entry does not exist or is
 // already finished.
 func (s *Store) FinishAuditEntry(ctx context.Context, orgID uuid.UUID, id int64, outcome string, at time.Time) error {
-	tag, err := s.pool.Exec(ctx, `UPDATE audit_log SET outcome = $3, finished_at = $4 WHERE organization_id = $1 AND id = $2 AND outcome IS NULL`,
-		orgID, id, outcome, at)
+	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("store: finish audit entry: %w", err)
 	}
-	if tag.RowsAffected() == 0 {
+	defer func() { _ = tx.Rollback(ctx) }()
+	e := Event{OrganizationID: orgID, At: at, Source: "audit_log", SourceID: fmt.Sprint(id)}
+	var action string
+	err = tx.QueryRow(ctx, `UPDATE audit_log SET outcome = $3, finished_at = $4 WHERE organization_id = $1 AND id = $2 AND outcome IS NULL
+		RETURNING action, server_id, actor_user_id, actor_app_id, on_behalf_provider, on_behalf_subject, request_id`,
+		orgID, id, outcome, at).Scan(&action, &e.ServerID, &e.ActorUserID, &e.ActorAppID, &e.OnBehalfProvider, &e.OnBehalfSubject, &e.RequestID)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("store: finish audit entry: %w", err)
+	}
+	e.Kind = AuditEventKind(action)
+	e.Summary = strings.ReplaceAll(action, "_", " ") + " on " + e.ServerID + ": " + outcome
+	e.Detail = map[string]any{"action": action, "outcome": outcome, "audit_id": id}
+	if err := s.appendEvent(ctx, tx, e); err != nil {
+		return err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("store: finish audit entry: %w", err)
 	}
 	return nil
 }

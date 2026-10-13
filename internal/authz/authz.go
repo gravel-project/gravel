@@ -81,7 +81,7 @@ var specs = []Spec{
 	{Name: RolesGrant, Apps: true, Scopable: true, About: "grant and revoke members' roles (SetUserRole, ListRoleGrants); an app grants moderator only, and a game-scoped holder only within that game"},
 	{Name: SettingsWrite, About: "change the Organization settings (UpdateOrganizationSettings)"},
 	{Name: AppsManage, About: "register and revoke first-party apps (#195)"},
-	{Name: EventsRead, Scopable: true, About: "read the hub's events log (#188)"},
+	{Name: EventsRead, Apps: true, Scopable: true, About: "read the hub's events log (ListEvents); a game-scoped holder reads that game's events"},
 	{Name: MetricsRead, About: "read the operator dashboards' metrics through the hub (#204)"},
 	{Name: StatsErase, About: "erase a player's identity from the stats (#195)"},
 	{Name: OrgTransfer, About: "hand the hub to another member (#197); the owner's alone, in person"},

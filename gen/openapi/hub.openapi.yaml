@@ -1137,6 +1137,47 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.GetOrganizationSettingsResponse'
+  /gravel.hub.v1.OrganizationService/ListEvents:
+    post:
+      tags:
+        - gravel.hub.v1.OrganizationService
+      summary: ListEvents
+      description: |-
+        ListEvents reads the events log by cursor (ADR-0028): events:read, and a caller holding it
+         for some games sees those games' events only.
+      operationId: gravel.hub.v1.OrganizationService.ListEvents
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.ListEventsRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.ListEventsResponse'
   /gravel.hub.v1.OrganizationService/UpdateOrganizationSettings:
     post:
       tags:
@@ -3455,6 +3496,76 @@ components:
       description: |-
         Go-live posts: one message per stream in the channel, edited when the stream ends. Stream
          metadata only; nothing about viewers is read.
+    gravel.hub.v1.Event:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+          format: int64
+        at:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: at
+        kind:
+          type: string
+          title: kind
+          description: 'A kind from the registry: "host.running", "moderation.ban", "role.granted"…'
+        severity:
+          type: string
+          title: severity
+          description: '"info", "notice", "warning" or "critical": fixed per kind.'
+        actorUserId:
+          type: string
+          title: actor_user_id
+        actorAppId:
+          type: string
+          title: actor_app_id
+        onBehalfProvider:
+          type: string
+          title: on_behalf_provider
+          description: The member an app said it acted for.
+        onBehalfSubject:
+          type: string
+          title: on_behalf_subject
+        serverId:
+          type: string
+          title: server_id
+        gameId:
+          type: string
+          title: game_id
+        subjectUserId:
+          type: string
+          title: subject_user_id
+          description: The member the event is about (a grant, a link).
+        summary:
+          type: string
+          title: summary
+          description: One line a person reads.
+        detail:
+          type: object
+          title: detail
+          additionalProperties:
+            type: string
+            title: value
+          description: A few words more, by name; never a secret, an address or a SteamID.
+        requestId:
+          type: string
+          title: request_id
+      title: Event
+      additionalProperties: false
+      description: 'Event is one entry of the events log (ADR-0028): what the hub did, who did it, to what.'
+    gravel.hub.v1.EventsSettings:
+      type: object
+      properties:
+        retentionDays:
+          type: integer
+          title: retention_days
+          format: int32
+          description: Days an event is kept; 0 is the default, 400; else 30 to 3650.
+      title: EventsSettings
+      additionalProperties: false
+      description: EventsSettings is how long the events log keeps what it holds (ADR-0028).
     gravel.hub.v1.Game:
       type: object
       properties:
@@ -4278,6 +4389,65 @@ components:
           description: Empty on the last page.
       title: ListAuditLogResponse
       additionalProperties: false
+    gravel.hub.v1.ListEventsRequest:
+      type: object
+      properties:
+        afterId:
+          type: string
+          title: after_id
+          format: int64
+          description: 'The events after this id, oldest first: following the log. 0 reads the newest first.'
+        beforeId:
+          type: string
+          title: before_id
+          format: int64
+          description: 'With after_id 0, the events before this id, newest first: paging back.'
+        limit:
+          type: integer
+          title: limit
+          format: int32
+          description: At most 500; 0 is 100.
+        kinds:
+          type: array
+          items:
+            type: string
+          title: kinds
+          description: Kinds ("host.running") or groups ("host"); empty is every kind.
+        minSeverity:
+          type: string
+          title: min_severity
+          description: '"info" (or empty), "notice", "warning" or "critical": this severity and above.'
+        serverId:
+          type: string
+          title: server_id
+          description: One server's events.
+      title: ListEventsRequest
+      additionalProperties: false
+    gravel.hub.v1.ListEventsResponse:
+      type: object
+      properties:
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.Event'
+          title: events
+        nextAfterId:
+          type: string
+          title: next_after_id
+          format: int64
+          description: 'Pass as after_id next: the newest id returned, or the request''s after_id when none came.'
+        headId:
+          type: string
+          title: head_id
+          format: int64
+          description: The newest id in the log when it was read; 0 for an empty log.
+        nextBeforeId:
+          type: string
+          title: next_before_id
+          format: int64
+          description: Pass as before_id to page further back; 0 when there is nothing older.
+      title: ListEventsResponse
+      additionalProperties: false
     gravel.hub.v1.ListGamesRequest:
       type: object
       title: ListGamesRequest
@@ -4935,6 +5105,10 @@ components:
           allOf:
             - $ref: '#/components/schemas/gravel.hub.v1.LocalAccountsSettings'
           title: local_accounts
+        events:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.EventsSettings'
+          title: events
       title: OrganizationSettings
       additionalProperties: false
       description: |-

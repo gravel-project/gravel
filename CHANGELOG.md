@@ -32,6 +32,13 @@ patch release is everything else.
 
 ### Added
 
+- The events log: one append-only record of what the hub did, read by cursor (#188, [ADR-0028](docs/adr/0028-events-and-notifiers-no-push-to-browsers-in-core.md) proposed; H1, #182). It is what notifiers, the admin dashboard and the CLI will read.
+  - **Storage:** migration **00026**, `events`, with a trigger that refuses every change but the prune, and a backfill of `identity_events`, `role_changes`, finished `audit_log` rows and `server_host_events`, oldest first. Each event is keyed by its source row, so nothing is written twice.
+  - **Writers,** each in its source's transaction: registrations, links, unlinks, proofs and password links (logins stay out); role grants; moderation and other audited actions with their outcome; a cloud-VM host's transitions, resizes, steps, and a step that starts failing or recovers; leases; a series ending; backups (`backup.failed`, `backup.stale`, `backup.recovered`, from the status file every five minutes).
+  - **Kinds:** 52, each with a fixed severity (`info`, `notice`, `warning`, `critical`), in `internal/events`; a writer naming an unknown kind fails.
+  - **The API:** `OrganizationService.ListEvents{after_id, before_id, limit, kinds, min_severity, server_id}` → events, `next_after_id`, `head_id`, `next_before_id`; `events:read`, which an app and a member's token may now hold, and a game-scoped holder reads that game's events.
+  - **Settings:** `events.retention_days` (400; 30 to 3650), pruned with the sessions.
+  - **Metrics:** `gravel_events_total{kind}` on the hub dashboard's new Events row.
 - Password links: staff give someone a local account, and a forgotten password a reset, with a one-time link (#187, ADR-0026). It is how a hub with registration closed gets members, and how a hub with no provider gets its first owner.
   - **The API:** `IdentityService.CreateLocalAccount{username, email}` and `IssuePasswordReset{username}`, behind `members:manage` (the owner, in person), each return a `PasswordLink` (`url` on `auth.base_url`, `purpose`, `expires_at`); `failed_precondition` when local accounts are off. The access matrix gains both.
   - **The host:** `gravel-hub users create-local --username NAME [--email ADDRESS]` and `gravel-hub users reset-password --username NAME`, with no API credential.

@@ -24,6 +24,7 @@ type OrganizationServer struct {
 	hubv1connect.UnimplementedOrganizationServiceHandler
 	org    *org.Service
 	access *Access
+	events EventReader // nil: no events log (WithEvents)
 	logger *slog.Logger
 }
 
@@ -146,6 +147,9 @@ func settingsToProto(set org.Settings, at time.Time) *hubv1.OrganizationSettings
 			p.Stats.Seasons = append(p.Stats.Seasons, &hubv1.StatsSeason{Name: se.Name, Game: se.Game, From: se.From, To: se.To})
 		}
 	}
+	if e := set.Events; !e.IsZero() {
+		p.Events = &hubv1.EventsSettings{RetentionDays: int32(e.RetentionDays)} //nolint:gosec // bounded by validation
+	}
 	if l := set.LocalAccounts; !l.IsZero() {
 		p.LocalAccounts = &hubv1.LocalAccountsSettings{Registration: l.Registration, MinPasswordLength: int32(l.MinPasswordLength)} //nolint:gosec // bounded by validation
 	}
@@ -227,6 +231,9 @@ func settingsFromProto(p *hubv1.OrganizationSettings) org.Settings {
 		RawRetentionMonths: int(st.GetRawRetentionMonths())}
 	for _, se := range st.GetSeasons() {
 		set.Stats.Seasons = append(set.Stats.Seasons, org.Season{Name: se.GetName(), Game: se.GetGame(), From: se.GetFrom(), To: se.GetTo()})
+	}
+	if e := p.GetEvents(); e != nil {
+		set.Events = org.Events{RetentionDays: int(e.GetRetentionDays())}
 	}
 	if l := p.GetLocalAccounts(); l != nil {
 		set.LocalAccounts = org.LocalAccounts{Registration: l.GetRegistration(), MinPasswordLength: int(l.GetMinPasswordLength())}
