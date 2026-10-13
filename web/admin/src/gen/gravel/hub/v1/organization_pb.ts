@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file gravel/hub/v1/organization.proto.
  */
 export const file_gravel_hub_v1_organization: GenFile = /*@__PURE__*/
-  fileDesc("CiBncmF2ZWwvaHViL3YxL29yZ2FuaXphdGlvbi5wcm90bxINZ3JhdmVsLmh1Yi52MSK8AQoMT3JnYW5pemF0aW9uEgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkSDQoFb3duZWQYAyABKAgSLgoKY3JlYXRlZF9hdBgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLgoKY2xhaW1lZF9hdBgFIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASFQoNb3duZXJfdXNlcl9pZBgGIAEoCRIMCgRkZW1vGAcgASgIIhgKFkdldE9yZ2FuaXphdGlvblJlcXVlc3QiTAoXR2V0T3JnYW5pemF0aW9uUmVzcG9uc2USMQoMb3JnYW5pemF0aW9uGAEgASgLMhsuZ3JhdmVsLmh1Yi52MS5Pcmdhbml6YXRpb24iJgoVQ2xhaW1Pd25lcnNoaXBSZXF1ZXN0Eg0KBXRva2VuGAEgASgJIksKFkNsYWltT3duZXJzaGlwUmVzcG9uc2USMQoMb3JnYW5pemF0aW9uGAEgASgLMhsuZ3JhdmVsLmh1Yi52MS5Pcmdhbml6YXRpb24iewoLVGhlbWVUb2tlbnMSDgoGYWNjZW50GAEgASgJEhIKCmJhY2tncm91bmQYAiABKAkSEgoKZm9yZWdyb3VuZBgDIAEoCRINCgVtdXRlZBgEIAEoCRIMCgRsaW5lGAUgASgJEgoKAm9rGAYgASgJEgsKA2VychgHIAEoCSKRAQoFVGhlbWUSKQoFbGlnaHQYASABKAsyGi5ncmF2ZWwuaHViLnYxLlRoZW1lVG9rZW5zEigKBGRhcmsYAiABKAsyGi5ncmF2ZWwuaHViLnYxLlRoZW1lVG9rZW5zEgwKBGZvbnQYAyABKAkSEAoIbG9nb191cmwYBCABKAkSEwoLZmF2aWNvbl91cmwYBSABKAkiRgoHTmF2TGluaxINCgVsYWJlbBgBIAEoCRILCgN1cmwYAiABKAkSEQoJcGxhY2VtZW50GAMgASgJEgwKBHJvbGUYBCABKAki1AEKDEdhbWVTZXR0aW5ncxInCgV0aGVtZRgBIAEoCzIYLmdyYXZlbC5odWIudjEuR2FtZVRoZW1lEiMKA25hdhgCIAMoCzIWLmdyYXZlbC5odWIudjEuTmF2TGluaxIzCgRtYXBzGAMgAygLMiUuZ3JhdmVsLmh1Yi52MS5HYW1lU2V0dGluZ3MuTWFwc0VudHJ5EhQKDG1hcF9mYWxsYmFjaxgEIAEoCRorCglNYXBzRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgJOgI4ASKIAQoJR2FtZVRoZW1lEikKBWxpZ2h0GAEgASgLMhouZ3JhdmVsLmh1Yi52MS5UaGVtZVRva2VucxIoCgRkYXJrGAIgASgLMhouZ3JhdmVsLmh1Yi52MS5UaGVtZVRva2VucxISCgpiYW5uZXJfdXJsGAMgASgJEhIKCmJhbm5lcl9hbHQYBCABKAkijwEKDERpc2NvcmRSb2xlcxIOCgZsaW5rZWQYASABKAkSPQoJcHJvdmlkZXJzGAIgAygLMiouZ3JhdmVsLmh1Yi52MS5EaXNjb3JkUm9sZXMuUHJvdmlkZXJzRW50cnkaMAoOUHJvdmlkZXJzRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgJOgI4ASI/ChJEaXNjb3JkUmVjb2duaXRpb24SDAoEcm9sZRgBIAEoCRIMCgRydWxlGAIgASgJEg0KBWNvdW50GAMgASgFIkIKEURpc2NvcmRTZXJ2ZXJDYXJkEg4KBnNlcnZlchgBIAEoCRIPCgdjaGFubmVsGAIgASgJEgwKBG5vdGUYAyABKAkiPQoTRGlzY29yZFNlZWRpbmdIb3VycxIMCgRkYXlzGAEgAygJEgwKBGZyb20YAiABKAkSCgoCdG8YAyABKAkiuAEKDkRpc2NvcmRTZWVkaW5nEg4KBnNlcnZlchgBIAEoCRIPCgdjaGFubmVsGAIgASgJEgwKBHJvbGUYAyABKAkSDQoFYmVsb3cYBCABKAUSMQoFaG91cnMYBSADKAsyIi5ncmF2ZWwuaHViLnYxLkRpc2NvcmRTZWVkaW5nSG91cnMSEAoIY29vbGRvd24YBiABKAkSFQoNY2FsbF9hdF9zdGFydBgHIAEoCBIMCgRub3RlGAggASgJIvQDCg9EaXNjb3JkU2V0dGluZ3MSEAoIZ3VpbGRfaWQYASABKAkSKgoFcm9sZXMYAiABKAsyGy5ncmF2ZWwuaHViLnYxLkRpc2NvcmRSb2xlcxI2CgtyZWNvZ25pdGlvbhgDIAMoCzIhLmdyYXZlbC5odWIudjEuRGlzY29yZFJlY29nbml0aW9uEjYKDHNlcnZlcl9jYXJkcxgEIAMoCzIgLmdyYXZlbC5odWIudjEuRGlzY29yZFNlcnZlckNhcmQSDwoHbW9kX2xvZxgFIAEoCRIuCgdzZWVkaW5nGAYgAygLMh0uZ3JhdmVsLmh1Yi52MS5EaXNjb3JkU2VlZGluZxIwCghwcmVzZW5jZRgHIAEoCzIeLmdyYXZlbC5odWIudjEuRGlzY29yZFByZXNlbmNlEisKBnJlY2FwcxgIIAMoCzIbLmdyYXZlbC5odWIudjEuRGlzY29yZFJlY2FwEi4KB3N0cmVhbXMYCSABKAsyHS5ncmF2ZWwuaHViLnYxLkRpc2NvcmRTdHJlYW1zEigKBG5ld3MYCiABKAsyGi5ncmF2ZWwuaHViLnYxLkRpc2NvcmROZXdzEjkKDW1hdGNoX3Jlc3VsdHMYCyABKAsyIi5ncmF2ZWwuaHViLnYxLkRpc2NvcmRNYXRjaFJlc3VsdHMiNwoTRGlzY29yZE1hdGNoUmVzdWx0cxIPCgdjaGFubmVsGAEgASgJEg8KB3NlcnZlcnMYAiADKAkiXwoPRGlzY29yZE5ld3NGZWVkEg4KBmFwcF9pZBgBIAEoBRIPCgdjaGFubmVsGAIgASgJEg0KBWxhYmVsGAMgASgJEg0KBWZlZWRzGAQgAygJEg0KBWNvbG9yGAUgASgFIjwKC0Rpc2NvcmROZXdzEi0KBWZlZWRzGAEgAygLMh4uZ3JhdmVsLmh1Yi52MS5EaXNjb3JkTmV3c0ZlZWQiQQoPRGlzY29yZFN0cmVhbWVyEhAKCHBsYXRmb3JtGAEgASgJEg0KBWxvZ2luGAIgASgJEg0KBWxhYmVsGAMgASgJInAKDkRpc2NvcmRTdHJlYW1zEg8KB2NoYW5uZWwYASABKAkSDAoEcm9sZRgCIAEoCRIMCgRub3RlGAMgASgJEjEKCXN0cmVhbWVycxgEIAMoCzIeLmdyYXZlbC5odWIudjEuRGlzY29yZFN0cmVhbWVyIo4BCgxEaXNjb3JkUmVjYXASDgoGc2VydmVyGAEgASgJEg8KB2NoYW5uZWwYAiABKAkSDQoFdGl0bGUYAyABKAkSMQoFaG91cnMYBCADKAsyIi5ncmF2ZWwuaHViLnYxLkRpc2NvcmRTZWVkaW5nSG91cnMSDQoFZmxvb3IYBSABKAUSDAoEbm90ZRgGIAEoCSJfChNEaXNjb3JkUHJlc2VuY2VHYW1lEgwKBGdhbWUYASABKAkSDQoFbGFiZWwYAiABKAkSEgoKYWN0aXZpdGllcxgDIAMoCRIXCg9hcHBsaWNhdGlvbl9pZHMYBCADKAkiYwoPRGlzY29yZFByZXNlbmNlEg8KB2NoYW5uZWwYASABKAkSDAoEbm90ZRgCIAEoCRIxCgVnYW1lcxgDIAMoCzIiLmdyYXZlbC5odWIudjEuRGlzY29yZFByZXNlbmNlR2FtZSJDCgtTdGF0c1NlYXNvbhIMCgRuYW1lGAEgASgJEgwKBGdhbWUYAiABKAkSDAoEZnJvbRgDIAEoCRIKCgJ0bxgEIAEoCSKRAQoNU3RhdHNTZXR0aW5ncxIOCgZwdWJsaWMYASABKAgSEwoLbWluX21hdGNoZXMYAiABKAUSEAoIdGltZXpvbmUYAyABKAkSKwoHc2Vhc29ucxgEIAMoCzIaLmdyYXZlbC5odWIudjEuU3RhdHNTZWFzb24SHAoUcmF3X3JldGVudGlvbl9tb250aHMYBSABKAUiSgoVTG9jYWxBY2NvdW50c1NldHRpbmdzEhQKDHJlZ2lzdHJhdGlvbhgBIAEoCRIbChNtaW5fcGFzc3dvcmRfbGVuZ3RoGAIgASgFIvYDChRPcmdhbml6YXRpb25TZXR0aW5ncxIPCgd2ZXJzaW9uGAEgASgFEiMKBXRoZW1lGAIgASgLMhQuZ3JhdmVsLmh1Yi52MS5UaGVtZRIjCgNuYXYYAyADKAsyFi5ncmF2ZWwuaHViLnYxLk5hdkxpbmsSLgoKdXBkYXRlZF9hdBgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLwoHZGlzY29yZBgFIAEoCzIeLmdyYXZlbC5odWIudjEuRGlzY29yZFNldHRpbmdzEisKBXN0YXRzGAYgASgLMhwuZ3JhdmVsLmh1Yi52MS5TdGF0c1NldHRpbmdzEj0KBWdhbWVzGAcgAygLMi4uZ3JhdmVsLmh1Yi52MS5Pcmdhbml6YXRpb25TZXR0aW5ncy5HYW1lc0VudHJ5EjwKDmxvY2FsX2FjY291bnRzGAggASgLMiQuZ3JhdmVsLmh1Yi52MS5Mb2NhbEFjY291bnRzU2V0dGluZ3MSLQoGZXZlbnRzGAkgASgLMh0uZ3JhdmVsLmh1Yi52MS5FdmVudHNTZXR0aW5ncxpJCgpHYW1lc0VudHJ5EgsKA2tleRgBIAEoCRIqCgV2YWx1ZRgCIAEoCzIbLmdyYXZlbC5odWIudjEuR2FtZVNldHRpbmdzOgI4ASIoCg5FdmVudHNTZXR0aW5ncxIWCg5yZXRlbnRpb25fZGF5cxgBIAEoBSKCAwoFRXZlbnQSCgoCaWQYASABKAMSJgoCYXQYAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEgwKBGtpbmQYAyABKAkSEAoIc2V2ZXJpdHkYBCABKAkSFQoNYWN0b3JfdXNlcl9pZBgFIAEoCRIUCgxhY3Rvcl9hcHBfaWQYBiABKAkSGgoSb25fYmVoYWxmX3Byb3ZpZGVyGAcgASgJEhkKEW9uX2JlaGFsZl9zdWJqZWN0GAggASgJEhEKCXNlcnZlcl9pZBgJIAEoCRIPCgdnYW1lX2lkGAogASgJEhcKD3N1YmplY3RfdXNlcl9pZBgLIAEoCRIPCgdzdW1tYXJ5GAwgASgJEjAKBmRldGFpbBgNIAMoCzIgLmdyYXZlbC5odWIudjEuRXZlbnQuRGV0YWlsRW50cnkSEgoKcmVxdWVzdF9pZBgOIAEoCRotCgtEZXRhaWxFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAk6AjgBIn8KEUxpc3RFdmVudHNSZXF1ZXN0EhAKCGFmdGVyX2lkGAEgASgDEhEKCWJlZm9yZV9pZBgCIAEoAxINCgVsaW1pdBgDIAEoBRINCgVraW5kcxgEIAMoCRIUCgxtaW5fc2V2ZXJpdHkYBSABKAkSEQoJc2VydmVyX2lkGAYgASgJInoKEkxpc3RFdmVudHNSZXNwb25zZRIkCgZldmVudHMYASADKAsyFC5ncmF2ZWwuaHViLnYxLkV2ZW50EhUKDW5leHRfYWZ0ZXJfaWQYAiABKAMSDwoHaGVhZF9pZBgDIAEoAxIWCg5uZXh0X2JlZm9yZV9pZBgEIAEoAyIgCh5HZXRPcmdhbml6YXRpb25TZXR0aW5nc1JlcXVlc3QiWAofR2V0T3JnYW5pemF0aW9uU2V0dGluZ3NSZXNwb25zZRI1CghzZXR0aW5ncxgBIAEoCzIjLmdyYXZlbC5odWIudjEuT3JnYW5pemF0aW9uU2V0dGluZ3MiWgohVXBkYXRlT3JnYW5pemF0aW9uU2V0dGluZ3NSZXF1ZXN0EjUKCHNldHRpbmdzGAEgASgLMiMuZ3JhdmVsLmh1Yi52MS5Pcmdhbml6YXRpb25TZXR0aW5ncyJbCiJVcGRhdGVPcmdhbml6YXRpb25TZXR0aW5nc1Jlc3BvbnNlEjUKCHNldHRpbmdzGAEgASgLMiMuZ3JhdmVsLmh1Yi52MS5Pcmdhbml6YXRpb25TZXR0aW5nczKnBAoTT3JnYW5pemF0aW9uU2VydmljZRJgCg9HZXRPcmdhbml6YXRpb24SJS5ncmF2ZWwuaHViLnYxLkdldE9yZ2FuaXphdGlvblJlcXVlc3QaJi5ncmF2ZWwuaHViLnYxLkdldE9yZ2FuaXphdGlvblJlc3BvbnNlEl0KDkNsYWltT3duZXJzaGlwEiQuZ3JhdmVsLmh1Yi52MS5DbGFpbU93bmVyc2hpcFJlcXVlc3QaJS5ncmF2ZWwuaHViLnYxLkNsYWltT3duZXJzaGlwUmVzcG9uc2USeAoXR2V0T3JnYW5pemF0aW9uU2V0dGluZ3MSLS5ncmF2ZWwuaHViLnYxLkdldE9yZ2FuaXphdGlvblNldHRpbmdzUmVxdWVzdBouLmdyYXZlbC5odWIudjEuR2V0T3JnYW5pemF0aW9uU2V0dGluZ3NSZXNwb25zZRKBAQoaVXBkYXRlT3JnYW5pemF0aW9uU2V0dGluZ3MSMC5ncmF2ZWwuaHViLnYxLlVwZGF0ZU9yZ2FuaXphdGlvblNldHRpbmdzUmVxdWVzdBoxLmdyYXZlbC5odWIudjEuVXBkYXRlT3JnYW5pemF0aW9uU2V0dGluZ3NSZXNwb25zZRJRCgpMaXN0RXZlbnRzEiAuZ3JhdmVsLmh1Yi52MS5MaXN0RXZlbnRzUmVxdWVzdBohLmdyYXZlbC5odWIudjEuTGlzdEV2ZW50c1Jlc3BvbnNlQjpaOGdpdGh1Yi5jb20vZ3JhdmVsLXByb2plY3QvZ3JhdmVsL2dlbi9ncmF2ZWwvaHViL3YxO2h1YnYxYgZwcm90bzM", [file_google_protobuf_timestamp]);
+  fileDesc("CiBncmF2ZWwvaHViL3YxL29yZ2FuaXphdGlvbi5wcm90bxINZ3JhdmVsLmh1Yi52MSK8AQoMT3JnYW5pemF0aW9uEgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkSDQoFb3duZWQYAyABKAgSLgoKY3JlYXRlZF9hdBgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLgoKY2xhaW1lZF9hdBgFIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASFQoNb3duZXJfdXNlcl9pZBgGIAEoCRIMCgRkZW1vGAcgASgIIhgKFkdldE9yZ2FuaXphdGlvblJlcXVlc3QiTAoXR2V0T3JnYW5pemF0aW9uUmVzcG9uc2USMQoMb3JnYW5pemF0aW9uGAEgASgLMhsuZ3JhdmVsLmh1Yi52MS5Pcmdhbml6YXRpb24iJgoVQ2xhaW1Pd25lcnNoaXBSZXF1ZXN0Eg0KBXRva2VuGAEgASgJIksKFkNsYWltT3duZXJzaGlwUmVzcG9uc2USMQoMb3JnYW5pemF0aW9uGAEgASgLMhsuZ3JhdmVsLmh1Yi52MS5Pcmdhbml6YXRpb24iewoLVGhlbWVUb2tlbnMSDgoGYWNjZW50GAEgASgJEhIKCmJhY2tncm91bmQYAiABKAkSEgoKZm9yZWdyb3VuZBgDIAEoCRINCgVtdXRlZBgEIAEoCRIMCgRsaW5lGAUgASgJEgoKAm9rGAYgASgJEgsKA2VychgHIAEoCSKRAQoFVGhlbWUSKQoFbGlnaHQYASABKAsyGi5ncmF2ZWwuaHViLnYxLlRoZW1lVG9rZW5zEigKBGRhcmsYAiABKAsyGi5ncmF2ZWwuaHViLnYxLlRoZW1lVG9rZW5zEgwKBGZvbnQYAyABKAkSEAoIbG9nb191cmwYBCABKAkSEwoLZmF2aWNvbl91cmwYBSABKAkiRgoHTmF2TGluaxINCgVsYWJlbBgBIAEoCRILCgN1cmwYAiABKAkSEQoJcGxhY2VtZW50GAMgASgJEgwKBHJvbGUYBCABKAki1AEKDEdhbWVTZXR0aW5ncxInCgV0aGVtZRgBIAEoCzIYLmdyYXZlbC5odWIudjEuR2FtZVRoZW1lEiMKA25hdhgCIAMoCzIWLmdyYXZlbC5odWIudjEuTmF2TGluaxIzCgRtYXBzGAMgAygLMiUuZ3JhdmVsLmh1Yi52MS5HYW1lU2V0dGluZ3MuTWFwc0VudHJ5EhQKDG1hcF9mYWxsYmFjaxgEIAEoCRorCglNYXBzRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgJOgI4ASKIAQoJR2FtZVRoZW1lEikKBWxpZ2h0GAEgASgLMhouZ3JhdmVsLmh1Yi52MS5UaGVtZVRva2VucxIoCgRkYXJrGAIgASgLMhouZ3JhdmVsLmh1Yi52MS5UaGVtZVRva2VucxISCgpiYW5uZXJfdXJsGAMgASgJEhIKCmJhbm5lcl9hbHQYBCABKAkijwEKDERpc2NvcmRSb2xlcxIOCgZsaW5rZWQYASABKAkSPQoJcHJvdmlkZXJzGAIgAygLMiouZ3JhdmVsLmh1Yi52MS5EaXNjb3JkUm9sZXMuUHJvdmlkZXJzRW50cnkaMAoOUHJvdmlkZXJzRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgJOgI4ASI/ChJEaXNjb3JkUmVjb2duaXRpb24SDAoEcm9sZRgBIAEoCRIMCgRydWxlGAIgASgJEg0KBWNvdW50GAMgASgFIkIKEURpc2NvcmRTZXJ2ZXJDYXJkEg4KBnNlcnZlchgBIAEoCRIPCgdjaGFubmVsGAIgASgJEgwKBG5vdGUYAyABKAkiPQoTRGlzY29yZFNlZWRpbmdIb3VycxIMCgRkYXlzGAEgAygJEgwKBGZyb20YAiABKAkSCgoCdG8YAyABKAkiuAEKDkRpc2NvcmRTZWVkaW5nEg4KBnNlcnZlchgBIAEoCRIPCgdjaGFubmVsGAIgASgJEgwKBHJvbGUYAyABKAkSDQoFYmVsb3cYBCABKAUSMQoFaG91cnMYBSADKAsyIi5ncmF2ZWwuaHViLnYxLkRpc2NvcmRTZWVkaW5nSG91cnMSEAoIY29vbGRvd24YBiABKAkSFQoNY2FsbF9hdF9zdGFydBgHIAEoCBIMCgRub3RlGAggASgJIvQDCg9EaXNjb3JkU2V0dGluZ3MSEAoIZ3VpbGRfaWQYASABKAkSKgoFcm9sZXMYAiABKAsyGy5ncmF2ZWwuaHViLnYxLkRpc2NvcmRSb2xlcxI2CgtyZWNvZ25pdGlvbhgDIAMoCzIhLmdyYXZlbC5odWIudjEuRGlzY29yZFJlY29nbml0aW9uEjYKDHNlcnZlcl9jYXJkcxgEIAMoCzIgLmdyYXZlbC5odWIudjEuRGlzY29yZFNlcnZlckNhcmQSDwoHbW9kX2xvZxgFIAEoCRIuCgdzZWVkaW5nGAYgAygLMh0uZ3JhdmVsLmh1Yi52MS5EaXNjb3JkU2VlZGluZxIwCghwcmVzZW5jZRgHIAEoCzIeLmdyYXZlbC5odWIudjEuRGlzY29yZFByZXNlbmNlEisKBnJlY2FwcxgIIAMoCzIbLmdyYXZlbC5odWIudjEuRGlzY29yZFJlY2FwEi4KB3N0cmVhbXMYCSABKAsyHS5ncmF2ZWwuaHViLnYxLkRpc2NvcmRTdHJlYW1zEigKBG5ld3MYCiABKAsyGi5ncmF2ZWwuaHViLnYxLkRpc2NvcmROZXdzEjkKDW1hdGNoX3Jlc3VsdHMYCyABKAsyIi5ncmF2ZWwuaHViLnYxLkRpc2NvcmRNYXRjaFJlc3VsdHMiNwoTRGlzY29yZE1hdGNoUmVzdWx0cxIPCgdjaGFubmVsGAEgASgJEg8KB3NlcnZlcnMYAiADKAkiXwoPRGlzY29yZE5ld3NGZWVkEg4KBmFwcF9pZBgBIAEoBRIPCgdjaGFubmVsGAIgASgJEg0KBWxhYmVsGAMgASgJEg0KBWZlZWRzGAQgAygJEg0KBWNvbG9yGAUgASgFIjwKC0Rpc2NvcmROZXdzEi0KBWZlZWRzGAEgAygLMh4uZ3JhdmVsLmh1Yi52MS5EaXNjb3JkTmV3c0ZlZWQiQQoPRGlzY29yZFN0cmVhbWVyEhAKCHBsYXRmb3JtGAEgASgJEg0KBWxvZ2luGAIgASgJEg0KBWxhYmVsGAMgASgJInAKDkRpc2NvcmRTdHJlYW1zEg8KB2NoYW5uZWwYASABKAkSDAoEcm9sZRgCIAEoCRIMCgRub3RlGAMgASgJEjEKCXN0cmVhbWVycxgEIAMoCzIeLmdyYXZlbC5odWIudjEuRGlzY29yZFN0cmVhbWVyIo4BCgxEaXNjb3JkUmVjYXASDgoGc2VydmVyGAEgASgJEg8KB2NoYW5uZWwYAiABKAkSDQoFdGl0bGUYAyABKAkSMQoFaG91cnMYBCADKAsyIi5ncmF2ZWwuaHViLnYxLkRpc2NvcmRTZWVkaW5nSG91cnMSDQoFZmxvb3IYBSABKAUSDAoEbm90ZRgGIAEoCSJfChNEaXNjb3JkUHJlc2VuY2VHYW1lEgwKBGdhbWUYASABKAkSDQoFbGFiZWwYAiABKAkSEgoKYWN0aXZpdGllcxgDIAMoCRIXCg9hcHBsaWNhdGlvbl9pZHMYBCADKAkiYwoPRGlzY29yZFByZXNlbmNlEg8KB2NoYW5uZWwYASABKAkSDAoEbm90ZRgCIAEoCRIxCgVnYW1lcxgDIAMoCzIiLmdyYXZlbC5odWIudjEuRGlzY29yZFByZXNlbmNlR2FtZSJDCgtTdGF0c1NlYXNvbhIMCgRuYW1lGAEgASgJEgwKBGdhbWUYAiABKAkSDAoEZnJvbRgDIAEoCRIKCgJ0bxgEIAEoCSKRAQoNU3RhdHNTZXR0aW5ncxIOCgZwdWJsaWMYASABKAgSEwoLbWluX21hdGNoZXMYAiABKAUSEAoIdGltZXpvbmUYAyABKAkSKwoHc2Vhc29ucxgEIAMoCzIaLmdyYXZlbC5odWIudjEuU3RhdHNTZWFzb24SHAoUcmF3X3JldGVudGlvbl9tb250aHMYBSABKAUiSgoVTG9jYWxBY2NvdW50c1NldHRpbmdzEhQKDHJlZ2lzdHJhdGlvbhgBIAEoCRIbChNtaW5fcGFzc3dvcmRfbGVuZ3RoGAIgASgFIqIEChRPcmdhbml6YXRpb25TZXR0aW5ncxIPCgd2ZXJzaW9uGAEgASgFEiMKBXRoZW1lGAIgASgLMhQuZ3JhdmVsLmh1Yi52MS5UaGVtZRIjCgNuYXYYAyADKAsyFi5ncmF2ZWwuaHViLnYxLk5hdkxpbmsSLgoKdXBkYXRlZF9hdBgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLwoHZGlzY29yZBgFIAEoCzIeLmdyYXZlbC5odWIudjEuRGlzY29yZFNldHRpbmdzEisKBXN0YXRzGAYgASgLMhwuZ3JhdmVsLmh1Yi52MS5TdGF0c1NldHRpbmdzEj0KBWdhbWVzGAcgAygLMi4uZ3JhdmVsLmh1Yi52MS5Pcmdhbml6YXRpb25TZXR0aW5ncy5HYW1lc0VudHJ5EjwKDmxvY2FsX2FjY291bnRzGAggASgLMiQuZ3JhdmVsLmh1Yi52MS5Mb2NhbEFjY291bnRzU2V0dGluZ3MSLQoGZXZlbnRzGAkgASgLMh0uZ3JhdmVsLmh1Yi52MS5FdmVudHNTZXR0aW5ncxIqCglub3RpZmllcnMYCiADKAsyFy5ncmF2ZWwuaHViLnYxLk5vdGlmaWVyGkkKCkdhbWVzRW50cnkSCwoDa2V5GAEgASgJEioKBXZhbHVlGAIgASgLMhsuZ3JhdmVsLmh1Yi52MS5HYW1lU2V0dGluZ3M6AjgBIqABCghOb3RpZmllchIMCgRuYW1lGAEgASgJEgwKBGtpbmQYAiABKAkSEAoIZGlzYWJsZWQYAyABKAgSCwoDdXJsGAQgASgJEg8KB2ZsYXZvdXIYBSABKAkSDQoFdG9waWMYBiABKAkSCgoCdG8YByADKAkSLQoGZXZlbnRzGAggASgLMh0uZ3JhdmVsLmh1Yi52MS5Ob3RpZmllckV2ZW50cyJVCg5Ob3RpZmllckV2ZW50cxINCgVraW5kcxgBIAMoCRIUCgxtaW5fc2V2ZXJpdHkYAiABKAkSDQoFZ2FtZXMYAyADKAkSDwoHc2VydmVycxgEIAMoCSIoCg5FdmVudHNTZXR0aW5ncxIWCg5yZXRlbnRpb25fZGF5cxgBIAEoBSKCAwoFRXZlbnQSCgoCaWQYASABKAMSJgoCYXQYAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEgwKBGtpbmQYAyABKAkSEAoIc2V2ZXJpdHkYBCABKAkSFQoNYWN0b3JfdXNlcl9pZBgFIAEoCRIUCgxhY3Rvcl9hcHBfaWQYBiABKAkSGgoSb25fYmVoYWxmX3Byb3ZpZGVyGAcgASgJEhkKEW9uX2JlaGFsZl9zdWJqZWN0GAggASgJEhEKCXNlcnZlcl9pZBgJIAEoCRIPCgdnYW1lX2lkGAogASgJEhcKD3N1YmplY3RfdXNlcl9pZBgLIAEoCRIPCgdzdW1tYXJ5GAwgASgJEjAKBmRldGFpbBgNIAMoCzIgLmdyYXZlbC5odWIudjEuRXZlbnQuRGV0YWlsRW50cnkSEgoKcmVxdWVzdF9pZBgOIAEoCRotCgtEZXRhaWxFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAk6AjgBIn8KEUxpc3RFdmVudHNSZXF1ZXN0EhAKCGFmdGVyX2lkGAEgASgDEhEKCWJlZm9yZV9pZBgCIAEoAxINCgVsaW1pdBgDIAEoBRINCgVraW5kcxgEIAMoCRIUCgxtaW5fc2V2ZXJpdHkYBSABKAkSEQoJc2VydmVyX2lkGAYgASgJInoKEkxpc3RFdmVudHNSZXNwb25zZRIkCgZldmVudHMYASADKAsyFC5ncmF2ZWwuaHViLnYxLkV2ZW50EhUKDW5leHRfYWZ0ZXJfaWQYAiABKAMSDwoHaGVhZF9pZBgDIAEoAxIWCg5uZXh0X2JlZm9yZV9pZBgEIAEoAyIgCh5HZXRPcmdhbml6YXRpb25TZXR0aW5nc1JlcXVlc3QiWAofR2V0T3JnYW5pemF0aW9uU2V0dGluZ3NSZXNwb25zZRI1CghzZXR0aW5ncxgBIAEoCzIjLmdyYXZlbC5odWIudjEuT3JnYW5pemF0aW9uU2V0dGluZ3MiWgohVXBkYXRlT3JnYW5pemF0aW9uU2V0dGluZ3NSZXF1ZXN0EjUKCHNldHRpbmdzGAEgASgLMiMuZ3JhdmVsLmh1Yi52MS5Pcmdhbml6YXRpb25TZXR0aW5ncyJbCiJVcGRhdGVPcmdhbml6YXRpb25TZXR0aW5nc1Jlc3BvbnNlEjUKCHNldHRpbmdzGAEgASgLMiMuZ3JhdmVsLmh1Yi52MS5Pcmdhbml6YXRpb25TZXR0aW5ncyIjChNUZXN0Tm90aWZpZXJSZXF1ZXN0EgwKBG5hbWUYASABKAkiOAoUVGVzdE5vdGlmaWVyUmVzcG9uc2USEQoJZGVsaXZlcmVkGAEgASgIEg0KBWVycm9yGAIgASgJMoAFChNPcmdhbml6YXRpb25TZXJ2aWNlEmAKD0dldE9yZ2FuaXphdGlvbhIlLmdyYXZlbC5odWIudjEuR2V0T3JnYW5pemF0aW9uUmVxdWVzdBomLmdyYXZlbC5odWIudjEuR2V0T3JnYW5pemF0aW9uUmVzcG9uc2USXQoOQ2xhaW1Pd25lcnNoaXASJC5ncmF2ZWwuaHViLnYxLkNsYWltT3duZXJzaGlwUmVxdWVzdBolLmdyYXZlbC5odWIudjEuQ2xhaW1Pd25lcnNoaXBSZXNwb25zZRJ4ChdHZXRPcmdhbml6YXRpb25TZXR0aW5ncxItLmdyYXZlbC5odWIudjEuR2V0T3JnYW5pemF0aW9uU2V0dGluZ3NSZXF1ZXN0Gi4uZ3JhdmVsLmh1Yi52MS5HZXRPcmdhbml6YXRpb25TZXR0aW5nc1Jlc3BvbnNlEoEBChpVcGRhdGVPcmdhbml6YXRpb25TZXR0aW5ncxIwLmdyYXZlbC5odWIudjEuVXBkYXRlT3JnYW5pemF0aW9uU2V0dGluZ3NSZXF1ZXN0GjEuZ3JhdmVsLmh1Yi52MS5VcGRhdGVPcmdhbml6YXRpb25TZXR0aW5nc1Jlc3BvbnNlElEKCkxpc3RFdmVudHMSIC5ncmF2ZWwuaHViLnYxLkxpc3RFdmVudHNSZXF1ZXN0GiEuZ3JhdmVsLmh1Yi52MS5MaXN0RXZlbnRzUmVzcG9uc2USVwoMVGVzdE5vdGlmaWVyEiIuZ3JhdmVsLmh1Yi52MS5UZXN0Tm90aWZpZXJSZXF1ZXN0GiMuZ3JhdmVsLmh1Yi52MS5UZXN0Tm90aWZpZXJSZXNwb25zZUI6WjhnaXRodWIuY29tL2dyYXZlbC1wcm9qZWN0L2dyYXZlbC9nZW4vZ3JhdmVsL2h1Yi92MTtodWJ2MWIGcHJvdG8z", [file_google_protobuf_timestamp]);
 
 /**
  * Organization is the single tenant a hub serves. Every top-level object carries an organization
@@ -1111,6 +1111,14 @@ export type OrganizationSettings = Message<"gravel.hub.v1.OrganizationSettings">
    * @generated from field: gravel.hub.v1.EventsSettings events = 9;
    */
   events?: EventsSettings | undefined;
+
+  /**
+   * The notifiers, at most 20 (ADR-0028 §5). GetOrganizationSettings returns them only to a
+   * caller who may change the settings; to anyone else the list is empty.
+   *
+   * @generated from field: repeated gravel.hub.v1.Notifier notifiers = 10;
+   */
+  notifiers: Notifier[];
 };
 
 /**
@@ -1119,6 +1127,118 @@ export type OrganizationSettings = Message<"gravel.hub.v1.OrganizationSettings">
  */
 export const OrganizationSettingsSchema: GenMessage<OrganizationSettings> = /*@__PURE__*/
   messageDesc(file_gravel_hub_v1_organization, 27);
+
+/**
+ * Notifier is one way the hub tells people what happened: the events its filter takes, carried
+ * to a webhook, an ntfy topic or email addresses. Its secret (a JSON webhook's signing key, a
+ * Discord webhook's URL, an ntfy access token) is in hub.yaml's notify.secrets, never here.
+ *
+ * @generated from message gravel.hub.v1.Notifier
+ */
+export type Notifier = Message<"gravel.hub.v1.Notifier"> & {
+  /**
+   * Lower case letters, digits and hyphens, at most 32: its cursor, its secret's key, its metrics
+   * label.
+   *
+   * @generated from field: string name = 1;
+   */
+  name: string;
+
+  /**
+   * "webhook", "ntfy" or "email".
+   *
+   * @generated from field: string kind = 2;
+   */
+  kind: string;
+
+  /**
+   * Sends nothing and lets the log pass; TestNotifier still reaches it.
+   *
+   * @generated from field: bool disabled = 3;
+   */
+  disabled: boolean;
+
+  /**
+   * A JSON webhook's endpoint, or an ntfy server (empty: https://ntfy.sh). https, or http to the
+   * loopback interface.
+   *
+   * @generated from field: string url = 4;
+   */
+  url: string;
+
+  /**
+   * A webhook's body: "json" (the default, signed) or "discord" (the URL is the secret).
+   *
+   * @generated from field: string flavour = 5;
+   */
+  flavour: string;
+
+  /**
+   * An ntfy topic.
+   *
+   * @generated from field: string topic = 6;
+   */
+  topic: string;
+
+  /**
+   * An email notifier's addresses, at most 10.
+   *
+   * @generated from field: repeated string to = 7;
+   */
+  to: string[];
+
+  /**
+   * @generated from field: gravel.hub.v1.NotifierEvents events = 8;
+   */
+  events?: NotifierEvents | undefined;
+};
+
+/**
+ * Describes the message gravel.hub.v1.Notifier.
+ * Use `create(NotifierSchema)` to create a new message.
+ */
+export const NotifierSchema: GenMessage<Notifier> = /*@__PURE__*/
+  messageDesc(file_gravel_hub_v1_organization, 28);
+
+/**
+ * NotifierEvents is which events a notifier takes; empty takes every warning and critical event.
+ *
+ * @generated from message gravel.hub.v1.NotifierEvents
+ */
+export type NotifierEvents = Message<"gravel.hub.v1.NotifierEvents"> & {
+  /**
+   * Kinds ("server.unreachable") or groups ("server"); empty is every kind.
+   *
+   * @generated from field: repeated string kinds = 1;
+   */
+  kinds: string[];
+
+  /**
+   * "info", "notice", "warning" or "critical"; empty is "warning".
+   *
+   * @generated from field: string min_severity = 2;
+   */
+  minSeverity: string;
+
+  /**
+   * Only these games' events, or these servers'; an event about no server passes neither.
+   *
+   * @generated from field: repeated string games = 3;
+   */
+  games: string[];
+
+  /**
+   * @generated from field: repeated string servers = 4;
+   */
+  servers: string[];
+};
+
+/**
+ * Describes the message gravel.hub.v1.NotifierEvents.
+ * Use `create(NotifierEventsSchema)` to create a new message.
+ */
+export const NotifierEventsSchema: GenMessage<NotifierEvents> = /*@__PURE__*/
+  messageDesc(file_gravel_hub_v1_organization, 29);
 
 /**
  * EventsSettings is how long the events log keeps what it holds (ADR-0028).
@@ -1139,7 +1259,7 @@ export type EventsSettings = Message<"gravel.hub.v1.EventsSettings"> & {
  * Use `create(EventsSettingsSchema)` to create a new message.
  */
 export const EventsSettingsSchema: GenMessage<EventsSettings> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_organization, 28);
+  messageDesc(file_gravel_hub_v1_organization, 30);
 
 /**
  * Event is one entry of the events log (ADR-0028): what the hub did, who did it, to what.
@@ -1235,7 +1355,7 @@ export type Event = Message<"gravel.hub.v1.Event"> & {
  * Use `create(EventSchema)` to create a new message.
  */
 export const EventSchema: GenMessage<Event> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_organization, 29);
+  messageDesc(file_gravel_hub_v1_organization, 31);
 
 /**
  * @generated from message gravel.hub.v1.ListEventsRequest
@@ -1289,7 +1409,7 @@ export type ListEventsRequest = Message<"gravel.hub.v1.ListEventsRequest"> & {
  * Use `create(ListEventsRequestSchema)` to create a new message.
  */
 export const ListEventsRequestSchema: GenMessage<ListEventsRequest> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_organization, 30);
+  messageDesc(file_gravel_hub_v1_organization, 32);
 
 /**
  * @generated from message gravel.hub.v1.ListEventsResponse
@@ -1327,7 +1447,7 @@ export type ListEventsResponse = Message<"gravel.hub.v1.ListEventsResponse"> & {
  * Use `create(ListEventsResponseSchema)` to create a new message.
  */
 export const ListEventsResponseSchema: GenMessage<ListEventsResponse> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_organization, 31);
+  messageDesc(file_gravel_hub_v1_organization, 33);
 
 /**
  * @generated from message gravel.hub.v1.GetOrganizationSettingsRequest
@@ -1340,7 +1460,7 @@ export type GetOrganizationSettingsRequest = Message<"gravel.hub.v1.GetOrganizat
  * Use `create(GetOrganizationSettingsRequestSchema)` to create a new message.
  */
 export const GetOrganizationSettingsRequestSchema: GenMessage<GetOrganizationSettingsRequest> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_organization, 32);
+  messageDesc(file_gravel_hub_v1_organization, 34);
 
 /**
  * @generated from message gravel.hub.v1.GetOrganizationSettingsResponse
@@ -1357,7 +1477,7 @@ export type GetOrganizationSettingsResponse = Message<"gravel.hub.v1.GetOrganiza
  * Use `create(GetOrganizationSettingsResponseSchema)` to create a new message.
  */
 export const GetOrganizationSettingsResponseSchema: GenMessage<GetOrganizationSettingsResponse> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_organization, 33);
+  messageDesc(file_gravel_hub_v1_organization, 35);
 
 /**
  * @generated from message gravel.hub.v1.UpdateOrganizationSettingsRequest
@@ -1376,7 +1496,7 @@ export type UpdateOrganizationSettingsRequest = Message<"gravel.hub.v1.UpdateOrg
  * Use `create(UpdateOrganizationSettingsRequestSchema)` to create a new message.
  */
 export const UpdateOrganizationSettingsRequestSchema: GenMessage<UpdateOrganizationSettingsRequest> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_organization, 34);
+  messageDesc(file_gravel_hub_v1_organization, 36);
 
 /**
  * @generated from message gravel.hub.v1.UpdateOrganizationSettingsResponse
@@ -1393,7 +1513,52 @@ export type UpdateOrganizationSettingsResponse = Message<"gravel.hub.v1.UpdateOr
  * Use `create(UpdateOrganizationSettingsResponseSchema)` to create a new message.
  */
 export const UpdateOrganizationSettingsResponseSchema: GenMessage<UpdateOrganizationSettingsResponse> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_organization, 35);
+  messageDesc(file_gravel_hub_v1_organization, 37);
+
+/**
+ * @generated from message gravel.hub.v1.TestNotifierRequest
+ */
+export type TestNotifierRequest = Message<"gravel.hub.v1.TestNotifierRequest"> & {
+  /**
+   * A notifier's name in the settings; a disabled one is tested too.
+   *
+   * @generated from field: string name = 1;
+   */
+  name: string;
+};
+
+/**
+ * Describes the message gravel.hub.v1.TestNotifierRequest.
+ * Use `create(TestNotifierRequestSchema)` to create a new message.
+ */
+export const TestNotifierRequestSchema: GenMessage<TestNotifierRequest> = /*@__PURE__*/
+  messageDesc(file_gravel_hub_v1_organization, 38);
+
+/**
+ * @generated from message gravel.hub.v1.TestNotifierResponse
+ */
+export type TestNotifierResponse = Message<"gravel.hub.v1.TestNotifierResponse"> & {
+  /**
+   * Whether the notifier delivered the test event.
+   *
+   * @generated from field: bool delivered = 1;
+   */
+  delivered: boolean;
+
+  /**
+   * Why it did not, without secrets; empty when it did.
+   *
+   * @generated from field: string error = 2;
+   */
+  error: string;
+};
+
+/**
+ * Describes the message gravel.hub.v1.TestNotifierResponse.
+ * Use `create(TestNotifierResponseSchema)` to create a new message.
+ */
+export const TestNotifierResponseSchema: GenMessage<TestNotifierResponse> = /*@__PURE__*/
+  messageDesc(file_gravel_hub_v1_organization, 39);
 
 /**
  * OrganizationService reads the built-in organization and claims its ownership once.
@@ -1423,7 +1588,8 @@ export const OrganizationService: GenService<{
   },
   /**
    * GetOrganizationSettings returns the settings; public, because the pages render the theme
-   * before anyone logs in, and the document holds no credential.
+   * before anyone logs in, and the document holds no credential. The notifiers are left out
+   * unless the caller holds settings:write.
    *
    * @generated from rpc gravel.hub.v1.OrganizationService.GetOrganizationSettings
    */
@@ -1453,6 +1619,17 @@ export const OrganizationService: GenService<{
     methodKind: "unary";
     input: typeof ListEventsRequestSchema;
     output: typeof ListEventsResponseSchema;
+  },
+  /**
+   * TestNotifier sends a test event (kind notifier.test, never in the log) to a notifier and says
+   * whether it was delivered: settings:write. not_found for a name the settings don't have.
+   *
+   * @generated from rpc gravel.hub.v1.OrganizationService.TestNotifier
+   */
+  testNotifier: {
+    methodKind: "unary";
+    input: typeof TestNotifierRequestSchema;
+    output: typeof TestNotifierResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_gravel_hub_v1_organization, 0);

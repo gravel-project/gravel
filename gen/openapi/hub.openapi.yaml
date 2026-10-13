@@ -1103,7 +1103,8 @@ paths:
       summary: GetOrganizationSettings
       description: |-
         GetOrganizationSettings returns the settings; public, because the pages render the theme
-         before anyone logs in, and the document holds no credential.
+         before anyone logs in, and the document holds no credential. The notifiers are left out
+         unless the caller holds settings:write.
       operationId: gravel.hub.v1.OrganizationService.GetOrganizationSettings
       parameters:
         - name: Connect-Protocol-Version
@@ -1178,6 +1179,47 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.ListEventsResponse'
+  /gravel.hub.v1.OrganizationService/TestNotifier:
+    post:
+      tags:
+        - gravel.hub.v1.OrganizationService
+      summary: TestNotifier
+      description: |-
+        TestNotifier sends a test event (kind notifier.test, never in the log) to a notifier and says
+         whether it was delivered: settings:write. not_found for a name the settings don't have.
+      operationId: gravel.hub.v1.OrganizationService.TestNotifier
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.TestNotifierRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.TestNotifierResponse'
   /gravel.hub.v1.OrganizationService/UpdateOrganizationSettings:
     post:
       tags:
@@ -5245,6 +5287,80 @@ components:
       title: NavLink
       additionalProperties: false
       description: NavLink is a navigation extension link.
+    gravel.hub.v1.Notifier:
+      type: object
+      properties:
+        name:
+          type: string
+          title: name
+          description: |-
+            Lower case letters, digits and hyphens, at most 32: its cursor, its secret's key, its metrics
+             label.
+        kind:
+          type: string
+          title: kind
+          description: '"webhook", "ntfy" or "email".'
+        disabled:
+          type: boolean
+          title: disabled
+          description: Sends nothing and lets the log pass; TestNotifier still reaches it.
+        url:
+          type: string
+          title: url
+          description: |-
+            A JSON webhook's endpoint, or an ntfy server (empty: https://ntfy.sh). https, or http to the
+             loopback interface.
+        flavour:
+          type: string
+          title: flavour
+          description: 'A webhook''s body: "json" (the default, signed) or "discord" (the URL is the secret).'
+        topic:
+          type: string
+          title: topic
+          description: An ntfy topic.
+        to:
+          type: array
+          items:
+            type: string
+          title: to
+          description: An email notifier's addresses, at most 10.
+        events:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.NotifierEvents'
+          title: events
+      title: Notifier
+      additionalProperties: false
+      description: |-
+        Notifier is one way the hub tells people what happened: the events its filter takes, carried
+         to a webhook, an ntfy topic or email addresses. Its secret (a JSON webhook's signing key, a
+         Discord webhook's URL, an ntfy access token) is in hub.yaml's notify.secrets, never here.
+    gravel.hub.v1.NotifierEvents:
+      type: object
+      properties:
+        kinds:
+          type: array
+          items:
+            type: string
+          title: kinds
+          description: Kinds ("server.unreachable") or groups ("server"); empty is every kind.
+        minSeverity:
+          type: string
+          title: min_severity
+          description: '"info", "notice", "warning" or "critical"; empty is "warning".'
+        games:
+          type: array
+          items:
+            type: string
+          title: games
+          description: Only these games' events, or these servers'; an event about no server passes neither.
+        servers:
+          type: array
+          items:
+            type: string
+          title: servers
+      title: NotifierEvents
+      additionalProperties: false
+      description: NotifierEvents is which events a notifier takes; empty takes every warning and critical event.
     gravel.hub.v1.Organization:
       type: object
       properties:
@@ -5329,6 +5445,14 @@ components:
           allOf:
             - $ref: '#/components/schemas/gravel.hub.v1.EventsSettings'
           title: events
+        notifiers:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.Notifier'
+          title: notifiers
+          description: |-
+            The notifiers, at most 20 (ADR-0028 §5). GetOrganizationSettings returns them only to a
+             caller who may change the settings; to anyone else the list is empty.
       title: OrganizationSettings
       additionalProperties: false
       description: |-
@@ -6627,6 +6751,28 @@ components:
       title: TeamScore
       additionalProperties: false
       description: TeamScore is one team's (faction's) score and, when the hub knows it, how many players it has.
+    gravel.hub.v1.TestNotifierRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          title: name
+          description: A notifier's name in the settings; a disabled one is tested too.
+      title: TestNotifierRequest
+      additionalProperties: false
+    gravel.hub.v1.TestNotifierResponse:
+      type: object
+      properties:
+        delivered:
+          type: boolean
+          title: delivered
+          description: Whether the notifier delivered the test event.
+        error:
+          type: string
+          title: error
+          description: Why it did not, without secrets; empty when it did.
+      title: TestNotifierResponse
+      additionalProperties: false
     gravel.hub.v1.Theme:
       type: object
       properties:

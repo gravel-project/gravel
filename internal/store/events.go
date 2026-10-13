@@ -136,6 +136,11 @@ type EventQuery struct {
 	ServerID          string
 	// Games, when not nil, limits the log to these games' events: a game-scoped reader's.
 	Games []string
+	// Servers, when not empty, limits the log to these servers' events (a notifier's filter).
+	Servers []string
+	// Follow reads oldest first after AfterID even when it is 0 (a notifier's cursor on a log that
+	// was empty when it began).
+	Follow bool
 }
 
 const eventColumns = `id, organization_id, at, kind, severity, actor_user_id, actor_app_id, on_behalf_provider, on_behalf_subject,
@@ -152,7 +157,7 @@ func (s *Store) ListEvents(ctx context.Context, orgID uuid.UUID, q EventQuery) (
 	arg := func(v any) string { args = append(args, v); return fmt.Sprintf("$%d", len(args)) }
 	order := "id DESC"
 	switch {
-	case q.AfterID > 0:
+	case q.AfterID > 0 || q.Follow:
 		where = append(where, "id > "+arg(q.AfterID))
 		order = "id ASC"
 	case q.BeforeID > 0:
@@ -170,6 +175,9 @@ func (s *Store) ListEvents(ctx context.Context, orgID uuid.UUID, q EventQuery) (
 	}
 	if q.ServerID != "" {
 		where = append(where, "server_id = "+arg(q.ServerID))
+	}
+	if len(q.Servers) > 0 {
+		where = append(where, "server_id = ANY("+arg(q.Servers)+")")
 	}
 	if q.Games != nil {
 		where = append(where, "game_id = ANY("+arg(q.Games)+")")

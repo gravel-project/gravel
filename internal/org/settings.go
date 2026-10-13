@@ -43,6 +43,9 @@ type Settings struct {
 	LocalAccounts LocalAccounts `json:"local_accounts,omitzero" yaml:"local_accounts,omitempty"`
 	// Events is how long the events log keeps what it holds (ADR-0028).
 	Events Events `json:"events,omitzero" yaml:"events,omitempty"`
+	// Notifiers carry events from the log to people (ADR-0028 §5); their secrets are in hub.yaml.
+	// Only callers who may change the settings read them.
+	Notifiers []Notifier `json:"notifiers,omitempty" yaml:"notifiers,omitempty"`
 	// Games are per-game settings by game id ("wardogs"), each a game this hub ships.
 	Games map[string]GameSettings `json:"games,omitempty" yaml:"games,omitempty"`
 }
@@ -639,6 +642,7 @@ func (s Settings) Validate() error {
 	if d := s.Events.RetentionDays; d != 0 && (d < MinEventsRetentionDays || d > MaxEventsRetentionDays) {
 		bad("events.retention_days: %d is not 0 (the default, %d) or between %d and %d", d, DefaultEventsRetentionDays, MinEventsRetentionDays, MaxEventsRetentionDays)
 	}
+	validateNotifiers(s.Notifiers, bad)
 	validateGames(s.Games, bad)
 	if len(errs) == 0 {
 		return nil
@@ -712,7 +716,7 @@ func validateGames(games map[string]GameSettings, bad func(string, ...any)) {
 	}
 }
 
-// CheckGames reports a games key or a season's game that is not one of known, the games this
+// CheckGames reports a games key, a season's game or a notifier's game that is not one of known, the games this
 // hub ships (internal/servers), each wrapping ErrInvalidSettings. Validate cannot do this, as
 // this package does not know the games.
 func (s Settings) CheckGames(known []string) error {
@@ -728,6 +732,13 @@ func (s Settings) CheckGames(known []string) error {
 	for i, se := range s.Stats.Seasons {
 		if se.Game != "" && !slices.Contains(known, se.Game) {
 			unknown(fmt.Sprintf("stats.seasons[%d].game", i), se.Game)
+		}
+	}
+	for i, n := range s.Notifiers {
+		for j, g := range n.Events.Games {
+			if !slices.Contains(known, g) {
+				unknown(fmt.Sprintf("notifiers[%d].events.games[%d]", i, j), g)
+			}
 		}
 	}
 	return errors.Join(errs...)

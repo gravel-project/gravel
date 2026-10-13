@@ -1,7 +1,7 @@
 // Package config loads and validates the hub's single configuration file.
 //
 // One YAML file, strict (unknown keys are errors) and versioned. Secrets never live in it: each
-// one (the database URL, the Discord client secret, the Steam Web API key) comes from an
+// one (the database URL, the Discord client secret, the Steam Web API key, a notifier's) comes from an
 // environment variable, from a *_file key (a podman secret mount) or, for development only,
 // from the inline key, in that order of precedence.
 package config
@@ -59,6 +59,7 @@ type Config struct {
 	Cloud        Cloud        `yaml:"cloud"`
 	Leases       Leases       `yaml:"leases"`
 	Demos        Demos        `yaml:"demos"`
+	Notify       Notify       `yaml:"notify"`
 	// Demo marks a demo hub (gravel#112): every page says its members, matches and stats are
 	// made up, and `gravel-hub demo seed` may write fake history into its database. A hub without
 	// it refuses to start on a database that holds demo members.
@@ -353,7 +354,7 @@ func (c *Config) resolveSecrets(env Env) error {
 			return err
 		}
 	}
-	return nil
+	return c.Notify.resolveSecrets(env)
 }
 
 // resolveSecret applies the precedence every secret shares: the environment variable, then
@@ -475,6 +476,7 @@ func (c Config) Validate() error {
 			bad("%s.burst: must be at least 1", name)
 		}
 	}
+	c.Notify.validate(bad)
 	if len(errs) == 0 {
 		return nil
 	}

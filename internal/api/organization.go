@@ -16,6 +16,7 @@ import (
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
 	"github.com/gravel-project/gravel/internal/authz"
 	"github.com/gravel-project/gravel/internal/httpx"
+	"github.com/gravel-project/gravel/internal/notify"
 	"github.com/gravel-project/gravel/internal/org"
 	"github.com/gravel-project/gravel/internal/store"
 )
@@ -26,7 +27,20 @@ type OrganizationServer struct {
 	org    *org.Service
 	access *Access
 	events EventReader // nil: no events log (WithEvents)
-	logger *slog.Logger
+	// notifiers tests a notifier (TestNotifier); nil: the hub sends no notifications.
+	notifiers NotifierTester
+	logger    *slog.Logger
+}
+
+// NotifierTester sends a notifier the test event (notify.Dispatcher).
+type NotifierTester interface {
+	Test(ctx context.Context, name, hub string) error
+}
+
+// WithNotifiers lets TestNotifier reach the notifiers (ADR-0028 §5).
+func (s *OrganizationServer) WithNotifiers(t NotifierTester) *OrganizationServer {
+	s.notifiers = t
+	return s
 }
 
 // NewOrganizationServer wires the service.
@@ -60,10 +74,15 @@ func (s *OrganizationServer) ClaimOwnership(ctx context.Context, req *connect.Re
 }
 
 // GetOrganizationSettings returns the settings; public, the pages render the theme before login.
+// The notifiers say where the hub's events go (an ntfy topic, email addresses), so only a caller
+// who may change the settings reads them.
 func (s *OrganizationServer) GetOrganizationSettings(ctx context.Context, _ *connect.Request[hubv1.GetOrganizationSettingsRequest]) (*connect.Response[hubv1.GetOrganizationSettingsResponse], error) {
 	set, at, err := s.org.Settings(ctx)
 	if err != nil {
 		return nil, mapError(ctx, s.logger, err)
+	}
+	if p, err := s.access.Principal(ctx); err != nil || !p.Has(authz.SettingsWrite, authz.Target{}) {
+		set.Notifiers = nil
 	}
 	return connect.NewResponse(&hubv1.GetOrganizationSettingsResponse{Settings: settingsToProto(set, at)}), nil
 }
@@ -83,6 +102,29 @@ func (s *OrganizationServer) UpdateOrganizationSettings(ctx context.Context, req
 		return nil, mapError(ctx, s.logger, err)
 	}
 	return connect.NewResponse(&hubv1.UpdateOrganizationSettingsResponse{Settings: settingsToProto(set, at)}), nil
+}
+
+// TestNotifier sends a notifier the test event: settings:write.
+func (s *OrganizationServer) TestNotifier(ctx context.Context, req *connect.Request[hubv1.TestNotifierRequest]) (*connect.Response[hubv1.TestNotifierResponse], error) {
+	if _, err := s.access.Require(ctx, authz.SettingsWrite, authz.Target{}); err != nil {
+		return nil, err
+	}
+	if s.notifiers == nil {
+		return nil, connect.NewError(connect.CodeUnimplemented, errors.New("this hub sends no notifications"))
+	}
+	o, err := s.org.Get(ctx)
+	if err != nil {
+		return nil, mapError(ctx, s.logger, err)
+	}
+	err = s.notifiers.Test(ctx, strings.TrimSpace(req.Msg.GetName()), o.Name)
+	switch {
+	case errors.Is(err, notify.ErrNoNotifier):
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("the settings have no notifier by that name"))
+	case err != nil:
+		// A notifier's errors never carry its secret (notify.post), so the owner may see them.
+		return connect.NewResponse(&hubv1.TestNotifierResponse{Error: err.Error()}), nil
+	}
+	return connect.NewResponse(&hubv1.TestNotifierResponse{Delivered: true}), nil
 }
 
 func settingsToProto(set org.Settings, at time.Time) *hubv1.OrganizationSettings {
@@ -165,6 +207,10 @@ func settingsToProto(set org.Settings, at time.Time) *hubv1.OrganizationSettings
 		}
 		pg.Maps, pg.MapFallback = g.Maps, g.MapFallback
 		p.Games[id] = pg
+	}
+	for _, n := range set.Notifiers {
+		p.Notifiers = append(p.Notifiers, &hubv1.Notifier{Name: n.Name, Kind: n.Kind, Disabled: n.Disabled, Url: n.URL, Flavour: n.Flavour, Topic: n.Topic,
+			To: n.To, Events: &hubv1.NotifierEvents{Kinds: n.Events.Kinds, MinSeverity: n.Events.MinSeverity, Games: n.Events.Games, Servers: n.Events.Servers}})
 	}
 	if !at.IsZero() {
 		p.UpdatedAt = timestamppb.New(at)
@@ -251,6 +297,12 @@ func settingsFromProto(p *hubv1.OrganizationSettings) org.Settings {
 		}
 		og.Maps, og.MapFallback = g.GetMaps(), g.GetMapFallback()
 		set.Games[id] = og
+	}
+	for _, n := range p.GetNotifiers() {
+		e := n.GetEvents()
+		set.Notifiers = append(set.Notifiers, org.Notifier{Name: n.GetName(), Kind: n.GetKind(), Disabled: n.GetDisabled(), URL: n.GetUrl(),
+			Flavour: n.GetFlavour(), Topic: n.GetTopic(), To: n.GetTo(),
+			Events: org.NotifierEvents{Kinds: e.GetKinds(), MinSeverity: e.GetMinSeverity(), Games: e.GetGames(), Servers: e.GetServers()}})
 	}
 	return set
 }

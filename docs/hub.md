@@ -94,9 +94,21 @@ demos:                           # where match demos are kept: an S3-compatible 
   max_mib: 512
   access_key_file: /run/secrets/gravel-demos-access-key
   secret_key_file: /run/secrets/gravel-demos-secret-key
+notify:                          # the notifiers' secrets and the mail server; which notifiers exist is the settings' ([Notifiers](#notifiers-adr-0028-5))
+  secrets:                       # by the notifier's name in the settings
+    ops-hook: {file: /run/secrets/gravel-notify-ops-hook}     # a JSON webhook's signing key (openssl rand -hex 32)
+    discord: {file: /run/secrets/gravel-notify-discord}       # a Discord webhook's whole URL
+    john-phone: {file: /run/secrets/gravel-notify-ntfy}       # an ntfy access token (optional)
+  smtp:                          # for email notifiers; omit it and they fail, saying so
+    host: smtp.example.com
+    port: 587                    # 0 or omitted: 587, or 465 with tls: implicit
+    username: hub@example.com
+    password_file: /run/secrets/gravel-smtp-password   # or GRAVEL_SMTP_PASSWORD
+    from: hub@example.com
+    tls: starttls                # starttls (the default) · implicit · none (a relay on the loopback interface only, without a username)
 ```
 
-**Secrets.** Seven, each with the same precedence: the environment variable, then the `*_file`
+**Secrets.** Eight, each with the same precedence: the environment variable, then the `*_file`
 key (a podman secret mount), then the inline key, which is for development only.
 
 | Secret | Environment | File key | Inline key |
@@ -107,6 +119,10 @@ key (a podman secret mount), then the inline key, which is for development only.
 | Stats pseudonym key (optional; at least 32 characters, `openssl rand -hex 32`) | `GRAVEL_STATS_PSEUDONYM_KEY` | `stats.pseudonym_key_file` | `stats.pseudonym_key` |
 | Lease key (optional; at least 32 characters, `openssl rand -hex 32`) | `GRAVEL_LEASE_KEY` | `leases.key_file` | `leases.key` |
 | Demo bucket's access key and secret (with `demos.bucket`) | `GRAVEL_DEMOS_ACCESS_KEY`, `GRAVEL_DEMOS_SECRET_KEY` | `demos.access_key_file`, `demos.secret_key_file` | `demos.access_key`, `demos.secret_key` |
+| SMTP password (with `notify.smtp.username`) | `GRAVEL_SMTP_PASSWORD` | `notify.smtp.password_file` | `notify.smtp.password` |
+
+A notifier's secret is a file only (`notify.secrets.<name>.file`), one per notifier, so it has no
+environment variable or inline key.
 
 Production uses podman secrets (`Secret=gravel-db-url` in the quadlet unit lands at
 `/run/secrets/gravel-db-url`, and so on). The hub logs the database URL with the password
@@ -121,7 +137,7 @@ Public listener (`server.listen`), HTTP/1.1 and unencrypted HTTP/2 so gRPC works
 |---|---|
 | `/gravel.hub.v1.OrganizationService/GetOrganization` | Connect procedure; POST JSON `{}` or call it over gRPC / gRPC-Web |
 | `/gravel.hub.v1.OrganizationService/ClaimOwnership` | Connect procedure; `{"token": "…"}`; needs a session, binds the caller as owner |
-| `/gravel.hub.v1.OrganizationService/GetOrganizationSettings` | the Organization settings (theme, navigation, the Discord mapping, stats, the games' overlays); public |
+| `/gravel.hub.v1.OrganizationService/GetOrganizationSettings` | the Organization settings (theme, navigation, the Discord mapping, stats, the games' overlays); public, but the notifiers only to a caller holding `settings:write` |
 | `/gravel.hub.v1.OrganizationService/UpdateOrganizationSettings` | replace them; the owner only; `invalid_argument` names every invalid field |
 | `/gravel.hub.v1.IdentityService/GetMe` | the caller and their linked identities; needs a session, or a member's token from an app (no scope needed: how an app learns who signed in, ADR-0015) |
 | `/gravel.hub.v1.IdentityService/UnlinkIdentity` | `{"provider": "steam", "subject": "…"}`; the last identity is refused (`failed_precondition`) |
@@ -135,6 +151,7 @@ Public listener (`server.listen`), HTTP/1.1 and unencrypted HTTP/2 so gRPC works
 | `/gravel.hub.v1.IdentityService/LookupUser` | `{"provider": "discord", "subject": "…"}` → the user and their identities, for role sync; an app with `identity:read`, or the owner |
 | `/gravel.hub.v1.IdentityService/ListUsers` | `{"page_size": 100, "page_token": "…"}` → members with their identities, oldest first, and the next page's token; role sync's full pass; `identity:read` or the owner |
 | `/gravel.hub.v1.IdentityService/SetUserRole` | `{"user_id": "…", "role": "operator", "game_id": "cs2", "granted": true}` → the member with their roles, grants and capabilities ([Roles](#roles)); `roles:grant` for the grant's scope, admin grants by the owner only, an app moderator only, never one's own; every change recorded |
+| `/gravel.hub.v1.OrganizationService/TestNotifier` | `{"name": "john-phone"}` → whether the notifier delivered a test event (kind `notifier.test`, never in the log), and why not ([Notifiers](#notifiers-adr-0028-5)); `settings:write`; `not_found` for a name the settings don't have |
 | `/gravel.hub.v1.OrganizationService/ListEvents` | `{"after_id": 0, "kinds": ["host"], "min_severity": "warning"}` → the events log by cursor ([Events](#events-adr-0028)); `events:read`, a game-scoped holder that game's events |
 | `/gravel.hub.v1.IdentityService/ListRoleGrants` | `{"user_id": "…"}` (or `{}` for everyone) → who holds which role where; `identity:read` |
 | `/gravel.hub.v1.IdentityService/ListIdentityEvents` | `{"after_id": 0, "limit": 100}` → the identity log after a position, oldest first, the id to continue from, and the log's newest id (`head_id`, where a reader that just made a full pass starts); role sync's incremental pass; `identity:read` or the owner |
@@ -312,6 +329,19 @@ stats:                       # the boards ([Stats](#stats-adr-0012))
       to: "2027-01-15"       # excluded
 events:                      # the events log ([Events](#events-adr-0028))
   retention_days: 400        # how long an event is kept (default 400; 30 to 3650)
+notifiers:                   # who hears about what ([Notifiers](#notifiers-adr-0028-5)); at most 20; secrets in hub.yaml
+  - name: john-phone         # lower case, digits, hyphens; the key of its secret in hub.yaml
+    kind: ntfy               # webhook · ntfy · email
+    topic: htg-ops-7f3a      # on a public server anyone who knows it reads it: make it long, or use an access token
+    events: {kinds: [server, backup], min_severity: warning}   # kinds or groups; min_severity defaults to warning
+  - name: ops-hook
+    kind: webhook
+    url: https://ops.example.com/gravel   # signed with hub.yaml's notify.secrets.ops-hook
+    events: {games: [wardogs], min_severity: notice}
+  - name: discord
+    kind: webhook
+    flavour: discord         # the webhook's URL is the secret: no url here
+    disabled: true           # sends nothing and lets the log pass; TestNotifier still reaches it
 local_accounts:              # with auth.local.enabled ([Local accounts](#local-accounts-adr-0026))
   registration: closed       # closed (the default: staff make accounts) or open (anyone may register)
   min_password_length: 12    # the shortest password, in characters (default 12; 8 to 128)
@@ -697,10 +727,11 @@ removed server closes its alarm by itself:
 | `backup.stale` | warning | no base backup has succeeded for 26 hours |
 | `wal.failing` | critical | WAL archiving has failed with nothing archived since for 10 minutes (an idle database archives nothing, which is not an alarm) |
 | `hub.unowned` | warning | nobody has claimed the hub |
+| `notifier.failing` | warning | an enabled notifier has failed to deliver for an hour ([Notifiers](#notifiers-adr-0028-5)) |
 
 `GetFleetSummary` lists them critical first, then oldest; the hub's own (backups, WAL, the claim)
 only for a caller holding `events:read` everywhere. `gravel_alarms{kind}` counts them, 0 for each
-kind while closed. A notifier failing for an hour joins them with the notifiers (#196).
+kind while closed.
 
 **The build watcher.** A second job per server (`server_build`, every minute) reads the server's
 build from a route that needs no credential (War Dogs: `GET /v1/capabilities`). When the build
@@ -1416,8 +1447,8 @@ The **events log** is one append-only record of what the hub did: who logged in 
 time, who was granted what, what a moderator did and how it went, what a cloud-VM server's machine
 went through, leases, finished series, backups. Every source writes its event in its own
 transaction, so the log never says something happened that didn't, or misses something that did.
-Notifiers (#196), the admin dashboard (#193) and the CLI (#194) read it; so can an app with
-`events:read`.
+[Notifiers](#notifiers-adr-0028-5), the admin dashboard (#193) and the CLI (#194) read it; so can an
+app with `events:read`.
 
 - **Reading:** `OrganizationService.ListEvents` with `after_id` follows the log, oldest first
   (pass `next_after_id` back to keep following); without it, the newest come first, and
@@ -1509,6 +1540,47 @@ Notifiers (#196), the admin dashboard (#193) and the CLI (#194) read it; so can 
 | `backup.stale` | warning | No base backup has succeeded for over 26 hours |
 | `backup.recovered` | info | A base backup succeeded again |
 
+## Notifiers (ADR-0028 §5)
+
+A **notifier** carries events from the log to people, with no Discord in the path: a hub with no
+bot still tells its owner what is wrong. Which notifiers exist, where they send and which events
+each takes are the Organization settings' `notifiers` (at most 20); their secrets are hub.yaml's
+`notify` section ([Configuration](#configuration)). Only a caller holding `settings:write` reads the
+notifiers through `GetOrganizationSettings`, since a topic or an address says where the hub's
+events go.
+
+| Kind | Sends | Secret (`notify.secrets.<name>.file`) |
+|---|---|---|
+| `webhook` | a JSON POST to `url`: `{"version": 1, "hub", "link", "events": [{"id", "at", "kind", "severity", "server_id", "game_id", "summary", "detail"}]}`, signed | the signing key (required) |
+| `webhook`, `flavour: discord` | one message to a Discord webhook, an event a line, no mentions | the webhook's whole URL, which holds its token (the settings refuse a `url`) |
+| `ntfy` | one message to `topic` on `url` (`https://ntfy.sh` by default): the kind or a count as the title, an event a line, priority from the highest severity (info 2, notice 3, warning 4, critical 5), a link to `/admin` | an access token, optional |
+| `email` | one plain-text message to `to` (at most 10) through `notify.smtp` | none; the mail server's password is `notify.smtp`'s |
+
+- **Which events:** `events.kinds` (kinds or groups, `["server", "backup.failed"]`; empty is
+  every kind), `events.min_severity` (`warning` by default: what may need a person),
+  `events.games` and `events.servers` (an event about no server, a backup or a grant, passes
+  neither).
+- **Endpoints:** `https`, or `http` to the loopback interface (a relay on the host); never a user
+  or a password in the URL.
+- **A signed webhook** carries `X-Gravel-Timestamp` (Unix seconds) and `X-Gravel-Signature`,
+  `sha256=` and the hex HMAC-SHA256 of the timestamp, a dot and the body, keyed by the secret.
+  Check both and refuse a timestamp more than five minutes off, so a replayed request fails too
+  (Go: `notify.Verify`).
+- **The dispatcher** (job `notify`, every 10 seconds) follows the log with a cursor per
+  notifier, so one that fails holds up no other. A batch is up to 20 events and goes as one
+  message; a run sends at most five batches to a notifier, so one catching up after an outage
+  sends 100 events every 10 seconds. A new notifier starts at the log's head (nothing from before
+  it); one removed from the settings keeps its cursor and, added again under the same name,
+  resumes where it stopped; a disabled one lets the log pass.
+- **Failures:** the cursor moves only when a batch was delivered. A failed batch goes again,
+  whole, after a backoff of 10 seconds doubling to 10 minutes, so nothing is lost and nobody gets
+  an event twice. An enabled notifier failing for an hour opens the `notifier.failing` alarm. A
+  notifier's errors (a refusal's status, a missing secret) never carry its secret.
+- **Testing:** `TestNotifier` sends one event of kind `notifier.test` (never in the log) to a
+  notifier, disabled or not, and answers whether it was delivered and why not.
+- **Metrics:** `gravel_notifications_total{notifier,result}` counts deliveries (`ok` or `error`),
+  `gravel_notifier_lag_seconds{notifier}` is how old the oldest event waiting for a notifier is
+  (0 when it has sent everything); both are on the hub dashboard's Events row.
 
 ## Pages (gravel#18)
 

@@ -5016,14 +5016,144 @@
       "type": "timeseries"
     },
     {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Each delivery is a batch of up to 20 events (ADR-0028 §5). An error is retried with backoff and never lost; failing for an hour opens notifier.failing. No data is expected when no notifiers, or nothing to send in the range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gravelOptional": "no notifiers, or nothing to send in the range",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 233
+      },
+      "id": 88,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (notifier, result) (increase(gravel_notifications_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "{{notifier}} {{result}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Notifier deliveries by result",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "How old the oldest event waiting for each notifier is; 0 when it has sent everything. It grows while a notifier fails. No data is expected when no notifiers.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gravelOptional": "no notifiers",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 233
+      },
+      "id": 89,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "max by (notifier) (gravel_notifier_lag_seconds{job=\"$job\", instance=~\"$instance\"})",
+          "legendFormat": "{{notifier}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Notifier lag",
+      "type": "timeseries"
+    },
+    {
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 233
+        "y": 241
       },
-      "id": 88,
+      "id": 90,
       "panels": [],
       "title": "Runtime",
       "type": "row"
@@ -5062,9 +5192,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 234
+        "y": 242
       },
-      "id": 89,
+      "id": 91,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5125,9 +5255,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 234
+        "y": 242
       },
-      "id": 90,
+      "id": 92,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5188,9 +5318,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 234
+        "y": 242
       },
-      "id": 91,
+      "id": 93,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5251,9 +5381,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 242
+        "y": 250
       },
-      "id": 92,
+      "id": 94,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5314,9 +5444,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 242
+        "y": 250
       },
-      "id": 93,
+      "id": 95,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5377,9 +5507,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 242
+        "y": 250
       },
-      "id": 94,
+      "id": 96,
       "options": {
         "legend": {
           "displayMode": "list",

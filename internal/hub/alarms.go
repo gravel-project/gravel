@@ -9,6 +9,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/gravel-project/gravel/internal/backup"
+	"github.com/gravel-project/gravel/internal/notify"
 	"github.com/gravel-project/gravel/internal/servers"
 	"github.com/gravel-project/gravel/internal/store"
 )
@@ -19,6 +20,9 @@ const (
 	AlarmBackupFailed = "backup.failed"
 	AlarmWALFailing   = "wal.failing"
 	AlarmHubUnowned   = "hub.unowned"
+	// AlarmNotifierFailing is a notifier that has failed for notify.FailingAlarmAfter: the hub
+	// may be telling nobody what is wrong.
+	AlarmNotifierFailing = "notifier.failing"
 	// WALFailingAfter is how long WAL archiving may fail, with no segment archived since, before
 	// it alarms. An idle database archives nothing and is not an alarm: only failures count.
 	WALFailingAfter = 10 * time.Minute
@@ -32,11 +36,14 @@ type alarmSource struct {
 	owned      func(ctx context.Context) (bool, time.Time, error)
 	statusFile string
 	archiver   backup.Archiver
-	now        func() time.Time
+	notifiers  interface {
+		Failing(ctx context.Context, now time.Time) ([]notify.Failing, error)
+	}
+	now func() time.Time
 }
 
 // Alarms are the servers' alarms from snap and the hub's own: a stale or failed backup, WAL
-// archiving failing, and a hub nobody has claimed.
+// archiving failing, a hub nobody has claimed, and a notifier that keeps failing.
 func (a *alarmSource) Alarms(ctx context.Context, snap []servers.FleetServer) ([]servers.Alarm, error) {
 	now := a.now()
 	out := servers.ServerAlarms(snap, now)
@@ -65,6 +72,16 @@ func (a *alarmSource) Alarms(ctx context.Context, snap []servers.FleetServer) ([
 	if a.archiver != nil {
 		if w, ok, err := walFailing(ctx, a.archiver, now); err == nil && ok {
 			out = append(out, w)
+		}
+	}
+	if a.notifiers != nil {
+		failing, err := a.notifiers.Failing(ctx, now)
+		if err != nil {
+			return nil, err
+		}
+		for _, f := range failing {
+			out = append(out, servers.Alarm{Kind: AlarmNotifierFailing, Severity: servers.AlarmWarning, Since: f.Since,
+				Detail: fmt.Sprintf("the notifier %q has failed since %s: %s", f.Name, f.Since.UTC().Format("2006-01-02 15:04 UTC"), f.LastError)})
 		}
 	}
 	return out, nil
@@ -132,7 +149,7 @@ func (g *fleetGauges) set(snap []servers.FleetServer, alarms []servers.Alarm) {
 
 // alarmKinds are every alarm, so each has a series at 0 while it is not open.
 var alarmKinds = []string{servers.AlarmServerDown, servers.AlarmCredentialRefused, servers.AlarmCredentialMissing, servers.AlarmHostFailing,
-	AlarmBackupStale, AlarmBackupFailed, AlarmWALFailing, AlarmHubUnowned}
+	AlarmBackupStale, AlarmBackupFailed, AlarmWALFailing, AlarmHubUnowned, AlarmNotifierFailing}
 
 // healthEvents writes the monitor's server health events into the events log.
 type healthEvents struct {
