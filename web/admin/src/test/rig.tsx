@@ -9,6 +9,7 @@ import { memoryLocation } from "wouter/memory-location";
 import { App } from "../App";
 import { IdentityService, UserSchema } from "../gen/gravel/hub/v1/identity_pb";
 import { OrganizationSchema, OrganizationService } from "../gen/gravel/hub/v1/organization_pb";
+import { GetFleetSummaryResponseSchema, ServerService } from "../gen/gravel/hub/v1/servers_pb";
 import type { Browser } from "../session";
 
 export interface RigOptions {
@@ -17,7 +18,11 @@ export interface RigOptions {
   demo?: boolean;
   // path is the route under /admin.
   path?: string;
+  // fleet is GetFleetSummary's answer, or the error it throws; an empty fleet when unset.
+  fleet?: Fleet | ConnectError;
 }
+
+export type Fleet = MessageInitShape<typeof GetFleetSummaryResponseSchema>;
 
 type Member = MessageInitShape<typeof UserSchema>;
 
@@ -25,7 +30,7 @@ export function member(fields: Member = {}): Member {
   return { id: "u1", displayName: "Jo", ...fields };
 }
 
-export function renderShell({ me, demo = false, path = "/" }: RigOptions = {}) {
+export function renderShell({ me, demo = false, path = "/", fleet = { totals: {} } }: RigOptions = {}) {
   const transport = createRouterTransport(({ service }) => {
     service(IdentityService, {
       getMe: () => {
@@ -37,6 +42,14 @@ export function renderShell({ me, demo = false, path = "/" }: RigOptions = {}) {
     });
     service(OrganizationService, {
       getOrganization: () => ({ organization: create(OrganizationSchema, { id: "o1", name: "Hidden Token Gaming", owned: true, demo }) }),
+    });
+    service(ServerService, {
+      getFleetSummary: () => {
+        if (fleet instanceof ConnectError) {
+          throw fleet;
+        }
+        return create(GetFleetSummaryResponseSchema, fleet);
+      },
     });
   });
   const left: string[] = [];

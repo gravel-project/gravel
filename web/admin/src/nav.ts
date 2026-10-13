@@ -13,7 +13,10 @@ export interface NavItem {
   roles?: readonly string[];
 }
 
-export const pages: readonly NavItem[] = [{ to: "/", label: "Overview", capability: "" }];
+export const pages: readonly NavItem[] = [
+  { to: "/", label: "Fleet", capability: "servers:read", roles: ["admin", "operator", "moderator"] },
+  { to: "/access", label: "Your access", capability: "" },
+];
 
 // holds reports whether a member holds a capability instance-wide or, through a game-scoped grant
 // of one of roles, for some game: what the member pages' holdsSomewhere checks.
