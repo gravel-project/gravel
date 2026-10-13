@@ -11,11 +11,35 @@ import (
 	"testing"
 	"time"
 
+	"connectrpc.com/connect"
 	"github.com/a-h/templ"
 
+	hubv1 "github.com/gravel-project/gravel/gen/gravel/hub/v1"
+	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
 	"github.com/gravel-project/gravel/internal/web"
+	"github.com/gravel-project/gravel/internal/web/admin"
 	"github.com/gravel-project/gravel/internal/web/templates"
 )
+
+// The admin dashboard (ADR-0029) under axe: the built bundle, signed in as a staff member by a
+// fake GetMe, since axe's browser carries no session.
+type a11yMe struct {
+	hubv1connect.UnimplementedIdentityServiceHandler
+}
+
+func (a11yMe) GetMe(context.Context, *connect.Request[hubv1.GetMeRequest]) (*connect.Response[hubv1.GetMeResponse], error) {
+	return connect.NewResponse(&hubv1.GetMeResponse{User: &hubv1.User{Id: "u1", DisplayName: "Jo", Owner: true, Roles: []string{"admin"},
+		Capabilities: []string{"members:manage", "servers:operate", "servers:read", "events:read"},
+		Grants:       []*hubv1.RoleGrant{{UserId: "u1", Role: "moderator", GameId: "cs2"}}}}), nil
+}
+
+type a11yOrg struct {
+	hubv1connect.UnimplementedOrganizationServiceHandler
+}
+
+func (a11yOrg) GetOrganization(context.Context, *connect.Request[hubv1.GetOrganizationRequest]) (*connect.Response[hubv1.GetOrganizationResponse], error) {
+	return connect.NewResponse(&hubv1.GetOrganizationResponse{Organization: &hubv1.Organization{Id: "o1", Name: "Hidden Token Gaming", Owned: true, Demo: true}}), nil
+}
 
 // TestAccessibility runs axe (@axe-core/cli through npx, driving Chrome) over the rendered
 // pages: the login page from the real handler, and the account and error pages from fixtures
@@ -318,6 +342,14 @@ func TestAccessibility(t *testing.T) {
 		},
 	}
 	mux := http.NewServeMux()
+	// `make a11y` builds the bundle first; without it /admin would scan a 503.
+	dashboard := admin.New(admin.Bundle())
+	if !dashboard.Built() {
+		t.Fatal("no admin bundle in this build: make a11y builds it (make admin)")
+	}
+	dashboard.Register(mux)
+	mux.Handle(hubv1connect.NewIdentityServiceHandler(a11yMe{}))
+	mux.Handle(hubv1connect.NewOrganizationServiceHandler(a11yOrg{}))
 	for path, build := range fixtures {
 		mux.HandleFunc("GET "+path, func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -355,7 +387,10 @@ func TestAccessibility(t *testing.T) {
 		"/fixture/participation", "/fixture/participation-empty", "/fixture/member-participation", "/fixture/recap", "/fixture/recap-nobody",
 		"/fixture/server-moderator", "/fixture/server-host", "/fixture/server-host-parked", "/fixture/host-confirm", "/fixture/confirm", "/fixture/log", "/fixture/account-apps", "/fixture/consent",
 		"/fixture/account-proof", "/fixture/proof", "/fixture/proof-proven", "/fixture/host-expect", "/fixture/result",
-		"/fixture/login-local", "/fixture/register", "/fixture/account-local", "/fixture/reset"}
+		"/fixture/login-local", "/fixture/register", "/fixture/account-local", "/fixture/reset",
+		"/admin", "/admin/nowhere"}
+	// What each dashboard route shows once rendered in the browser.
+	adminRenders := map[string]string{"/admin": "<h1 class=\"mb-4 text-2xl font-bold\">Overview</h1>", "/admin/nowhere": ">Not found</h1>"}
 	// A fixture left out of the list would never be scanned and the run would still pass.
 	for path := range fixtures {
 		if !slices.Contains(paths, path) {
@@ -367,6 +402,12 @@ func TestAccessibility(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 			defer cancel()
 			args := append([]string{"--yes", "@axe-core/cli@" + version, srv.URL + path, "--exit"}, browserArgs...)
+			if want, ok := adminRenders[path]; ok {
+				// The dashboard renders after its first calls answer; axe over a page still
+				// loading (or one the CSP blanked) would pass, so the DOM must show the page.
+				args = append(args, "--load-delay", "2000")
+				renderedDOM(ctx, t, srv.URL+path, want)
+			}
 			cmd := exec.CommandContext(ctx, "npx", args...)
 			out, err := cmd.CombinedOutput()
 			if err != nil {
@@ -376,5 +417,26 @@ func TestAccessibility(t *testing.T) {
 				t.Logf("axe output for %s:\n%s", path, out)
 			}
 		})
+	}
+}
+
+// renderedDOM loads url in headless Chrome (AXE_CHROME_PATH, else google-chrome on the PATH) and
+// fails unless the DOM it settles on contains want, and the demo banner: the dashboard ran its
+// script under the CSP and drew the page from its calls.
+func renderedDOM(ctx context.Context, t *testing.T, url, want string) {
+	t.Helper()
+	chrome := os.Getenv("AXE_CHROME_PATH")
+	if chrome == "" {
+		chrome = "google-chrome"
+	}
+	out, err := exec.CommandContext(ctx, chrome, "--headless=new", "--disable-gpu", "--no-sandbox", "--virtual-time-budget=5000", "--dump-dom", url).Output()
+	if err != nil {
+		t.Fatalf("chrome --dump-dom %s: %v", url, err)
+	}
+	dom := string(out)
+	for _, s := range []string{want, templates.DemoNotice} {
+		if !strings.Contains(dom, s) {
+			t.Fatalf("%s did not render %q in the browser; the DOM:\n%s", url, s, dom)
+		}
 	}
 }

@@ -21,6 +21,11 @@ TEMPL_VERSION ?= v0.3.1070
 HTMX_VERSION ?= 2.0.11
 # The accessibility check (`make a11y`) runs this through npx; CI pins it the same way.
 AXE_CLI_VERSION ?= 4.13.0
+# The admin dashboard (ADR-0029): an npm project built into the directory the hub embeds. Node is
+# pinned by web/admin/.nvmrc and the packages by its package-lock.json.
+ADMIN_DIR := web/admin
+ADMIN_DIST := internal/web/admin/dist
+ADMIN_SOURCES := $(shell find $(ADMIN_DIR)/src -type f 2>/dev/null) $(addprefix $(ADMIN_DIR)/,index.html package.json vite.config.ts tsconfig.json) internal/web/static/brand/tokens.css
 # The hub's Postgres image: the official image plus WAL-G (deploy/postgres/Containerfile).
 POSTGRES_IMAGE_REPO ?= localhost/gravel-postgres
 
@@ -68,14 +73,16 @@ $(BIN)/templ: Makefile
 ## ---- code --------------------------------------------------------------------------------------
 
 .PHONY: generate
-generate: $(BIN)/buf $(BIN)/protoc-gen-go $(BIN)/protoc-gen-connect-go $(BIN)/protoc-gen-connect-openapi $(BIN)/templ ## Regenerate gen/ from proto/, the pages' Go from their .templ files, and the dashboards
+generate: $(BIN)/buf $(BIN)/protoc-gen-go $(BIN)/protoc-gen-connect-go $(BIN)/protoc-gen-connect-openapi $(BIN)/templ ## Regenerate gen/ and the admin dashboard's clients from proto/, the pages' Go from their .templ files, and the dashboards
 	$(BIN)/buf generate
+	$(BIN)/buf generate --template buf.gen.ts.yaml
 	$(BIN)/templ generate -path internal/web/templates
 	go run ./internal/tools/dashboards gen
 
 .PHONY: generate-check
 generate-check: generate ## Fail if gen/ or a generated page is stale
-	git diff --exit-code -- gen/ internal/web/templates/ deploy/observability/grafana/dashboards/ || { echo "generated code is stale: run make generate and commit"; exit 1; }
+	git diff --exit-code -- gen/ $(ADMIN_DIR)/src/gen/ internal/web/templates/ deploy/observability/grafana/dashboards/ || { echo "generated code is stale: run make generate and commit"; exit 1; }
+	@[[ -z "$$(git status --porcelain -- $(ADMIN_DIR)/src/gen/)" ]] || { echo "a generated admin client is not committed: run make generate and commit"; exit 1; }
 	@[[ -z "$$(git status --porcelain -- deploy/observability/grafana/dashboards/)" ]] || { echo "a generated dashboard is not committed: run make generate and commit"; exit 1; }
 
 .PHONY: vendor-htmx
@@ -85,12 +92,32 @@ vendor-htmx: ## Fetch htmx $(HTMX_VERSION) into internal/web/static/vendor/ (the
 	printf 'htmx.org %s\nsource: https://unpkg.com/htmx.org@%s/dist/htmx.min.js\nsha256: %s\nlicence: 0BSD (htmx.LICENSE)\nrefresh: make vendor-htmx (HTMX_VERSION in the Makefile)\n' \
 	  $(HTMX_VERSION) $(HTMX_VERSION) "$$(sha256sum internal/web/static/vendor/htmx.min.js | cut -d' ' -f1)" > internal/web/static/vendor/htmx.version
 
+## ---- the admin dashboard (web/admin, ADR-0029) ---------------------------------------------------
+
+# npm ci when the lock file changed; npm stamps node_modules/.package-lock.json.
+$(ADMIN_DIR)/node_modules/.package-lock.json: $(ADMIN_DIR)/package-lock.json
+	npm --prefix $(ADMIN_DIR) ci --no-audit --no-fund
+
+# The bundle, rebuilt when a source changed. The old one goes first (Vite leaves the .gitkeep be).
+$(ADMIN_DIST)/index.html: $(ADMIN_DIR)/node_modules/.package-lock.json $(ADMIN_SOURCES)
+	find $(CURDIR)/$(ADMIN_DIST) -mindepth 1 ! -name .gitkeep -delete
+	npm --prefix $(ADMIN_DIR) run build
+
+.PHONY: admin
+admin: $(ADMIN_DIST)/index.html ## Build the admin dashboard into internal/web/admin/dist/ for the hub to embed (needs node)
+
+.PHONY: admin-check
+admin-check: $(ADMIN_DIR)/node_modules/.package-lock.json ## Lint, typecheck and test the admin dashboard (axe included)
+	npm --prefix $(ADMIN_DIR) run lint
+	npm --prefix $(ADMIN_DIR) run typecheck
+	npm --prefix $(ADMIN_DIR) test
+
 .PHONY: a11y
-a11y: ## Run axe over the rendered pages (needs node and Chrome; CI does too)
+a11y: admin ## Run axe over the rendered pages and the admin dashboard (needs node and Chrome; CI does too)
 	A11Y=1 AXE_CLI_VERSION=$(AXE_CLI_VERSION) $(GO) test -count=1 -run TestAccessibility ./internal/web/
 
 .PHONY: build
-build: ## Build the hub, bot and CLI binaries into .bin/
+build: admin ## Build the hub (with the admin dashboard), bot and CLI binaries into .bin/
 	$(GO) build -trimpath -ldflags '$(LDFLAGS)' -o $(BIN)/gravel-hub ./cmd/gravel-hub
 	$(GO) build -trimpath -ldflags '$(LDFLAGS)' -o $(BIN)/gravel-bot ./cmd/gravel-bot
 	$(GO) build -trimpath -ldflags '$(LDFLAGS)' -o $(BIN)/gravel ./cmd/gravel
@@ -129,12 +156,12 @@ proto-breaking: $(BIN)/buf ## buf breaking against origin/main (skipped while ma
 	@if git cat-file -e origin/main:buf.yaml 2>/dev/null; then $(BIN)/buf breaking --against '.git#branch=origin/main'; else echo "no buf.yaml on origin/main yet; skipping"; fi
 
 .PHONY: check
-check: fmt-check vet proto-lint lint vuln generate-check test quadlet-check ## Everything CI runs, except the integration job
+check: fmt-check vet proto-lint lint vuln generate-check admin-check admin test quadlet-check ## Everything CI runs, except the integration job
 
 ## ---- containers --------------------------------------------------------------------------------
 
 .PHONY: image
-image: $(BIN)/ko ## Build the hub image with ko and load it into podman as $(IMAGE_REPO):$(IMAGE_TAG)
+image: $(BIN)/ko admin ## Build the hub image (with the admin dashboard) with ko and load it into podman as $(IMAGE_REPO):$(IMAGE_TAG)
 	KO_DOCKER_REPO=$(IMAGE_REPO) $(BIN)/ko build --bare --push=false --tarball $(BIN)/gravel-hub.tar -t $(IMAGE_TAG) ./cmd/gravel-hub
 	podman load -i $(BIN)/gravel-hub.tar
 .PHONY: bot-image

@@ -1479,6 +1479,30 @@ minute. An idle hub serves every board from memory, and a live match costs one r
 board, however many people watch. A member's name choice clears the cache. The API's per-IP rate
 limit applies in front of all of it.
 
+## Admin dashboard (ADR-0029)
+
+`/admin` is the operators' dashboard: a React client of the same API as the pages, embedded in the
+binary ([ADR-0029](adr/0029-the-admin-dashboard-is-a-static-client-in-the-binary.md); the source is
+`web/admin/`). It is H1's in-progress surface: this version has the shell and an **Overview** of who
+you are here, your roles (everywhere and per game) and your capabilities; the fleet (#192), the
+events feed and alarms (#193), servers, people, settings and the rest arrive page by page.
+
+- **Signing in:** the dashboard has no login of its own. It asks `GetMe` with the session cookie;
+  without a session it sends the browser to `/login?return_to=/admin/...`, which brings it back.
+  The header links to the member pages and to `/account`.
+- **What you see:** the nav lists the pages whose capability you hold, everywhere or through a
+  game-scoped grant ([Capabilities](#capabilities-adr-0027)). The API decides every call anyway; a
+  member with no role sees the Overview only.
+- **Live data:** every view refetches every 5 s while its tab is visible and stops in a background
+  tab; nothing is pushed. Each refetch is an API call under the per-user rate limit.
+- **Theme:** the brand tokens, under the Organization settings' theme (`/theme.css`), light or dark
+  as the viewer's system says; a demo hub's banner shows on every view.
+- **Headers:** the pages' Content-Security-Policy; the index is `Cache-Control: no-cache`, the
+  hashed files under `/admin/assets/` are cached for a year as immutable, and a missing one is a 404.
+- **A binary without it:** a hub built with a bare `go build` (no `make admin`) answers
+  `503 the admin dashboard was not built` at `/admin`, logs "this binary was built without the admin
+  dashboard" at start, and serves everything else. The images and release binaries always carry it.
+
 ## Login (ADR-0004)
 
 A member logs in with a provider whose `login` is true (Discord by default), or with a username

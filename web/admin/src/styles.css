@@ -1,0 +1,33 @@
+/* The admin dashboard's stylesheet. Tailwind's utilities over the brand tokens (--gravel-*, built
+   into the bundle from the kit) and the host's theme (/theme.css: --accent, --bg, --fg, ...), which
+   wins where it sets a token. Light and dark follow the viewer's setting, as on the member pages. */
+@import "tailwindcss";
+@import "../../../internal/web/static/brand/tokens.css";
+
+@theme inline {
+  --color-ground: var(--bg, var(--gravel-ground));
+  --color-surface: var(--gravel-surface);
+  --color-line: var(--line, var(--gravel-line));
+  --color-text: var(--fg, var(--gravel-text));
+  --color-muted: var(--muted, var(--gravel-muted));
+  --color-accent: var(--accent, var(--gravel-accent));
+  --color-on-accent: var(--gravel-on-accent);
+  --color-ok: var(--gravel-ok);
+  --color-warn: var(--gravel-warn);
+  --color-error: var(--gravel-error);
+  --color-info: var(--gravel-info);
+  --font-sans: var(--font, var(--gravel-font));
+  --font-mono: var(--gravel-mono);
+}
+
+@layer base {
+  body {
+    @apply bg-ground text-text font-sans antialiased;
+  }
+  a {
+    @apply text-accent underline-offset-2;
+  }
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-accent;
+  }
+}

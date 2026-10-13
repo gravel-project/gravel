@@ -3,6 +3,12 @@
 version: 2
 project_name: gravel
 
+# The hub embeds the admin dashboard (ADR-0029); the archives and the ko images build from the tree,
+# so the bundle is built into it first (release.yml sets up node).
+before:
+  hooks:
+    - make admin
+
 builds:
   - id: gravel-hub
     main: ./cmd/gravel-hub

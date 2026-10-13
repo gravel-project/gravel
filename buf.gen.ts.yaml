@@ -1,0 +1,11 @@
+# The admin dashboard's TypeScript clients (ADR-0029): message types and service descriptors from
+# protobuf-es, which Connect-Web v2 calls directly. A remote plugin on the BSR, pinned to the
+# @bufbuild/protobuf version web/admin/package.json pins, so `make generate` needs no node.
+version: v2
+clean: true
+plugins:
+  - remote: buf.build/bufbuild/es:v2.16.0
+    out: web/admin/src/gen
+    opt:
+      - target=ts
+      - import_extension=none

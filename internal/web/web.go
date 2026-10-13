@@ -44,9 +44,10 @@ var files embed.FS
 // flashTTL is how long a one-shot message waits for the next page.
 const flashTTL = time.Minute
 
-// csp is the pages' Content-Security-Policy: scripts and styles from this origin only (htmx
-// and the stylesheets), images over https, requests from htmx to this origin only.
-const csp = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' https: data:; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+// CSP is the pages' Content-Security-Policy: scripts and styles from this origin only (htmx
+// and the stylesheets), images over https, requests from htmx to this origin only. The admin
+// dashboard (internal/web/admin, ADR-0029) is served under the same one.
+const CSP = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' https: data:; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
 
 // Handler serves the pages and the flows.
 type Handler struct {
@@ -109,8 +110,13 @@ func New(ids *identity.Service, sess *session.Manager, api http.Handler, theme T
 	}, nil
 }
 
-// Register adds the routes to mux.
-func (h *Handler) Register(mux *http.ServeMux) {
+// Mux is where Register adds the routes: an *http.ServeMux, or a test's recorder listing them.
+type Mux interface {
+	HandleFunc(pattern string, handler func(http.ResponseWriter, *http.Request))
+}
+
+// Register adds the routes to mux. None is under /admin, the admin dashboard's (ADR-0029).
+func (h *Handler) Register(mux Mux) {
 	mux.HandleFunc("GET /{$}", h.home)
 	mux.HandleFunc("GET /login", h.login)
 	mux.HandleFunc("GET /account", h.account)
@@ -733,7 +739,7 @@ func (h *Handler) serverError(w http.ResponseWriter, r *http.Request, err error)
 
 // render writes a page, or only its content for htmx, after relaying what the API set.
 func (h *Handler) render(w http.ResponseWriter, r *http.Request, status int, b *browser, full, content templ.Component) {
-	h.renderWithPolicy(w, r, status, b, full, content, csp)
+	h.renderWithPolicy(w, r, status, b, full, content, CSP)
 }
 
 // renderWithPolicy is render with a page's own Content-Security-Policy.

@@ -55,6 +55,10 @@
             "integration_id": 15368
           },
           {
+            "context": "admin",
+            "integration_id": 15368
+          },
+          {
             "context": "vuln",
             "integration_id": 15368
           },
