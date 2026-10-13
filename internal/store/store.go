@@ -25,8 +25,9 @@ var ErrNotFound = errors.New("not found")
 
 // Store is an open connection pool.
 type Store struct {
-	pool   *pgxpool.Pool
-	logger *slog.Logger
+	pool    *pgxpool.Pool
+	logger  *slog.Logger
+	onEvent func(kind string) // OnEvent
 }
 
 // Open connects to url, waiting up to connectTimeout for the database to accept connections

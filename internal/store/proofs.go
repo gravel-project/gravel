@@ -155,7 +155,7 @@ func (s *Store) RedeemIdentityProof(ctx context.Context, codeHash []byte, r Proo
 		if err != nil {
 			return out, fmt.Errorf("store: redeem proof: %w", err)
 		}
-		if err := appendIdentityEvent(ctx, tx, p.UserID, r.Provider, r.Subject, IdentityEventProven, r.At); err != nil {
+		if err := s.appendIdentityEvent(ctx, tx, p.UserID, r.Provider, r.Subject, IdentityEventProven, r.At); err != nil {
 			return out, err
 		}
 	case errors.Is(err, ErrNotFound):
@@ -163,7 +163,7 @@ func (s *Store) RedeemIdentityProof(ctx context.Context, codeHash []byte, r Proo
 			VerificationMethod: r.Method, VerifiedAt: r.At, LinkedAt: r.At}
 		// A link made by someone else since the lock found nothing fails the insert and the
 		// transaction; the proof stays open, and the next presentation finds the link.
-		if err := insertIdentity(ctx, tx, ident, IdentityEventLinked); err != nil {
+		if err := s.insertIdentity(ctx, tx, ident, IdentityEventLinked); err != nil {
 			return out, err
 		}
 		out.Linked = true

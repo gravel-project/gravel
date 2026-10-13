@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -130,7 +131,7 @@ func (s *Store) RegisterUser(ctx context.Context, u User, ident Identity) (User,
 	}
 	ident.UserID = created.ID
 	ident.LastLoginAt = &ident.VerifiedAt
-	if err := insertIdentity(ctx, tx, ident, IdentityEventRegistered); err != nil {
+	if err := s.insertIdentity(ctx, tx, ident, IdentityEventRegistered); err != nil {
 		return User{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -147,7 +148,7 @@ func (s *Store) LinkIdentity(ctx context.Context, ident Identity) error {
 		return fmt.Errorf("store: link identity: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	if err := insertIdentity(ctx, tx, ident, IdentityEventLinked); err != nil {
+	if err := s.insertIdentity(ctx, tx, ident, IdentityEventLinked); err != nil {
 		return err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -156,7 +157,7 @@ func (s *Store) LinkIdentity(ctx context.Context, ident Identity) error {
 	return nil
 }
 
-func insertIdentity(ctx context.Context, tx pgx.Tx, ident Identity, event string) error {
+func (s *Store) insertIdentity(ctx context.Context, tx pgx.Tx, ident Identity, event string) error {
 	_, err := tx.Exec(ctx,
 		`INSERT INTO identities (provider, subject, user_id, display_name, avatar_url, verification_method, verified_at, last_login_at)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
@@ -175,16 +176,22 @@ func insertIdentity(ctx context.Context, tx pgx.Tx, ident Identity, event string
 			return err
 		}
 	}
-	return appendIdentityEvent(ctx, tx, ident.UserID, ident.Provider, ident.Subject, event, ident.VerifiedAt)
+	return s.appendIdentityEvent(ctx, tx, ident.UserID, ident.Provider, ident.Subject, event, ident.VerifiedAt)
 }
 
-func appendIdentityEvent(ctx context.Context, tx pgx.Tx, userID uuid.UUID, provider, subject, event string, at time.Time) error {
-	if _, err := tx.Exec(ctx,
-		`INSERT INTO identity_events (user_id, provider, subject, event, at) VALUES ($1, $2, $3, $4, $5)`,
-		userID, provider, subject, event, at); err != nil {
+func (s *Store) appendIdentityEvent(ctx context.Context, tx pgx.Tx, userID uuid.UUID, provider, subject, event string, at time.Time) error {
+	var id int64
+	if err := tx.QueryRow(ctx,
+		`INSERT INTO identity_events (user_id, provider, subject, event, at) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+		userID, provider, subject, event, at).Scan(&id); err != nil {
 		return fmt.Errorf("store: identity event: %w", err)
 	}
-	return nil
+	if event == IdentityEventLogin { // every visit: the events log leaves logins out
+		return nil
+	}
+	return s.appendEvent(ctx, tx, Event{At: at, Kind: "identity." + event, SubjectUserID: &userID,
+		Summary: "{user}: " + strings.ReplaceAll(event, "_", " ") + " (" + provider + ")", Detail: map[string]any{"provider": provider},
+		Source: "identity_events", SourceID: fmt.Sprint(id)})
 }
 
 // GetIdentity returns the identity for a (provider, subject) pair or ErrNotFound.
@@ -240,7 +247,7 @@ func (s *Store) RecordLogin(ctx context.Context, provider, subject, displayName,
 	if _, err := tx.Exec(ctx, `UPDATE users SET last_login_at = $2 WHERE id = $1`, ident.UserID, at); err != nil {
 		return Identity{}, fmt.Errorf("store: record login: %w", err)
 	}
-	if err := appendIdentityEvent(ctx, tx, ident.UserID, provider, subject, IdentityEventLogin, at); err != nil {
+	if err := s.appendIdentityEvent(ctx, tx, ident.UserID, provider, subject, IdentityEventLogin, at); err != nil {
 		return Identity{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -299,7 +306,7 @@ func (s *Store) UnlinkIdentity(ctx context.Context, userID uuid.UUID, provider, 
 	if _, err := tx.Exec(ctx, `DELETE FROM identities WHERE provider = $1 AND subject = $2 AND user_id = $3`, provider, subject, userID); err != nil {
 		return fmt.Errorf("store: unlink identity: %w", err)
 	}
-	if err := appendIdentityEvent(ctx, tx, userID, provider, subject, IdentityEventUnlinked, at); err != nil {
+	if err := s.appendIdentityEvent(ctx, tx, userID, provider, subject, IdentityEventUnlinked, at); err != nil {
 		return err
 	}
 	if err := tx.Commit(ctx); err != nil {

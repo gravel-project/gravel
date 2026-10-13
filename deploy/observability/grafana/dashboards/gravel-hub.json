@@ -4758,6 +4758,84 @@
       },
       "id": 83,
       "panels": [],
+      "title": "Events",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "The events log (ADR-0028): every action, transition and grant, appended in its source's transaction; notifiers and the admin dashboard read it. backup.failed and host.failing are the ones to look at. No data is expected when nothing happened in the range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gravelOptional": "nothing happened in the range",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 213
+      },
+      "id": 84,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (kind) (increase(gravel_events_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "{{kind}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Events appended by kind",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 221
+      },
+      "id": 85,
+      "panels": [],
       "title": "Runtime",
       "type": "row"
     },
@@ -4795,9 +4873,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 213
+        "y": 222
       },
-      "id": 84,
+      "id": 86,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4858,9 +4936,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 213
+        "y": 222
       },
-      "id": 85,
+      "id": 87,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4921,9 +4999,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 213
+        "y": 222
       },
-      "id": 86,
+      "id": 88,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4984,9 +5062,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 221
+        "y": 230
       },
-      "id": 87,
+      "id": 89,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5047,9 +5125,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 221
+        "y": 230
       },
-      "id": 88,
+      "id": 90,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5110,9 +5188,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 221
+        "y": 230
       },
-      "id": 89,
+      "id": 91,
       "options": {
         "legend": {
           "displayMode": "list",

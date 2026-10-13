@@ -104,13 +104,28 @@ func (s *Store) MatchResultFor(ctx context.Context, orgID uuid.UUID, serverID, s
 
 // EndMatchResult records a series' end: its score and winner.
 func (s *Store) EndMatchResult(ctx context.Context, id uuid.UUID, team1, team2 int, winner string, at time.Time) error {
-	tag, err := s.pool.Exec(ctx, `UPDATE match_results SET team1_score = $2, team2_score = $3, winner = $4, ended_at = $5 WHERE id = $1`,
-		id, team1, team2, winner, at)
+	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("store: end match result: %w", err)
 	}
-	if tag.RowsAffected() == 0 {
+	defer func() { _ = tx.Rollback(ctx) }()
+	var orgID uuid.UUID
+	var server, name1, name2 string
+	err = tx.QueryRow(ctx, `UPDATE match_results SET team1_score = $2, team2_score = $3, winner = $4, ended_at = $5 WHERE id = $1
+		RETURNING organization_id, server_id, team1_name, team2_name`, id, team1, team2, winner, at).Scan(&orgID, &server, &name1, &name2)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("store: end match result: %w", err)
+	}
+	if err := s.appendEvent(ctx, tx, Event{OrganizationID: orgID, At: at, Kind: "match.ended", ServerID: server,
+		Summary: fmt.Sprintf("%s %d–%d %s on %s", name1, team1, team2, name2, server), Detail: map[string]any{"result_id": id.String(), "winner": winner},
+		Source: "match_results", SourceID: id.String()}); err != nil {
+		return err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("store: end match result: %w", err)
 	}
 	return nil
 }

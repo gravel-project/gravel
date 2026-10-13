@@ -98,7 +98,12 @@ func (s *Store) CreateServerLease(ctx context.Context, l ServerLease) error {
 	if err != nil {
 		return err
 	}
-	_, err = s.pool.Exec(ctx, `INSERT INTO server_leases (`+leaseColumns+`)
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("store: create lease: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	_, err = tx.Exec(ctx, `INSERT INTO server_leases (`+leaseColumns+`)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)`,
 		l.ID, l.OrganizationID, l.ServerID, l.Pool, l.HolderKind, l.Holder, l.HolderRef, l.State, l.Reason, settings, plugins, l.MatchConfig,
 		l.ExpectedPlayers, l.PluginState, l.PluginReason, l.MatchLoaded, l.AuditID, l.CreatedAt, l.ReadyAt, l.EndedAt, l.ReleasedAt, l.MaxUntil)
@@ -112,19 +117,55 @@ func (s *Store) CreateServerLease(ctx context.Context, l ServerLease) error {
 	if err != nil {
 		return fmt.Errorf("store: create lease: %w", err)
 	}
+	if err := s.appendEvent(ctx, tx, leaseEvent(l, l.CreatedAt)); err != nil {
+		return err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("store: create lease: %w", err)
+	}
 	return nil
+}
+
+// leaseEvent is the event of a lease reaching its state.
+func leaseEvent(l ServerLease, at time.Time) Event {
+	return Event{OrganizationID: l.OrganizationID, At: at, Kind: "lease." + l.State, ServerID: l.ServerID,
+		Summary: "lease of " + l.ServerID + ": " + l.State, Detail: map[string]any{"lease_id": l.ID.String(), "pool": l.Pool, "holder_kind": l.HolderKind, "reason": l.Reason},
+		Source: "server_leases", SourceID: l.ID.String() + ":" + l.State}
 }
 
 // UpdateServerLease writes a lease's state, reasons and times (what the hub's lease job changes).
 func (s *Store) UpdateServerLease(ctx context.Context, l ServerLease) error {
-	tag, err := s.pool.Exec(ctx, `UPDATE server_leases SET state = $3, reason = $4, plugin_state = $5, plugin_reason = $6, match_loaded = $7,
-		ready_at = $8, ended_at = $9, released_at = $10 WHERE organization_id = $1 AND id = $2`,
-		l.OrganizationID, l.ID, l.State, l.Reason, l.PluginState, l.PluginReason, l.MatchLoaded, l.ReadyAt, l.EndedAt, l.ReleasedAt)
+	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("store: update lease: %w", err)
 	}
-	if tag.RowsAffected() == 0 {
-		return ErrNotFound
+	defer func() { _ = tx.Rollback(ctx) }()
+	var before string
+	if err := tx.QueryRow(ctx, `SELECT state FROM server_leases WHERE organization_id = $1 AND id = $2 FOR UPDATE`, l.OrganizationID, l.ID).Scan(&before); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNotFound
+		}
+		return fmt.Errorf("store: update lease: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `UPDATE server_leases SET state = $3, reason = $4, plugin_state = $5, plugin_reason = $6, match_loaded = $7,
+		ready_at = $8, ended_at = $9, released_at = $10 WHERE organization_id = $1 AND id = $2`,
+		l.OrganizationID, l.ID, l.State, l.Reason, l.PluginState, l.PluginReason, l.MatchLoaded, l.ReadyAt, l.EndedAt, l.ReleasedAt); err != nil {
+		return fmt.Errorf("store: update lease: %w", err)
+	}
+	if l.State != before {
+		at := time.Now().UTC()
+		for _, t := range []*time.Time{l.ReleasedAt, l.EndedAt, l.ReadyAt} {
+			if t != nil && l.State != LeaseStarting {
+				at = *t
+				break
+			}
+		}
+		if err := s.appendEvent(ctx, tx, leaseEvent(l, at)); err != nil {
+			return err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("store: update lease: %w", err)
 	}
 	return nil
 }

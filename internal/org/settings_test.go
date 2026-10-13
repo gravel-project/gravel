@@ -696,3 +696,20 @@ func TestSettingsValidateLocalAccounts(t *testing.T) {
 		t.Errorf("the default is written:\n%s", out)
 	}
 }
+
+// The events log's retention (ADR-0028): 400 days by default, 30 to 3650.
+func TestSettingsValidateEvents(t *testing.T) {
+	for _, d := range []int{0, 30, 400, 3650} {
+		if err := (Settings{Version: 1, Events: Events{RetentionDays: d}}).Validate(); err != nil {
+			t.Errorf("%d: %v", d, err)
+		}
+	}
+	for _, d := range []int{-1, 29, 3651} {
+		if err := (Settings{Version: 1, Events: Events{RetentionDays: d}}).Validate(); err == nil || !strings.Contains(err.Error(), "events.retention_days") {
+			t.Errorf("%d: %v", d, err)
+		}
+	}
+	if (Events{}).RetentionDaysOrDefault() != 400 || (Events{RetentionDays: 90}).RetentionDaysOrDefault() != 90 || !(Events{}).IsZero() {
+		t.Error("defaults")
+	}
+}

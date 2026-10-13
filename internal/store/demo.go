@@ -167,7 +167,7 @@ func (s *Store) SeedDemo(ctx context.Context, orgID uuid.UUID, h DemoHistory) er
 		return &DemoRefusal{Census: census}
 	}
 
-	if err := seedMembers(ctx, tx, orgID, h.Members); err != nil {
+	if err := s.seedMembers(ctx, tx, orgID, h.Members); err != nil {
 		return err
 	}
 	if err := seedMatches(ctx, tx, orgID, h.Matches); err != nil {
@@ -190,7 +190,7 @@ func (s *Store) SeedDemo(ctx context.Context, orgID uuid.UUID, h DemoHistory) er
 	return nil
 }
 
-func seedMembers(ctx context.Context, tx pgx.Tx, orgID uuid.UUID, members []DemoMember) error {
+func (s *Store) seedMembers(ctx context.Context, tx pgx.Tx, orgID uuid.UUID, members []DemoMember) error {
 	for _, m := range members {
 		u := m.User
 		if _, err := tx.Exec(ctx, `INSERT INTO users (id, organization_id, display_name, created_at, last_login_at, show_name_on_boards)
@@ -220,7 +220,7 @@ func seedMembers(ctx context.Context, tx pgx.Tx, orgID uuid.UUID, members []Demo
 			if i == 0 {
 				event = IdentityEventRegistered
 			}
-			if err := appendIdentityEvent(ctx, tx, u.ID, ident.Provider, ident.Subject, event, ident.LinkedAt); err != nil {
+			if err := s.appendIdentityEvent(ctx, tx, u.ID, ident.Provider, ident.Subject, event, ident.LinkedAt); err != nil {
 				return err
 			}
 		}

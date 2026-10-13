@@ -35,7 +35,7 @@ func TestVocabulary(t *testing.T) {
 			t.Errorf("Lookup(%q) = %v %v", s.Name, got, ok)
 		}
 	}
-	want := []string{"identity:read", "participation:write", "roles:grant", "servers:configure", "servers:lease", "servers:moderate", "servers:operate", "servers:read", "stats:read"}
+	want := []string{"events:read", "identity:read", "participation:write", "roles:grant", "servers:configure", "servers:lease", "servers:moderate", "servers:operate", "servers:read", "stats:read"}
 	if got := slices.Sorted(slices.Values(authz.AppScopes())); !slices.Equal(got, want) {
 		t.Errorf("AppScopes = %v, want %v", got, want)
 	}

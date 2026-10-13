@@ -315,6 +315,62 @@ message OrganizationSettings {
   // Per-game settings by game id; at most 20, each a game this hub ships.
   map<string, GameSettings> games = 7;
   LocalAccountsSettings local_accounts = 8;
+  EventsSettings events = 9;
+}
+
+// EventsSettings is how long the events log keeps what it holds (ADR-0028).
+message EventsSettings {
+  // Days an event is kept; 0 is the default, 400; else 30 to 3650.
+  int32 retention_days = 1;
+}
+
+// Event is one entry of the events log (ADR-0028): what the hub did, who did it, to what.
+message Event {
+  int64 id = 1;
+  google.protobuf.Timestamp at = 2;
+  // A kind from the registry: "host.running", "moderation.ban", "role.granted"…
+  string kind = 3;
+  // "info", "notice", "warning" or "critical": fixed per kind.
+  string severity = 4;
+  string actor_user_id = 5;
+  string actor_app_id = 6;
+  // The member an app said it acted for.
+  string on_behalf_provider = 7;
+  string on_behalf_subject = 8;
+  string server_id = 9;
+  string game_id = 10;
+  // The member the event is about (a grant, a link).
+  string subject_user_id = 11;
+  // One line a person reads.
+  string summary = 12;
+  // A few words more, by name; never a secret, an address or a SteamID.
+  map<string, string> detail = 13;
+  string request_id = 14;
+}
+
+message ListEventsRequest {
+  // The events after this id, oldest first: following the log. 0 reads the newest first.
+  int64 after_id = 1;
+  // With after_id 0, the events before this id, newest first: paging back.
+  int64 before_id = 2;
+  // At most 500; 0 is 100.
+  int32 limit = 3;
+  // Kinds ("host.running") or groups ("host"); empty is every kind.
+  repeated string kinds = 4;
+  // "info" (or empty), "notice", "warning" or "critical": this severity and above.
+  string min_severity = 5;
+  // One server's events.
+  string server_id = 6;
+}
+
+message ListEventsResponse {
+  repeated Event events = 1;
+  // Pass as after_id next: the newest id returned, or the request's after_id when none came.
+  int64 next_after_id = 2;
+  // The newest id in the log when it was read; 0 for an empty log.
+  int64 head_id = 3;
+  // Pass as before_id to page further back; 0 when there is nothing older.
+  int64 next_before_id = 4;
 }
 
 message GetOrganizationSettingsRequest {}
@@ -345,4 +401,7 @@ service OrganizationService {
   // UpdateOrganizationSettings replaces the settings. The owner only; invalid_argument names
   // every invalid field.
   rpc UpdateOrganizationSettings(UpdateOrganizationSettingsRequest) returns (UpdateOrganizationSettingsResponse);
+  // ListEvents reads the events log by cursor (ADR-0028): events:read, and a caller holding it
+  // for some games sees those games' events only.
+  rpc ListEvents(ListEventsRequest) returns (ListEventsResponse);
 }

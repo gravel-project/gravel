@@ -1,0 +1,220 @@
+package store
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+
+	"github.com/gravel-project/gravel/internal/events"
+)
+
+// Event is a row of the events log (gravel#188, ADR-0028).
+type Event struct {
+	ID             int64
+	OrganizationID uuid.UUID // uuid.Nil on append: the subject member's organization
+	At             time.Time
+	Kind           string
+	Severity       string // set on append from the registry
+	ActorUserID    *uuid.UUID
+	ActorAppID     *uuid.UUID
+	OnBehalfProvider,
+	OnBehalfSubject string
+	ServerID      string // the game is the server's, read on append
+	GameID        string
+	SubjectUserID *uuid.UUID
+	// Summary is one line; "{user}" is replaced on append with the subject member's display name.
+	Summary   string
+	Detail    map[string]any
+	Source    string
+	SourceID  string
+	RequestID string
+}
+
+// rowQuerier is a transaction or the pool.
+type rowQuerier interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
+// OnEvent tells f each event kind appended (the hub counts them). f runs inside the source's
+// transaction, so a rolled-back write may count once too often.
+func (s *Store) OnEvent(f func(kind string)) { s.onEvent = f }
+
+// appendEvent writes an event in the caller's transaction, with the registry's severity: an
+// unknown kind fails the transaction. An event whose (source, source_id) is already in the log is
+// skipped, so a replayed source writes nothing twice.
+func (s *Store) appendEvent(ctx context.Context, q rowQuerier, e Event) error {
+	sev, err := events.SeverityOf(e.Kind)
+	if err != nil {
+		return err
+	}
+	detail, err := json.Marshal(nonNilAnyMap(e.Detail))
+	if err != nil {
+		return fmt.Errorf("store: event detail: %w", err)
+	}
+	var org *uuid.UUID
+	if e.OrganizationID != uuid.Nil {
+		org = &e.OrganizationID
+	}
+	var id int64
+	err = q.QueryRow(ctx, `
+		WITH o AS (SELECT coalesce($1::uuid, (SELECT organization_id FROM users WHERE id = $10)) AS id)
+		INSERT INTO events (organization_id, at, kind, severity, actor_user_id, actor_app_id, on_behalf_provider, on_behalf_subject,
+		                    server_id, game_id, subject_user_id, summary, detail, source, source_id, request_id)
+		SELECT o.id, $2, $3, $4, $5, $6, $7, $8, $9,
+		       coalesce(nullif($11, ''), (SELECT game_id FROM managed_servers m WHERE m.organization_id = o.id AND m.id = $9), ''),
+		       $10, replace($12, '{user}', coalesce((SELECT display_name FROM users WHERE id = $10), 'a member')), $13, $14, $15, $16
+		  FROM o
+		ON CONFLICT (source, source_id) WHERE source_id <> '' DO NOTHING
+		RETURNING id`,
+		org, e.At, e.Kind, string(sev), e.ActorUserID, e.ActorAppID, e.OnBehalfProvider, e.OnBehalfSubject, e.ServerID,
+		e.SubjectUserID, e.GameID, e.Summary, detail, e.Source, e.SourceID, e.RequestID).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil // already in the log
+	}
+	if err != nil {
+		return fmt.Errorf("store: append event %s: %w", e.Kind, err)
+	}
+	if s.onEvent != nil {
+		s.onEvent(e.Kind)
+	}
+	return nil
+}
+
+// AppendEvent writes an event that has no source row of its own (a backup's status).
+func (s *Store) AppendEvent(ctx context.Context, e Event) error {
+	return s.appendEvent(ctx, s.pool, e)
+}
+
+func nonNilAnyMap(m map[string]any) map[string]any {
+	if m == nil {
+		return map[string]any{}
+	}
+	return m
+}
+
+// EventQuery reads the log. With AfterID the events after it come oldest first (following the
+// log); otherwise the newest come first, before BeforeID when it is set (paging back).
+type EventQuery struct {
+	AfterID, BeforeID int64
+	Limit             int
+	Kinds             []string // a kind ("host.running") or a group ("host")
+	MinSeverity       events.Severity
+	ServerID          string
+	// Games, when not nil, limits the log to these games' events: a game-scoped reader's.
+	Games []string
+}
+
+const eventColumns = `id, organization_id, at, kind, severity, actor_user_id, actor_app_id, on_behalf_provider, on_behalf_subject,
+	server_id, game_id, subject_user_id, summary, detail, source, source_id, request_id`
+
+// ListEvents reads the log and its head, the newest id (0 for an empty log).
+func (s *Store) ListEvents(ctx context.Context, orgID uuid.UUID, q EventQuery) ([]Event, int64, error) {
+	var head int64
+	if err := s.pool.QueryRow(ctx, `SELECT coalesce(max(id), 0) FROM events WHERE organization_id = $1`, orgID).Scan(&head); err != nil {
+		return nil, 0, fmt.Errorf("store: events head: %w", err)
+	}
+	where := []string{"organization_id = $1"}
+	args := []any{orgID}
+	arg := func(v any) string { args = append(args, v); return fmt.Sprintf("$%d", len(args)) }
+	order := "id DESC"
+	switch {
+	case q.AfterID > 0:
+		where = append(where, "id > "+arg(q.AfterID))
+		order = "id ASC"
+	case q.BeforeID > 0:
+		where = append(where, "id < "+arg(q.BeforeID))
+	}
+	if len(q.Kinds) > 0 {
+		where = append(where, "(kind = ANY("+arg(q.Kinds)+") OR split_part(kind, '.', 1) = ANY("+arg(q.Kinds)+"))")
+	}
+	if q.MinSeverity != "" {
+		sev := []string{}
+		for _, v := range events.AtLeast(q.MinSeverity) {
+			sev = append(sev, string(v))
+		}
+		where = append(where, "severity = ANY("+arg(sev)+")")
+	}
+	if q.ServerID != "" {
+		where = append(where, "server_id = "+arg(q.ServerID))
+	}
+	if q.Games != nil {
+		where = append(where, "game_id = ANY("+arg(q.Games)+")")
+	}
+	limit := q.Limit
+	if limit <= 0 || limit > 500 {
+		limit = 100
+	}
+	rows, err := s.pool.Query(ctx, `SELECT `+eventColumns+` FROM events WHERE `+strings.Join(where, " AND ")+` ORDER BY `+order+` LIMIT `+arg(limit), args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("store: list events: %w", err)
+	}
+	defer rows.Close()
+	var out []Event
+	for rows.Next() {
+		var e Event
+		var detail []byte
+		if err := rows.Scan(&e.ID, &e.OrganizationID, &e.At, &e.Kind, &e.Severity, &e.ActorUserID, &e.ActorAppID, &e.OnBehalfProvider,
+			&e.OnBehalfSubject, &e.ServerID, &e.GameID, &e.SubjectUserID, &e.Summary, &detail, &e.Source, &e.SourceID, &e.RequestID); err != nil {
+			return nil, 0, fmt.Errorf("store: list events: %w", err)
+		}
+		if err := json.Unmarshal(detail, &e.Detail); err != nil {
+			return nil, 0, fmt.Errorf("store: list events: detail: %w", err)
+		}
+		out = append(out, e)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("store: list events: %w", err)
+	}
+	return out, head, nil
+}
+
+// PruneEvents deletes the organization's events older than cutoff: the only delete the log allows.
+func (s *Store) PruneEvents(ctx context.Context, orgID uuid.UUID, cutoff time.Time) (int64, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("store: prune events: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if _, err := tx.Exec(ctx, `SET LOCAL gravel.events_prune = 'on'`); err != nil {
+		return 0, fmt.Errorf("store: prune events: %w", err)
+	}
+	tag, err := tx.Exec(ctx, `DELETE FROM events WHERE organization_id = $1 AND at < $2`, orgID, cutoff)
+	if err != nil {
+		return 0, fmt.Errorf("store: prune events: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return 0, fmt.Errorf("store: prune events: %w", err)
+	}
+	return tag.RowsAffected(), nil
+}
+
+// AuditEventKind is the event kind an audit log action writes: moderation.<action> for the
+// moderation actions, action.<action> for the rest (the migration's backfill maps them alike).
+func AuditEventKind(action string) string {
+	switch action {
+	case "kick", "ban", "unban", "message", "broadcast", "move_player":
+		return "moderation." + action
+	}
+	return "action." + action
+}
+
+// HostEventKind is the event kind a host's transition or step writes (the backfill maps alike).
+func HostEventKind(from, to, step string) string {
+	switch {
+	case from == "resizing" && to == "running":
+		return "host.resized"
+	case from != to:
+		return "host." + to
+	}
+	switch step {
+	case "expect", "snapshot", "scale", "scale_cancelled", "env_drift":
+		return "host." + step
+	}
+	return "host.step"
+}

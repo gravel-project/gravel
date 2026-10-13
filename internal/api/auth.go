@@ -43,6 +43,7 @@ var memberProcedures = map[string]string{
 	hubv1connect.IdentityServiceListRoleGrantsProcedure:              apps.ScopeIdentityRead,
 	hubv1connect.OrganizationServiceGetOrganizationProcedure:         "",
 	hubv1connect.OrganizationServiceGetOrganizationSettingsProcedure: "",
+	hubv1connect.OrganizationServiceListEventsProcedure:              apps.ScopeEventsRead,
 	hubv1connect.ServerServiceListGamesProcedure:                     "",
 	hubv1connect.ServerServiceListServersProcedure:                   "",
 	hubv1connect.ServerServiceGetServerStatusProcedure:               "",
