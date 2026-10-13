@@ -6150,6 +6150,15 @@ components:
             type: string
           title: roles
           description: 'Roles the owner granted (ADR-0013): "moderator".'
+        capabilities:
+          type: array
+          items:
+            type: string
+          title: capabilities
+          description: |-
+            The capabilities the member holds in person, as "area:verb" names (ADR-0027): what their
+             roles admit, or every capability a person can hold for the owner. A token an app holds for
+             the member is narrowed further, to the token's scopes.
       title: User
       additionalProperties: false
       description: |-

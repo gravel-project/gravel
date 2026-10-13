@@ -15,6 +15,7 @@ import (
 	hubv1 "github.com/gravel-project/gravel/gen/gravel/hub/v1"
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
 	"github.com/gravel-project/gravel/internal/apps"
+	"github.com/gravel-project/gravel/internal/authz"
 	"github.com/gravel-project/gravel/internal/identity"
 	"github.com/gravel-project/gravel/internal/servers"
 	"github.com/gravel-project/gravel/internal/store"
@@ -50,12 +51,13 @@ type ServerServer struct {
 	obs       Observer
 	members   MemberLookup
 	passwords SharedPasswords
+	access    *Access
 	logger    *slog.Logger
 }
 
 // NewServerServer wires the service.
-func NewServerServer(srv ServerReader, obs Observer, members MemberLookup, logger *slog.Logger) *ServerServer {
-	return &ServerServer{servers: srv, obs: obs, members: members, logger: logger}
+func NewServerServer(srv ServerReader, obs Observer, members MemberLookup, access *Access, logger *slog.Logger) *ServerServer {
+	return &ServerServer{servers: srv, obs: obs, members: members, access: access, logger: logger}
 }
 
 // WithSharedPasswords lets the service give a shared join password to an app holding servers:read.
@@ -107,7 +109,7 @@ func (s *ServerServer) GetServerStatus(ctx context.Context, req *connect.Request
 
 // ListServerPlayers is who was on at the last poll; a member, the owner or servers:read.
 func (s *ServerServer) ListServerPlayers(ctx context.Context, req *connect.Request[hubv1.ListServerPlayersRequest]) (*connect.Response[hubv1.ListServerPlayersResponse], error) {
-	if err := requireMemberOrScope(ctx, apps.ScopeServersRead); err != nil {
+	if _, err := s.access.Require(ctx, authz.ServersRead, authz.Target{ServerID: req.Msg.GetServerId()}); err != nil {
 		return nil, err
 	}
 	srv, err := s.lookup(ctx, req.Msg.GetServerId())
@@ -220,24 +222,4 @@ func teamCounts(o servers.Observation) (counts map[string]int32, known bool) {
 		}
 	}
 	return counts, known || len(o.Players) == 0
-}
-
-// requireMemberOrScope admits a logged-in member (the owner is one) or an app whose token carries
-// the scope. CodeUnauthenticated without any credential, CodePermissionDenied for an app without
-// the scope.
-func requireMemberOrScope(ctx context.Context, scope string) error {
-	if a, ok := apps.FromContext(ctx); ok {
-		if a.Has(scope) {
-			return nil
-		}
-		return connect.NewError(connect.CodePermissionDenied, errors.New("the app lacks the scope "+scope))
-	}
-	_, err := caller(ctx) // a session, or a member's token the interceptor admitted
-	if err == nil {
-		return nil
-	}
-	if _, ok := apps.MemberFromContext(ctx); ok {
-		return err
-	}
-	return connect.NewError(connect.CodeUnauthenticated, errors.New("log in, or call as an app with "+scope))
 }

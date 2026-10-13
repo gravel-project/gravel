@@ -120,8 +120,9 @@ func newRigWith(t *testing.T, theme templates.Theme, login bool) *rig {
 	// As the hub wires it: a member's token is held to its scopes on every service.
 	member := connect.WithInterceptors(api.MemberTokens())
 	apiMux := http.NewServeMux()
-	apiMux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(orgSvc, logger), member))
-	idAPI := api.NewIdentityServer(ids, sess, orgSvc, logger)
+	access := api.NewAccess(orgSvc, ids, logger)
+	apiMux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(orgSvc, access, logger), member))
+	idAPI := api.NewIdentityServer(ids, sess, orgSvc, access, logger)
 	r.proofSt = prooftest.NewFakeStore()
 	r.proofs = proof.New(r.proofSt, logger, []proof.Channel{proof.GameChat{ProviderName: "steam"}})
 	idAPI.SetProofs(r.proofs, proofServers{}, proofServers{})
@@ -537,8 +538,9 @@ func TestThemeFromSettings(t *testing.T) {
 	ids := identity.New(idSt, o.ID, nil, 10*time.Minute, logger)
 	sess := session.New(idSt, time.Hour, false, logger)
 	apiMux := http.NewServeMux()
-	apiMux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(orgSvc, logger)))
-	apiMux.Handle(hubv1connect.NewIdentityServiceHandler(api.NewIdentityServer(ids, sess, orgSvc, logger)))
+	access := api.NewAccess(orgSvc, ids, logger)
+	apiMux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(orgSvc, access, logger)))
+	apiMux.Handle(hubv1connect.NewIdentityServiceHandler(api.NewIdentityServer(ids, sess, orgSvc, access, logger)))
 	h, err := web.New(ids, sess, sess.Middleware(apiMux), nil, logger)
 	if err != nil {
 		t.Fatal(err)

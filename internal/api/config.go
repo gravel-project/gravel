@@ -11,8 +11,7 @@ import (
 	"github.com/gravel-project/gravel/drivers"
 	hubv1 "github.com/gravel-project/gravel/gen/gravel/hub/v1"
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
-	"github.com/gravel-project/gravel/internal/apps"
-	"github.com/gravel-project/gravel/internal/org"
+	"github.com/gravel-project/gravel/internal/authz"
 	"github.com/gravel-project/gravel/internal/servers"
 )
 
@@ -21,18 +20,18 @@ import (
 type ConfigServer struct {
 	hubv1connect.UnimplementedServerConfigServiceHandler
 	mod    *servers.Moderation
-	org    *org.Service
+	access *Access
 	errs   *ModerationServer // the error mapping
 	logger *slog.Logger
 }
 
 // NewConfigServer wires the service.
-func NewConfigServer(mod *servers.Moderation, orgSvc *org.Service, logger *slog.Logger) *ConfigServer {
-	return &ConfigServer{mod: mod, org: orgSvc, errs: &ModerationServer{logger: logger}, logger: logger}
+func NewConfigServer(mod *servers.Moderation, access *Access, logger *slog.Logger) *ConfigServer {
+	return &ConfigServer{mod: mod, access: access, errs: &ModerationServer{logger: logger}, logger: logger}
 }
 
 func (s *ConfigServer) check(ctx context.Context, server string) error {
-	if err := requireScope(ctx, s.org, s.logger, apps.ScopeServersConfigure); err != nil {
+	if _, err := s.access.Require(ctx, authz.ServersConfigure, authz.Target{ServerID: server}); err != nil {
 		return err
 	}
 	if strings.TrimSpace(server) == "" {

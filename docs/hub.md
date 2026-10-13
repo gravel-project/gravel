@@ -130,7 +130,7 @@ Public listener (`server.listen`), HTTP/1.1 and unencrypted HTTP/2 so gRPC works
 | `/gravel.hub.v1.IdentityService/RevokeSessions` | log out everywhere; answers how many sessions ended and clears the cookie |
 | `/gravel.hub.v1.IdentityService/LookupUser` | `{"provider": "discord", "subject": "…"}` → the user and their identities, for role sync; an app with `identity:read`, or the owner |
 | `/gravel.hub.v1.IdentityService/ListUsers` | `{"page_size": 100, "page_token": "…"}` → members with their identities, oldest first, and the next page's token; role sync's full pass; `identity:read` or the owner |
-| `/gravel.hub.v1.IdentityService/SetUserRole` | `{"user_id": "…", "role": "moderator", "granted": true}` → the member with their roles ([Roles](#roles-adr-0013)); every change recorded; the owner only |
+| `/gravel.hub.v1.IdentityService/SetUserRole` | `{"user_id": "…", "role": "moderator", "granted": true}` → the member with their roles and capabilities ([Capabilities](#capabilities-adr-0027)); every change recorded; `roles:grant` (the owner, in person) |
 | `/gravel.hub.v1.IdentityService/ListIdentityEvents` | `{"after_id": 0, "limit": 100}` → the identity log after a position, oldest first, the id to continue from, and the log's newest id (`head_id`, where a reader that just made a full pass starts); role sync's incremental pass; `identity:read` or the owner |
 | `/gravel.hub.v1.ServerService/ListGames` | the enabled games, their identity provider, bands, layout and `no_paid_perks`; public |
 | `/gravel.hub.v1.ServerService/ListServers` | every server with its last observation (state, reachable, players and max, map, teams with their scores and, when the hub can count them, their players, capabilities, build, `observed_at`); public, no personal data, never a control address |
@@ -462,11 +462,16 @@ curl -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{
 |---|---|
 | `identity:read` | `LookupUser`, `ListUsers`, `ListIdentityEvents`: members and their identities, for role sync |
 | `servers:read` | `ListServerPlayers`: who is on a server, for a live card (the rest of `ServerService` is public), and a server's shared join password in `ServerStatus.join` (`vm.share_password`, #180) |
-| `servers:moderate` | `ModerationService`: kick, ban, unban, message, broadcast and move players, list a server's bans, read the audit log |
+| `servers:moderate` | `ModerationService`: kick, ban, unban, message, broadcast and move players, list a server's bans, read the audit log; `SetServerHostDesired` and `SetServerHostExpectation`: park and unpark a cloud-VM server |
+| `servers:lease` | `ServerLeaseService`: take a leasable server for a match and give it back ([Server leases](#server-leases-adr-0023)) |
 | `servers:configure` | `ServerConfigService`: read, plan and apply a server's configuration |
-| `stats:read` | `StatsService` `GetBoard`, `GetParticipationBoard` and `ListMatches` while the settings keep stats private |
+| `stats:read` | `StatsService`'s boards, match lists and match results while the settings keep stats private |
 | `participation:write` | `StatsService` `RecordParticipation`: participation events from a first-party app ([Participation](#participation-adr-0014)); the only way to record them, the owner's session included |
 | `host:<name>[:<more>]` | nothing in gravel: a host's own scope, for a service beside the hub that checks it (below) |
+
+Scopes are capabilities ([Capabilities](#capabilities-adr-0027)): `apps create` accepts the ones an
+app may hold, listed above. The rest (`settings:write`, `servers:provision` and the like) are a
+member's in person until a procedure lets an app use them.
 
 **A host's own scopes.** A host's service beside the hub (Hidden Token Gaming's Muster, say) can
 give its callers scopes of its own: `host:` followed by one to four lower-case segments joined by
@@ -951,7 +956,7 @@ through its own route only, which needs the player on.
 `ModerationService` acts on a server's players through its driver: `KickPlayer`, `BanPlayer`,
 `UnbanPlayer`, `MessagePlayer`, `Broadcast` and `MovePlayer` (with `respawn`, a kill after the move
 so the player comes back on the new team), plus `ListServerBans` and `ListAuditLog`. The owner and
-moderators ([Roles](#roles-adr-0013)) may call it, and so may an app with `servers:moderate` (a bot).
+moderators ([Capabilities](#capabilities-adr-0027)) may call it, and so may an app with `servers:moderate` (a bot).
 An app may name the person it acts for (`on_behalf_of`, e.g. the Discord moderator behind a
 command), who must be the owner or a moderator; the hub records both. A logged-in user acts as
 themselves. A player is named by their id at the game's identity
@@ -1271,14 +1276,48 @@ gravel-hub serve --config demo-hub.yaml
 
 To seed again, drop the database and start over.
 
-## Roles (ADR-0013)
+## Capabilities (ADR-0027)
 
-The owner grants members the **moderator** role on the Members page (`/members`, the owner only), or
-with `IdentityService.SetUserRole`. A moderator kicks, bans, unbans, messages and moves players,
-broadcasts, and reads the ban list and the moderation log, as the owner does; configuration stays the
-owner's. Every grant and revocation is kept in `role_changes` (who, by whom, when), which can't be
-changed. An app with `servers:moderate` that names `on_behalf_of` acts only for the owner or a
-moderator; without `on_behalf_of` it acts for itself.
+Every procedure checks one **capability**, an `area:verb` name, against whoever is calling. App
+scopes are the same names, so one word says what a role, a member's token and an app may do.
+
+| Caller | Holds |
+|---|---|
+| Nobody | Nothing: a procedure that needs a capability answers `unauthenticated` |
+| A member in person | `servers:read`, plus their roles' capabilities |
+| A moderator in person | `servers:read`, `servers:moderate`, `servers:lease` |
+| The owner in person | Every capability a person can hold (not `participation:write`, which is an app's own) |
+| A member's token | What the member holds, narrowed to the token's scopes ([Members sign in to apps](#members-sign-in-to-apps-adr-0015)) |
+| An app | Its scopes, of the capabilities an app may hold ([Service credentials](#service-credentials-adr-0008)) |
+
+A caller who lacks the capability gets `permission_denied`. An app with `servers:moderate` that
+names `on_behalf_of` acts only for a member who holds `servers:moderate` themselves; without it, it
+acts for itself. A lease's `on_behalf_of` names the member the lease is for, who must be a member of
+the hub. `GetMe` and `ListUsers` return each member's `capabilities`.
+
+| Capability | Admits | Held by today |
+|---|---|---|
+| `identity:read` | `LookupUser`, `ListUsers`, `ListIdentityEvents` | the owner; apps |
+| `servers:read` | `ListServerPlayers`, `GetServerHost`, `ListServerHostEvents` | every member; apps |
+| `servers:moderate` | `ModerationService`; `SetServerHostDesired`, `SetServerHostExpectation` (park, unpark) | the owner, moderators; apps |
+| `servers:lease` | `ServerLeaseService` | the owner, moderators in person; apps |
+| `servers:configure` | `ServerConfigService` | the owner; apps |
+| `stats:read` | the boards, match lists and match results while stats are private | the owner; apps |
+| `participation:write` | `RecordParticipation` | apps only |
+| `servers:provision` | `ResizeServerHost`, `UnpinServerHostSize`, `SnapshotServerHostVolume`, `DestroyServerHost` | the owner in person |
+| `roles:grant` | `SetUserRole` | the owner in person |
+| `settings:write` | `UpdateOrganizationSettings` | the owner in person |
+| `servers:operate`, `servers:manage`, `members:manage`, `apps:manage`, `events:read`, `metrics:read`, `stats:erase`, `org:transfer` | named now; their procedures arrive with H1 (#185 to #204) | the owner |
+
+**Roles.** The owner grants members the **moderator** role on the Members page (`/members`) or with
+`IdentityService.SetUserRole`. Every grant and revocation is kept in `role_changes` (who, by whom,
+when), which can't be changed. Five roles with a game scope (owner, admin, operator, moderator,
+member) and ownership transfer follow in #185 and #197 (ADR-0027 §3 to §6).
+
+**The access matrix.** `internal/api/testdata/access_matrix.txt` is every procedure's answer to every
+kind of caller, and `TestAccessMatrix` fails when it changes. A change to who may call what is a
+diff of that file, rewritten with `go test ./internal/api -run TestAccessMatrix -update`; a new
+procedure fails the test until it is listed.
 
 ## Pages (gravel#18)
 
@@ -1290,7 +1329,7 @@ is the API's to decide, and a page says so in words when it is refused.
 | `/servers` (also `/`) | every server: name, game, trust, state (Online, Offline, Checking, Unavailable), players and map | everyone |
 | `/servers/{id}` | the status with the team scores, the next map in the rotation, how to join (while live) and when it was observed, who is on (in-game name, team, kills, deaths, ping, a member badge), the last 10 matches, a link to the server's board | the status: everyone; who is on: members and the owner ("Log in to see who's on" otherwise); matches: as the boards |
 | `/members/{id}` (`/profile` is yours) | a member's totals over all time, this week, this month and each season running now (Official servers, every linked account), their participation over the same windows (a table per kind, [Participation](#participation-adr-0014)), their 20 most recent matches on any server, and on your own profile the switch that shows your name on leaderboards (`SetBoardName`) | the member, the owner and apps with `stats:read`; anyone when the member shows their name and `stats.public` is on; otherwise "no such profile", so a page never says who plays under a pseudonym. A named member on a board links here |
-| `/servers/{id}`, for the owner and moderators | per player in "Who's on": kick, ban or message, with a reason or the message; a Moderation section with a broadcast, a ban by SteamID64 for a player who isn't on, the ban list with unban, and the log link. A control shows only when the server's driver offers it (its capabilities). Every action goes through a confirmation page (`POST /servers/{id}/moderate`) that says exactly what will be sent, and is recorded in the audit log with the moderator's name | the owner and moderators ([Roles](#roles-adr-0013)) |
+| `/servers/{id}`, for the owner and moderators | per player in "Who's on": kick, ban or message, with a reason or the message; a Moderation section with a broadcast, a ban by SteamID64 for a player who isn't on, the ban list with unban, and the log link. A control shows only when the server's driver offers it (its capabilities). Every action goes through a confirmation page (`POST /servers/{id}/moderate`) that says exactly what will be sent, and is recorded in the audit log with the moderator's name | the owner and moderators ([Capabilities](#capabilities-adr-0027)) |
 | `/servers/{id}/log` | the server's moderation log, newest first: when, who (a member's name, or an app and who it acted for), the action, the player, the reason or message, the result | the owner and moderators |
 | `/boards?scope=&window=&metric=&page=` | a leaderboard: scope `` (everyone, Official servers), `game:<id>` or `server:<id>`; window `all`, `week`, `month` or `season:<name>`; ranked by any column of the game's `layout.board`, 50 a page | everyone when `stats.public` is on, else the owner ("Leaderboards are private…" otherwise) |
 | `/servers/{id}/recap?from=&to=&floor=` | a session recap ([Session recaps](#session-recaps-adr-0018)): the window in `stats.timezone`, peak players, minutes with anyone on and at or above the floor, distinct players, the matches with their times, map and team scores, and the top five by kills as the leaderboard shows players; "Nobody was on during this window." when nobody came. A link that isn't a recap window (not RFC 3339, longer than a day, not ended) is a 400 | as `/boards` ("Recaps are private…" otherwise) |

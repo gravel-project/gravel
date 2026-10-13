@@ -14,6 +14,7 @@ import (
 
 	hubv1 "github.com/gravel-project/gravel/gen/gravel/hub/v1"
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
+	"github.com/gravel-project/gravel/internal/authz"
 	"github.com/gravel-project/gravel/internal/org"
 	"github.com/gravel-project/gravel/internal/store"
 )
@@ -22,12 +23,13 @@ import (
 type OrganizationServer struct {
 	hubv1connect.UnimplementedOrganizationServiceHandler
 	org    *org.Service
+	access *Access
 	logger *slog.Logger
 }
 
 // NewOrganizationServer wires the service.
-func NewOrganizationServer(svc *org.Service, logger *slog.Logger) *OrganizationServer {
-	return &OrganizationServer{org: svc, logger: logger}
+func NewOrganizationServer(svc *org.Service, access *Access, logger *slog.Logger) *OrganizationServer {
+	return &OrganizationServer{org: svc, access: access, logger: logger}
 }
 
 // GetOrganization returns the built-in organization.
@@ -66,7 +68,7 @@ func (s *OrganizationServer) GetOrganizationSettings(ctx context.Context, _ *con
 
 // UpdateOrganizationSettings replaces the settings; the owner only.
 func (s *OrganizationServer) UpdateOrganizationSettings(ctx context.Context, req *connect.Request[hubv1.UpdateOrganizationSettingsRequest]) (*connect.Response[hubv1.UpdateOrganizationSettingsResponse], error) {
-	if err := requireOwner(ctx, s.org, s.logger); err != nil {
+	if _, err := s.access.Require(ctx, authz.SettingsWrite, authz.Target{}); err != nil {
 		return nil, err
 	}
 	set, err := s.org.UpdateSettings(ctx, settingsFromProto(req.Msg.GetSettings()))

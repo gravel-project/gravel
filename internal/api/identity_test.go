@@ -3,6 +3,7 @@ package api_test
 import (
 	"context"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -142,5 +143,61 @@ func TestLookupUserIsOwnerOnly(t *testing.T) {
 	me, _ := joClient.GetMe(ctx, connect.NewRequest(&hubv1.GetMeRequest{}))
 	if !me.Msg.GetUser().GetOwner() {
 		t.Error("the owner sees owner: true")
+	}
+}
+
+// GetMe says what the caller may do (ADR-0027): the owner every capability a person can hold, a
+// moderator what moderators hold, a member the base. ListUsers says the same of each member.
+func TestGetMeCapabilities(t *testing.T) {
+	r := newRig(t)
+	ctx := context.Background()
+	owner := r.user(t, "Owner", "1")
+	if _, err := r.org.Claim(ctx, r.token, owner.ID); err != nil {
+		t.Fatal(err)
+	}
+	mod := r.user(t, "Mod", "2")
+	if _, err := r.ids.SetRole(ctx, mod.ID, store.RoleModerator, true, owner.ID); err != nil {
+		t.Fatal(err)
+	}
+	member := r.user(t, "Member", "3")
+	caps := func(cookie string) []string {
+		t.Helper()
+		me, err := hubv1connect.NewIdentityServiceClient(cookieClient(http.DefaultClient, cookie), r.srv.URL).GetMe(ctx, connect.NewRequest(&hubv1.GetMeRequest{}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return me.Msg.GetUser().GetCapabilities()
+	}
+	ownerCaps := caps(r.login(t, owner.ID))
+	for _, c := range []string{"servers:moderate", "servers:provision", "settings:write", "roles:grant", "org:transfer"} {
+		if !slices.Contains(ownerCaps, c) {
+			t.Errorf("the owner lacks %q: %v", c, ownerCaps)
+		}
+	}
+	if slices.Contains(ownerCaps, "participation:write") {
+		t.Errorf("the owner holds an app's own capability: %v", ownerCaps)
+	}
+	if got := caps(r.login(t, mod.ID)); !slices.Equal(got, []string{"servers:read", "servers:moderate", "servers:lease"}) {
+		t.Errorf("moderator = %v", got)
+	}
+	if got := caps(r.login(t, member.ID)); !slices.Equal(got, []string{"servers:read"}) {
+		t.Errorf("member = %v", got)
+	}
+
+	// A member's token reads the member as they are in person; the token's own scopes narrow what
+	// it may call, not what the member holds.
+	me, err := hubv1connect.NewIdentityServiceClient(memberClient(r.memberToken(t, mod.ID, nil)), r.srv.URL).GetMe(ctx, connect.NewRequest(&hubv1.GetMeRequest{}))
+	if err != nil || !slices.Equal(me.Msg.GetUser().GetCapabilities(), []string{"servers:read", "servers:moderate", "servers:lease"}) {
+		t.Errorf("moderator through a token: %v %v", me, err)
+	}
+
+	users, err := hubv1connect.NewIdentityServiceClient(cookieClient(http.DefaultClient, r.login(t, owner.ID)), r.srv.URL).ListUsers(ctx, connect.NewRequest(&hubv1.ListUsersRequest{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, u := range users.Msg.GetUsers() {
+		if u.GetId() == member.ID.String() && !slices.Equal(u.GetCapabilities(), []string{"servers:read"}) {
+			t.Errorf("ListUsers member = %v", u.GetCapabilities())
+		}
 	}
 }

@@ -16,30 +16,28 @@ import (
 	"github.com/gravel-project/gravel/drivers/cloudvm"
 	hubv1 "github.com/gravel-project/gravel/gen/gravel/hub/v1"
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
-	"github.com/gravel-project/gravel/internal/apps"
-	"github.com/gravel-project/gravel/internal/org"
+	"github.com/gravel-project/gravel/internal/authz"
 	"github.com/gravel-project/gravel/internal/servers"
 )
 
-// HostServer serves gravel.hub.v1.ServerHostService (ADR-0003): reads for members and apps with
-// servers:read; park and unpark for the owner, a moderator or an app with servers:moderate; resize
-// and destroy for the owner only.
+// HostServer serves gravel.hub.v1.ServerHostService (ADR-0003): reads with servers:read (every
+// member holds it); park and unpark with servers:moderate; resize, unpin, snapshot and destroy with
+// servers:provision (ADR-0027).
 type HostServer struct {
 	hubv1connect.UnimplementedServerHostServiceHandler
 	hosts  *servers.Hosts
-	mod    *ModerationServer // whose moderator check park and unpark share
-	org    *org.Service
+	access *Access
 	logger *slog.Logger
 }
 
 // NewHostServer wires the service.
-func NewHostServer(hosts *servers.Hosts, mod *ModerationServer, orgSvc *org.Service, logger *slog.Logger) *HostServer {
-	return &HostServer{hosts: hosts, mod: mod, org: orgSvc, logger: logger}
+func NewHostServer(hosts *servers.Hosts, access *Access, logger *slog.Logger) *HostServer {
+	return &HostServer{hosts: hosts, access: access, logger: logger}
 }
 
 // GetServerHost is a server's host.
 func (s *HostServer) GetServerHost(ctx context.Context, req *connect.Request[hubv1.GetServerHostRequest]) (*connect.Response[hubv1.GetServerHostResponse], error) {
-	if err := requireMemberOrScope(ctx, apps.ScopeServersRead); err != nil {
+	if _, err := s.access.Require(ctx, authz.ServersRead, authz.Target{ServerID: req.Msg.GetServerId()}); err != nil {
 		return nil, err
 	}
 	h, err := s.host(ctx, req.Msg.GetServerId())
@@ -51,7 +49,7 @@ func (s *HostServer) GetServerHost(ctx context.Context, req *connect.Request[hub
 
 // ListServerHostEvents is a host's transitions, newest first.
 func (s *HostServer) ListServerHostEvents(ctx context.Context, req *connect.Request[hubv1.ListServerHostEventsRequest]) (*connect.Response[hubv1.ListServerHostEventsResponse], error) {
-	if err := requireMemberOrScope(ctx, apps.ScopeServersRead); err != nil {
+	if _, err := s.access.Require(ctx, authz.ServersRead, authz.Target{ServerID: req.Msg.GetServerId()}); err != nil {
 		return nil, err
 	}
 	m := req.Msg
@@ -83,7 +81,7 @@ func (s *HostServer) ListServerHostEvents(ctx context.Context, req *connect.Requ
 // SetServerHostDesired parks or unparks a host.
 func (s *HostServer) SetServerHostDesired(ctx context.Context, req *connect.Request[hubv1.SetServerHostDesiredRequest]) (*connect.Response[hubv1.SetServerHostDesiredResponse], error) {
 	m := req.Msg
-	if err := s.mod.requireModerator(ctx, m.GetOnBehalfOf()); err != nil {
+	if _, err := s.access.RequireFor(ctx, authz.ServersModerate, authz.Target{ServerID: m.GetServerId()}, m.GetOnBehalfOf()); err != nil {
 		return nil, err
 	}
 	desired := m.GetDesired()
@@ -112,7 +110,7 @@ func (s *HostServer) SetServerHostDesired(ctx context.Context, req *connect.Requ
 // SetServerHostExpectation says how many players a host should expect until when (#172).
 func (s *HostServer) SetServerHostExpectation(ctx context.Context, req *connect.Request[hubv1.SetServerHostExpectationRequest]) (*connect.Response[hubv1.SetServerHostExpectationResponse], error) {
 	m := req.Msg
-	if err := s.mod.requireModerator(ctx, m.GetOnBehalfOf()); err != nil {
+	if _, err := s.access.RequireFor(ctx, authz.ServersModerate, authz.Target{ServerID: m.GetServerId()}, m.GetOnBehalfOf()); err != nil {
 		return nil, err
 	}
 	var until time.Time
@@ -146,7 +144,7 @@ func (s *HostServer) SetServerHostExpectation(ctx context.Context, req *connect.
 // ResizeServerHost moves a running host to another size.
 func (s *HostServer) ResizeServerHost(ctx context.Context, req *connect.Request[hubv1.ResizeServerHostRequest]) (*connect.Response[hubv1.ResizeServerHostResponse], error) {
 	m := req.Msg
-	who, err := s.owner(ctx)
+	who, err := s.provisioner(ctx, m.GetServerId())
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +165,7 @@ func (s *HostServer) ResizeServerHost(ctx context.Context, req *connect.Request[
 // UnpinServerHostSize lets the scaling policy decide a host's size again.
 func (s *HostServer) UnpinServerHostSize(ctx context.Context, req *connect.Request[hubv1.UnpinServerHostSizeRequest]) (*connect.Response[hubv1.UnpinServerHostSizeResponse], error) {
 	m := req.Msg
-	who, err := s.owner(ctx)
+	who, err := s.provisioner(ctx, m.GetServerId())
 	if err != nil {
 		return nil, err
 	}
@@ -185,7 +183,7 @@ func (s *HostServer) UnpinServerHostSize(ctx context.Context, req *connect.Reque
 // SnapshotServerHostVolume copies a parked host's data volume into a snapshot.
 func (s *HostServer) SnapshotServerHostVolume(ctx context.Context, req *connect.Request[hubv1.SnapshotServerHostVolumeRequest]) (*connect.Response[hubv1.SnapshotServerHostVolumeResponse], error) {
 	m := req.Msg
-	who, err := s.owner(ctx)
+	who, err := s.provisioner(ctx, m.GetServerId())
 	if err != nil {
 		return nil, err
 	}
@@ -207,7 +205,7 @@ func (s *HostServer) SnapshotServerHostVolume(ctx context.Context, req *connect.
 // DestroyServerHost removes a parked host's remains.
 func (s *HostServer) DestroyServerHost(ctx context.Context, req *connect.Request[hubv1.DestroyServerHostRequest]) (*connect.Response[hubv1.DestroyServerHostResponse], error) {
 	m := req.Msg
-	who, err := s.owner(ctx)
+	who, err := s.provisioner(ctx, m.GetServerId())
 	if err != nil {
 		return nil, err
 	}
@@ -222,12 +220,10 @@ func (s *HostServer) DestroyServerHost(ctx context.Context, req *connect.Request
 	return connect.NewResponse(&hubv1.DestroyServerHostResponse{Host: h, AuditId: id}), nil
 }
 
-// owner admits the owner in person and returns them as the actor.
-func (s *HostServer) owner(ctx context.Context) (servers.Actor, error) {
-	if _, ok := apps.FromContext(ctx); ok {
-		return servers.Actor{}, connect.NewError(connect.CodePermissionDenied, errors.New("the owner only, in person"))
-	}
-	if err := requireOwner(ctx, s.org, s.logger); err != nil {
+// provisioner admits a caller holding servers:provision (the owner in person; no app may hold it
+// yet) and returns them as the actor.
+func (s *HostServer) provisioner(ctx context.Context, serverID string) (servers.Actor, error) {
+	if _, err := s.access.Require(ctx, authz.ServersProvision, authz.Target{ServerID: serverID}); err != nil {
 		return servers.Actor{}, err
 	}
 	return actor(ctx, nil)

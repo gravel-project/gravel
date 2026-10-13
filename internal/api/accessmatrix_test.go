@@ -196,7 +196,7 @@ func call(t *testing.T, base string, c *http.Client, p procedure) string {
 	if err != nil {
 		t.Fatalf("%s: %v", p.path, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if !p.streaming {
 		if resp.StatusCode == http.StatusOK {
 			return "ok"

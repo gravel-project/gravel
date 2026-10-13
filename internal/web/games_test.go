@@ -128,8 +128,9 @@ func TestGameOverlayFromSettings(t *testing.T) {
 	ids := identity.New(idSt, o.ID, nil, 10*time.Minute, logger)
 	sess := session.New(idSt, time.Hour, false, logger)
 	apiMux := http.NewServeMux()
-	apiMux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(orgSvc, logger)))
-	apiMux.Handle(hubv1connect.NewIdentityServiceHandler(api.NewIdentityServer(ids, sess, orgSvc, logger)))
+	access := api.NewAccess(orgSvc, ids, logger)
+	apiMux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(orgSvc, access, logger)))
+	apiMux.Handle(hubv1connect.NewIdentityServiceHandler(api.NewIdentityServer(ids, sess, orgSvc, access, logger)))
 	h, err := web.New(ids, sess, sess.Middleware(apiMux), nil, logger)
 	if err != nil {
 		t.Fatal(err)

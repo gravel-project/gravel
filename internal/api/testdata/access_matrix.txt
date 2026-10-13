@@ -232,16 +232,16 @@
   moderator-token                permission_denied
   owner-token                    permission_denied
   owner-token-unscoped           permission_denied
-  app                            unauthenticated
-  app-host                       unauthenticated
-  app+identity:read              unauthenticated
-  app+participation:write        unauthenticated
-  app+servers:configure          unauthenticated
-  app+servers:lease              unauthenticated
-  app+servers:moderate           unauthenticated
-  app+servers:read               unauthenticated
-  app+stats:read                 unauthenticated
-  app+all                        unauthenticated
+  app                            permission_denied
+  app-host                       permission_denied
+  app+identity:read              permission_denied
+  app+participation:write        permission_denied
+  app+servers:configure          permission_denied
+  app+servers:lease              permission_denied
+  app+servers:moderate           permission_denied
+  app+servers:read               permission_denied
+  app+stats:read                 permission_denied
+  app+all                        permission_denied
 
 /gravel.hub.v1.IdentityService/StartProof
   anonymous                      unauthenticated
@@ -512,16 +512,16 @@
   moderator-token                permission_denied
   owner-token                    permission_denied
   owner-token-unscoped           permission_denied
-  app                            unauthenticated
-  app-host                       unauthenticated
-  app+identity:read              unauthenticated
-  app+participation:write        unauthenticated
-  app+servers:configure          unauthenticated
-  app+servers:lease              unauthenticated
-  app+servers:moderate           unauthenticated
-  app+servers:read               unauthenticated
-  app+stats:read                 unauthenticated
-  app+all                        unauthenticated
+  app                            permission_denied
+  app-host                       permission_denied
+  app+identity:read              permission_denied
+  app+participation:write        permission_denied
+  app+servers:configure          permission_denied
+  app+servers:lease              permission_denied
+  app+servers:moderate           permission_denied
+  app+servers:read               permission_denied
+  app+stats:read                 permission_denied
+  app+all                        permission_denied
 
 /gravel.hub.v1.ServerConfigService/ApplyServerConfig
   anonymous                      unauthenticated
