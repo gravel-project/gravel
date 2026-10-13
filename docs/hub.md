@@ -135,6 +135,7 @@ Public listener (`server.listen`), HTTP/1.1 and unencrypted HTTP/2 so gRPC works
 | `/gravel.hub.v1.IdentityService/LookupUser` | `{"provider": "discord", "subject": "…"}` → the user and their identities, for role sync; an app with `identity:read`, or the owner |
 | `/gravel.hub.v1.IdentityService/ListUsers` | `{"page_size": 100, "page_token": "…"}` → members with their identities, oldest first, and the next page's token; role sync's full pass; `identity:read` or the owner |
 | `/gravel.hub.v1.IdentityService/SetUserRole` | `{"user_id": "…", "role": "operator", "game_id": "cs2", "granted": true}` → the member with their roles, grants and capabilities ([Roles](#roles)); `roles:grant` for the grant's scope, admin grants by the owner only, an app moderator only, never one's own; every change recorded |
+| `/gravel.hub.v1.OrganizationService/ListEvents` | `{"after_id": 0, "kinds": ["host"], "min_severity": "warning"}` → the events log by cursor ([Events](#events-adr-0028)); `events:read`, a game-scoped holder that game's events |
 | `/gravel.hub.v1.IdentityService/ListRoleGrants` | `{"user_id": "…"}` (or `{}` for everyone) → who holds which role where; `identity:read` |
 | `/gravel.hub.v1.IdentityService/ListIdentityEvents` | `{"after_id": 0, "limit": 100}` → the identity log after a position, oldest first, the id to continue from, and the log's newest id (`head_id`, where a reader that just made a full pass starts); role sync's incremental pass; `identity:read` or the owner |
 | `/gravel.hub.v1.ServerService/ListGames` | the enabled games, their identity provider, bands, layout and `no_paid_perks`; public |
@@ -309,6 +310,8 @@ stats:                       # the boards ([Stats](#stats-adr-0012))
       game: wardogs          # optional: one game's matches
       from: "2026-10-15"     # included
       to: "2027-01-15"       # excluded
+events:                      # the events log ([Events](#events-adr-0028))
+  retention_days: 400        # how long an event is kept (default 400; 30 to 3650)
 local_accounts:              # with auth.local.enabled ([Local accounts](#local-accounts-adr-0026))
   registration: closed       # closed (the default: staff make accounts) or open (anyone may register)
   min_password_length: 12    # the shortest password, in characters (default 12; 8 to 128)
@@ -477,6 +480,7 @@ curl -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{
 | `servers:moderate` | `ModerationService`: kick, ban, unban, message, broadcast and move players, list a server's bans, read the audit log |
 | `servers:operate` | `SetServerHostDesired` and `SetServerHostExpectation`: park and unpark a cloud-VM server, and say how many players to expect |
 | `roles:grant` | `SetUserRole`, for moderator grants only: Discord role sync's ceiling ([Roles](#roles)) |
+| `events:read` | `ListEvents`: the events log, for a notifier or a dashboard of its own ([Events](#events-adr-0028)) |
 | `servers:lease` | `ServerLeaseService`: take a leasable server for a match and give it back ([Server leases](#server-leases-adr-0023)) |
 | `servers:configure` | `ServerConfigService`: read, plan and apply a server's configuration |
 | `stats:read` | `StatsService`'s boards, match lists and match results while the settings keep stats private |
@@ -1354,13 +1358,98 @@ read and goes in #199.
 | `roles:grant` | `SetUserRole` | admins; apps (moderator only) |
 | `members:manage` | `CreateLocalAccount`, `IssuePasswordReset` | admins |
 | `settings:write` | `UpdateOrganizationSettings` | admins |
-| `servers:manage`, `apps:manage`, `events:read`, `metrics:read`, `stats:erase` | named now; their procedures arrive with H1 | per the roles above |
+| `events:read` | `ListEvents` | admins, operators, moderators (a game-scoped grant: that game's events); apps |
+| `servers:manage`, `apps:manage`, `metrics:read`, `stats:erase` | named now; their procedures arrive with H1 | per the roles above |
 | `org:transfer` | ownership transfer (#197) | the owner alone |
 
 **The access matrix.** `internal/api/testdata/access_matrix.txt` is every procedure's answer to every
 kind of caller, and `TestAccessMatrix` fails when it changes. A change to who may call what is a
 diff of that file, rewritten with `go test ./internal/api -run TestAccessMatrix -update`; a new
 procedure fails the test until it is listed.
+
+## Events (ADR-0028)
+
+The **events log** is one append-only record of what the hub did: who logged in for the first
+time, who was granted what, what a moderator did and how it went, what a cloud-VM server's machine
+went through, leases, finished series, backups. Every source writes its event in its own
+transaction, so the log never says something happened that didn't, or misses something that did.
+Notifiers (#196), the admin dashboard (#193) and the CLI (#194) read it; so can an app with
+`events:read`.
+
+- **Reading:** `OrganizationService.ListEvents` with `after_id` follows the log, oldest first
+  (pass `next_after_id` back to keep following); without it, the newest come first, and
+  `next_before_id` pages back. `head_id` is the newest id at the time of the read. Filter by kinds
+  or groups (`"host"`), `min_severity` and `server_id`. A caller holding `events:read` for some
+  games sees those games' events only.
+- **Kinds and severities** are fixed (`internal/events`): `info` (it happened), `notice` (a person
+  did something worth seeing), `warning` (something may need a person soon), `critical`
+  (something needs a person now). Logins are not events: they are every visit.
+- **Backfill:** migration 00026 turns the history the hub already kept (`identity_events`,
+  `role_changes`, finished `audit_log` rows, `server_host_events`) into events, oldest first.
+- **Backups:** with `backup.status_file` set, the hub reads it every five minutes and writes
+  `backup.failed`, `backup.stale` (no good base backup for 26 hours) or `backup.recovered` when the
+  state changes; each is keyed by the run it is about, so a restart writes nothing twice.
+- **Retention:** `events.retention_days` (400 by default) in the Organization settings; the prune
+  is the only delete the log allows (a trigger refuses every other UPDATE, DELETE and TRUNCATE).
+- `gravel_events_total{kind}` counts events appended, on the hub dashboard's Events row.
+
+| Kind | Severity | What |
+|---|---|---|
+| `identity.registered` | info | A new member registered with a provider or a username |
+| `identity.linked` | info | A member linked another account |
+| `identity.unlinked` | notice | A member unlinked an account |
+| `identity.proven` | info | A member proved an account again in game |
+| `identity.password_set` | notice | A local account's first password was set from its link |
+| `identity.password_reset` | notice | A local account's password was reset from its link |
+| `identity.password_reset_issued` | notice | Staff or the host issued a password link |
+| `role.granted` | notice | A member was granted a role, everywhere or for a game |
+| `role.revoked` | notice | A member lost a role |
+| `moderation.kick` | notice | A player was kicked |
+| `moderation.ban` | notice | A player was banned |
+| `moderation.unban` | notice | A player was unbanned |
+| `moderation.message` | info | A player was sent a message |
+| `moderation.broadcast` | info | A server was sent a broadcast |
+| `moderation.move_player` | info | A player was moved to a team |
+| `action.apply_config` | notice | A server's configuration was applied |
+| `action.host_park` | notice | Someone asked a cloud-VM server to park |
+| `action.host_unpark` | notice | Someone asked a cloud-VM server to start |
+| `action.host_resize` | notice | Someone resized a cloud-VM server's machine |
+| `action.host_unpin` | info | Someone let the scaling policy size a server again |
+| `action.host_snapshot` | notice | Someone snapshotted a parked server's volume |
+| `action.host_expect` | info | Someone said how many players to expect |
+| `action.host_destroy` | warning | Someone destroyed a parked server's remains |
+| `action.lease_request` | info | An app or a member asked for a lease |
+| `action.lease_release` | info | An app or a member gave a lease back |
+| `host.absent` | info | The host is gone |
+| `host.creating` | info | The host is being made |
+| `host.booting` | info | The host is booting |
+| `host.starting` | info | The game is starting on the host |
+| `host.running` | info | The server is up |
+| `host.parking` | info | The host is parking |
+| `host.parked` | info | The host is parked |
+| `host.resizing` | info | The host is being resized |
+| `host.resized` | notice | The host was resized and is running again |
+| `host.destroying` | notice | The host is being destroyed |
+| `host.failing` | warning | A step on the host keeps failing; the hub retries |
+| `host.recovered` | info | The host's failing step went through |
+| `host.expect` | info | The host was told how many players to expect |
+| `host.snapshot` | notice | A volume snapshot was taken |
+| `host.scale` | info | The scaling policy moved the host to another size |
+| `host.scale_cancelled` | info | A planned resize was called off |
+| `host.env_drift` | notice | The host's game files had drifted and were put back |
+| `host.step` | info | Another step on the host |
+| `lease.starting` | info | A lease was taken; its server is getting ready |
+| `lease.ready` | info | A lease's server is ready to join |
+| `lease.ending` | info | A lease's match ended; the server is given back shortly |
+| `lease.released` | info | A lease ended and its server was given back |
+| `lease.failed` | warning | A lease's server did not get ready |
+| `match.ended` | info | A series ended on a server |
+| `backup.failed` | critical | The last base backup failed |
+| `backup.stale` | warning | No base backup has succeeded for over 26 hours |
+| `backup.recovered` | info | A base backup succeeded again |
+
+Not yet events: the owner claim, settings updates and app registrations (#189); a server becoming
+unreachable or recovering (#190).
 
 ## Pages (gravel#18)
 

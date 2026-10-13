@@ -113,9 +113,11 @@ type Hub struct {
 	localLogins *prometheus.CounterVec
 	// passwordResets counts password links by result (gravel#187).
 	passwordResets *prometheus.CounterVec
-	api            *http.ServeMux
-	public         http.Handler
-	internal       http.Handler
+	// eventsTotal counts events appended to the events log by kind (ADR-0028).
+	eventsTotal *prometheus.CounterVec
+	api         *http.ServeMux
+	public      http.Handler
+	internal    http.Handler
 
 	listeners *listeners
 }
@@ -300,6 +302,20 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 	// which reconciles a poll job per server with what `servers apply` stored.
 	h.jobs = jobs.New(logger, h.registry)
 	h.jobs.Start(jobs.Job{Name: "prune", Every: pruneEvery, Run: func(ctx context.Context) error { h.Prune(ctx); return nil }})
+	// The events log (ADR-0028): every source appends in its own transaction; the hub counts them,
+	// and turns the backup status file into events.
+	h.eventsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "gravel_events_total", Help: "Events appended to the events log, by kind.",
+	}, []string{"kind"})
+	h.registry.MustRegister(h.eventsTotal)
+	st.OnEvent(func(kind string) { h.eventsTotal.WithLabelValues(kind).Inc() })
+	if cfg.Backup.StatusFile != "" {
+		w := backup.NewWatcher(cfg.Backup.StatusFile, func(ctx context.Context) (store.Event, error) {
+			o, err := h.org.Get(ctx)
+			return store.Event{OrganizationID: o.ID}, err
+		}, st.AppendEvent)
+		h.jobs.Start(jobs.Job{Name: "backup_watch", Every: 5 * time.Minute, Immediate: true, Run: func(ctx context.Context) error { return w.Check(ctx, time.Now().UTC()) }})
+	}
 	h.servers = servers.New(st, o.ID, DriverNames(), logger).WithProviders(CloudProviders()...)
 	// The cloud-VM driver (ADR-0003): the hub makes the VMs its servers run on. One manager owns
 	// every host; the monitor's drivers read it.
@@ -501,7 +517,7 @@ func (h *Hub) buildAPI() *http.ServeMux {
 	// A member's token (ADR-0015) is held to its scopes before any procedure runs.
 	interceptors := connect.WithInterceptors(h.metrics.Interceptor(), ratelimit.Interceptor(h.scopes(), h.rejected), api.MemberTokens())
 	access := api.NewAccess(h.org, h.ids, h.logger).WithServers(h.servers) // who is calling, for every capability check (ADR-0027)
-	mux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(h.org, access, h.logger), interceptors))
+	mux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(h.org, access, h.logger).WithEvents(h.st), interceptors))
 	identityAPI := api.NewIdentityServer(h.ids, h.sess, h.org, access, h.logger).WithBaseURL(h.cfg.Auth.BaseURL)
 	identityAPI.SetProofs(h.proofs, h.servers, h.monitor)
 	mux.Handle(hubv1connect.NewIdentityServiceHandler(identityAPI, interceptors))
@@ -636,6 +652,16 @@ func (h *Hub) Prune(ctx context.Context) {
 	if err != nil {
 		h.logger.Warn("could not prune auth attempts", "error", err.Error())
 	}
+	var pruned int64
+	if o, err := h.org.Get(ctx); err == nil {
+		set, _, err := h.org.Settings(ctx)
+		if err == nil {
+			days := set.Events.RetentionDaysOrDefault()
+			if pruned, err = h.st.PruneEvents(ctx, o.ID, time.Now().UTC().AddDate(0, 0, -days)); err != nil {
+				h.logger.Warn("could not prune events", "error", err.Error())
+			}
+		}
+	}
 	tokens, err := h.apps.Prune(ctx)
 	if err != nil {
 		h.logger.Warn("could not prune app tokens", "error", err.Error())
@@ -652,7 +678,7 @@ func (h *Hub) Prune(ctx context.Context) {
 	if h.web != nil && h.web.LocalLimiter != nil {
 		h.web.LocalLimiter.Sweep()
 	}
-	h.logger.Debug("pruned", "sessions", sessions, "attempts", attempts, "app_tokens", tokens, "proofs", proofs, "ip_buckets", ips, "user_buckets", users, "app_buckets", appsSwept)
+	h.logger.Debug("pruned", "events", pruned, "sessions", sessions, "attempts", attempts, "app_tokens", tokens, "proofs", proofs, "ip_buckets", ips, "user_buckets", users, "app_buckets", appsSwept)
 }
 
 func writeJSON(w http.ResponseWriter, code int, v any) {

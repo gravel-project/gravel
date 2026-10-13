@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"testing"
 	"time"
 
@@ -54,6 +55,31 @@ type rig struct {
 	// proofs take codes typed in game chat (gravel#5) on proofReader's one CS2 server.
 	proofs  *proof.Service
 	proofSt *prooftest.FakeStore
+	// events is the events log ListEvents reads (ADR-0028).
+	events *fakeEvents
+}
+
+// fakeEvents is the events log: the test sets it; it records the query it was asked.
+type fakeEvents struct {
+	evs  []store.Event
+	last store.EventQuery
+}
+
+func (f *fakeEvents) ListEvents(_ context.Context, _ uuid.UUID, q store.EventQuery) ([]store.Event, int64, error) {
+	f.last = q
+	var head int64
+	var out []store.Event
+	for _, e := range f.evs {
+		head = max(head, e.ID)
+		if q.Games != nil && !slices.Contains(q.Games, e.GameID) {
+			continue
+		}
+		if q.AfterID > 0 && e.ID <= q.AfterID {
+			continue
+		}
+		out = append(out, e)
+	}
+	return out, head, nil
 }
 
 // fakeObserver is the monitor's observations, set by the test.
@@ -82,7 +108,7 @@ type rigIdentity func(r *rig) identity.Option
 func newRig(t *testing.T, idOpts ...rigIdentity) *rig {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	r := &rig{orgSt: &orgtest.FakeStore{}, idSt: identitytest.NewFakeStore(), appSt: appstest.NewFakeStore()}
+	r := &rig{orgSt: &orgtest.FakeStore{}, idSt: identitytest.NewFakeStore(), appSt: appstest.NewFakeStore(), events: &fakeEvents{}}
 	r.org = org.New(r.orgSt, 15*time.Minute, logger).WithGames(servers.GameIDs()) // as the hub wires it
 	o, token, err := r.org.EnsureBuiltin(context.Background(), "Test")
 	if err != nil {
@@ -113,7 +139,7 @@ func newRig(t *testing.T, idOpts ...rigIdentity) *rig {
 	mux := http.NewServeMux()
 	member := connect.WithInterceptors(api.MemberTokens()) // as the hub wires it (ADR-0015)
 	access := api.NewAccess(r.org, r.ids, logger).WithServers(r.srvs)
-	mux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(r.org, access, logger), member))
+	mux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(r.org, access, logger).WithEvents(r.events), member))
 	idAPI := api.NewIdentityServer(r.ids, r.sess, r.org, access, logger).WithBaseURL("https://hub.example.com")
 	r.proofSt = prooftest.NewFakeStore()
 	r.proofs = proof.New(r.proofSt, logger, []proof.Channel{proof.GameChat{ProviderName: "steam"}})

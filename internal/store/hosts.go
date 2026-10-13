@@ -143,7 +143,18 @@ func (s *Store) SaveServerHost(ctx context.Context, h ServerHost, now time.Time)
 	if err != nil {
 		return fmt.Errorf("store: save server host: %w", err)
 	}
-	_, err = s.pool.Exec(ctx, `
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("store: save server host: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	// A step that starts failing (an error code where there was none) or stops: one event each.
+	var before string
+	if err := tx.QueryRow(ctx, `SELECT error_code FROM server_hosts WHERE organization_id = $1 AND server_id = $2 FOR UPDATE`,
+		h.OrganizationID, h.ServerID).Scan(&before); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return fmt.Errorf("store: save server host: %w", err)
+	}
+	_, err = tx.Exec(ctx, `
 		INSERT INTO server_hosts (`+hostColumns+`)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24,
 		        $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $40)
@@ -170,17 +181,52 @@ func (s *Store) SaveServerHost(ctx context.Context, h ServerHost, now time.Time)
 	if err != nil {
 		return fmt.Errorf("store: save server host: %w", err)
 	}
+	switch {
+	case before == "" && h.ErrorCode != "":
+		err = s.appendEvent(ctx, tx, Event{OrganizationID: h.OrganizationID, At: now, Kind: "host.failing", ServerID: h.ServerID,
+			Summary: h.ServerID + ": " + h.Step + " keeps failing (" + h.ErrorCode + ")", Detail: map[string]any{"step": h.Step, "error_code": h.ErrorCode, "state": h.State}})
+	case before != "" && h.ErrorCode == "":
+		err = s.appendEvent(ctx, tx, Event{OrganizationID: h.OrganizationID, At: now, Kind: "host.recovered", ServerID: h.ServerID,
+			Summary: h.ServerID + ": " + before + " cleared", Detail: map[string]any{"error_code": before, "state": h.State}})
+	}
+	if err != nil {
+		return err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("store: save server host: %w", err)
+	}
 	return nil
 }
 
 // InsertServerHostEvent appends one transition.
 func (s *Store) InsertServerHostEvent(ctx context.Context, e ServerHostEvent) (int64, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("store: insert server host event: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
 	var id int64
-	err := s.pool.QueryRow(ctx, `
+	err = tx.QueryRow(ctx, `
 		INSERT INTO server_host_events (organization_id, server_id, at, from_state, to_state, step, detail, size, price_hourly_usd, audit_id)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
 		e.OrganizationID, e.ServerID, e.At, e.FromState, e.ToState, e.Step, e.Detail, e.Size, e.PriceHourlyUSD, e.AuditID).Scan(&id)
 	if err != nil {
+		return 0, fmt.Errorf("store: insert server host event: %w", err)
+	}
+	what := e.FromState + " → " + e.ToState
+	if e.FromState == e.ToState {
+		what = e.Step
+		if what == "" {
+			what = "step"
+		}
+	}
+	if err := s.appendEvent(ctx, tx, Event{OrganizationID: e.OrganizationID, At: e.At, Kind: HostEventKind(e.FromState, e.ToState, e.Step),
+		ServerID: e.ServerID, Summary: e.ServerID + ": " + what,
+		Detail: map[string]any{"from": e.FromState, "to": e.ToState, "step": e.Step, "detail": e.Detail, "size": e.Size},
+		Source: "server_host_events", SourceID: fmt.Sprint(id)}); err != nil {
+		return 0, err
+	}
+	if err := tx.Commit(ctx); err != nil {
 		return 0, fmt.Errorf("store: insert server host event: %w", err)
 	}
 	return id, nil

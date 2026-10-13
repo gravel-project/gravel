@@ -186,6 +186,9 @@ func summarize(s org.Settings) string {
 	if !s.Stats.IsZero() {
 		out += ", stats " + describeStats(s.Stats)
 	}
+	if !s.Events.IsZero() {
+		out += fmt.Sprintf(", events kept %d days", s.Events.RetentionDaysOrDefault())
+	}
 	if l := s.LocalAccounts; !l.IsZero() {
 		reg := "registration closed"
 		if l.Open() {
