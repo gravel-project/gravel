@@ -20,14 +20,14 @@ func TestAppsAndTokens(t *testing.T) {
 	now := time.Now().UTC().Truncate(time.Microsecond)
 
 	a := store.App{ID: uuid.New(), OrganizationID: o.ID, Name: "bot", ClientID: "gravel_abc", SecretHash: []byte("hash-of-secret"), Scopes: []string{"identity:read"}, CreatedAt: now}
-	if err := st.CreateApp(ctx, a); err != nil {
+	if err := st.CreateApp(ctx, a, store.Actor{}); err != nil {
 		t.Fatal(err)
 	}
-	if err := st.CreateApp(ctx, store.App{ID: uuid.New(), OrganizationID: o.ID, Name: "dup", ClientID: "gravel_abc", SecretHash: []byte("x"), CreatedAt: now}); err == nil {
+	if err := st.CreateApp(ctx, store.App{ID: uuid.New(), OrganizationID: o.ID, Name: "dup", ClientID: "gravel_abc", SecretHash: []byte("x"), CreatedAt: now}, store.Actor{}); err == nil {
 		t.Error("a duplicate client id must be refused")
 	}
 	none := store.App{ID: uuid.New(), OrganizationID: o.ID, Name: "none", ClientID: "gravel_none", SecretHash: []byte("x"), CreatedAt: now.Add(time.Second)}
-	if err := st.CreateApp(ctx, none); err != nil {
+	if err := st.CreateApp(ctx, none, store.Actor{}); err != nil {
 		t.Fatal(err)
 	}
 	got, err := st.GetAppByClientID(ctx, "gravel_abc")
@@ -66,7 +66,7 @@ func TestAppsAndTokens(t *testing.T) {
 		t.Errorf("prune: %d %v", n, err)
 	}
 
-	if err := st.RevokeApp(ctx, a.ID, now.Add(time.Minute)); err != nil {
+	if err := st.RevokeApp(ctx, a.ID, now.Add(time.Minute), store.Actor{}); err != nil {
 		t.Fatal(err)
 	}
 	if _, _, err := st.GetAppTokenByHash(ctx, []byte("tok1"), now); !errors.Is(err, store.ErrNotFound) {
@@ -75,10 +75,10 @@ func TestAppsAndTokens(t *testing.T) {
 	if revoked, err := st.GetApp(ctx, a.ID); err != nil || revoked.RevokedAt == nil || !revoked.RevokedAt.Equal(now.Add(time.Minute)) {
 		t.Errorf("revoked_at: %v %+v", err, revoked)
 	}
-	if err := st.RevokeApp(ctx, a.ID, now); !errors.Is(err, store.ErrNotFound) {
+	if err := st.RevokeApp(ctx, a.ID, now, store.Actor{}); !errors.Is(err, store.ErrNotFound) {
 		t.Errorf("revoke twice: %v", err)
 	}
-	if err := st.RevokeApp(ctx, uuid.New(), now); !errors.Is(err, store.ErrNotFound) {
+	if err := st.RevokeApp(ctx, uuid.New(), now, store.Actor{}); !errors.Is(err, store.ErrNotFound) {
 		t.Errorf("revoke unknown: %v", err)
 	}
 }

@@ -18,6 +18,15 @@ type FakeStore struct {
 	Org    *store.Organization
 	ErrOn  string
 	Writes []string
+	// Recorded are the events the real store would append: the claim and settings updates.
+	Recorded []Recorded
+}
+
+// Recorded is an event the real store would write, with who made the change.
+type Recorded struct {
+	Kind     string
+	By       store.Actor
+	Sections []string
 }
 
 func (f *FakeStore) GetBuiltinOrganization(context.Context) (store.Organization, error) {
@@ -52,7 +61,7 @@ func (f *FakeStore) SetClaimToken(_ context.Context, _ uuid.UUID, hash []byte, e
 	return nil
 }
 
-func (f *FakeStore) ClaimOrganization(_ context.Context, _ uuid.UUID, hash []byte, ownerUserID uuid.UUID, now time.Time) (store.Organization, error) {
+func (f *FakeStore) ClaimOrganization(_ context.Context, _ uuid.UUID, hash []byte, by store.Actor, now time.Time) (store.Organization, error) {
 	f.Writes = append(f.Writes, "claim")
 	if f.Org.Owned() {
 		return store.Organization{}, store.ErrOwned
@@ -60,18 +69,21 @@ func (f *FakeStore) ClaimOrganization(_ context.Context, _ uuid.UUID, hash []byt
 	if !bytes.Equal(f.Org.ClaimTokenHash, hash) || !f.Org.ClaimTokenExpiresAt.After(now) {
 		return store.Organization{}, store.ErrClaimRejected
 	}
+	owner := *by.UserID
 	f.Org.ClaimedAt = &now
-	f.Org.OwnerUserID = &ownerUserID
+	f.Org.OwnerUserID = &owner
 	f.Org.ClaimTokenHash, f.Org.ClaimTokenExpiresAt = nil, nil
+	f.Recorded = append(f.Recorded, Recorded{Kind: "ownership.claimed", By: by})
 	return *f.Org, nil
 }
 
-func (f *FakeStore) UpdateOrganizationSettings(_ context.Context, _ uuid.UUID, settings json.RawMessage, at time.Time) (store.Organization, error) {
+func (f *FakeStore) UpdateOrganizationSettings(_ context.Context, _ uuid.UUID, settings json.RawMessage, at time.Time, by store.Actor, sections []string) (store.Organization, error) {
 	f.Writes = append(f.Writes, "settings")
 	if f.ErrOn == "settings" {
 		return store.Organization{}, errors.New("db down")
 	}
 	f.Org.Settings = append(json.RawMessage(nil), settings...)
 	f.Org.SettingsUpdatedAt = &at
+	f.Recorded = append(f.Recorded, Recorded{Kind: "settings.updated", By: by, Sections: sections})
 	return *f.Org, nil
 }

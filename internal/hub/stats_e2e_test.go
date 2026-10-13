@@ -22,6 +22,7 @@ import (
 	"github.com/gravel-project/gravel/internal/identity"
 	"github.com/gravel-project/gravel/internal/org"
 	"github.com/gravel-project/gravel/internal/servers"
+	"github.com/gravel-project/gravel/internal/store"
 	"github.com/gravel-project/gravel/internal/store/storetest"
 )
 
@@ -93,7 +94,7 @@ func TestStatsFromPolls(t *testing.T) {
 	if _, err := client.GetSessionRecap(ctx, recapReq(now.Add(-time.Hour), now, 2)); connect.CodeOf(err) != connect.CodeUnauthenticated {
 		t.Errorf("a private recap, anonymously: %v", err)
 	}
-	if _, err := org.New(st, cfg.Claim.TokenTTL, quiet()).UpdateSettings(ctx, org.Settings{Stats: org.Stats{Public: true}}); err != nil {
+	if _, err := org.New(st, cfg.Claim.TokenTTL, quiet()).UpdateSettings(ctx, org.Settings{Stats: org.Stats{Public: true}}, store.Actor{}); err != nil {
 		t.Fatal(err)
 	}
 	b, err := client.GetBoard(ctx, connect.NewRequest(&hubv1.GetBoardRequest{ServerId: "wd-1"}))

@@ -33,7 +33,7 @@ const testVerifier = "a-pkce-verifier-of-at-least-forty-three-characters-0123456
 func (r *rig) memberToken(t *testing.T, userID uuid.UUID, appScopes []string, scopes ...string) string {
 	t.Helper()
 	ctx := context.Background()
-	c, err := r.apps.Create(ctx, "Muster", appScopes, "https://muster.example/cb")
+	c, err := r.apps.Create(ctx, store.Actor{}, "Muster", appScopes, "https://muster.example/cb")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +77,7 @@ func TestMemberTokenScopesAndTheMembersOwnRights(t *testing.T) {
 	r := newRig(t)
 	ctx := context.Background()
 	owner := r.user(t, "Owner", "1")
-	if _, err := r.org.Claim(ctx, r.token, owner.ID); err != nil {
+	if _, err := r.org.Claim(ctx, r.token, store.Actor{UserID: &owner.ID}); err != nil {
 		t.Fatal(err)
 	}
 	member := r.user(t, "Member", "2")
@@ -129,7 +129,7 @@ func TestMemberTokenRefusedTheAccountsOwnControls(t *testing.T) {
 	r := newRig(t)
 	ctx := context.Background()
 	owner := r.user(t, "Owner", "1")
-	if _, err := r.org.Claim(ctx, r.token, owner.ID); err != nil {
+	if _, err := r.org.Claim(ctx, r.token, store.Actor{UserID: &owner.ID}); err != nil {
 		t.Fatal(err)
 	}
 	all := []string{apps.ScopeIdentityRead, apps.ScopeStatsRead, apps.ScopeServersRead, apps.ScopeServersConfigure, apps.ScopeServersModerate}
@@ -192,7 +192,7 @@ func TestMemberTokenIsNeverTheApp(t *testing.T) {
 	r.drv.caps = allCaps
 	ctx := context.Background()
 	owner := r.user(t, "Owner", "1")
-	if _, err := r.org.Claim(ctx, r.token, owner.ID); err != nil {
+	if _, err := r.org.Claim(ctx, r.token, store.Actor{UserID: &owner.ID}); err != nil {
 		t.Fatal(err)
 	}
 	mod := r.user(t, "Mod", "42")
@@ -242,7 +242,7 @@ func TestMemberTokenCannotRecordParticipation(t *testing.T) {
 	r := newRig(t)
 	ctx := context.Background()
 	jo := r.user(t, "Jo", "1")
-	c, err := r.apps.Create(ctx, "Seeder", []string{apps.ScopeParticipationWrite}, "https://seeder.example/cb")
+	c, err := r.apps.Create(ctx, store.Actor{}, "Seeder", []string{apps.ScopeParticipationWrite}, "https://seeder.example/cb")
 	if err != nil {
 		t.Fatal(err)
 	}

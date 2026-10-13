@@ -20,6 +20,7 @@ import (
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
 	"github.com/gravel-project/gravel/internal/apps"
 	"github.com/gravel-project/gravel/internal/hub"
+	"github.com/gravel-project/gravel/internal/store"
 	"github.com/gravel-project/gravel/internal/store/storetest"
 )
 
@@ -49,7 +50,7 @@ func TestAuthorizationCodeThroughTheHub(t *testing.T) {
 	}
 	svc := apps.New(st, o.ID, time.Hour, quiet())
 	callback := "http://127.0.0.1:8765/auth/callback"
-	muster, err := svc.Create(ctx, "Muster", []string{apps.ScopeStatsRead}, callback)
+	muster, err := svc.Create(ctx, store.Actor{}, "Muster", []string{apps.ScopeStatsRead}, callback)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +142,7 @@ func TestAuthorizationCodeThroughTheHub(t *testing.T) {
 	if _, err := hubv1connect.NewIdentityServiceClient(cfgOAuth.Client(ctx, tok), public.URL).GetMe(ctx, connect.NewRequest(&hubv1.GetMeRequest{})); connect.CodeOf(err) != connect.CodeUnauthenticated {
 		t.Errorf("GetMe after logging out everywhere: %v", err)
 	}
-	if err := svc.Revoke(ctx, muster.App.ClientID); err != nil {
+	if err := svc.Revoke(ctx, store.Actor{}, muster.App.ClientID); err != nil {
 		t.Fatal(err)
 	}
 	f := url.Values{"token": {tok.AccessToken}}

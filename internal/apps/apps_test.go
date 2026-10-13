@@ -33,9 +33,13 @@ func TestCreate(t *testing.T) {
 	now := time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC)
 	svc, st := newService(t, &now)
 	ctx := context.Background()
-	c, err := svc.Create(ctx, "  htg-bot ", []string{"identity:read", "identity:read", " "})
+	cli := store.Actor{Via: store.ViaCLI}
+	c, err := svc.Create(ctx, cli, "  htg-bot ", []string{"identity:read", "identity:read", " "})
 	if err != nil {
 		t.Fatal(err)
+	}
+	if by := st.Actors["app.created"]; len(by) != 1 || by[0] != cli {
+		t.Errorf("app.created recorded as %+v", by)
 	}
 	if c.App.Name != "htg-bot" || !strings.HasPrefix(c.App.ClientID, "gravel_") || len(c.App.ClientID) != len("gravel_")+24 {
 		t.Errorf("app: %+v", c.App)
@@ -58,11 +62,11 @@ func TestCreate(t *testing.T) {
 		{strings.Repeat("x", apps.MaxNameLength+1), []string{"identity:read"}, apps.ErrInvalidName},
 		{"ok", []string{"admin"}, apps.ErrInvalidScope},
 	} {
-		if _, err := svc.Create(ctx, bad.name, bad.scopes); !errors.Is(err, bad.want) {
+		if _, err := svc.Create(ctx, store.Actor{}, bad.name, bad.scopes); !errors.Is(err, bad.want) {
 			t.Errorf("Create(%q, %v): %v, want %v", bad.name, bad.scopes, err, bad.want)
 		}
 	}
-	if _, err := svc.Create(ctx, "none", nil); err != nil {
+	if _, err := svc.Create(ctx, store.Actor{}, "none", nil); err != nil {
 		t.Errorf("an app with no scopes is allowed (useless, but valid): %v", err)
 	}
 }
@@ -71,7 +75,7 @@ func TestIssueAndAuthenticate(t *testing.T) {
 	now := time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC)
 	svc, st := newService(t, &now)
 	ctx := context.Background()
-	c, err := svc.Create(ctx, "bot", []string{"identity:read"})
+	c, err := svc.Create(ctx, store.Actor{}, "bot", []string{"identity:read"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,7 +106,7 @@ func TestIssueAndAuthenticate(t *testing.T) {
 	}
 	// A subset of the app's scopes is fine; a scope the app lacks is not, even though it exists.
 	now = now.Add(time.Second) // registered after "bot", so List's order is fixed
-	narrow, err := svc.Create(ctx, "narrow", nil)
+	narrow, err := svc.Create(ctx, store.Actor{}, "narrow", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,7 +132,7 @@ func TestIssueAndAuthenticate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := svc.Revoke(ctx, c.App.ClientID); err != nil {
+	if err := svc.Revoke(ctx, store.Actor{}, c.App.ClientID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := svc.Authenticate(ctx, tok2.Value); !errors.Is(err, apps.ErrInvalidToken) {
@@ -137,10 +141,10 @@ func TestIssueAndAuthenticate(t *testing.T) {
 	if _, err := svc.Issue(ctx, c.App.ClientID, c.Secret, nil); !errors.Is(err, apps.ErrInvalidClient) {
 		t.Errorf("issue for a revoked app: %v", err)
 	}
-	if err := svc.Revoke(ctx, c.App.ClientID); !errors.Is(err, store.ErrNotFound) {
+	if err := svc.Revoke(ctx, store.Actor{}, c.App.ClientID); !errors.Is(err, store.ErrNotFound) {
 		t.Errorf("revoke twice: %v", err)
 	}
-	if err := svc.Revoke(ctx, "gravel_unknown"); !errors.Is(err, store.ErrNotFound) {
+	if err := svc.Revoke(ctx, store.Actor{}, "gravel_unknown"); !errors.Is(err, store.ErrNotFound) {
 		t.Errorf("revoke unknown: %v", err)
 	}
 	list, err := svc.List(ctx)
@@ -189,7 +193,7 @@ func TestTokenHandler(t *testing.T) {
 	now := time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC)
 	svc, _ := newService(t, &now)
 	ctx := context.Background()
-	c, err := svc.Create(ctx, "bot", []string{"identity:read"})
+	c, err := svc.Create(ctx, store.Actor{}, "bot", []string{"identity:read"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -242,7 +246,7 @@ func TestMiddleware(t *testing.T) {
 	now := time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC)
 	svc, st := newService(t, &now)
 	ctx := context.Background()
-	c, err := svc.Create(ctx, "bot", []string{"identity:read"})
+	c, err := svc.Create(ctx, store.Actor{}, "bot", []string{"identity:read"})
 	if err != nil {
 		t.Fatal(err)
 	}

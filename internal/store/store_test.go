@@ -73,21 +73,21 @@ func TestOrganizationLifecycle(t *testing.T) {
 	if err := st.SetClaimToken(ctx, id, hash, now.Add(time.Minute)); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := st.ClaimOrganization(ctx, id, []byte("wrong"), uuid.New(), now); !errors.Is(err, store.ErrClaimRejected) {
+	if _, err := st.ClaimOrganization(ctx, id, []byte("wrong"), store.Actor{UserID: new(uuid.New())}, now); !errors.Is(err, store.ErrClaimRejected) {
 		t.Errorf("wrong hash: %v", err)
 	}
-	if _, err := st.ClaimOrganization(ctx, id, hash, uuid.New(), now.Add(2*time.Minute)); !errors.Is(err, store.ErrClaimRejected) {
+	if _, err := st.ClaimOrganization(ctx, id, hash, store.Actor{UserID: new(uuid.New())}, now.Add(2*time.Minute)); !errors.Is(err, store.ErrClaimRejected) {
 		t.Errorf("expired: %v", err)
 	}
 	owner, err := st.RegisterUser(ctx, store.User{ID: uuid.New(), OrganizationID: id, DisplayName: "Owner"}, store.Identity{Provider: "discord", Subject: "1", VerificationMethod: "oauth2", VerifiedAt: now})
 	if err != nil {
 		t.Fatal(err)
 	}
-	claimed, err := st.ClaimOrganization(ctx, id, hash, owner.ID, now)
+	claimed, err := st.ClaimOrganization(ctx, id, hash, store.Actor{UserID: &owner.ID}, now)
 	if err != nil || !claimed.Owned() || claimed.ClaimTokenHash != nil || claimed.ClaimTokenExpiresAt != nil || claimed.OwnerUserID == nil || *claimed.OwnerUserID != owner.ID {
 		t.Fatalf("claim: %v %+v", err, claimed)
 	}
-	if _, err := st.ClaimOrganization(ctx, id, hash, owner.ID, now); !errors.Is(err, store.ErrOwned) {
+	if _, err := st.ClaimOrganization(ctx, id, hash, store.Actor{UserID: &owner.ID}, now); !errors.Is(err, store.ErrOwned) {
 		t.Errorf("second claim: %v", err)
 	}
 	if err := st.SetClaimToken(ctx, id, hash, now.Add(time.Minute)); !errors.Is(err, store.ErrOwned) {
@@ -136,7 +136,7 @@ func TestOrganizationSettings(t *testing.T) {
 	}
 	now := time.Now().UTC().Truncate(time.Microsecond)
 	doc := json.RawMessage(`{"version": 1, "theme": {"font": "Archivo, sans-serif"}}`)
-	u, err := st.UpdateOrganizationSettings(ctx, o.ID, doc, now)
+	u, err := st.UpdateOrganizationSettings(ctx, o.ID, doc, now, store.Actor{}, nil)
 	if err != nil || u.SettingsUpdatedAt == nil || !u.SettingsUpdatedAt.Equal(now) {
 		t.Fatalf("update: %v %+v", err, u)
 	}
@@ -144,7 +144,7 @@ func TestOrganizationSettings(t *testing.T) {
 	if err := json.Unmarshal(u.Settings, &got); err != nil || got["version"] != float64(1) || got["theme"].(map[string]any)["font"] != "Archivo, sans-serif" {
 		t.Errorf("settings round trip: %s (%v)", u.Settings, err)
 	}
-	if _, err := st.UpdateOrganizationSettings(ctx, uuid.New(), doc, now); !errors.Is(err, store.ErrNotFound) {
+	if _, err := st.UpdateOrganizationSettings(ctx, uuid.New(), doc, now, store.Actor{}, nil); !errors.Is(err, store.ErrNotFound) {
 		t.Errorf("unknown organization: %v", err)
 	}
 	if again, _ := st.GetBuiltinOrganization(ctx); string(again.Settings) != string(u.Settings) {

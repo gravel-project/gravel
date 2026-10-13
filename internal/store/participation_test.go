@@ -18,7 +18,7 @@ func newApp(t *testing.T, st *store.Store, orgID uuid.UUID, name string) uuid.UU
 	t.Helper()
 	a := store.App{ID: uuid.New(), OrganizationID: orgID, Name: name, ClientID: "gravel_" + name, SecretHash: []byte("x"),
 		Scopes: []string{"participation:write"}, CreatedAt: time.Now()}
-	if err := st.CreateApp(context.Background(), a); err != nil {
+	if err := st.CreateApp(context.Background(), a, store.Actor{}); err != nil {
 		t.Fatal(err)
 	}
 	return a.ID

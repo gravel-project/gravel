@@ -23,6 +23,16 @@ type FakeStore struct {
 	Tokens map[uuid.UUID]store.AppToken
 	Codes  map[uuid.UUID]store.AuthorizationCode
 	Grants map[GrantKey]store.AppGrant
+	// Actors are who made each recorded change, as "<event kind>" → the actors in order: what the
+	// real store would put in the events log.
+	Actors map[string][]store.Actor
+}
+
+func (f *FakeStore) record(kind string, by store.Actor) {
+	if f.Actors == nil {
+		f.Actors = map[string][]store.Actor{}
+	}
+	f.Actors[kind] = append(f.Actors[kind], by)
 }
 
 // GrantKey is a member and an app.
@@ -41,7 +51,7 @@ func (f *FakeStore) fail(method string) error {
 	return nil
 }
 
-func (f *FakeStore) CreateApp(_ context.Context, a store.App) error {
+func (f *FakeStore) CreateApp(_ context.Context, a store.App, by store.Actor) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if err := f.fail("CreateApp"); err != nil {
@@ -53,6 +63,7 @@ func (f *FakeStore) CreateApp(_ context.Context, a store.App) error {
 		}
 	}
 	f.Apps[a.ID] = a
+	f.record("app.created", by)
 	return nil
 }
 
@@ -104,7 +115,7 @@ func (f *FakeStore) ListApps(_ context.Context, orgID uuid.UUID) ([]store.App, e
 	return out, nil
 }
 
-func (f *FakeStore) RevokeApp(_ context.Context, id uuid.UUID, at time.Time) error {
+func (f *FakeStore) RevokeApp(_ context.Context, id uuid.UUID, at time.Time, by store.Actor) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if err := f.fail("RevokeApp"); err != nil {
@@ -116,6 +127,7 @@ func (f *FakeStore) RevokeApp(_ context.Context, id uuid.UUID, at time.Time) err
 	}
 	a.RevokedAt = &at
 	f.Apps[id] = a
+	f.record("app.revoked", by)
 	for tid, t := range f.Tokens {
 		if t.AppID == id {
 			delete(f.Tokens, tid)

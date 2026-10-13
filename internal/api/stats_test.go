@@ -72,7 +72,7 @@ func TestGetMemberProfileAccess(t *testing.T) {
 	}
 	ben := r.user(t, "Ben", "200")
 	owner := r.user(t, "Olive", "300")
-	if _, err := r.org.Claim(ctx, r.token, owner.ID); err != nil {
+	if _, err := r.org.Claim(ctx, r.token, store.Actor{UserID: &owner.ID}); err != nil {
 		t.Fatal(err)
 	}
 	clientOf := func(c *http.Client) hubv1connect.StatsServiceClient {
@@ -130,7 +130,7 @@ func TestGetMemberProfileAccess(t *testing.T) {
 	}
 	// Public stats and a shown name: anyone.
 	if _, err := r.org.UpdateSettings(ctx, org.Settings{Stats: org.Stats{Public: true, Seasons: []org.Season{
-		{Name: "Now", Game: "wardogs", From: time.Now().AddDate(0, 0, -1).Format(time.DateOnly), To: time.Now().AddDate(0, 0, 2).Format(time.DateOnly)}}}}); err != nil {
+		{Name: "Now", Game: "wardogs", From: time.Now().AddDate(0, 0, -1).Format(time.DateOnly), To: time.Now().AddDate(0, 0, 2).Format(time.DateOnly)}}}}, store.Actor{}); err != nil {
 		t.Fatal(err)
 	}
 	r.stats.games = nil

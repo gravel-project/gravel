@@ -107,7 +107,7 @@ func TestListUsers(t *testing.T) {
 	if _, err := member.ListUsers(ctx, connect.NewRequest(&hubv1.ListUsersRequest{})); connect.CodeOf(err) != connect.CodePermissionDenied {
 		t.Errorf("a member: %v", err)
 	}
-	if _, err := r.org.Claim(ctx, r.token, mustParse(t, ids[0])); err != nil {
+	if _, err := r.org.Claim(ctx, r.token, store.Actor{UserID: new(mustParse(t, ids[0]))}); err != nil {
 		t.Fatal(err)
 	}
 	if got, err := member.ListUsers(ctx, connect.NewRequest(&hubv1.ListUsersRequest{})); err != nil || len(got.Msg.GetUsers()) != 3 {

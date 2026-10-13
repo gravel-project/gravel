@@ -20,6 +20,7 @@ import (
 	"github.com/gravel-project/gravel/internal/org"
 	"github.com/gravel-project/gravel/internal/org/orgtest"
 	"github.com/gravel-project/gravel/internal/session"
+	"github.com/gravel-project/gravel/internal/store"
 	"github.com/gravel-project/gravel/internal/web"
 )
 
@@ -141,7 +142,7 @@ func TestGameOverlayFromSettings(t *testing.T) {
 	defer srv.Close()
 
 	if _, err := orgSvc.UpdateSettings(context.Background(), org.Settings{Theme: org.Theme{Dark: org.Tokens{Accent: "#3ee07a"}},
-		Games: map[string]org.GameSettings{"wardogs": {Theme: org.GameTheme{Light: org.Tokens{Accent: "#8a5a00"}, Dark: org.Tokens{Accent: "#f0b429"}}}}}); err != nil {
+		Games: map[string]org.GameSettings{"wardogs": {Theme: org.GameTheme{Light: org.Tokens{Accent: "#8a5a00"}, Dark: org.Tokens{Accent: "#f0b429"}}}}}, store.Actor{}); err != nil {
 		t.Fatal(err)
 	}
 	_, css := get(t, browser(t), srv.URL+"/theme.css")

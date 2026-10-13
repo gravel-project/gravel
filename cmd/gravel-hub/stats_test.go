@@ -46,7 +46,7 @@ func TestStatsErase(t *testing.T) {
 	}
 
 	app := store.App{ID: uuid.New(), OrganizationID: o.ID, Name: "seeder", ClientID: "gravel_seeder", SecretHash: []byte("x"), CreatedAt: at}
-	if err := st.CreateApp(ctx, app); err != nil {
+	if err := st.CreateApp(ctx, app, store.Actor{}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := st.RecordParticipation(ctx, []store.ParticipationEvent{{OrganizationID: o.ID, AppID: app.ID, Key: "s-1", Kind: "seeding",

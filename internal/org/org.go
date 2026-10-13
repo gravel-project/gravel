@@ -38,8 +38,8 @@ type Store interface {
 	CreateBuiltinOrganization(ctx context.Context, id uuid.UUID, name string) (store.Organization, error)
 	UpdateOrganizationName(ctx context.Context, id uuid.UUID, name string) error
 	SetClaimToken(ctx context.Context, id uuid.UUID, hash []byte, expiresAt time.Time) error
-	ClaimOrganization(ctx context.Context, id uuid.UUID, hash []byte, ownerUserID uuid.UUID, now time.Time) (store.Organization, error)
-	UpdateOrganizationSettings(ctx context.Context, id uuid.UUID, settings json.RawMessage, at time.Time) (store.Organization, error)
+	ClaimOrganization(ctx context.Context, id uuid.UUID, hash []byte, by store.Actor, now time.Time) (store.Organization, error)
+	UpdateOrganizationSettings(ctx context.Context, id uuid.UUID, settings json.RawMessage, at time.Time, by store.Actor, sections []string) (store.Organization, error)
 }
 
 // Service is the organization domain.
@@ -141,8 +141,12 @@ func (s *Service) Get(ctx context.Context) (store.Organization, error) {
 	return s.st.GetBuiltinOrganization(ctx)
 }
 
-// Claim consumes the owner-claim token and makes ownerUserID the owner.
-func (s *Service) Claim(ctx context.Context, token string, ownerUserID uuid.UUID) (store.Organization, error) {
+// Claim consumes the owner-claim token and makes the member by names (by.UserID) the owner; the
+// events log records it (ownership.claimed).
+func (s *Service) Claim(ctx context.Context, token string, by store.Actor) (store.Organization, error) {
+	if by.UserID == nil {
+		return store.Organization{}, errors.New("org: a claim needs a member")
+	}
 	token = strings.TrimSpace(token)
 	o, err := s.st.GetBuiltinOrganization(ctx)
 	if err != nil {
@@ -157,7 +161,7 @@ func (s *Service) Claim(ctx context.Context, token string, ownerUserID uuid.UUID
 	if token == "" || len(o.ClaimTokenHash) != len(hash) || subtle.ConstantTimeCompare(o.ClaimTokenHash, hash) != 1 {
 		return store.Organization{}, ErrInvalidToken
 	}
-	claimed, err := s.st.ClaimOrganization(ctx, o.ID, hash, ownerUserID, s.now())
+	claimed, err := s.st.ClaimOrganization(ctx, o.ID, hash, by, s.now())
 	switch {
 	case errors.Is(err, store.ErrOwned):
 		return store.Organization{}, ErrAlreadyOwned
@@ -166,7 +170,7 @@ func (s *Service) Claim(ctx context.Context, token string, ownerUserID uuid.UUID
 	case err != nil:
 		return store.Organization{}, err
 	}
-	s.logger.Info("ownership claimed", "organization_id", claimed.ID, "owner_user_id", ownerUserID)
+	s.logger.Info("ownership claimed", "organization_id", claimed.ID, "owner_user_id", *by.UserID)
 	return claimed, nil
 }
 

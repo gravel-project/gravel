@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gravel-project/gravel/internal/org/orgtest"
+	"github.com/gravel-project/gravel/internal/store"
 )
 
 func TestSettingsValidate(t *testing.T) {
@@ -104,7 +105,7 @@ func TestSettingsService(t *testing.T) {
 		t.Fatalf("defaults: %+v %v %v", set, at, err)
 	}
 	want := Settings{Theme: Theme{Dark: Tokens{Accent: "#3ee07a"}}, Nav: []NavLink{{Label: "  Discord ", URL: "https://discord.gg/x"}}}
-	got, err := s.UpdateSettings(context.Background(), want)
+	got, err := s.UpdateSettings(context.Background(), want, store.Actor{})
 	if err != nil || got.Version != 1 || got.Nav[0].Label != "Discord" || got.Nav[0].Placement != "header" {
 		t.Fatalf("update: %+v %v", got, err)
 	}
@@ -112,14 +113,27 @@ func TestSettingsService(t *testing.T) {
 	if err != nil || set.Theme.Dark.Accent != "#3ee07a" || !at.Equal(*now) {
 		t.Errorf("after update: %+v %v %v", set, at, err)
 	}
-	if _, err := s.UpdateSettings(context.Background(), Settings{Theme: Theme{Font: "x; y"}}); !errors.Is(err, ErrInvalidSettings) {
+	cli := store.Actor{Via: store.ViaCLI}
+	if rec := f.Recorded; len(rec) != 1 || rec[0].Kind != "settings.updated" || !slices.Equal(rec[0].Sections, []string{"nav", "theme", "version"}) {
+		t.Errorf("recorded: %+v", rec)
+	}
+	if _, err := s.UpdateSettings(context.Background(), want, cli); err != nil {
+		t.Fatal(err)
+	}
+	if rec := f.Recorded; len(rec) != 2 || len(rec[1].Sections) != 0 || rec[1].By.Via != store.ViaCLI {
+		t.Errorf("the same document again: %+v", rec)
+	}
+	if _, err := s.UpdateSettings(context.Background(), Settings{Theme: Theme{Font: "x; y"}}, cli); !errors.Is(err, ErrInvalidSettings) {
 		t.Errorf("invalid: %v", err)
+	}
+	if len(f.Recorded) != 2 {
+		t.Errorf("an invalid update was recorded: %+v", f.Recorded)
 	}
 	if set, _, _ := s.Settings(context.Background()); set.Theme.Font != "" {
 		t.Error("an invalid update must not be stored")
 	}
 	f.ErrOn = "settings"
-	if _, err := s.UpdateSettings(context.Background(), want); err == nil || errors.Is(err, ErrInvalidSettings) {
+	if _, err := s.UpdateSettings(context.Background(), want, store.Actor{}); err == nil || errors.Is(err, ErrInvalidSettings) {
 		t.Errorf("store error propagates as itself: %v", err)
 	}
 }
@@ -577,7 +591,7 @@ func TestSettingsServiceChecksGames(t *testing.T) {
 	if _, _, err := open.EnsureBuiltin(ctx, "x"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := open.UpdateSettings(ctx, set); err != nil {
+	if _, err := open.UpdateSettings(ctx, set, store.Actor{}); err != nil {
 		t.Errorf("without WithGames the ids are only format-checked: %v", err)
 	}
 
@@ -586,14 +600,14 @@ func TestSettingsServiceChecksGames(t *testing.T) {
 	if _, _, err := s.EnsureBuiltin(ctx, "x"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.UpdateSettings(ctx, set); !errors.Is(err, ErrInvalidSettings) || !strings.Contains(err.Error(), `"wardog" is not a game this hub ships (cs2, wardogs)`) {
+	if _, err := s.UpdateSettings(ctx, set, store.Actor{}); !errors.Is(err, ErrInvalidSettings) || !strings.Contains(err.Error(), `"wardog" is not a game this hub ships (cs2, wardogs)`) {
 		t.Errorf("an unknown game is refused: %v", err)
 	}
 	if got, _, _ := s.Settings(ctx); got.Games != nil {
 		t.Error("a refused update must not be stored")
 	}
 	set.Games = map[string]GameSettings{"wardogs": set.Games["wardog"]}
-	got, err := s.UpdateSettings(ctx, set)
+	got, err := s.UpdateSettings(ctx, set, store.Actor{})
 	if err != nil || got.Games["wardogs"].Theme.Dark.Accent != "#f0b429" {
 		t.Errorf("a known game is stored: %+v %v", got.Games, err)
 	}
@@ -711,5 +725,25 @@ func TestSettingsValidateEvents(t *testing.T) {
 	}
 	if (Events{}).RetentionDaysOrDefault() != 400 || (Events{RetentionDays: 90}).RetentionDaysOrDefault() != 90 || !(Events{}).IsZero() {
 		t.Error("defaults")
+	}
+}
+
+// The sections a settings.updated event names: top-level keys added, removed or changed, whatever
+// the formatting.
+func TestChangedSections(t *testing.T) {
+	for _, c := range []struct {
+		stored, next string
+		want         []string
+	}{
+		{``, `{"version":1,"nav":[]}`, []string{"nav", "version"}},
+		{`null`, `{"version":1}`, []string{"version"}},
+		{`{"version":1,"nav":[{"a":1}]}`, `{"nav": [ {"a": 1} ], "version": 1}`, []string{}},
+		{`{"version":1,"theme":{"font":"x"}}`, `{"version":1,"theme":{"font":"y"},"stats":{}}`, []string{"stats", "theme"}},
+		{`{"version":1,"discord":{}}`, `{"version":1}`, []string{"discord"}},
+	} {
+		got, err := changedSections(json.RawMessage(c.stored), json.RawMessage(c.next))
+		if err != nil || !slices.Equal(got, c.want) {
+			t.Errorf("%s → %s: %v %v, want %v", c.stored, c.next, got, err, c.want)
+		}
 	}
 }

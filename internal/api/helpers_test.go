@@ -166,7 +166,7 @@ func newRig(t *testing.T, idOpts ...rigIdentity) *rig {
 // bearer registers an app with the scopes and returns a token's Authorization header value.
 func (r *rig) bearer(t *testing.T, name string, scopes ...string) string {
 	t.Helper()
-	c, err := r.apps.Create(context.Background(), name, scopes)
+	c, err := r.apps.Create(context.Background(), store.Actor{}, name, scopes)
 	if err != nil {
 		t.Fatal(err)
 	}

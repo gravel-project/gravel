@@ -239,10 +239,10 @@ func TestClaimBindsOwnerAndReopensOwnerless(t *testing.T) {
 	if err := st.SetClaimToken(ctx, o.ID, hash, now.Add(time.Minute)); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := st.ClaimOrganization(ctx, o.ID, hash, uuid.New(), now); err == nil {
+	if _, err := st.ClaimOrganization(ctx, o.ID, hash, store.Actor{UserID: new(uuid.New())}, now); err == nil {
 		t.Error("the owner must be an existing user")
 	}
-	claimed, err := st.ClaimOrganization(ctx, o.ID, hash, u.ID, now)
+	claimed, err := st.ClaimOrganization(ctx, o.ID, hash, store.Actor{UserID: &u.ID}, now)
 	if err != nil || claimed.OwnerUserID == nil || *claimed.OwnerUserID != u.ID || !claimed.Owned() {
 		t.Fatalf("claim: %v %+v", err, claimed)
 	}
