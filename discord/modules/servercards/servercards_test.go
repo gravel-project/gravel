@@ -721,6 +721,31 @@ func TestRenderJoin(t *testing.T) {
 	}
 }
 
+// A password the hub shares with the bot (#180) goes under the connect line as code, and stays
+// inside its code span; a degraded card shows neither.
+func TestRenderJoinPassword(t *testing.T) {
+	s := live(4)
+	s.Status.Join = &hubv1.ServerJoin{Method: "address", Value: "203.0.113.7:27015", Password: "hunter2", Hint: "In CS2's console."}
+	want := "**Connect:** `203.0.113.7:27015`\n**Password:** `hunter2`\n-# In CS2's console."
+	if got := text(servercards.RenderCard(s, servercards.Card{})); !strings.Contains(got, want) {
+		t.Errorf("password line:\n%s", got)
+	}
+	s.Status.Join.Password = "a`b\n@here"
+	if got := text(servercards.RenderCard(s, servercards.Card{})); !strings.Contains(got, "**Password:** `ab@here`") {
+		t.Errorf("a password stays inside its code span:\n%s", got)
+	}
+	s.Status.Join.Password = ""
+	if got := text(servercards.RenderCard(s, servercards.Card{})); strings.Contains(got, "Password") {
+		t.Errorf("no password shared, no line:\n%s", got)
+	}
+	down := live(4)
+	down.Status.State, down.Status.Reachable = "parked", false
+	down.Status.Join = &hubv1.ServerJoin{Method: "address", Value: "203.0.113.7:27015", Password: "hunter2"}
+	if got := text(servercards.RenderCard(down, servercards.Card{})); strings.Contains(got, "hunter2") {
+		t.Errorf("a parked card shows no password:\n%s", got)
+	}
+}
+
 // The image is part of the card: a map change edits the one message, and an unchanged map costs
 // no call.
 func TestMapChangeIsOneEdit(t *testing.T) {

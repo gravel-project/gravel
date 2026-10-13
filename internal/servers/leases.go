@@ -98,6 +98,7 @@ func NewLeases(svc *Service, hosts *Hosts, rows LeaseRows, audit AuditStore, org
 	l := &Leases{svc: svc, hosts: hosts, rows: rows, audit: audit, orgID: orgID, key: key, logger: logger, now: time.Now,
 		checks: map[string]MatchCheck{}, live: map[string]store.ServerLease{}, subs: map[uuid.UUID]map[chan struct{}]bool{}, met: newLeaseMetrics(reg)}
 	hosts.SetOverlay(l.overlay)
+	hosts.SetLeased(func(serverID string) bool { _, ok := l.LiveLease(serverID); return ok })
 	return l
 }
 

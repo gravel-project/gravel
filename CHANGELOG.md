@@ -20,6 +20,11 @@ patch release is everything else.
 
 ### Added
 
+- A server's status card can show its join password while the server runs (#180, for hidden-token-gaming's casual CS2 server, whose password was pinned in Discord for good):
+  - **The manifest:** `vm.share_password: true` on a cloud-VM server (it needs `vm.password_file`).
+  - **The API:** `ServerJoin.password`, set in `ListServers` and `GetServerStatus` only for an app whose token carries `servers:read`, only while the server is up, and never while a lease is live (a lease's password stays the holder's, ADR-0023 §3). Anonymous callers, members, a member's token an app holds and the web pages get it empty; ADR-0010 §1 is amended for this one exception. The hub reads the file each time and keeps nothing.
+  - **The bot:** the server card shows "**Password:** `<password>`" under the connect line, as code; a parked or unreachable card shows none.
+  - **Tests:** who gets the password (`TestSharedJoinPasswordOnlyForAnAppWithServersRead`), the hosts' lease and file checks, the manifest rule, the card's line and its escaping.
 - A match results module for the bot (ADR-0024; part of #20, hidden-token-gaming/htg#36): `discord/modules/matchresults` posts each finished series a server's match plugin reported into a channel, as the recaps module posts a session's recap.
   - **Settings:** `discord.match_results` in the Organization settings, with a `channel` and optional `servers` (at most 50 server ids, each once; none is every server), validated with every problem named. `DiscordSettings.match_results` with `DiscordMatchResults`, additive, converted both ways in the API; `settings check` says whose results are posted.
   - **bot.yaml:** `match_results {enabled, interval}`, off by default, every minute (at least 30s), wired into `discord/bot/stock` after news and shown by `config check`; `deploy/bot.yaml` carries it, off. The bot's app needs `stats:read` while stats are private.

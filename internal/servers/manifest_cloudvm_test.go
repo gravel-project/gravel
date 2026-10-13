@@ -119,6 +119,7 @@ func TestCloudManifestValidation(t *testing.T) {
 		{"park too soon", func(m *Manifest) { m.Servers[0].VM.ParkAfter = Duration(time.Minute) }, "vm.park_after"},
 		{"password is the credential", func(m *Manifest) { m.Servers[0].VM.PasswordFile = m.Servers[0].CredentialFile }, "the same file"},
 		{"password relative", func(m *Manifest) { m.Servers[0].VM.PasswordFile = "pw" }, "vm.password_file"},
+		{"share no password", func(m *Manifest) { m.Servers[0].VM.PasswordFile, m.Servers[0].VM.SharePassword = "", true }, "vm.share_password"},
 		{"unknown setting", func(m *Manifest) { m.Servers[0].Settings["rcon_password"] = "x" }, `"rcon_password" is not a setting`},
 		{"setting out of range", func(m *Manifest) { m.Servers[0].Settings["max_players"] = "65" }, "max_players"},
 		{"setting not a number", func(m *Manifest) { m.Servers[0].Settings["max_players"] = "ten" }, "not a whole number"},

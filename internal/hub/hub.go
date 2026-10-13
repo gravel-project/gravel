@@ -477,7 +477,7 @@ func (h *Hub) buildAPI() *http.ServeMux {
 	identityAPI := api.NewIdentityServer(h.ids, h.sess, h.org, h.logger)
 	identityAPI.SetProofs(h.proofs, h.servers, h.monitor)
 	mux.Handle(hubv1connect.NewIdentityServiceHandler(identityAPI, interceptors))
-	mux.Handle(hubv1connect.NewServerServiceHandler(api.NewServerServer(h.servers, h.monitor, h.ids, h.logger), interceptors))
+	mux.Handle(hubv1connect.NewServerServiceHandler(api.NewServerServer(h.servers, h.monitor, h.ids, h.logger).WithSharedPasswords(h.hosts), interceptors))
 	moderation := api.NewModerationServer(h.moderation, h.org, h.ids, h.logger)
 	mux.Handle(hubv1connect.NewModerationServiceHandler(moderation, interceptors))
 	mux.Handle(hubv1connect.NewServerHostServiceHandler(api.NewHostServer(h.hosts, moderation, h.org, h.logger), interceptors))

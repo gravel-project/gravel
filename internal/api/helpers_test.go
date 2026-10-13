@@ -43,6 +43,7 @@ type rig struct {
 	apps  *apps.Service
 	srvs  *servers.Service
 	obs   *fakeObserver
+	pws   *fakePasswords
 	drv   *fakeDriver
 	audit *serverstest.AuditStore
 	stats *fakeStatsStore
@@ -63,6 +64,16 @@ func (f *fakeObserver) Observation(id string) (servers.Observation, bool) {
 	return o, ok
 }
 
+// fakePasswords is each server's shared join password (vm.share_password), set by the test.
+type fakePasswords struct {
+	pw map[string]string
+}
+
+func (f *fakePasswords) SharedJoinPassword(srv servers.Server) (string, bool) {
+	pw, ok := f.pw[srv.ID]
+	return pw, ok
+}
+
 func newRig(t *testing.T) *rig {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -78,6 +89,7 @@ func newRig(t *testing.T) *rig {
 	r.apps = apps.New(r.appSt, o.ID, time.Hour, logger)
 	r.srvs = servers.New(serverstest.NewFakeStore(), o.ID, []string{"wardogs"}, logger)
 	r.obs = &fakeObserver{obs: map[string]servers.Observation{}}
+	r.pws = &fakePasswords{pw: map[string]string{}}
 	r.drv = &fakeDriver{errs: map[string]error{}}
 	r.audit = serverstest.NewAuditStore()
 	r.stats = &fakeStatsStore{showName: map[uuid.UUID]bool{}, members: map[store.PlayerKey]store.BoardMember{}}
@@ -97,7 +109,7 @@ func newRig(t *testing.T) *rig {
 	r.proofs = proof.New(r.proofSt, logger, []proof.Channel{proof.GameChat{ProviderName: "steam"}})
 	idAPI.SetProofs(r.proofs, proofReader{}, r.obs)
 	mux.Handle(hubv1connect.NewIdentityServiceHandler(idAPI, member))
-	mux.Handle(hubv1connect.NewServerServiceHandler(api.NewServerServer(r.srvs, r.obs, r.ids, logger), member))
+	mux.Handle(hubv1connect.NewServerServiceHandler(api.NewServerServer(r.srvs, r.obs, r.ids, logger).WithSharedPasswords(r.pws), member))
 	modServer := api.NewModerationServer(mod, r.org, r.ids, logger)
 	mux.Handle(hubv1connect.NewModerationServiceHandler(modServer, member))
 	// No cloud-VM manager: every host request that passes the caller checks is not_found.

@@ -516,8 +516,8 @@ func (x *ServerStatus) GetJoin() *ServerJoin {
 	return nil
 }
 
-// ServerJoin is how a player reaches a server from the game. It is public: what a community
-// shares to bring players in.
+// ServerJoin is how a player reaches a server from the game. It is public, what a community
+// shares to bring players in, except password, which only an app holding servers:read sees.
 type ServerJoin struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// "id": paste value into the game's own server browser (War Dogs: Join by ID); "address":
@@ -525,7 +525,11 @@ type ServerJoin struct {
 	Method string `protobuf:"bytes,1,opt,name=method,proto3" json:"method,omitempty"`
 	Value  string `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
 	// One line saying where the value goes, in the game's terms.
-	Hint          string `protobuf:"bytes,3,opt,name=hint,proto3" json:"hint,omitempty"`
+	Hint string `protobuf:"bytes,3,opt,name=hint,proto3" json:"hint,omitempty"`
+	// The password players join with, only for an app holding servers:read, and only while the
+	// server is up, is not leased, and its manifest entry shares it (vm.share_password, #180).
+	// Never in a public read: an anonymous caller, a member and the web pages get "".
+	Password      string `protobuf:"bytes,4,opt,name=password,proto3" json:"password,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -577,6 +581,13 @@ func (x *ServerJoin) GetValue() string {
 func (x *ServerJoin) GetHint() string {
 	if x != nil {
 		return x.Hint
+	}
+	return ""
+}
+
+func (x *ServerJoin) GetPassword() string {
+	if x != nil {
+		return x.Password
 	}
 	return ""
 }
@@ -1184,12 +1195,13 @@ const file_gravel_hub_v1_servers_proto_rawDesc = "" +
 	"\x13next_rotation_index\x18\x0e \x01(\x05R\x11nextRotationIndex\x12!\n" +
 	"\frotation_map\x18\x0f \x01(\tR\vrotationMap\x12*\n" +
 	"\x11next_rotation_map\x18\x10 \x01(\tR\x0fnextRotationMap\x12-\n" +
-	"\x04join\x18\x11 \x01(\v2\x19.gravel.hub.v1.ServerJoinR\x04join\"N\n" +
+	"\x04join\x18\x11 \x01(\v2\x19.gravel.hub.v1.ServerJoinR\x04join\"j\n" +
 	"\n" +
 	"ServerJoin\x12\x16\n" +
 	"\x06method\x18\x01 \x01(\tR\x06method\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value\x12\x12\n" +
-	"\x04hint\x18\x03 \x01(\tR\x04hint\"\xd3\x01\n" +
+	"\x04hint\x18\x03 \x01(\tR\x04hint\x12\x1a\n" +
+	"\bpassword\x18\x04 \x01(\tR\bpassword\"\xd3\x01\n" +
 	"\x06Server\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x17\n" +

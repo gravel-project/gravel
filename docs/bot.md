@@ -190,7 +190,10 @@ no one, whatever a name or the note says.
 **The map.** While the server is live, a card shows the current map's picture, full width under
 the name, a "Next: <map>" line after the teams when the game reports its rotation, and how to join
 when the driver knows it ("**Join by ID:** `<id>`" as code, so a phone copies it in one tap, with the
-driver's hint in small text; docs/hub.md "How to join"). The picture
+driver's hint in small text; docs/hub.md "How to join"). A server whose manifest shares its join
+password (`vm.share_password`, #180) gets a "**Password:** `<password>`" line under it, as code too:
+the hub gives it to the bot's app because it holds `servers:read`, only while the server is up and
+not leased, so a parked card never shows it. The picture
 comes from the Organization settings' `games.<id>.maps` (docs/hub.md): the image for the level in
 play (War Dogs: `Ozeti`), else for the rotation's current map (the theatre, `Europe`), each tried
 first in the lighting in play (`Europe/DayClear`) and then plain, else the

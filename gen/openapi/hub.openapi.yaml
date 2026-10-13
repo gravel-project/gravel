@@ -5482,11 +5482,18 @@ components:
           type: string
           title: hint
           description: One line saying where the value goes, in the game's terms.
+        password:
+          type: string
+          title: password
+          description: |-
+            The password players join with, only for an app holding servers:read, and only while the
+             server is up, is not leased, and its manifest entry shares it (vm.share_password, #180).
+             Never in a public read: an anonymous caller, a member and the web pages get "".
       title: ServerJoin
       additionalProperties: false
       description: |-
-        ServerJoin is how a player reaches a server from the game. It is public: what a community
-         shares to bring players in.
+        ServerJoin is how a player reaches a server from the game. It is public, what a community
+         shares to bring players in, except password, which only an app holding servers:read sees.
     gravel.hub.v1.ServerLease:
       type: object
       properties:

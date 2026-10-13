@@ -64,11 +64,35 @@ type Hosts struct {
 	mgr      *cloudvm.Manager
 	// overlay is what a live lease changes about a server (#20); nil without leases.
 	overlay func(s *cloudvm.ServerSpec, feedOrigin, feedToken string)
+	// leased says whether a server has a live lease; nil without leases.
+	leased func(serverID string) bool
 }
 
 // SetOverlay sets what changes a server's spec while it is leased.
 func (h *Hosts) SetOverlay(f func(s *cloudvm.ServerSpec, feedOrigin, feedToken string)) {
 	h.overlay = f
+}
+
+// SetLeased sets how a server's live lease is known (Leases does, #20).
+func (h *Hosts) SetLeased(f func(serverID string) bool) { h.leased = f }
+
+// SharedJoinPassword is the join password a cloud-VM server shares with apps holding servers:read
+// (vm.share_password, #180), read from its file now and never kept. It is the server's own
+// password, so there is none while a lease is live: a lease's password goes only to its holder
+// (ADR-0023 §3). ok is false when the server shares none or the file can't be read (logged).
+func (h *Hosts) SharedJoinPassword(srv Server) (password string, ok bool) {
+	if srv.Driver != cloudvm.Name || srv.VM == nil || !srv.VM.SharePassword || srv.VM.PasswordFile == "" {
+		return "", false
+	}
+	if h.leased != nil && h.leased(srv.ID) {
+		return "", false
+	}
+	pw, err := h.firstLine(srv.VM.PasswordFile)
+	if err != nil {
+		h.logger.Warn("a shared join password cannot be read", "server", srv.ID, "error", err.Error())
+		return "", false
+	}
+	return pw, true
 }
 
 // NewHosts builds the glue; Attach gives it the Manager.
