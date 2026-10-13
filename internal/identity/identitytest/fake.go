@@ -3,6 +3,7 @@
 package identitytest
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -33,6 +34,8 @@ type FakeStore struct {
 	RoleChanges []RoleChange
 	// Locals are local accounts' credentials by username (ADR-0026), removed with the identity.
 	Locals map[string]store.LocalCredential
+	// Links are password links (gravel#187), oldest first.
+	Links []store.PasswordLink
 }
 
 // NewFakeStore returns an empty store.
@@ -643,4 +646,64 @@ func (f *FakeStore) RecordLocalSuccess(_ context.Context, subject, rehash string
 	}
 	f.Locals[subject] = c
 	return nil
+}
+
+// Password links (gravel#187), as the store keeps them.
+
+func (f *FakeStore) CreatePasswordLink(_ context.Context, l store.PasswordLink) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.fail("CreatePasswordLink"); err != nil {
+		return err
+	}
+	ident, ok := f.Identities[key(store.ProviderLocal, l.Subject)]
+	if !ok {
+		return store.ErrNotFound
+	}
+	f.Links = slices.DeleteFunc(f.Links, func(o store.PasswordLink) bool { return o.Subject == l.Subject && o.UsedAt == nil })
+	f.Links = append(f.Links, l)
+	f.event(ident.UserID, store.ProviderLocal, l.Subject, store.IdentityEventPasswordLinkIssued, l.IssuedAt)
+	return nil
+}
+
+func (f *FakeStore) GetPasswordLink(_ context.Context, tokenHash []byte, now time.Time) (store.PasswordLink, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, l := range f.Links {
+		if bytes.Equal(l.TokenHash, tokenHash) && l.UsedAt == nil && l.ExpiresAt.After(now) {
+			return l, nil
+		}
+	}
+	return store.PasswordLink{}, store.ErrNotFound
+}
+
+func (f *FakeStore) UsePasswordLink(_ context.Context, tokenHash []byte, now time.Time, passwordHash string) (store.PasswordLink, uuid.UUID, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for i, l := range f.Links {
+		if !bytes.Equal(l.TokenHash, tokenHash) || l.UsedAt != nil || !l.ExpiresAt.After(now) {
+			continue
+		}
+		at := now
+		f.Links[i].UsedAt = &at
+		c := f.Locals[l.Subject]
+		c.PasswordHash, c.PasswordUpdatedAt, c.FailedAttempts, c.Lockouts, c.LockedUntil = passwordHash, now, 0, 0, nil
+		f.Locals[l.Subject] = c
+		ident := f.Identities[key(store.ProviderLocal, l.Subject)]
+		event := store.IdentityEventPasswordReset
+		if l.Purpose == store.PasswordLinkSet {
+			event = store.IdentityEventPasswordSet
+		}
+		f.event(ident.UserID, store.ProviderLocal, l.Subject, event, now)
+		return f.Links[i], ident.UserID, nil
+	}
+	return store.PasswordLink{}, uuid.Nil, store.ErrNotFound
+}
+
+func (f *FakeStore) DeleteExpiredPasswordLinks(_ context.Context, cutoff time.Time) (int64, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	before := len(f.Links)
+	f.Links = slices.DeleteFunc(f.Links, func(l store.PasswordLink) bool { return l.ExpiresAt.Before(cutoff) })
+	return int64(before - len(f.Links)), nil
 }

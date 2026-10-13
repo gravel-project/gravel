@@ -54,6 +54,32 @@ templ localLoginForm(p LoginPage) {
 	</section>
 }
 
+// Reset is the whole page a password link opens.
+templ Reset(p ResetPage) {
+	@Layout(p.Page) {
+		@ResetContent(p)
+	}
+}
+
+// ResetContent asks for the new password. The link is a password for an hour, so the page sends
+// no referrer and the access log never holds its path.
+templ ResetContent(p ResetPage) {
+	@FlashView(p.Flash)
+	if p.Set {
+		<h1>Choose your password</h1>
+	} else {
+		<h1>Choose a new password</h1>
+	}
+	<form method="post" action={ templ.SafeURL(p.Action) }>
+		<p>Your username is <strong>{ p.Username }</strong>. This link works once, for an hour.</p>
+		<input type="text" name="username" value={ p.Username } autocomplete="username" hidden aria-hidden="true" readonly/>
+		<label for="reset-password">Password</label>
+		<p class="muted" id="reset-password-hint">At least { strconv.Itoa(p.MinPasswordLength) } characters. A sentence you'll remember works well. Every other session of yours ends.</p>
+		<input type="password" id="reset-password" name="password" aria-describedby="reset-password-hint" autocomplete="new-password" minlength={ strconv.Itoa(p.MinPasswordLength) } maxlength="1024" required/>
+		<p><button type="submit">Set the password and log in</button></p>
+	</form>
+}
+
 // Register is the whole registration page.
 templ Register(p RegisterPage) {
 	@Layout(p.Page) {

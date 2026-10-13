@@ -154,6 +154,17 @@ type RegisterPage struct {
 	MinPasswordLength int
 }
 
+// ResetPage is the form a password link opens (gravel#187): a new account's first password, or a
+// forgotten one's replacement.
+type ResetPage struct {
+	Page
+	Username          string
+	Set               bool // a new account's first password, not a reset
+	MinPasswordLength int
+	// Action is the link's own path, which the form posts back to.
+	Action string
+}
+
 // LocalForm offers a member with no local account a username and password (ADR-0026).
 type LocalForm struct {
 	MinPasswordLength int

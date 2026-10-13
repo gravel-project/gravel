@@ -58,6 +58,8 @@ type rig struct {
 	// each local login and registration ended (ObserveLocal).
 	local  *identity.LocalPolicy
 	locals []string
+	// ids is the identity service the pages use.
+	ids *identity.Service
 }
 
 // rigOption changes the rig before its identity service and pages are built.
@@ -69,6 +71,7 @@ func withLocal(policy identity.LocalPolicy, limiter *ratelimit.Limiter) rigOptio
 	return func(r *rig, ids *[]identity.Option, h *[]func(*web.Handler)) {
 		r.local = &policy
 		*ids = append(*ids, identity.WithLocalAccounts(r.idSt, func(context.Context) (identity.LocalPolicy, error) { return *r.local, nil }),
+			identity.WithPasswordLinks(r.idSt, nil),
 			identity.WithPasswordParams(identity.PasswordParams{MemoryKiB: 64, Passes: 1, Lanes: 1, SaltLen: 16, KeyLen: 32}))
 		*h = append(*h, func(w *web.Handler) { w.LocalLimiter = limiter })
 	}
@@ -167,6 +170,7 @@ func newRigWith(t *testing.T, theme templates.Theme, login bool, opts ...rigOpti
 	}
 	h.ObserveAuthorization = func(result string) { r.authz = append(r.authz, result) }
 	h.ObserveLocal = func(result string) { r.locals = append(r.locals, result) }
+	r.ids = ids
 	for _, f := range webOpts {
 		f(h)
 	}

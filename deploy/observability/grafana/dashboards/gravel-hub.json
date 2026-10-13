@@ -1244,14 +1244,79 @@
       "type": "timeseries"
     },
     {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "One-time links that set or reset a local account's password (gravel#187): issued (by staff or from the host), used, invalid (an unknown, used or expired link), refused (a password the rules turned down). Many invalid is someone guessing links. No data is expected when local accounts are off, or no link was issued or used in the range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gravelOptional": "local accounts are off, or no link was issued or used in the range",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 48
+      },
+      "id": 23,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (result) (increase(gravel_password_resets_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "{{result}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Password links",
+      "type": "timeseries"
+    },
+    {
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 48
+        "y": 56
       },
-      "id": 23,
+      "id": 24,
       "panels": [],
       "title": "First-party apps",
       "type": "row"
@@ -1292,9 +1357,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 49
+        "y": 57
       },
-      "id": 24,
+      "id": 25,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -1357,9 +1422,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 49
+        "y": 57
       },
-      "id": 25,
+      "id": 26,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -1422,9 +1487,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 49
+        "y": 57
       },
-      "id": 26,
+      "id": 27,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -1457,9 +1522,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 57
+        "y": 65
       },
-      "id": 27,
+      "id": 28,
       "panels": [],
       "title": "Backups",
       "type": "row"
@@ -1497,9 +1562,9 @@
         "h": 4,
         "w": 4,
         "x": 0,
-        "y": 58
+        "y": 66
       },
-      "id": 28,
+      "id": 29,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -1557,9 +1622,9 @@
         "h": 4,
         "w": 4,
         "x": 4,
-        "y": 58
+        "y": 66
       },
-      "id": 29,
+      "id": 30,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -1638,9 +1703,9 @@
         "h": 4,
         "w": 4,
         "x": 8,
-        "y": 58
+        "y": 66
       },
-      "id": 30,
+      "id": 31,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -1719,9 +1784,9 @@
         "h": 4,
         "w": 4,
         "x": 12,
-        "y": 58
+        "y": 66
       },
-      "id": 31,
+      "id": 32,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -1783,9 +1848,9 @@
         "h": 4,
         "w": 4,
         "x": 16,
-        "y": 58
+        "y": 66
       },
-      "id": 32,
+      "id": 33,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -1862,9 +1927,9 @@
         "h": 4,
         "w": 4,
         "x": 20,
-        "y": 58
+        "y": 66
       },
-      "id": 33,
+      "id": 34,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -1929,9 +1994,9 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 62
+        "y": 70
       },
-      "id": 34,
+      "id": 35,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -1992,9 +2057,9 @@
         "h": 8,
         "w": 8,
         "x": 12,
-        "y": 62
+        "y": 70
       },
-      "id": 35,
+      "id": 36,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2050,9 +2115,9 @@
         "h": 4,
         "w": 4,
         "x": 20,
-        "y": 62
+        "y": 70
       },
-      "id": 36,
+      "id": 37,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -2087,9 +2152,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 70
+        "y": 78
       },
-      "id": 37,
+      "id": 38,
       "panels": [],
       "title": "Servers",
       "type": "row"
@@ -2144,9 +2209,9 @@
         "h": 4,
         "w": 8,
         "x": 0,
-        "y": 71
+        "y": 79
       },
-      "id": 38,
+      "id": 39,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -2213,9 +2278,9 @@
         "h": 4,
         "w": 8,
         "x": 8,
-        "y": 71
+        "y": 79
       },
-      "id": 39,
+      "id": 40,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -2274,9 +2339,9 @@
         "h": 4,
         "w": 8,
         "x": 16,
-        "y": 71
+        "y": 79
       },
-      "id": 40,
+      "id": 41,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -2342,9 +2407,9 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 75
+        "y": 83
       },
-      "id": 41,
+      "id": 42,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2410,9 +2475,9 @@
         "h": 4,
         "w": 12,
         "x": 0,
-        "y": 83
+        "y": 91
       },
-      "id": 42,
+      "id": 43,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -2478,9 +2543,9 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 83
+        "y": 91
       },
-      "id": 43,
+      "id": 44,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2543,9 +2608,9 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 91
+        "y": 99
       },
-      "id": 44,
+      "id": 45,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2578,9 +2643,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 99
+        "y": 107
       },
-      "id": 45,
+      "id": 46,
       "panels": [],
       "title": "Server leases",
       "type": "row"
@@ -2614,9 +2679,9 @@
         "h": 4,
         "w": 6,
         "x": 0,
-        "y": 100
+        "y": 108
       },
-      "id": 46,
+      "id": 47,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -2681,9 +2746,9 @@
         "h": 8,
         "w": 6,
         "x": 6,
-        "y": 100
+        "y": 108
       },
-      "id": 47,
+      "id": 48,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2746,9 +2811,9 @@
         "h": 8,
         "w": 6,
         "x": 12,
-        "y": 100
+        "y": 108
       },
-      "id": 48,
+      "id": 49,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2811,9 +2876,9 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 108
+        "y": 116
       },
-      "id": 49,
+      "id": 50,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2876,9 +2941,9 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 108
+        "y": 116
       },
-      "id": 50,
+      "id": 51,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2941,9 +3006,9 @@
         "h": 8,
         "w": 6,
         "x": 0,
-        "y": 116
+        "y": 124
       },
-      "id": 51,
+      "id": 52,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2976,9 +3041,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 124
+        "y": 132
       },
-      "id": 52,
+      "id": 53,
       "panels": [],
       "title": "Cloud VMs",
       "type": "row"
@@ -3012,9 +3077,9 @@
         "h": 4,
         "w": 6,
         "x": 0,
-        "y": 125
+        "y": 133
       },
-      "id": 53,
+      "id": 54,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -3081,9 +3146,9 @@
         "h": 4,
         "w": 6,
         "x": 6,
-        "y": 125
+        "y": 133
       },
-      "id": 54,
+      "id": 55,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -3142,9 +3207,9 @@
         "h": 4,
         "w": 6,
         "x": 12,
-        "y": 125
+        "y": 133
       },
-      "id": 55,
+      "id": 56,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -3203,9 +3268,9 @@
         "h": 4,
         "w": 6,
         "x": 18,
-        "y": 125
+        "y": 133
       },
-      "id": 56,
+      "id": 57,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -3271,9 +3336,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 129
+        "y": 137
       },
-      "id": 57,
+      "id": 58,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3336,9 +3401,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 129
+        "y": 137
       },
-      "id": 58,
+      "id": 59,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3401,9 +3466,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 129
+        "y": 137
       },
-      "id": 59,
+      "id": 60,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3466,9 +3531,9 @@
         "h": 8,
         "w": 6,
         "x": 0,
-        "y": 137
+        "y": 145
       },
-      "id": 60,
+      "id": 61,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3531,9 +3596,9 @@
         "h": 8,
         "w": 6,
         "x": 6,
-        "y": 137
+        "y": 145
       },
-      "id": 61,
+      "id": 62,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3589,9 +3654,9 @@
         "h": 4,
         "w": 6,
         "x": 12,
-        "y": 137
+        "y": 145
       },
-      "id": 62,
+      "id": 63,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -3650,9 +3715,9 @@
         "h": 4,
         "w": 6,
         "x": 18,
-        "y": 137
+        "y": 145
       },
-      "id": 63,
+      "id": 64,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -3711,9 +3776,9 @@
         "h": 4,
         "w": 6,
         "x": 0,
-        "y": 145
+        "y": 153
       },
-      "id": 64,
+      "id": 65,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -3779,9 +3844,9 @@
         "h": 8,
         "w": 6,
         "x": 6,
-        "y": 145
+        "y": 153
       },
-      "id": 65,
+      "id": 66,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3844,9 +3909,9 @@
         "h": 8,
         "w": 6,
         "x": 12,
-        "y": 145
+        "y": 153
       },
-      "id": 66,
+      "id": 67,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3909,9 +3974,9 @@
         "h": 8,
         "w": 6,
         "x": 18,
-        "y": 145
+        "y": 153
       },
-      "id": 67,
+      "id": 68,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3974,9 +4039,9 @@
         "h": 8,
         "w": 6,
         "x": 0,
-        "y": 153
+        "y": 161
       },
-      "id": 68,
+      "id": 69,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4009,9 +4074,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 161
+        "y": 169
       },
-      "id": 69,
+      "id": 70,
       "panels": [],
       "title": "Stats",
       "type": "row"
@@ -4052,9 +4117,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 162
+        "y": 170
       },
-      "id": 70,
+      "id": 71,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4117,9 +4182,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 162
+        "y": 170
       },
-      "id": 71,
+      "id": 72,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4182,9 +4247,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 162
+        "y": 170
       },
-      "id": 72,
+      "id": 73,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4246,9 +4311,9 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 170
+        "y": 178
       },
-      "id": 73,
+      "id": 74,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4303,9 +4368,9 @@
         "h": 4,
         "w": 12,
         "x": 12,
-        "y": 170
+        "y": 178
       },
-      "id": 74,
+      "id": 75,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -4370,9 +4435,9 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 178
+        "y": 186
       },
-      "id": 75,
+      "id": 76,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4405,9 +4470,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 186
+        "y": 194
       },
-      "id": 76,
+      "id": 77,
       "panels": [],
       "title": "Ingestion",
       "type": "row"
@@ -4449,9 +4514,9 @@
         "h": 4,
         "w": 8,
         "x": 0,
-        "y": 187
+        "y": 195
       },
-      "id": 77,
+      "id": 78,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -4517,9 +4582,9 @@
         "h": 8,
         "w": 16,
         "x": 8,
-        "y": 187
+        "y": 195
       },
-      "id": 78,
+      "id": 79,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4552,9 +4617,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 195
+        "y": 203
       },
-      "id": 79,
+      "id": 80,
       "panels": [],
       "title": "Background jobs",
       "type": "row"
@@ -4594,9 +4659,9 @@
         "h": 8,
         "w": 16,
         "x": 0,
-        "y": 196
+        "y": 204
       },
-      "id": 80,
+      "id": 81,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4651,9 +4716,9 @@
         "h": 4,
         "w": 8,
         "x": 16,
-        "y": 196
+        "y": 204
       },
-      "id": 81,
+      "id": 82,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -4689,9 +4754,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 204
+        "y": 212
       },
-      "id": 82,
+      "id": 83,
       "panels": [],
       "title": "Runtime",
       "type": "row"
@@ -4730,9 +4795,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 205
+        "y": 213
       },
-      "id": 83,
+      "id": 84,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4793,9 +4858,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 205
+        "y": 213
       },
-      "id": 84,
+      "id": 85,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4856,9 +4921,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 205
+        "y": 213
       },
-      "id": 85,
+      "id": 86,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4919,9 +4984,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 213
+        "y": 221
       },
-      "id": 86,
+      "id": 87,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4982,9 +5047,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 213
+        "y": 221
       },
-      "id": 87,
+      "id": 88,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5045,9 +5110,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 213
+        "y": 221
       },
-      "id": 88,
+      "id": 89,
       "options": {
         "legend": {
           "displayMode": "list",

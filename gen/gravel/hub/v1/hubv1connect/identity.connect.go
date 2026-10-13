@@ -55,6 +55,12 @@ const (
 	// IdentityServiceSetUserRoleProcedure is the fully-qualified name of the IdentityService's
 	// SetUserRole RPC.
 	IdentityServiceSetUserRoleProcedure = "/gravel.hub.v1.IdentityService/SetUserRole"
+	// IdentityServiceCreateLocalAccountProcedure is the fully-qualified name of the IdentityService's
+	// CreateLocalAccount RPC.
+	IdentityServiceCreateLocalAccountProcedure = "/gravel.hub.v1.IdentityService/CreateLocalAccount"
+	// IdentityServiceIssuePasswordResetProcedure is the fully-qualified name of the IdentityService's
+	// IssuePasswordReset RPC.
+	IdentityServiceIssuePasswordResetProcedure = "/gravel.hub.v1.IdentityService/IssuePasswordReset"
 	// IdentityServiceStartProofProcedure is the fully-qualified name of the IdentityService's
 	// StartProof RPC.
 	IdentityServiceStartProofProcedure = "/gravel.hub.v1.IdentityService/StartProof"
@@ -86,6 +92,13 @@ type IdentityServiceClient interface {
 	// SetUserRole grants or revokes a member's role (ADR-0013); every change is recorded with who
 	// made it. The owner only; the owner holds every power already and needs no role.
 	SetUserRole(context.Context, *connect.Request[v1.SetUserRoleRequest]) (*connect.Response[v1.SetUserRoleResponse], error)
+	// CreateLocalAccount makes a member with a local account (ADR-0026) and returns the one-time link
+	// that sets its password: how staff give someone an account while registration is closed.
+	// members:manage, in person; failed_precondition when local accounts are off.
+	CreateLocalAccount(context.Context, *connect.Request[v1.CreateLocalAccountRequest]) (*connect.Response[v1.CreateLocalAccountResponse], error)
+	// IssuePasswordReset returns a one-time link that resets a local account's password; the
+	// account's earlier unused links stop working. members:manage, in person.
+	IssuePasswordReset(context.Context, *connect.Request[v1.IssuePasswordResetRequest]) (*connect.Response[v1.IssuePasswordResetResponse], error)
 	// StartProof draws a one-time code the caller types in a game server's chat to prove the account
 	// they play as (gravel#5): the server's log names the account, and the hub links it to the
 	// caller (or proves an existing link again; another member's account stays theirs). Good for ten
@@ -155,6 +168,18 @@ func NewIdentityServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 			connect.WithSchema(identityServiceMethods.ByName("SetUserRole")),
 			connect.WithClientOptions(opts...),
 		),
+		createLocalAccount: connect.NewClient[v1.CreateLocalAccountRequest, v1.CreateLocalAccountResponse](
+			httpClient,
+			baseURL+IdentityServiceCreateLocalAccountProcedure,
+			connect.WithSchema(identityServiceMethods.ByName("CreateLocalAccount")),
+			connect.WithClientOptions(opts...),
+		),
+		issuePasswordReset: connect.NewClient[v1.IssuePasswordResetRequest, v1.IssuePasswordResetResponse](
+			httpClient,
+			baseURL+IdentityServiceIssuePasswordResetProcedure,
+			connect.WithSchema(identityServiceMethods.ByName("IssuePasswordReset")),
+			connect.WithClientOptions(opts...),
+		),
 		startProof: connect.NewClient[v1.StartProofRequest, v1.StartProofResponse](
 			httpClient,
 			baseURL+IdentityServiceStartProofProcedure,
@@ -180,6 +205,8 @@ type identityServiceClient struct {
 	listUsers          *connect.Client[v1.ListUsersRequest, v1.ListUsersResponse]
 	listIdentityEvents *connect.Client[v1.ListIdentityEventsRequest, v1.ListIdentityEventsResponse]
 	setUserRole        *connect.Client[v1.SetUserRoleRequest, v1.SetUserRoleResponse]
+	createLocalAccount *connect.Client[v1.CreateLocalAccountRequest, v1.CreateLocalAccountResponse]
+	issuePasswordReset *connect.Client[v1.IssuePasswordResetRequest, v1.IssuePasswordResetResponse]
 	startProof         *connect.Client[v1.StartProofRequest, v1.StartProofResponse]
 	getProof           *connect.Client[v1.GetProofRequest, v1.GetProofResponse]
 }
@@ -224,6 +251,16 @@ func (c *identityServiceClient) SetUserRole(ctx context.Context, req *connect.Re
 	return c.setUserRole.CallUnary(ctx, req)
 }
 
+// CreateLocalAccount calls gravel.hub.v1.IdentityService.CreateLocalAccount.
+func (c *identityServiceClient) CreateLocalAccount(ctx context.Context, req *connect.Request[v1.CreateLocalAccountRequest]) (*connect.Response[v1.CreateLocalAccountResponse], error) {
+	return c.createLocalAccount.CallUnary(ctx, req)
+}
+
+// IssuePasswordReset calls gravel.hub.v1.IdentityService.IssuePasswordReset.
+func (c *identityServiceClient) IssuePasswordReset(ctx context.Context, req *connect.Request[v1.IssuePasswordResetRequest]) (*connect.Response[v1.IssuePasswordResetResponse], error) {
+	return c.issuePasswordReset.CallUnary(ctx, req)
+}
+
 // StartProof calls gravel.hub.v1.IdentityService.StartProof.
 func (c *identityServiceClient) StartProof(ctx context.Context, req *connect.Request[v1.StartProofRequest]) (*connect.Response[v1.StartProofResponse], error) {
 	return c.startProof.CallUnary(ctx, req)
@@ -257,6 +294,13 @@ type IdentityServiceHandler interface {
 	// SetUserRole grants or revokes a member's role (ADR-0013); every change is recorded with who
 	// made it. The owner only; the owner holds every power already and needs no role.
 	SetUserRole(context.Context, *connect.Request[v1.SetUserRoleRequest]) (*connect.Response[v1.SetUserRoleResponse], error)
+	// CreateLocalAccount makes a member with a local account (ADR-0026) and returns the one-time link
+	// that sets its password: how staff give someone an account while registration is closed.
+	// members:manage, in person; failed_precondition when local accounts are off.
+	CreateLocalAccount(context.Context, *connect.Request[v1.CreateLocalAccountRequest]) (*connect.Response[v1.CreateLocalAccountResponse], error)
+	// IssuePasswordReset returns a one-time link that resets a local account's password; the
+	// account's earlier unused links stop working. members:manage, in person.
+	IssuePasswordReset(context.Context, *connect.Request[v1.IssuePasswordResetRequest]) (*connect.Response[v1.IssuePasswordResetResponse], error)
 	// StartProof draws a one-time code the caller types in a game server's chat to prove the account
 	// they play as (gravel#5): the server's log names the account, and the hub links it to the
 	// caller (or proves an existing link again; another member's account stays theirs). Good for ten
@@ -322,6 +366,18 @@ func NewIdentityServiceHandler(svc IdentityServiceHandler, opts ...connect.Handl
 		connect.WithSchema(identityServiceMethods.ByName("SetUserRole")),
 		connect.WithHandlerOptions(opts...),
 	)
+	identityServiceCreateLocalAccountHandler := connect.NewUnaryHandler(
+		IdentityServiceCreateLocalAccountProcedure,
+		svc.CreateLocalAccount,
+		connect.WithSchema(identityServiceMethods.ByName("CreateLocalAccount")),
+		connect.WithHandlerOptions(opts...),
+	)
+	identityServiceIssuePasswordResetHandler := connect.NewUnaryHandler(
+		IdentityServiceIssuePasswordResetProcedure,
+		svc.IssuePasswordReset,
+		connect.WithSchema(identityServiceMethods.ByName("IssuePasswordReset")),
+		connect.WithHandlerOptions(opts...),
+	)
 	identityServiceStartProofHandler := connect.NewUnaryHandler(
 		IdentityServiceStartProofProcedure,
 		svc.StartProof,
@@ -352,6 +408,10 @@ func NewIdentityServiceHandler(svc IdentityServiceHandler, opts ...connect.Handl
 			identityServiceListIdentityEventsHandler.ServeHTTP(w, r)
 		case IdentityServiceSetUserRoleProcedure:
 			identityServiceSetUserRoleHandler.ServeHTTP(w, r)
+		case IdentityServiceCreateLocalAccountProcedure:
+			identityServiceCreateLocalAccountHandler.ServeHTTP(w, r)
+		case IdentityServiceIssuePasswordResetProcedure:
+			identityServiceIssuePasswordResetHandler.ServeHTTP(w, r)
 		case IdentityServiceStartProofProcedure:
 			identityServiceStartProofHandler.ServeHTTP(w, r)
 		case IdentityServiceGetProofProcedure:
@@ -395,6 +455,14 @@ func (UnimplementedIdentityServiceHandler) ListIdentityEvents(context.Context, *
 
 func (UnimplementedIdentityServiceHandler) SetUserRole(context.Context, *connect.Request[v1.SetUserRoleRequest]) (*connect.Response[v1.SetUserRoleResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.IdentityService.SetUserRole is not implemented"))
+}
+
+func (UnimplementedIdentityServiceHandler) CreateLocalAccount(context.Context, *connect.Request[v1.CreateLocalAccountRequest]) (*connect.Response[v1.CreateLocalAccountResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.IdentityService.CreateLocalAccount is not implemented"))
+}
+
+func (UnimplementedIdentityServiceHandler) IssuePasswordReset(context.Context, *connect.Request[v1.IssuePasswordResetRequest]) (*connect.Response[v1.IssuePasswordResetResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.IdentityService.IssuePasswordReset is not implemented"))
 }
 
 func (UnimplementedIdentityServiceHandler) StartProof(context.Context, *connect.Request[v1.StartProofRequest]) (*connect.Response[v1.StartProofResponse], error) {

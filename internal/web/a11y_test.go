@@ -97,6 +97,12 @@ func TestAccessibility(t *testing.T) {
 			p.Title, p.User, p.CSRF = "Account", jo, "csrf"
 			return templates.Account(templates.AccountPage{Page: p, Identities: identities[:1], Local: &templates.LocalForm{MinPasswordLength: 12}})
 		},
+		"/fixture/reset": func() templ.Component {
+			p := base
+			p.Title, p.CanLogIn = "Choose a password", true
+			p.Flash = &templates.Flash{Kind: "err", Text: "A password has at least 12 characters."}
+			return templates.Reset(templates.ResetPage{Page: p, Username: "vps.dad", Set: true, MinPasswordLength: 12, Action: "/auth/local/reset/fixture"})
+		},
 		"/fixture/consent": func() templ.Component {
 			p := base
 			p.Title, p.User, p.CSRF = "Sign in to Muster", jo, "csrf"
@@ -344,7 +350,7 @@ func TestAccessibility(t *testing.T) {
 		"/fixture/participation", "/fixture/participation-empty", "/fixture/member-participation", "/fixture/recap", "/fixture/recap-nobody",
 		"/fixture/server-moderator", "/fixture/server-host", "/fixture/server-host-parked", "/fixture/host-confirm", "/fixture/confirm", "/fixture/log", "/fixture/account-apps", "/fixture/consent",
 		"/fixture/account-proof", "/fixture/proof", "/fixture/proof-proven", "/fixture/host-expect", "/fixture/result",
-		"/fixture/login-local", "/fixture/register", "/fixture/account-local"}
+		"/fixture/login-local", "/fixture/register", "/fixture/account-local", "/fixture/reset"}
 	// A fixture left out of the list would never be scanned and the run would still pass.
 	for path := range fixtures {
 		if !slices.Contains(paths, path) {
