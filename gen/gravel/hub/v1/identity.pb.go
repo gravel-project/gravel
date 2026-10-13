@@ -37,7 +37,11 @@ type User struct {
 	// The linked identities, oldest link first.
 	Identities []*Identity `protobuf:"bytes,6,rep,name=identities,proto3" json:"identities,omitempty"`
 	// Roles the owner granted (ADR-0013): "moderator".
-	Roles         []string `protobuf:"bytes,7,rep,name=roles,proto3" json:"roles,omitempty"`
+	Roles []string `protobuf:"bytes,7,rep,name=roles,proto3" json:"roles,omitempty"`
+	// The capabilities the member holds in person, as "area:verb" names (ADR-0027): what their
+	// roles admit, or every capability a person can hold for the owner. A token an app holds for
+	// the member is narrowed further, to the token's scopes.
+	Capabilities  []string `protobuf:"bytes,8,rep,name=capabilities,proto3" json:"capabilities,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -117,6 +121,13 @@ func (x *User) GetIdentities() []*Identity {
 func (x *User) GetRoles() []string {
 	if x != nil {
 		return x.Roles
+	}
+	return nil
+}
+
+func (x *User) GetCapabilities() []string {
+	if x != nil {
+		return x.Capabilities
 	}
 	return nil
 }
@@ -1343,7 +1354,7 @@ var File_gravel_hub_v1_identity_proto protoreflect.FileDescriptor
 
 const file_gravel_hub_v1_identity_proto_rawDesc = "" +
 	"\n" +
-	"\x1cgravel/hub/v1/identity.proto\x12\rgravel.hub.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x99\x02\n" +
+	"\x1cgravel/hub/v1/identity.proto\x12\rgravel.hub.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xbd\x02\n" +
 	"\x04User\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12!\n" +
 	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\x12\x14\n" +
@@ -1354,7 +1365,8 @@ const file_gravel_hub_v1_identity_proto_rawDesc = "" +
 	"\n" +
 	"identities\x18\x06 \x03(\v2\x17.gravel.hub.v1.IdentityR\n" +
 	"identities\x12\x14\n" +
-	"\x05roles\x18\a \x03(\tR\x05roles\"\xe9\x02\n" +
+	"\x05roles\x18\a \x03(\tR\x05roles\x12\"\n" +
+	"\fcapabilities\x18\b \x03(\tR\fcapabilities\"\xe9\x02\n" +
 	"\bIdentity\x12\x1a\n" +
 	"\bprovider\x18\x01 \x01(\tR\bprovider\x12\x18\n" +
 	"\asubject\x18\x02 \x01(\tR\asubject\x12!\n" +

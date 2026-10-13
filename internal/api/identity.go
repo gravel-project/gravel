@@ -15,7 +15,7 @@ import (
 
 	hubv1 "github.com/gravel-project/gravel/gen/gravel/hub/v1"
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
-	"github.com/gravel-project/gravel/internal/apps"
+	"github.com/gravel-project/gravel/internal/authz"
 	"github.com/gravel-project/gravel/internal/identity"
 	"github.com/gravel-project/gravel/internal/identity/proof"
 	"github.com/gravel-project/gravel/internal/org"
@@ -31,6 +31,7 @@ type IdentityServer struct {
 	ids    *identity.Service
 	sess   *session.Manager
 	org    *org.Service
+	access *Access
 	logger *slog.Logger
 
 	// Proof of control (SetProofs); nil when the hub takes none.
@@ -40,8 +41,8 @@ type IdentityServer struct {
 }
 
 // NewIdentityServer wires the services.
-func NewIdentityServer(ids *identity.Service, sess *session.Manager, orgSvc *org.Service, logger *slog.Logger) *IdentityServer {
-	return &IdentityServer{ids: ids, sess: sess, org: orgSvc, logger: logger}
+func NewIdentityServer(ids *identity.Service, sess *session.Manager, orgSvc *org.Service, access *Access, logger *slog.Logger) *IdentityServer {
+	return &IdentityServer{ids: ids, sess: sess, org: orgSvc, access: access, logger: logger}
 }
 
 // GetMe returns the caller and their linked identities.
@@ -109,7 +110,7 @@ func (s *IdentityServer) RevokeSessions(ctx context.Context, _ *connect.Request[
 // LookupUser resolves a (provider, subject) pair to its user: an app with identity:read (a
 // role-sync reconciler), or the owner.
 func (s *IdentityServer) LookupUser(ctx context.Context, req *connect.Request[hubv1.LookupUserRequest]) (*connect.Response[hubv1.LookupUserResponse], error) {
-	if err := requireScope(ctx, s.org, s.logger, apps.ScopeIdentityRead); err != nil {
+	if _, err := s.access.Require(ctx, authz.IdentityRead, authz.Target{}); err != nil {
 		return nil, err
 	}
 	o, err := s.org.Get(ctx)
@@ -138,7 +139,7 @@ const (
 // ListUsers pages through the members with their identities, oldest first. The page token is
 // the last user's (created_at, id), opaque to callers.
 func (s *IdentityServer) ListUsers(ctx context.Context, req *connect.Request[hubv1.ListUsersRequest]) (*connect.Response[hubv1.ListUsersResponse], error) {
-	if err := requireScope(ctx, s.org, s.logger, apps.ScopeIdentityRead); err != nil {
+	if _, err := s.access.Require(ctx, authz.IdentityRead, authz.Target{}); err != nil {
 		return nil, err
 	}
 	size := int(req.Msg.GetPageSize())
@@ -177,7 +178,7 @@ func (s *IdentityServer) ListUsers(ctx context.Context, req *connect.Request[hub
 
 // ListIdentityEvents returns the identity log after a position, oldest first.
 func (s *IdentityServer) ListIdentityEvents(ctx context.Context, req *connect.Request[hubv1.ListIdentityEventsRequest]) (*connect.Response[hubv1.ListIdentityEventsResponse], error) {
-	if err := requireScope(ctx, s.org, s.logger, apps.ScopeIdentityRead); err != nil {
+	if _, err := s.access.Require(ctx, authz.IdentityRead, authz.Target{}); err != nil {
 		return nil, err
 	}
 	after := req.Msg.GetAfterId()
@@ -259,6 +260,9 @@ func toProtoUser(u identity.User, o store.Organization) *hubv1.User {
 	if u.LastLoginAt != nil {
 		p.LastLoginAt = timestamppb.New(*u.LastLoginAt)
 	}
+	for _, c := range authz.ForMember(u.ID, p.Owner, u.Roles).Capabilities() {
+		p.Capabilities = append(p.Capabilities, string(c))
+	}
 	for _, i := range u.Identities {
 		p.Identities = append(p.Identities, toProtoIdentity(i))
 	}
@@ -281,15 +285,14 @@ func toProtoIdentity(i store.Identity) *hubv1.Identity {
 	return p
 }
 
-// SetUserRole grants or revokes a member's role; the owner only.
+// SetUserRole grants or revokes a member's role: a caller holding roles:grant (the owner, in
+// person).
 func (s *IdentityServer) SetUserRole(ctx context.Context, req *connect.Request[hubv1.SetUserRoleRequest]) (*connect.Response[hubv1.SetUserRoleResponse], error) {
-	if err := requireOwner(ctx, s.org, s.logger); err != nil {
-		return nil, err
-	}
-	by, err := caller(ctx)
+	p, err := s.access.Require(ctx, authz.RolesGrant, authz.Target{})
 	if err != nil {
 		return nil, err
 	}
+	by := p.UserID
 	uid, err := uuid.Parse(req.Msg.GetUserId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("user_id is not a member id"))

@@ -25,37 +25,21 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/gravel-project/gravel/internal/authz"
 	"github.com/gravel-project/gravel/internal/store"
 )
 
-// ScopeIdentityRead admits the identity reads a role-sync reconciler makes: LookupUser,
-// ListUsers and ListIdentityEvents.
-const ScopeIdentityRead = "identity:read"
-
-// ScopeServersRead admits who is on a server (ListServerPlayers); the rest of ServerService is
-// public (ADR-0010).
-const ScopeServersRead = "servers:read"
-
-// ScopeServersModerate admits ModerationService: acting on a server's players, its bans and the
-// audit log (ADR-0010 §5).
-const ScopeServersModerate = "servers:moderate"
-
-// ScopeServersLease admits ServerLeaseService: taking a server for a match and giving it back (#20,
-// ADR-0023). It is an app's own: a member never grants it.
-const ScopeServersLease = "servers:lease"
-
-// ScopeServersConfigure admits ServerConfigService: reading, planning and applying a server's
-// configuration (ADR-0010 §6).
-const ScopeServersConfigure = "servers:configure"
-
-// ScopeStatsRead admits the stats boards and match lists while the Organization settings keep
-// them private (ADR-0012 §8); public stats need no scope.
-const ScopeStatsRead = "stats:read"
-
-// ScopeParticipationWrite admits RecordParticipation: participation events from a first-party
-// app, such as a seeding tracker or event sign-ups (ADR-0014). Only an app holds it; the owner's
-// session is not admitted in its place.
-const ScopeParticipationWrite = "participation:write"
+// The capabilities an app may hold as scopes (ADR-0027): one vocabulary with members' roles,
+// defined in internal/authz. These names are the ones apps were issued before capabilities.
+const (
+	ScopeIdentityRead       = string(authz.IdentityRead)
+	ScopeServersRead        = string(authz.ServersRead)
+	ScopeServersModerate    = string(authz.ServersModerate)
+	ScopeServersLease       = string(authz.ServersLease)
+	ScopeServersConfigure   = string(authz.ServersConfigure)
+	ScopeStatsRead          = string(authz.StatsRead)
+	ScopeParticipationWrite = string(authz.ParticipationWrite)
+)
 
 // HostScopePrefix starts a host's own scope: a service beside the hub (a host's Muster, say)
 // checks it in the tokens the hub issues and introspects; gravel admits nothing by it. The
@@ -72,17 +56,18 @@ const MaxHostScope = 64
 // IsHostScope reports whether s is a well-formed host scope (HostScopePrefix).
 func IsHostScope(s string) bool { return len(s) <= MaxHostScope && hostScope.MatchString(s) }
 
-// Scopes is every scope gravel defines, with what it admits: the operator's words. An app may
-// also hold host scopes (IsHostScope), which gravel stores and carries and never checks.
-var Scopes = map[string]string{
-	ScopeIdentityRead:       "look up members and their identities (LookupUser, ListUsers, ListIdentityEvents)",
-	ScopeServersRead:        "see who is on a server: names and provider identities (ListServerPlayers)",
-	ScopeServersModerate:    "kick, ban, unban, message, broadcast to and move a server's players, list its bans and read the audit log (ModerationService)",
-	ScopeServersConfigure:   "read, plan and apply a server's configuration (ServerConfigService)",
-	ScopeStatsRead:          "read the stats and participation boards and match lists while stats are not public (StatsService GetBoard, GetParticipationBoard, ListMatches)",
-	ScopeParticipationWrite: "record participation events from a first-party app (StatsService RecordParticipation)",
-	ScopeServersLease:       "take a leasable server for a match and give it back (ServerLeaseService)",
-}
+// Scopes is every scope an app may hold, with what it admits in the operator's words: the
+// capabilities authz.Specs marks for apps. An app may also hold host scopes (IsHostScope), which
+// gravel stores and carries and never checks.
+var Scopes = func() map[string]string {
+	m := map[string]string{}
+	for _, s := range authz.Specs() {
+		if s.Apps {
+			m[string(s.Name)] = s.About
+		}
+	}
+	return m
+}()
 
 // MemberScopes says what each scope lets an app do as a member, in the member's words: the
 // consent page and the account page show these. A scope missing here is an app's own

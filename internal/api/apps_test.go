@@ -3,6 +3,7 @@ package api_test
 import (
 	"context"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -48,8 +49,10 @@ func TestLookupUserAsApp(t *testing.T) {
 	if _, err := bot.GetMe(ctx, connect.NewRequest(&hubv1.GetMeRequest{})); connect.CodeOf(err) != connect.CodeUnauthenticated {
 		t.Errorf("GetMe as an app: %v", err)
 	}
+	// An app is who it says it is, so a capability no app may hold is permission_denied, not
+	// unauthenticated (ADR-0027).
 	orgClient := hubv1connect.NewOrganizationServiceClient(bearerClient(http.DefaultClient, r.bearer(t, "bot2", "identity:read")), r.srv.URL)
-	if _, err := orgClient.UpdateOrganizationSettings(ctx, connect.NewRequest(&hubv1.UpdateOrganizationSettingsRequest{Settings: &hubv1.OrganizationSettings{Version: 1}})); connect.CodeOf(err) != connect.CodeUnauthenticated {
+	if _, err := orgClient.UpdateOrganizationSettings(ctx, connect.NewRequest(&hubv1.UpdateOrganizationSettingsRequest{Settings: &hubv1.OrganizationSettings{Version: 1}})); connect.CodeOf(err) != connect.CodePermissionDenied || !strings.Contains(err.Error(), "settings:write") {
 		t.Errorf("UpdateOrganizationSettings as an app: %v", err)
 	}
 }

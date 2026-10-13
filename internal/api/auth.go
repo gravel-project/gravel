@@ -10,8 +10,10 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/gravel-project/gravel/drivers"
+	hubv1 "github.com/gravel-project/gravel/gen/gravel/hub/v1"
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
 	"github.com/gravel-project/gravel/internal/apps"
+	"github.com/gravel-project/gravel/internal/authz"
 	"github.com/gravel-project/gravel/internal/httpx"
 	"github.com/gravel-project/gravel/internal/identity"
 	"github.com/gravel-project/gravel/internal/org"
@@ -187,35 +189,118 @@ func actor(ctx context.Context, onBehalf *drivers.Identity) (servers.Actor, erro
 	return a, nil
 }
 
-// requireOwner refuses anyone but the organization's owner: CodeUnauthenticated without a
-// session, CodePermissionDenied for a member.
-func requireOwner(ctx context.Context, orgSvc *org.Service, logger *slog.Logger) error {
-	uid, err := caller(ctx)
-	if err != nil {
-		return err
-	}
-	o, err := orgSvc.Get(ctx)
-	if err != nil {
-		return mapError(ctx, logger, err)
-	}
-	if o.OwnerUserID == nil || *o.OwnerUserID != uid {
-		return connect.NewError(connect.CodePermissionDenied, errors.New("the owner only"))
-	}
-	return nil
+// Members is what Access reads of members: one by id, for their roles, and one by a provider
+// identity, for an app's on_behalf_of (identity.Service).
+type Members interface {
+	MemberLookup
+	Me(ctx context.Context, userID uuid.UUID) (identity.User, error)
 }
 
-// requireScope admits an app whose token carries the scope, or the organization's owner (in
-// person, or through a member's token, whose scope the interceptor checked).
-// CodeUnauthenticated without any credential, CodePermissionDenied for an app without the
-// scope or for a member.
-func requireScope(ctx context.Context, orgSvc *org.Service, logger *slog.Logger, scope string) error {
-	if a, ok := apps.FromContext(ctx); ok {
-		if a.Has(scope) {
-			return nil
+// Access resolves who is calling into an authz.Principal and checks a capability against it
+// (ADR-0027). Every service that checks a capability shares one.
+type Access struct {
+	org     *org.Service
+	members Members
+	logger  *slog.Logger
+}
+
+// NewAccess builds the resolver over the organization (who owns it) and the members (their roles).
+func NewAccess(orgSvc *org.Service, members Members, logger *slog.Logger) *Access {
+	return &Access{org: orgSvc, members: members, logger: logger}
+}
+
+// Principal is who is calling: a member's token (which wins over a session cookie sent with it,
+// and which the MemberTokens interceptor must have checked), an app's own token, a session, or
+// nobody.
+func (a *Access) Principal(ctx context.Context) (authz.Principal, error) {
+	if m, ok := apps.MemberFromContext(ctx); ok {
+		if checked, _ := ctx.Value(memberCheckedKey{}).(bool); !checked {
+			return authz.Principal{}, connect.NewError(connect.CodePermissionDenied, errors.New("a member's token is not accepted here"))
 		}
-		return connect.NewError(connect.CodePermissionDenied, fmt.Errorf("the app %s lacks the scope %q", a.Name, scope))
+		p, err := a.member(ctx, m.UserID)
+		if err != nil {
+			return authz.Principal{}, err
+		}
+		return p.Through(m.App.ID, m.App.Name, m.App.Scopes), nil
 	}
-	return requireOwner(ctx, orgSvc, logger)
+	if app, ok := apps.FromContext(ctx); ok {
+		return authz.ForApp(app.ID, app.Name, app.Scopes), nil
+	}
+	if s, ok := session.FromContext(ctx); ok {
+		return a.member(ctx, s.UserID)
+	}
+	return authz.Nobody(), nil
+}
+
+// member is a member in person: the owner, or a member with the roles they were granted. A member
+// the store no longer has holds the member base only.
+func (a *Access) member(ctx context.Context, uid uuid.UUID) (authz.Principal, error) {
+	o, err := a.org.Get(ctx)
+	if err != nil {
+		return authz.Principal{}, mapError(ctx, a.logger, err)
+	}
+	if o.OwnerUserID != nil && *o.OwnerUserID == uid {
+		return authz.ForMember(uid, true, nil), nil
+	}
+	u, err := a.members.Me(ctx, uid)
+	switch {
+	case errors.Is(err, store.ErrNotFound):
+		return authz.ForMember(uid, false, nil), nil
+	case err != nil:
+		return authz.Principal{}, mapError(ctx, a.logger, err)
+	}
+	return authz.ForMember(uid, false, u.Roles), nil
+}
+
+// Require returns the caller when they hold c for t; else CodeUnauthenticated for nobody and
+// CodePermissionDenied for anyone else.
+func (a *Access) Require(ctx context.Context, c authz.Capability, t authz.Target) (authz.Principal, error) {
+	p, err := a.Principal(ctx)
+	if err != nil {
+		return authz.Principal{}, err
+	}
+	if err := p.Check(c, t); err != nil {
+		return authz.Principal{}, refused(err)
+	}
+	return p, nil
+}
+
+// RequireFor is Require for a procedure an app may call on behalf of a member it names: the app
+// must hold c, and so must the member, so an app can't lend its scope to anyone who asks it
+// (ADR-0013 §4, kept by ADR-0027). A member's token never acts on behalf of anyone; a member in
+// person who sends on_behalf_of is refused by the action's own validation.
+func (a *Access) RequireFor(ctx context.Context, c authz.Capability, t authz.Target, onBehalf *hubv1.Actor) (authz.Principal, error) {
+	if _, ok := apps.MemberFromContext(ctx); ok && onBehalf != nil {
+		return authz.Principal{}, connect.NewError(connect.CodePermissionDenied, errors.New("on_behalf_of is an app's; a member's token acts as that member"))
+	}
+	p, err := a.Require(ctx, c, t)
+	if err != nil || p.Kind != authz.App || onBehalf == nil {
+		return p, err
+	}
+	u, err := a.members.Lookup(ctx, onBehalf.GetProvider(), onBehalf.GetSubject())
+	if errors.Is(err, store.ErrNotFound) {
+		return authz.Principal{}, connect.NewError(connect.CodePermissionDenied, errors.New("on_behalf_of is not a member of this hub"))
+	}
+	if err != nil {
+		return authz.Principal{}, mapError(ctx, a.logger, err)
+	}
+	m, err := a.member(ctx, u.ID)
+	if err != nil {
+		return authz.Principal{}, err
+	}
+	if !m.Has(c, t) {
+		return authz.Principal{}, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("on_behalf_of does not hold %q", c))
+	}
+	return p, nil
+}
+
+// refused turns Check's refusal into a Connect error.
+func refused(err error) error {
+	code := connect.CodePermissionDenied
+	if errors.Is(err, authz.ErrUnauthenticated) {
+		code = connect.CodeUnauthenticated
+	}
+	return connect.NewError(code, errors.New(err.Error()))
 }
 
 // mapError turns a domain error into a Connect error. Anything unmapped is logged with the

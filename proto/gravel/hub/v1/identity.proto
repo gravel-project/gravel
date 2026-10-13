@@ -21,6 +21,10 @@ message User {
   repeated Identity identities = 6;
   // Roles the owner granted (ADR-0013): "moderator".
   repeated string roles = 7;
+  // The capabilities the member holds in person, as "area:verb" names (ADR-0027): what their
+  // roles admit, or every capability a person can hold for the owner. A token an app holds for
+  // the member is narrowed further, to the token's scopes.
+  repeated string capabilities = 8;
 }
 
 // Identity is one provider account linked to a user: a (provider, subject) pair, unique across

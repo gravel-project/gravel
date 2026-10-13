@@ -14,6 +14,7 @@ import (
 	hubv1 "github.com/gravel-project/gravel/gen/gravel/hub/v1"
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
 	"github.com/gravel-project/gravel/internal/apps"
+	"github.com/gravel-project/gravel/internal/authz"
 	"github.com/gravel-project/gravel/internal/servers"
 	"github.com/gravel-project/gravel/internal/store"
 )
@@ -22,14 +23,14 @@ import (
 type LeaseServer struct {
 	hubv1connect.UnimplementedServerLeaseServiceHandler
 	leases    *servers.Leases
-	mod       *ModerationServer
+	access    *Access
 	logger    *slog.Logger
 	heartbeat time.Duration
 }
 
-// NewLeaseServer wires the service; mod decides who is a moderator.
-func NewLeaseServer(leases *servers.Leases, mod *ModerationServer, logger *slog.Logger) *LeaseServer {
-	return &LeaseServer{leases: leases, mod: mod, logger: logger, heartbeat: 30 * time.Second}
+// NewLeaseServer wires the service.
+func NewLeaseServer(leases *servers.Leases, access *Access, logger *slog.Logger) *LeaseServer {
+	return &LeaseServer{leases: leases, access: access, logger: logger, heartbeat: 30 * time.Second}
 }
 
 // WithHeartbeat sets how often a watch says it is alive (tests).
@@ -38,38 +39,33 @@ func (s *LeaseServer) WithHeartbeat(d time.Duration) *LeaseServer {
 	return s
 }
 
-// leaser is who may lease: an app with servers:lease (acting for itself, or for a member it names),
-// or the owner or a moderator in person. A member's token never leases.
+// leaser is who may lease: a caller holding servers:lease. An app may name the member a lease is
+// for (on_behalf_of), who must be a member of the hub but needn't hold the capability: a PUG's
+// players don't. A member's token never leases, and a member in person leases as themselves.
 func (s *LeaseServer) leaser(ctx context.Context, onBehalf *hubv1.Actor) (servers.Actor, error) {
 	if _, ok := apps.MemberFromContext(ctx); ok {
 		return servers.Actor{}, connect.NewError(connect.CodePermissionDenied, errors.New("a member's token cannot lease a server"))
 	}
-	var ob *drivers.Identity
-	if a, ok := apps.FromContext(ctx); ok {
-		if !a.Has(apps.ScopeServersLease) {
-			return servers.Actor{}, connect.NewError(connect.CodePermissionDenied, errors.New("the app lacks the scope "+apps.ScopeServersLease))
-		}
-		if onBehalf != nil {
-			if _, err := s.mod.members.Lookup(ctx, onBehalf.GetProvider(), onBehalf.GetSubject()); errors.Is(err, store.ErrNotFound) {
-				return servers.Actor{}, connect.NewError(connect.CodePermissionDenied, errors.New("on_behalf_of is not a member of this hub"))
-			} else if err != nil {
-				return servers.Actor{}, mapError(ctx, s.logger, err)
-			}
-			ob = &drivers.Identity{Provider: onBehalf.GetProvider(), Subject: onBehalf.GetSubject()}
-		}
-		return actor(ctx, ob)
-	}
-	if onBehalf != nil {
-		return servers.Actor{}, connect.NewError(connect.CodeInvalidArgument, errors.New("on_behalf_of is an app's; a moderator acts as themselves"))
-	}
-	uid, err := caller(ctx)
+	p, err := s.access.Require(ctx, authz.ServersLease, authz.Target{})
 	if err != nil {
 		return servers.Actor{}, err
 	}
-	if err := s.mod.memberMayModerate(ctx, uid, "the owner, moderators, or an app with "+apps.ScopeServersLease); err != nil {
-		return servers.Actor{}, err
+	if p.Kind != authz.App {
+		if onBehalf != nil {
+			return servers.Actor{}, connect.NewError(connect.CodeInvalidArgument, errors.New("on_behalf_of is an app's; a member acts as themselves"))
+		}
+		return actor(ctx, nil)
 	}
-	return actor(ctx, nil)
+	var ob *drivers.Identity
+	if onBehalf != nil {
+		if _, err := s.access.members.Lookup(ctx, onBehalf.GetProvider(), onBehalf.GetSubject()); errors.Is(err, store.ErrNotFound) {
+			return servers.Actor{}, connect.NewError(connect.CodePermissionDenied, errors.New("on_behalf_of is not a member of this hub"))
+		} else if err != nil {
+			return servers.Actor{}, mapError(ctx, s.logger, err)
+		}
+		ob = &drivers.Identity{Provider: onBehalf.GetProvider(), Subject: onBehalf.GetSubject()}
+	}
+	return actor(ctx, ob)
 }
 
 // mayHold admits the lease's own app, or the owner and moderators in person; anyone else is told

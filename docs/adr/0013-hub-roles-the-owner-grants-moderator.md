@@ -1,6 +1,6 @@
 # ADR-0013: Hub roles: the owner grants moderator, and the hub is its authority
 
-**Status:** accepted (2026-10-10; John chose it) · **Changes:** who may moderate servers, and what an app's `on_behalf_of` must be · **Tracked by:** #18 (moderation from the web); hidden-token-gaming/htg#57 (the same procedures from Discord)
+**Status:** accepted (2026-10-10; John chose it); §1 and §3 superseded and §4 and §5 amended by [ADR-0027](0027-capabilities-five-roles-game-scope-and-ownership-transfer.md) (2026-10-13): a moderator is a bundle of capabilities, and the on_behalf_of rule holds for every capability · **Changes:** who may moderate servers, and what an app's `on_behalf_of` must be · **Tracked by:** #18 (moderation from the web); hidden-token-gaming/htg#57 (the same procedures from Discord)
 
 ## Context
 

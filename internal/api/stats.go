@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"log/slog"
 	"strconv"
 	"strings"
@@ -15,9 +14,8 @@ import (
 
 	hubv1 "github.com/gravel-project/gravel/gen/gravel/hub/v1"
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
-	"github.com/gravel-project/gravel/internal/apps"
+	"github.com/gravel-project/gravel/internal/authz"
 	"github.com/gravel-project/gravel/internal/identity"
-	"github.com/gravel-project/gravel/internal/org"
 	"github.com/gravel-project/gravel/internal/results"
 	"github.com/gravel-project/gravel/internal/stats"
 	"github.com/gravel-project/gravel/internal/store"
@@ -31,7 +29,7 @@ type StatsServer struct {
 	hubv1connect.UnimplementedStatsServiceHandler
 	boards        *stats.Boards
 	participation *stats.Participation
-	org           *org.Service
+	access        *Access
 	members       MemberReader
 	logger        *slog.Logger
 	results       *results.Service // match results (ADR-0024); nil: none
@@ -43,8 +41,8 @@ type MemberReader interface {
 }
 
 // NewStatsServer builds the handler.
-func NewStatsServer(boards *stats.Boards, participation *stats.Participation, orgSvc *org.Service, members MemberReader, logger *slog.Logger) *StatsServer {
-	return &StatsServer{boards: boards, participation: participation, org: orgSvc, members: members, logger: logger}
+func NewStatsServer(boards *stats.Boards, participation *stats.Participation, access *Access, members MemberReader, logger *slog.Logger) *StatsServer {
+	return &StatsServer{boards: boards, participation: participation, access: access, members: members, logger: logger}
 }
 
 // mayRead admits anyone when stats are public, else the owner or an app with stats:read.
@@ -56,7 +54,8 @@ func (s *StatsServer) mayRead(ctx context.Context) error {
 	if public {
 		return nil
 	}
-	return requireScope(ctx, s.org, s.logger, apps.ScopeStatsRead)
+	_, err = s.access.Require(ctx, authz.StatsRead, authz.Target{})
+	return err
 }
 
 func (s *StatsServer) mapError(ctx context.Context, err error) error {
@@ -281,22 +280,17 @@ func (s *StatsServer) mayReadProfile(ctx context.Context, isSelf, showsName bool
 			return nil
 		}
 	}
-	return requireScope(ctx, s.org, s.logger, apps.ScopeStatsRead)
+	_, err := s.access.Require(ctx, authz.StatsRead, authz.Target{})
+	return err
 }
 
 // RecordParticipation stores participation events for the calling app (ADR-0014). Only an app
 // with participation:write records them: a member's session, the owner's included, is refused,
 // since an event says what an app saw, not what a person claims.
 func (s *StatsServer) RecordParticipation(ctx context.Context, req *connect.Request[hubv1.RecordParticipationRequest]) (*connect.Response[hubv1.RecordParticipationResponse], error) {
-	a, ok := apps.FromContext(ctx)
-	if !ok {
-		if _, err := caller(ctx); err != nil {
-			return nil, err
-		}
-		return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("participation is recorded by a first-party app with the scope %q, not by a member", apps.ScopeParticipationWrite))
-	}
-	if !a.Has(apps.ScopeParticipationWrite) {
-		return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("the app %s lacks the scope %q", a.Name, apps.ScopeParticipationWrite))
+	a, err := s.access.Require(ctx, authz.ParticipationWrite, authz.Target{}) // an app's alone (Spec.AppOnly)
+	if err != nil {
+		return nil, err
 	}
 	events := make([]stats.ParticipationEvent, 0, len(req.Msg.GetEvents()))
 	for _, e := range req.Msg.GetEvents() {
@@ -310,7 +304,7 @@ func (s *StatsServer) RecordParticipation(ctx context.Context, req *connect.Requ
 		}
 		events = append(events, ev)
 	}
-	results, err := s.participation.Record(ctx, a.ID, events)
+	results, err := s.participation.Record(ctx, a.AppID, events)
 	if errors.Is(err, stats.ErrInvalidParticipation) {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New(strings.TrimPrefix(err.Error(), stats.ErrInvalidParticipation.Error()+": ")))
 	}

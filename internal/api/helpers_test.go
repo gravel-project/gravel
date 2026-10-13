@@ -23,6 +23,7 @@ import (
 	"github.com/gravel-project/gravel/internal/identity/proof/prooftest"
 	"github.com/gravel-project/gravel/internal/org"
 	"github.com/gravel-project/gravel/internal/org/orgtest"
+	"github.com/gravel-project/gravel/internal/results"
 	"github.com/gravel-project/gravel/internal/servers"
 	"github.com/gravel-project/gravel/internal/servers/serverstest"
 	"github.com/gravel-project/gravel/internal/session"
@@ -103,22 +104,25 @@ func newRig(t *testing.T) *rig {
 	mod := servers.NewModeration(r.srvs, r.drv, r.audit, serverstest.NewBanStore(), o.ID, prometheus.NewRegistry(), logger)
 	mux := http.NewServeMux()
 	member := connect.WithInterceptors(api.MemberTokens()) // as the hub wires it (ADR-0015)
-	mux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(r.org, logger), member))
-	idAPI := api.NewIdentityServer(r.ids, r.sess, r.org, logger)
+	access := api.NewAccess(r.org, r.ids, logger)
+	mux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(r.org, access, logger), member))
+	idAPI := api.NewIdentityServer(r.ids, r.sess, r.org, access, logger)
 	r.proofSt = prooftest.NewFakeStore()
 	r.proofs = proof.New(r.proofSt, logger, []proof.Channel{proof.GameChat{ProviderName: "steam"}})
 	idAPI.SetProofs(r.proofs, proofReader{}, r.obs)
 	mux.Handle(hubv1connect.NewIdentityServiceHandler(idAPI, member))
-	mux.Handle(hubv1connect.NewServerServiceHandler(api.NewServerServer(r.srvs, r.obs, r.ids, logger).WithSharedPasswords(r.pws), member))
-	modServer := api.NewModerationServer(mod, r.org, r.ids, logger)
+	mux.Handle(hubv1connect.NewServerServiceHandler(api.NewServerServer(r.srvs, r.obs, r.ids, access, logger).WithSharedPasswords(r.pws), member))
+	modServer := api.NewModerationServer(mod, access, r.ids, logger)
 	mux.Handle(hubv1connect.NewModerationServiceHandler(modServer, member))
 	// No cloud-VM manager: every host request that passes the caller checks is not_found.
 	hosts := servers.NewHosts(r.srvs, nil, r.audit, o.ID, logger)
-	mux.Handle(hubv1connect.NewServerHostServiceHandler(api.NewHostServer(hosts, modServer, r.org, logger), member))
+	mux.Handle(hubv1connect.NewServerHostServiceHandler(api.NewHostServer(hosts, access, logger), member))
 	leases := servers.NewLeases(r.srvs, hosts, serverstest.NewLeaseRows(), r.audit, o.ID, []byte("0123456789abcdef0123456789abcdef"), prometheus.NewRegistry(), logger)
-	mux.Handle(hubv1connect.NewServerLeaseServiceHandler(api.NewLeaseServer(leases, modServer, logger), member))
-	mux.Handle(hubv1connect.NewServerConfigServiceHandler(api.NewConfigServer(mod, r.org, logger), member))
-	mux.Handle(hubv1connect.NewStatsServiceHandler(api.NewStatsServer(boards, part, r.org, r.ids, logger), member))
+	mux.Handle(hubv1connect.NewServerLeaseServiceHandler(api.NewLeaseServer(leases, access, logger), member))
+	mux.Handle(hubv1connect.NewServerConfigServiceHandler(api.NewConfigServer(mod, access, logger), member))
+	statsAPI := api.NewStatsServer(boards, part, access, r.ids, logger)
+	statsAPI.SetResults(results.New(emptyResults{}, o.ID, nil, func(string) string { return "" }, nil, 0, prometheus.NewRegistry(), logger))
+	mux.Handle(hubv1connect.NewStatsServiceHandler(statsAPI, member))
 	mux.Handle(hubv1connect.NewAppServiceHandler(api.NewAppServer(r.apps, logger), member))
 	r.srv = newH2CServer(r.sess.Middleware(r.apps.Middleware(mux)))
 	t.Cleanup(r.srv.Close)
@@ -211,4 +215,17 @@ func (t cookieTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 		next = http.DefaultTransport
 	}
 	return next.RoundTrip(r)
+}
+
+// emptyResults is a hub that keeps match results and has none (ADR-0024).
+type emptyResults struct {
+	results.Store // what a test does not use panics
+}
+
+func (emptyResults) GetMatchResult(context.Context, uuid.UUID, uuid.UUID) (store.MatchResult, error) {
+	return store.MatchResult{}, store.ErrNotFound
+}
+
+func (emptyResults) ListMatchResults(context.Context, uuid.UUID, store.MatchResultFilter) ([]store.MatchResult, error) {
+	return nil, nil
 }

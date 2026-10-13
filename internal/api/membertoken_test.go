@@ -93,7 +93,7 @@ func TestMemberTokenScopesAndTheMembersOwnRights(t *testing.T) {
 		t.Errorf("the owner's token with identity:read: %v %v", u, err)
 	}
 	memberScoped := hubv1connect.NewIdentityServiceClient(memberClient(r.memberToken(t, member.ID, all, apps.ScopeIdentityRead)), r.srv.URL)
-	if _, err := memberScoped.LookupUser(ctx, connect.NewRequest(lookup)); connect.CodeOf(err) != connect.CodePermissionDenied || !strings.Contains(err.Error(), "owner") {
+	if _, err := memberScoped.LookupUser(ctx, connect.NewRequest(lookup)); connect.CodeOf(err) != connect.CodePermissionDenied || !strings.Contains(err.Error(), "does not hold") {
 		t.Errorf("a member's token with identity:read is still a member: %v", err)
 	}
 
@@ -287,7 +287,7 @@ func TestMemberTokenWithoutTheInterceptorFailsClosed(t *testing.T) {
 	jo := r.user(t, "Jo", "1")
 	auth := r.memberToken(t, jo.ID, nil)
 	mux := http.NewServeMux()
-	mux.Handle(hubv1connect.NewIdentityServiceHandler(api.NewIdentityServer(r.ids, r.sess, r.org, slog.New(slog.NewTextHandler(io.Discard, nil)))))
+	mux.Handle(hubv1connect.NewIdentityServiceHandler(api.NewIdentityServer(r.ids, r.sess, r.org, api.NewAccess(r.org, r.ids, slog.New(slog.NewTextHandler(io.Discard, nil))), slog.New(slog.NewTextHandler(io.Discard, nil)))))
 	srv := newH2CServer(r.sess.Middleware(r.apps.Middleware(mux)))
 	defer srv.Close()
 	c := hubv1connect.NewIdentityServiceClient(memberClient(auth), srv.URL)
