@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file gravel/hub/v1/servers.proto.
  */
 export const file_gravel_hub_v1_servers: GenFile = /*@__PURE__*/
-  fileDesc("ChtncmF2ZWwvaHViL3YxL3NlcnZlcnMucHJvdG8SDWdyYXZlbC5odWIudjEiowEKBEJhbmQSDwoHc2VjdGlvbhgBIAEoCRILCgNrZXkYAiABKAkSEAoDbWluGAMgASgDSACIAQESEAoDbWF4GAQgASgDSAGIAQESFwoKbWF4X2xlbmd0aBgFIAEoA0gCiAEBEg0KBWhvc3RzGAYgAygJEhIKCnVubGVzc19zZXQYByABKAlCBgoEX21pbkIGCgRfbWF4Qg0KC19tYXhfbGVuZ3RoIqEBCgRHYW1lEgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkSGQoRaWRlbnRpdHlfcHJvdmlkZXIYAyABKAkSIgoFYmFuZHMYBCADKAsyEy5ncmF2ZWwuaHViLnYxLkJhbmQSFQoNbm9fcGFpZF9wZXJrcxgFIAEoCBIpCgZsYXlvdXQYBiABKAsyGS5ncmF2ZWwuaHViLnYxLkdhbWVMYXlvdXQiGwoKR2FtZUxheW91dBINCgVib2FyZBgBIAMoCSJZCglUZWFtU2NvcmUSDAoEbmFtZRgBIAEoCRINCgVjb2xvchgCIAEoCRINCgVzY29yZRgDIAEoAxIUCgdwbGF5ZXJzGAQgASgFSACIAQFCCgoIX3BsYXllcnMirAMKDFNlcnZlclN0YXR1cxINCgVzdGF0ZRgBIAEoCRIRCglyZWFjaGFibGUYAiABKAgSLwoLb2JzZXJ2ZWRfYXQYAyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEg0KBWJ1aWxkGAQgASgJEhQKDGNhcGFiaWxpdGllcxgFIAMoCRIPCgdwbGF5ZXJzGAYgASgFEhMKC21heF9wbGF5ZXJzGAcgASgFEgsKA21hcBgIIAEoCRITCgtleHBlcmllbmNlcxgJIAMoCRIQCghsaWdodGluZxgKIAEoCRInCgV0ZWFtcxgLIAMoCzIYLmdyYXZlbC5odWIudjEuVGVhbVNjb3JlEhIKCnNjb3JlX3RpY2sYDCABKAUSFgoOcm90YXRpb25faW5kZXgYDSABKAUSGwoTbmV4dF9yb3RhdGlvbl9pbmRleBgOIAEoBRIUCgxyb3RhdGlvbl9tYXAYDyABKAkSGQoRbmV4dF9yb3RhdGlvbl9tYXAYECABKAkSJwoEam9pbhgRIAEoCzIZLmdyYXZlbC5odWIudjEuU2VydmVySm9pbiJLCgpTZXJ2ZXJKb2luEg4KBm1ldGhvZBgBIAEoCRINCgV2YWx1ZRgCIAEoCRIMCgRoaW50GAMgASgJEhAKCHBhc3N3b3JkGAQgASgJIqABCgZTZXJ2ZXISCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRIPCgdnYW1lX2lkGAMgASgJEhAKCGxvY2F0aW9uGAQgASgJEg0KBXRydXN0GAUgASgJEisKBnN0YXR1cxgHIAEoCzIbLmdyYXZlbC5odWIudjEuU2VydmVyU3RhdHVzEg4KBmRyaXZlchgIIAEoCUoECAYQB1IHc2VlZGluZyKOAQoMU2VydmVyUGxheWVyEgwKBG5hbWUYASABKAkSEAoIcHJvdmlkZXIYAiABKAkSDwoHc3ViamVjdBgDIAEoCRIMCgR0ZWFtGAQgASgJEg0KBWtpbGxzGAUgASgFEg4KBmRlYXRocxgGIAEoBRIPCgdwaW5nX21zGAcgASgFEg8KB3VzZXJfaWQYCCABKAkiEgoQTGlzdEdhbWVzUmVxdWVzdCI3ChFMaXN0R2FtZXNSZXNwb25zZRIiCgVnYW1lcxgBIAMoCzITLmdyYXZlbC5odWIudjEuR2FtZSIUChJMaXN0U2VydmVyc1JlcXVlc3QiPQoTTGlzdFNlcnZlcnNSZXNwb25zZRImCgdzZXJ2ZXJzGAEgAygLMhUuZ3JhdmVsLmh1Yi52MS5TZXJ2ZXIiKwoWR2V0U2VydmVyU3RhdHVzUmVxdWVzdBIRCglzZXJ2ZXJfaWQYASABKAkiQAoXR2V0U2VydmVyU3RhdHVzUmVzcG9uc2USJQoGc2VydmVyGAEgASgLMhUuZ3JhdmVsLmh1Yi52MS5TZXJ2ZXIiLQoYTGlzdFNlcnZlclBsYXllcnNSZXF1ZXN0EhEKCXNlcnZlcl9pZBgBIAEoCSJ6ChlMaXN0U2VydmVyUGxheWVyc1Jlc3BvbnNlEiwKB3BsYXllcnMYASADKAsyGy5ncmF2ZWwuaHViLnYxLlNlcnZlclBsYXllchIvCgtvYnNlcnZlZF9hdBgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAy/wIKDVNlcnZlclNlcnZpY2USTgoJTGlzdEdhbWVzEh8uZ3JhdmVsLmh1Yi52MS5MaXN0R2FtZXNSZXF1ZXN0GiAuZ3JhdmVsLmh1Yi52MS5MaXN0R2FtZXNSZXNwb25zZRJUCgtMaXN0U2VydmVycxIhLmdyYXZlbC5odWIudjEuTGlzdFNlcnZlcnNSZXF1ZXN0GiIuZ3JhdmVsLmh1Yi52MS5MaXN0U2VydmVyc1Jlc3BvbnNlEmAKD0dldFNlcnZlclN0YXR1cxIlLmdyYXZlbC5odWIudjEuR2V0U2VydmVyU3RhdHVzUmVxdWVzdBomLmdyYXZlbC5odWIudjEuR2V0U2VydmVyU3RhdHVzUmVzcG9uc2USZgoRTGlzdFNlcnZlclBsYXllcnMSJy5ncmF2ZWwuaHViLnYxLkxpc3RTZXJ2ZXJQbGF5ZXJzUmVxdWVzdBooLmdyYXZlbC5odWIudjEuTGlzdFNlcnZlclBsYXllcnNSZXNwb25zZUI6WjhnaXRodWIuY29tL2dyYXZlbC1wcm9qZWN0L2dyYXZlbC9nZW4vZ3JhdmVsL2h1Yi92MTtodWJ2MWIGcHJvdG8z", [file_google_protobuf_timestamp]);
+  fileDesc("ChtncmF2ZWwvaHViL3YxL3NlcnZlcnMucHJvdG8SDWdyYXZlbC5odWIudjEiowEKBEJhbmQSDwoHc2VjdGlvbhgBIAEoCRILCgNrZXkYAiABKAkSEAoDbWluGAMgASgDSACIAQESEAoDbWF4GAQgASgDSAGIAQESFwoKbWF4X2xlbmd0aBgFIAEoA0gCiAEBEg0KBWhvc3RzGAYgAygJEhIKCnVubGVzc19zZXQYByABKAlCBgoEX21pbkIGCgRfbWF4Qg0KC19tYXhfbGVuZ3RoIqEBCgRHYW1lEgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkSGQoRaWRlbnRpdHlfcHJvdmlkZXIYAyABKAkSIgoFYmFuZHMYBCADKAsyEy5ncmF2ZWwuaHViLnYxLkJhbmQSFQoNbm9fcGFpZF9wZXJrcxgFIAEoCBIpCgZsYXlvdXQYBiABKAsyGS5ncmF2ZWwuaHViLnYxLkdhbWVMYXlvdXQiGwoKR2FtZUxheW91dBINCgVib2FyZBgBIAMoCSJZCglUZWFtU2NvcmUSDAoEbmFtZRgBIAEoCRINCgVjb2xvchgCIAEoCRINCgVzY29yZRgDIAEoAxIUCgdwbGF5ZXJzGAQgASgFSACIAQFCCgoIX3BsYXllcnMirAMKDFNlcnZlclN0YXR1cxINCgVzdGF0ZRgBIAEoCRIRCglyZWFjaGFibGUYAiABKAgSLwoLb2JzZXJ2ZWRfYXQYAyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEg0KBWJ1aWxkGAQgASgJEhQKDGNhcGFiaWxpdGllcxgFIAMoCRIPCgdwbGF5ZXJzGAYgASgFEhMKC21heF9wbGF5ZXJzGAcgASgFEgsKA21hcBgIIAEoCRITCgtleHBlcmllbmNlcxgJIAMoCRIQCghsaWdodGluZxgKIAEoCRInCgV0ZWFtcxgLIAMoCzIYLmdyYXZlbC5odWIudjEuVGVhbVNjb3JlEhIKCnNjb3JlX3RpY2sYDCABKAUSFgoOcm90YXRpb25faW5kZXgYDSABKAUSGwoTbmV4dF9yb3RhdGlvbl9pbmRleBgOIAEoBRIUCgxyb3RhdGlvbl9tYXAYDyABKAkSGQoRbmV4dF9yb3RhdGlvbl9tYXAYECABKAkSJwoEam9pbhgRIAEoCzIZLmdyYXZlbC5odWIudjEuU2VydmVySm9pbiJLCgpTZXJ2ZXJKb2luEg4KBm1ldGhvZBgBIAEoCRINCgV2YWx1ZRgCIAEoCRIMCgRoaW50GAMgASgJEhAKCHBhc3N3b3JkGAQgASgJIqABCgZTZXJ2ZXISCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRIPCgdnYW1lX2lkGAMgASgJEhAKCGxvY2F0aW9uGAQgASgJEg0KBXRydXN0GAUgASgJEisKBnN0YXR1cxgHIAEoCzIbLmdyYXZlbC5odWIudjEuU2VydmVyU3RhdHVzEg4KBmRyaXZlchgIIAEoCUoECAYQB1IHc2VlZGluZyKOAQoMU2VydmVyUGxheWVyEgwKBG5hbWUYASABKAkSEAoIcHJvdmlkZXIYAiABKAkSDwoHc3ViamVjdBgDIAEoCRIMCgR0ZWFtGAQgASgJEg0KBWtpbGxzGAUgASgFEg4KBmRlYXRocxgGIAEoBRIPCgdwaW5nX21zGAcgASgFEg8KB3VzZXJfaWQYCCABKAkiEgoQTGlzdEdhbWVzUmVxdWVzdCI3ChFMaXN0R2FtZXNSZXNwb25zZRIiCgVnYW1lcxgBIAMoCzITLmdyYXZlbC5odWIudjEuR2FtZSIUChJMaXN0U2VydmVyc1JlcXVlc3QiPQoTTGlzdFNlcnZlcnNSZXNwb25zZRImCgdzZXJ2ZXJzGAEgAygLMhUuZ3JhdmVsLmh1Yi52MS5TZXJ2ZXIiKwoWR2V0U2VydmVyU3RhdHVzUmVxdWVzdBIRCglzZXJ2ZXJfaWQYASABKAkiQAoXR2V0U2VydmVyU3RhdHVzUmVzcG9uc2USJQoGc2VydmVyGAEgASgLMhUuZ3JhdmVsLmh1Yi52MS5TZXJ2ZXIiLQoYTGlzdFNlcnZlclBsYXllcnNSZXF1ZXN0EhEKCXNlcnZlcl9pZBgBIAEoCSJ6ChlMaXN0U2VydmVyUGxheWVyc1Jlc3BvbnNlEiwKB3BsYXllcnMYASADKAsyGy5ncmF2ZWwuaHViLnYxLlNlcnZlclBsYXllchIvCgtvYnNlcnZlZF9hdBgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAiGAoWR2V0RmxlZXRTdW1tYXJ5UmVxdWVzdCKMAQoLRmxlZXRUb3RhbHMSDwoHc2VydmVycxgBIAEoBRIKCgJ1cBgCIAEoBRIQCghkZWdyYWRlZBgDIAEoBRIMCgRkb3duGAQgASgFEgwKBGlkbGUYBSABKAUSDwoHdW5rbm93bhgGIAEoBRIPCgdwbGF5ZXJzGAcgASgFEhAKCGNhcGFjaXR5GAggASgFInoKCkZsZWV0QWxhcm0SDAoEa2luZBgBIAEoCRIQCghzZXZlcml0eRgCIAEoCRIRCglzZXJ2ZXJfaWQYAyABKAkSKQoFc2luY2UYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEg4KBmRldGFpbBgFIAEoCSKSAwoLRmxlZXRTZXJ2ZXISCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRIPCgdnYW1lX2lkGAMgASgJEhEKCWdhbWVfbmFtZRgEIAEoCRINCgV0cnVzdBgFIAEoCRIOCgZkcml2ZXIYBiABKAkSDgoGaGVhbHRoGAcgASgJEg4KBnJlYXNvbhgIIAEoCRIwCgxoZWFsdGhfc2luY2UYCSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEg0KBXN0YXRlGAogASgJEg8KB3BsYXllcnMYCyABKAUSEwoLbWF4X3BsYXllcnMYDCABKAUSCwoDbWFwGA0gASgJEi8KC29ic2VydmVkX2F0GA4gASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIPCgdwb2xsX21zGA8gASgFEg4KBm1pc3NlcxgQIAEoBRISCgpob3N0X3N0YXRlGBEgASgJEhcKD2hvc3RfZXJyb3JfY29kZRgSIAEoCRITCgtsZWFzZV9zdGF0ZRgTIAEoCSLIAQoXR2V0RmxlZXRTdW1tYXJ5UmVzcG9uc2USKgoGdG90YWxzGAEgASgLMhouZ3JhdmVsLmh1Yi52MS5GbGVldFRvdGFscxIpCgZhbGFybXMYAiADKAsyGS5ncmF2ZWwuaHViLnYxLkZsZWV0QWxhcm0SKwoHc2VydmVycxgDIAMoCzIaLmdyYXZlbC5odWIudjEuRmxlZXRTZXJ2ZXISKQoFYXNfb2YYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wMuEDCg1TZXJ2ZXJTZXJ2aWNlEk4KCUxpc3RHYW1lcxIfLmdyYXZlbC5odWIudjEuTGlzdEdhbWVzUmVxdWVzdBogLmdyYXZlbC5odWIudjEuTGlzdEdhbWVzUmVzcG9uc2USVAoLTGlzdFNlcnZlcnMSIS5ncmF2ZWwuaHViLnYxLkxpc3RTZXJ2ZXJzUmVxdWVzdBoiLmdyYXZlbC5odWIudjEuTGlzdFNlcnZlcnNSZXNwb25zZRJgCg9HZXRTZXJ2ZXJTdGF0dXMSJS5ncmF2ZWwuaHViLnYxLkdldFNlcnZlclN0YXR1c1JlcXVlc3QaJi5ncmF2ZWwuaHViLnYxLkdldFNlcnZlclN0YXR1c1Jlc3BvbnNlEmYKEUxpc3RTZXJ2ZXJQbGF5ZXJzEicuZ3JhdmVsLmh1Yi52MS5MaXN0U2VydmVyUGxheWVyc1JlcXVlc3QaKC5ncmF2ZWwuaHViLnYxLkxpc3RTZXJ2ZXJQbGF5ZXJzUmVzcG9uc2USYAoPR2V0RmxlZXRTdW1tYXJ5EiUuZ3JhdmVsLmh1Yi52MS5HZXRGbGVldFN1bW1hcnlSZXF1ZXN0GiYuZ3JhdmVsLmh1Yi52MS5HZXRGbGVldFN1bW1hcnlSZXNwb25zZUI6WjhnaXRodWIuY29tL2dyYXZlbC1wcm9qZWN0L2dyYXZlbC9nZW4vZ3JhdmVsL2h1Yi92MTtodWJ2MWIGcHJvdG8z", [file_google_protobuf_timestamp]);
 
 /**
  * Band is a publisher guardrail on one of a game's configuration keys, of one kind: a range (min,
@@ -603,6 +603,288 @@ export const ListServerPlayersResponseSchema: GenMessage<ListServerPlayersRespon
   messageDesc(file_gravel_hub_v1_servers, 15);
 
 /**
+ * @generated from message gravel.hub.v1.GetFleetSummaryRequest
+ */
+export type GetFleetSummaryRequest = Message<"gravel.hub.v1.GetFleetSummaryRequest"> & {
+};
+
+/**
+ * Describes the message gravel.hub.v1.GetFleetSummaryRequest.
+ * Use `create(GetFleetSummaryRequestSchema)` to create a new message.
+ */
+export const GetFleetSummaryRequestSchema: GenMessage<GetFleetSummaryRequest> = /*@__PURE__*/
+  messageDesc(file_gravel_hub_v1_servers, 16);
+
+/**
+ * FleetTotals counts the fleet (gravel#190).
+ *
+ * @generated from message gravel.hub.v1.FleetTotals
+ */
+export type FleetTotals = Message<"gravel.hub.v1.FleetTotals"> & {
+  /**
+   * @generated from field: int32 servers = 1;
+   */
+  servers: number;
+
+  /**
+   * @generated from field: int32 up = 2;
+   */
+  up: number;
+
+  /**
+   * @generated from field: int32 degraded = 3;
+   */
+  degraded: number;
+
+  /**
+   * @generated from field: int32 down = 4;
+   */
+  down: number;
+
+  /**
+   * @generated from field: int32 idle = 5;
+   */
+  idle: number;
+
+  /**
+   * @generated from field: int32 unknown = 6;
+   */
+  unknown: number;
+
+  /**
+   * Players on, and public slots, over the servers that are not idle and have answered.
+   *
+   * @generated from field: int32 players = 7;
+   */
+  players: number;
+
+  /**
+   * @generated from field: int32 capacity = 8;
+   */
+  capacity: number;
+};
+
+/**
+ * Describes the message gravel.hub.v1.FleetTotals.
+ * Use `create(FleetTotalsSchema)` to create a new message.
+ */
+export const FleetTotalsSchema: GenMessage<FleetTotals> = /*@__PURE__*/
+  messageDesc(file_gravel_hub_v1_servers, 17);
+
+/**
+ * FleetAlarm is something wrong that needs a person, open for as long as its cause lasts; it is
+ * computed on every read, never stored.
+ *
+ * @generated from message gravel.hub.v1.FleetAlarm
+ */
+export type FleetAlarm = Message<"gravel.hub.v1.FleetAlarm"> & {
+  /**
+   * "server.down" (down for 2 minutes), "server.credential_refused", "server.credential_missing",
+   * "host.failing", "backup.stale", "backup.failed", "wal.failing", "hub.unowned".
+   *
+   * @generated from field: string kind = 1;
+   */
+  kind: string;
+
+  /**
+   * "warning" or "critical".
+   *
+   * @generated from field: string severity = 2;
+   */
+  severity: string;
+
+  /**
+   * The server it is about; empty for the hub itself.
+   *
+   * @generated from field: string server_id = 3;
+   */
+  serverId: string;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp since = 4;
+   */
+  since?: Timestamp | undefined;
+
+  /**
+   * One line saying what is wrong.
+   *
+   * @generated from field: string detail = 5;
+   */
+  detail: string;
+};
+
+/**
+ * Describes the message gravel.hub.v1.FleetAlarm.
+ * Use `create(FleetAlarmSchema)` to create a new message.
+ */
+export const FleetAlarmSchema: GenMessage<FleetAlarm> = /*@__PURE__*/
+  messageDesc(file_gravel_hub_v1_servers, 18);
+
+/**
+ * FleetServer is one server's health, with what it is judged on.
+ *
+ * @generated from message gravel.hub.v1.FleetServer
+ */
+export type FleetServer = Message<"gravel.hub.v1.FleetServer"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string name = 2;
+   */
+  name: string;
+
+  /**
+   * @generated from field: string game_id = 3;
+   */
+  gameId: string;
+
+  /**
+   * @generated from field: string game_name = 4;
+   */
+  gameName: string;
+
+  /**
+   * @generated from field: string trust = 5;
+   */
+  trust: string;
+
+  /**
+   * @generated from field: string driver = 6;
+   */
+  driver: string;
+
+  /**
+   * "up", "degraded", "down", "idle" (parked or absent, as asked) or "unknown" (not polled yet).
+   *
+   * @generated from field: string health = 7;
+   */
+  health: string;
+
+  /**
+   * One line saying why: "answering", "not answering", "the host is booting", ...
+   *
+   * @generated from field: string reason = 8;
+   */
+  reason: string;
+
+  /**
+   * Since when the health holds; unset when not known.
+   *
+   * @generated from field: google.protobuf.Timestamp health_since = 9;
+   */
+  healthSince?: Timestamp | undefined;
+
+  /**
+   * The monitor's state (ServerStatus.state).
+   *
+   * @generated from field: string state = 10;
+   */
+  state: string;
+
+  /**
+   * @generated from field: int32 players = 11;
+   */
+  players: number;
+
+  /**
+   * @generated from field: int32 max_players = 12;
+   */
+  maxPlayers: number;
+
+  /**
+   * @generated from field: string map = 13;
+   */
+  map: string;
+
+  /**
+   * The last successful poll; unset when there was none.
+   *
+   * @generated from field: google.protobuf.Timestamp observed_at = 14;
+   */
+  observedAt?: Timestamp | undefined;
+
+  /**
+   * How long the last poll took, in milliseconds, and the failed polls in a row.
+   *
+   * @generated from field: int32 poll_ms = 15;
+   */
+  pollMs: number;
+
+  /**
+   * @generated from field: int32 misses = 16;
+   */
+  misses: number;
+
+  /**
+   * A cloud-VM server's host: its state and the code of the step it keeps failing; empty for a
+   * server whose host gravel doesn't make.
+   *
+   * @generated from field: string host_state = 17;
+   */
+  hostState: string;
+
+  /**
+   * @generated from field: string host_error_code = 18;
+   */
+  hostErrorCode: string;
+
+  /**
+   * The server's live lease: "starting", "ready", "ending"; empty for none.
+   *
+   * @generated from field: string lease_state = 19;
+   */
+  leaseState: string;
+};
+
+/**
+ * Describes the message gravel.hub.v1.FleetServer.
+ * Use `create(FleetServerSchema)` to create a new message.
+ */
+export const FleetServerSchema: GenMessage<FleetServer> = /*@__PURE__*/
+  messageDesc(file_gravel_hub_v1_servers, 19);
+
+/**
+ * @generated from message gravel.hub.v1.GetFleetSummaryResponse
+ */
+export type GetFleetSummaryResponse = Message<"gravel.hub.v1.GetFleetSummaryResponse"> & {
+  /**
+   * @generated from field: gravel.hub.v1.FleetTotals totals = 1;
+   */
+  totals?: FleetTotals | undefined;
+
+  /**
+   * The open alarms, critical first, then oldest first.
+   *
+   * @generated from field: repeated gravel.hub.v1.FleetAlarm alarms = 2;
+   */
+  alarms: FleetAlarm[];
+
+  /**
+   * Trouble first: down, degraded, unknown, up, idle; then by players, most first.
+   *
+   * @generated from field: repeated gravel.hub.v1.FleetServer servers = 3;
+   */
+  servers: FleetServer[];
+
+  /**
+   * When the summary was taken.
+   *
+   * @generated from field: google.protobuf.Timestamp as_of = 4;
+   */
+  asOf?: Timestamp | undefined;
+};
+
+/**
+ * Describes the message gravel.hub.v1.GetFleetSummaryResponse.
+ * Use `create(GetFleetSummaryResponseSchema)` to create a new message.
+ */
+export const GetFleetSummaryResponseSchema: GenMessage<GetFleetSummaryResponse> = /*@__PURE__*/
+  messageDesc(file_gravel_hub_v1_servers, 20);
+
+/**
  * ServerService reads the games and servers the hub controls (ADR-0010). They are applied from a
  * deployment's servers.yaml by `gravel-hub servers apply`; the hub polls each server through its
  * driver and answers from the last observation, so a caller never reaches a game server.
@@ -650,6 +932,18 @@ export const ServerService: GenService<{
     methodKind: "unary";
     input: typeof ListServerPlayersRequestSchema;
     output: typeof ListServerPlayersResponseSchema;
+  },
+  /**
+   * GetFleetSummary is every server's health, the fleet's totals and the open alarms (gravel#190):
+   * servers:read. A caller holding it for some games sees those games' servers and their alarms;
+   * the hub's own alarms (backups, WAL, the claim) need events:read everywhere.
+   *
+   * @generated from rpc gravel.hub.v1.ServerService.GetFleetSummary
+   */
+  getFleetSummary: {
+    methodKind: "unary";
+    input: typeof GetFleetSummaryRequestSchema;
+    output: typeof GetFleetSummaryResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_gravel_hub_v1_servers, 0);

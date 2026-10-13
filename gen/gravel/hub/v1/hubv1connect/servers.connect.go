@@ -44,6 +44,9 @@ const (
 	// ServerServiceListServerPlayersProcedure is the fully-qualified name of the ServerService's
 	// ListServerPlayers RPC.
 	ServerServiceListServerPlayersProcedure = "/gravel.hub.v1.ServerService/ListServerPlayers"
+	// ServerServiceGetFleetSummaryProcedure is the fully-qualified name of the ServerService's
+	// GetFleetSummary RPC.
+	ServerServiceGetFleetSummaryProcedure = "/gravel.hub.v1.ServerService/GetFleetSummary"
 )
 
 // ServerServiceClient is a client for the gravel.hub.v1.ServerService service.
@@ -57,6 +60,10 @@ type ServerServiceClient interface {
 	// ListServerPlayers is who was on at the last poll: names and provider identities, so a
 	// logged-in member, the owner, or an app with the servers:read scope.
 	ListServerPlayers(context.Context, *connect.Request[v1.ListServerPlayersRequest]) (*connect.Response[v1.ListServerPlayersResponse], error)
+	// GetFleetSummary is every server's health, the fleet's totals and the open alarms (gravel#190):
+	// servers:read. A caller holding it for some games sees those games' servers and their alarms;
+	// the hub's own alarms (backups, WAL, the claim) need events:read everywhere.
+	GetFleetSummary(context.Context, *connect.Request[v1.GetFleetSummaryRequest]) (*connect.Response[v1.GetFleetSummaryResponse], error)
 }
 
 // NewServerServiceClient constructs a client for the gravel.hub.v1.ServerService service. By
@@ -94,6 +101,12 @@ func NewServerServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 			connect.WithSchema(serverServiceMethods.ByName("ListServerPlayers")),
 			connect.WithClientOptions(opts...),
 		),
+		getFleetSummary: connect.NewClient[v1.GetFleetSummaryRequest, v1.GetFleetSummaryResponse](
+			httpClient,
+			baseURL+ServerServiceGetFleetSummaryProcedure,
+			connect.WithSchema(serverServiceMethods.ByName("GetFleetSummary")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -103,6 +116,7 @@ type serverServiceClient struct {
 	listServers       *connect.Client[v1.ListServersRequest, v1.ListServersResponse]
 	getServerStatus   *connect.Client[v1.GetServerStatusRequest, v1.GetServerStatusResponse]
 	listServerPlayers *connect.Client[v1.ListServerPlayersRequest, v1.ListServerPlayersResponse]
+	getFleetSummary   *connect.Client[v1.GetFleetSummaryRequest, v1.GetFleetSummaryResponse]
 }
 
 // ListGames calls gravel.hub.v1.ServerService.ListGames.
@@ -125,6 +139,11 @@ func (c *serverServiceClient) ListServerPlayers(ctx context.Context, req *connec
 	return c.listServerPlayers.CallUnary(ctx, req)
 }
 
+// GetFleetSummary calls gravel.hub.v1.ServerService.GetFleetSummary.
+func (c *serverServiceClient) GetFleetSummary(ctx context.Context, req *connect.Request[v1.GetFleetSummaryRequest]) (*connect.Response[v1.GetFleetSummaryResponse], error) {
+	return c.getFleetSummary.CallUnary(ctx, req)
+}
+
 // ServerServiceHandler is an implementation of the gravel.hub.v1.ServerService service.
 type ServerServiceHandler interface {
 	// ListGames is the enabled games; public.
@@ -136,6 +155,10 @@ type ServerServiceHandler interface {
 	// ListServerPlayers is who was on at the last poll: names and provider identities, so a
 	// logged-in member, the owner, or an app with the servers:read scope.
 	ListServerPlayers(context.Context, *connect.Request[v1.ListServerPlayersRequest]) (*connect.Response[v1.ListServerPlayersResponse], error)
+	// GetFleetSummary is every server's health, the fleet's totals and the open alarms (gravel#190):
+	// servers:read. A caller holding it for some games sees those games' servers and their alarms;
+	// the hub's own alarms (backups, WAL, the claim) need events:read everywhere.
+	GetFleetSummary(context.Context, *connect.Request[v1.GetFleetSummaryRequest]) (*connect.Response[v1.GetFleetSummaryResponse], error)
 }
 
 // NewServerServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -169,6 +192,12 @@ func NewServerServiceHandler(svc ServerServiceHandler, opts ...connect.HandlerOp
 		connect.WithSchema(serverServiceMethods.ByName("ListServerPlayers")),
 		connect.WithHandlerOptions(opts...),
 	)
+	serverServiceGetFleetSummaryHandler := connect.NewUnaryHandler(
+		ServerServiceGetFleetSummaryProcedure,
+		svc.GetFleetSummary,
+		connect.WithSchema(serverServiceMethods.ByName("GetFleetSummary")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/gravel.hub.v1.ServerService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ServerServiceListGamesProcedure:
@@ -179,6 +208,8 @@ func NewServerServiceHandler(svc ServerServiceHandler, opts ...connect.HandlerOp
 			serverServiceGetServerStatusHandler.ServeHTTP(w, r)
 		case ServerServiceListServerPlayersProcedure:
 			serverServiceListServerPlayersHandler.ServeHTTP(w, r)
+		case ServerServiceGetFleetSummaryProcedure:
+			serverServiceGetFleetSummaryHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -202,4 +233,8 @@ func (UnimplementedServerServiceHandler) GetServerStatus(context.Context, *conne
 
 func (UnimplementedServerServiceHandler) ListServerPlayers(context.Context, *connect.Request[v1.ListServerPlayersRequest]) (*connect.Response[v1.ListServerPlayersResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.ServerService.ListServerPlayers is not implemented"))
+}
+
+func (UnimplementedServerServiceHandler) GetFleetSummary(context.Context, *connect.Request[v1.GetFleetSummaryRequest]) (*connect.Response[v1.GetFleetSummaryResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.ServerService.GetFleetSummary is not implemented"))
 }

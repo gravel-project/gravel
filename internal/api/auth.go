@@ -48,6 +48,7 @@ var memberProcedures = map[string]string{
 	hubv1connect.ServerServiceListServersProcedure:                   "",
 	hubv1connect.ServerServiceGetServerStatusProcedure:               "",
 	hubv1connect.ServerServiceListServerPlayersProcedure:             apps.ScopeServersRead,
+	hubv1connect.ServerServiceGetFleetSummaryProcedure:               apps.ScopeServersRead,
 	hubv1connect.ModerationServiceKickPlayerProcedure:                apps.ScopeServersModerate,
 	hubv1connect.ModerationServiceBanPlayerProcedure:                 apps.ScopeServersModerate,
 	hubv1connect.ModerationServiceUnbanPlayerProcedure:               apps.ScopeServersModerate,
