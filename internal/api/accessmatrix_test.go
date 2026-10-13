@@ -54,9 +54,7 @@ func TestAccessMatrix(t *testing.T) {
 		t.Fatal(err)
 	}
 	mod := r.user(t, "Mod", "2")
-	if _, err := r.ids.SetRole(ctx, mod.ID, "moderator", true, owner.ID); err != nil {
-		t.Fatal(err)
-	}
+	r.grant(t, owner.ID, mod.ID, store.RoleModerator)
 	member := r.user(t, "Member", "3")
 
 	memberScopes := slices.Sorted(func(yield func(string) bool) {

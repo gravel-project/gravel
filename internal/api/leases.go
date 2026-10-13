@@ -124,10 +124,20 @@ func (s *LeaseServer) get(ctx context.Context, rawID string) (servers.Lease, err
 
 // ListServerLeases is the leases, newest first; an app sees its own.
 func (s *LeaseServer) ListServerLeases(ctx context.Context, req *connect.Request[hubv1.ListServerLeasesRequest]) (*connect.Response[hubv1.ListServerLeasesResponse], error) {
-	who, err := s.leaser(ctx, nil)
+	// The list is every server's: a caller holding servers:lease for some games sees those games'
+	// leases (ADR-0027 §4); an app sees its own.
+	if _, ok := apps.MemberFromContext(ctx); ok {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("a member's token cannot lease a server"))
+	}
+	p, err := s.access.RequireAny(ctx, authz.ServersLease)
 	if err != nil {
 		return nil, err
 	}
+	who, err := actor(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	all, _ := p.Scope(authz.ServersLease)
 	limit := int(req.Msg.GetLimit())
 	switch {
 	case limit <= 0:
@@ -135,13 +145,13 @@ func (s *LeaseServer) ListServerLeases(ctx context.Context, req *connect.Request
 	case limit > 200:
 		limit = 200
 	}
-	all, err := s.leases.List(ctx, req.Msg.GetServerId(), req.Msg.GetLiveOnly(), limit)
+	leases, err := s.leases.List(ctx, req.Msg.GetServerId(), req.Msg.GetLiveOnly(), limit)
 	if err != nil {
 		return nil, s.mapError(ctx, err)
 	}
 	out := &hubv1.ListServerLeasesResponse{}
-	for _, l := range all {
-		if s.mayHold(who, l) == nil {
+	for _, l := range leases {
+		if s.mayHold(who, l) == nil && (all || s.access.Visible(ctx, p, authz.ServersLease, l.ServerID)) {
 			out.Leases = append(out.Leases, leaseMessage(l))
 		}
 	}

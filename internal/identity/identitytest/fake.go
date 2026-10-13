@@ -36,6 +36,10 @@ type FakeStore struct {
 	Locals map[string]store.LocalCredential
 	// Links are password links (gravel#187), oldest first.
 	Links []store.PasswordLink
+	// Grants are role grants (ADR-0027), in the order made; Games, when set, are the games a
+	// grant may name (store.ErrUnknownGame otherwise).
+	Grants []store.RoleGrant
+	Games  []string
 }
 
 // NewFakeStore returns an empty store.
@@ -535,40 +539,66 @@ func (p *FakePublisher) Published() []identity.Profile {
 	return slices.Clone(p.published)
 }
 
-// SetUserRole grants or revokes a role, as the real store does; RoleChanges records each change.
-func (f *FakeStore) SetUserRole(_ context.Context, userID uuid.UUID, role string, granted bool, by *uuid.UUID, at time.Time) (store.User, error) {
+// SetRoleGrant grants or revokes a role, as the real store does: the user's Roles follow their
+// instance-wide grants, and RoleChanges records each change.
+func (f *FakeStore) SetRoleGrant(_ context.Context, userID uuid.UUID, role, gameID string, granted bool, ch store.RoleChange) (bool, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	if err := f.fail("SetUserRole"); err != nil {
-		return store.User{}, err
+	if err := f.fail("SetRoleGrant"); err != nil {
+		return false, err
 	}
 	u, ok := f.Users[userID]
 	if !ok {
-		return store.User{}, store.ErrNotFound
+		return false, store.ErrNotFound
 	}
-	has := slices.Contains(u.Roles, role)
+	if gameID != "" && f.Games != nil && !slices.Contains(f.Games, gameID) {
+		return false, store.ErrUnknownGame
+	}
+	i := slices.IndexFunc(f.Grants, func(g store.RoleGrant) bool { return g.UserID == userID && g.Role == role && g.GameID == gameID })
 	switch {
-	case granted && !has:
-		u.Roles = append(slices.Clone(u.Roles), role)
-	case !granted && has:
-		u.Roles = slices.DeleteFunc(slices.Clone(u.Roles), func(r string) bool { return r == role })
-		if len(u.Roles) == 0 {
-			u.Roles = nil
-		}
+	case granted && i < 0:
+		f.Grants = append(f.Grants, store.RoleGrant{UserID: userID, Role: role, GameID: gameID, GrantedBy: ch.By, GrantedByApp: ch.ByApp, GrantedAt: ch.At})
+	case !granted && i >= 0:
+		f.Grants = slices.Delete(f.Grants, i, i+1)
 	default:
-		return u, nil
+		return false, nil
 	}
+	u.Roles = nil
+	for _, g := range f.Grants {
+		if g.UserID == userID && g.GameID == "" {
+			u.Roles = append(u.Roles, g.Role)
+		}
+	}
+	slices.Sort(u.Roles)
 	f.Users[userID] = u
-	f.RoleChanges = append(f.RoleChanges, RoleChange{UserID: userID, Role: role, Granted: granted, By: by, At: at})
-	return u, nil
+	f.RoleChanges = append(f.RoleChanges, RoleChange{UserID: userID, Role: role, GameID: gameID, Granted: granted, By: ch.By, ByApp: ch.ByApp, At: ch.At})
+	return true, nil
+}
+
+// RoleGrants returns the grants of the given members (all when empty).
+func (f *FakeStore) RoleGrants(_ context.Context, userIDs []uuid.UUID) ([]store.RoleGrant, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.fail("RoleGrants"); err != nil {
+		return nil, err
+	}
+	var out []store.RoleGrant
+	for _, g := range f.Grants {
+		if len(userIDs) == 0 || slices.Contains(userIDs, g.UserID) {
+			out = append(out, g)
+		}
+	}
+	return out, nil
 }
 
 // RoleChange is one recorded grant or revocation.
 type RoleChange struct {
 	UserID  uuid.UUID
 	Role    string
+	GameID  string
 	Granted bool
 	By      *uuid.UUID
+	ByApp   *uuid.UUID
 	At      time.Time
 }
 

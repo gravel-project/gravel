@@ -21,8 +21,8 @@ import (
 )
 
 // HostServer serves gravel.hub.v1.ServerHostService (ADR-0003): reads with servers:read (every
-// member holds it); park and unpark with servers:moderate; resize, unpin, snapshot and destroy with
-// servers:provision (ADR-0027).
+// member holds it); park, unpark and the expectation with servers:operate; resize, unpin, snapshot
+// and destroy with servers:provision (ADR-0027).
 type HostServer struct {
 	hubv1connect.UnimplementedServerHostServiceHandler
 	hosts  *servers.Hosts
@@ -81,7 +81,7 @@ func (s *HostServer) ListServerHostEvents(ctx context.Context, req *connect.Requ
 // SetServerHostDesired parks or unparks a host.
 func (s *HostServer) SetServerHostDesired(ctx context.Context, req *connect.Request[hubv1.SetServerHostDesiredRequest]) (*connect.Response[hubv1.SetServerHostDesiredResponse], error) {
 	m := req.Msg
-	if _, err := s.access.RequireFor(ctx, authz.ServersModerate, authz.Target{ServerID: m.GetServerId()}, m.GetOnBehalfOf()); err != nil {
+	if _, err := s.access.RequireFor(ctx, authz.ServersOperate, authz.Target{ServerID: m.GetServerId()}, m.GetOnBehalfOf()); err != nil {
 		return nil, err
 	}
 	desired := m.GetDesired()
@@ -110,7 +110,7 @@ func (s *HostServer) SetServerHostDesired(ctx context.Context, req *connect.Requ
 // SetServerHostExpectation says how many players a host should expect until when (#172).
 func (s *HostServer) SetServerHostExpectation(ctx context.Context, req *connect.Request[hubv1.SetServerHostExpectationRequest]) (*connect.Response[hubv1.SetServerHostExpectationResponse], error) {
 	m := req.Msg
-	if _, err := s.access.RequireFor(ctx, authz.ServersModerate, authz.Target{ServerID: m.GetServerId()}, m.GetOnBehalfOf()); err != nil {
+	if _, err := s.access.RequireFor(ctx, authz.ServersOperate, authz.Target{ServerID: m.GetServerId()}, m.GetOnBehalfOf()); err != nil {
 		return nil, err
 	}
 	var until time.Time

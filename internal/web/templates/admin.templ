@@ -7,19 +7,19 @@ templ Members(p MembersPage) {
 	}
 }
 
-// MembersContent lists the members for the owner, who grants and revokes the moderator role here.
+// MembersContent lists the members and their grants; a member holding roles:grant also grants and
+// revokes roles here (ADR-0027).
 templ MembersContent(p MembersPage) {
 	@FlashView(p.Flash)
 	<h1>Members</h1>
-	<p class="muted">Moderators can kick, ban and message players and read the moderation log, as you can. Every grant and revocation is recorded.</p>
+	<p class="muted">Moderators look after players: kick, ban, message, the moderation log. Operators look after servers at their size: park, start, configure. Admins can do everything but hand the hub over, including what costs money. A grant can be for one game. Every change is recorded.</p>
 	<table>
 		<thead>
 			<tr>
 				<th scope="col">Member</th>
 				<th scope="col">Accounts</th>
 				<th scope="col">Joined</th>
-				<th scope="col">Role</th>
-				<th scope="col"><span class="visually-hidden">Actions</span></th>
+				<th scope="col">Roles</th>
 			</tr>
 		</thead>
 		<tbody>
@@ -31,25 +31,40 @@ templ MembersContent(p MembersPage) {
 					<td>
 						if m.Owner {
 							<span class="badge">owner</span>
-						} else if m.Moderator {
-							<span class="badge">moderator</span>
-						} else {
+						} else if len(m.Grants) == 0 {
 							<span class="muted">member</span>
 						}
-					</td>
-					<td>
-						if !m.Owner {
+						for _, g := range m.Grants {
+							<span class="badge">{ g.Label }</span>
+							if p.User.CanGrant && !m.Owner {
+								<form method="post" action="/members/role" class="inline" hx-post="/members/role" hx-target="#page" hx-swap="innerHTML">
+									<input type="hidden" name="_csrf" value={ p.CSRF }/>
+									<input type="hidden" name="user_id" value={ m.ID }/>
+									<input type="hidden" name="role" value={ g.Role }/>
+									<input type="hidden" name="game_id" value={ g.GameID }/>
+									<input type="hidden" name="granted" value="0"/>
+									<button type="submit" class="link">Remove { g.Label } from { m.DisplayName }</button>
+								</form>
+							}
+						}
+						if p.User.CanGrant && !m.Owner {
 							<form method="post" action="/members/role" class="inline" hx-post="/members/role" hx-target="#page" hx-swap="innerHTML">
 								<input type="hidden" name="_csrf" value={ p.CSRF }/>
 								<input type="hidden" name="user_id" value={ m.ID }/>
-								<input type="hidden" name="role" value="moderator"/>
-								if m.Moderator {
-									<input type="hidden" name="granted" value="0"/>
-									<button type="submit" class="link">Remove moderator from { m.DisplayName }</button>
-								} else {
-									<input type="hidden" name="granted" value="1"/>
-									<button type="submit" class="link">Make { m.DisplayName } a moderator</button>
-								}
+								<input type="hidden" name="granted" value="1"/>
+								<label for={ "role-" + m.ID } class="visually-hidden">Role for { m.DisplayName }</label>
+								<select id={ "role-" + m.ID } name="role">
+									for _, o := range p.Roles {
+										<option value={ o.Value } selected?={ o.Selected }>{ o.Label }</option>
+									}
+								</select>
+								<label for={ "scope-" + m.ID } class="visually-hidden">Where, for { m.DisplayName }</label>
+								<select id={ "scope-" + m.ID } name="game_id">
+									for _, o := range p.Scopes {
+										<option value={ o.Value } selected?={ o.Selected }>{ o.Label }</option>
+									}
+								</select>
+								<button type="submit" class="link">Grant to { m.DisplayName }</button>
 							</form>
 						}
 					</td>

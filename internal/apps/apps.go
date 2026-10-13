@@ -37,6 +37,8 @@ const (
 	ScopeServersModerate    = string(authz.ServersModerate)
 	ScopeServersLease       = string(authz.ServersLease)
 	ScopeServersConfigure   = string(authz.ServersConfigure)
+	ScopeServersOperate     = string(authz.ServersOperate)
+	ScopeRolesGrant         = string(authz.RolesGrant)
 	ScopeStatsRead          = string(authz.StatsRead)
 	ScopeParticipationWrite = string(authz.ParticipationWrite)
 )
@@ -76,7 +78,8 @@ var MemberScopes = map[string]string{
 	ScopeIdentityRead:     "See the members of this hub and the accounts they linked",
 	ScopeServersRead:      "See who is playing on this hub's servers",
 	ScopeServersModerate:  "Moderate servers as you: kick, ban, message and move players, and read the moderation log, if you are a moderator",
-	ScopeServersConfigure: "Change servers' configuration as you, if you own this hub",
+	ScopeServersConfigure: "Change servers' configuration as you, if you may",
+	ScopeServersOperate:   "Park and unpark servers as you, if you operate them",
 	ScopeStatsRead:        "Read leaderboards, match lists and members' stats",
 }
 

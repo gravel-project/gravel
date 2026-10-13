@@ -35,7 +35,7 @@ func TestVocabulary(t *testing.T) {
 			t.Errorf("Lookup(%q) = %v %v", s.Name, got, ok)
 		}
 	}
-	want := []string{"identity:read", "participation:write", "servers:configure", "servers:lease", "servers:moderate", "servers:read", "stats:read"}
+	want := []string{"identity:read", "participation:write", "roles:grant", "servers:configure", "servers:lease", "servers:moderate", "servers:operate", "servers:read", "stats:read"}
 	if got := slices.Sorted(slices.Values(authz.AppScopes())); !slices.Equal(got, want) {
 		t.Errorf("AppScopes = %v, want %v", got, want)
 	}
@@ -44,28 +44,72 @@ func TestVocabulary(t *testing.T) {
 	}
 }
 
-// The owner holds every capability a person can hold, and not an app's own; a member holds the
-// base; a moderator what ADR-0013 gave them, until #185.
+// ADR-0027 §3: the owner holds every capability a person can hold, an admin all but
+// org:transfer, an operator and a moderator their bundles, a member the base.
 func TestBundles(t *testing.T) {
-	owner := authz.ForMember(uuid.New(), true, []string{"moderator"})
+	owner := authz.ForMember(uuid.New(), true, nil)
+	admin := authz.ForMember(uuid.New(), false, []authz.Grant{{Role: "admin"}})
 	for _, s := range authz.Specs() {
 		if got := owner.Has(s.Name, authz.Target{}); got == s.AppOnly {
 			t.Errorf("owner Has(%q) = %v", s.Name, got)
+		}
+		if got, want := admin.Has(s.Name, authz.Target{}), !s.AppOnly && s.Name != authz.OrgTransfer; got != want {
+			t.Errorf("admin Has(%q) = %v", s.Name, got)
 		}
 	}
 	member := authz.ForMember(uuid.New(), false, nil)
 	if got := member.Capabilities(); !slices.Equal(got, []authz.Capability{authz.ServersRead}) {
 		t.Errorf("member = %v", got)
 	}
-	mod := authz.ForMember(uuid.New(), false, []string{"moderator", "nonsense"})
-	want := []authz.Capability{authz.ServersRead, authz.ServersModerate, authz.ServersLease}
-	if got := mod.Capabilities(); !slices.Equal(got, want) {
-		t.Errorf("moderator = %v, want %v", got, want)
-	}
-	for _, c := range []authz.Capability{authz.IdentityRead, authz.StatsRead, authz.ServersConfigure, authz.ServersProvision, authz.RolesGrant, authz.SettingsWrite} {
-		if mod.Has(c, authz.Target{}) {
-			t.Errorf("a moderator holds %q", c)
+	for role, want := range map[string][]authz.Capability{
+		"operator":  {authz.ServersRead, authz.ServersLease, authz.ServersConfigure, authz.StatsRead, authz.ServersOperate, authz.EventsRead, authz.MetricsRead},
+		"moderator": {authz.IdentityRead, authz.ServersRead, authz.ServersModerate, authz.ServersLease, authz.StatsRead, authz.EventsRead},
+	} {
+		if got := authz.ForMember(uuid.New(), false, []authz.Grant{{Role: role}, {Role: "nonsense"}}).Capabilities(); !slices.Equal(got, want) {
+			t.Errorf("%s = %v, want %v", role, got, want)
 		}
+	}
+	for _, c := range []authz.Capability{authz.ServersProvision, authz.RolesGrant, authz.SettingsWrite, authz.ServersModerate} {
+		if authz.ForMember(uuid.New(), false, []authz.Grant{{Role: "operator"}}).Has(c, authz.Target{}) {
+			t.Errorf("an operator holds %q", c)
+		}
+	}
+	if !authz.IsGrantable("admin") || authz.IsGrantable("owner") || authz.IsGrantable("member") {
+		t.Error("grantable roles")
+	}
+}
+
+// ADR-0027 §4: a game-scoped grant gives its scopable capabilities for that game only; the rest
+// of the bundle not at all.
+func TestGameScopedGrants(t *testing.T) {
+	cs2 := authz.Target{ServerID: "htg-cs2-1", GameID: "cs2"}
+	wd := authz.Target{ServerID: "htg-wardogs-1", GameID: "wardogs"}
+	mod := authz.ForMember(uuid.New(), false, []authz.Grant{{Role: "moderator", GameID: "cs2"}, {Role: "operator", GameID: "cs2"}})
+	if !mod.Has(authz.ServersModerate, cs2) || !mod.Has(authz.ServersOperate, cs2) || !mod.Has(authz.EventsRead, cs2) {
+		t.Error("scoped grant on its game")
+	}
+	if mod.Has(authz.ServersModerate, wd) || mod.Has(authz.ServersModerate, authz.Target{}) || mod.Has(authz.ServersModerate, authz.Target{ServerID: "x"}) {
+		t.Error("scoped grant elsewhere")
+	}
+	if mod.Has(authz.IdentityRead, cs2) || mod.Has(authz.StatsRead, cs2) {
+		t.Error("a scoped grant gave a capability that isn't scopable")
+	}
+	if all, games := mod.Scope(authz.ServersModerate); all || !slices.Equal(games, []string{"cs2"}) {
+		t.Errorf("scope = %v %v", all, games)
+	}
+	both := authz.ForMember(uuid.New(), false, []authz.Grant{{Role: "moderator"}, {Role: "operator", GameID: "cs2"}})
+	if all, _ := both.Scope(authz.ServersModerate); !all {
+		t.Error("an instance grant is everywhere")
+	}
+	if all, games := both.Scope(authz.ServersProvision); all || len(games) != 0 {
+		t.Errorf("nowhere = %v %v", all, games)
+	}
+	admin := authz.ForMember(uuid.New(), false, []authz.Grant{{Role: "admin", GameID: "cs2"}})
+	if !admin.Has(authz.ServersProvision, cs2) || !admin.Has(authz.RolesGrant, cs2) || admin.Has(authz.RolesGrant, authz.Target{}) || admin.Has(authz.SettingsWrite, cs2) {
+		t.Error("a game-scoped admin: provision and grant in the game, never settings")
+	}
+	if tok := mod.Through(uuid.New(), "Muster", []string{"servers:moderate"}); !tok.Has(authz.ServersModerate, cs2) || tok.Has(authz.ServersOperate, cs2) {
+		t.Error("a token narrows scoped capabilities too")
 	}
 }
 

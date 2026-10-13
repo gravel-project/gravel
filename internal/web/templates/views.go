@@ -89,8 +89,11 @@ type User struct {
 	ID          string
 	DisplayName string
 	Owner       bool
-	// Moderator holds the moderator role (ADR-0013); the owner moderates without it.
+	// Moderator holds servers:moderate somewhere (ADR-0027): instance-wide or for a game. The API
+	// decides each action; the pages only choose which controls to show.
 	Moderator bool
+	// CanGrant holds roles:grant somewhere: the Members page shows its grant controls.
+	CanGrant bool
 }
 
 // CanModerate reports whether the member may moderate servers.
@@ -644,13 +647,24 @@ type MemberRow struct {
 	Accounts    string
 	Joined      time.Time
 	Owner       bool
-	Moderator   bool
+	Grants      []GrantView
 }
 
-// MembersPage is the owner's list of members, where roles are granted.
+// GrantView is one role a member holds, instance-wide or for a game (ADR-0027).
+type GrantView struct {
+	Role   string
+	GameID string // "" is every game
+	// Label is how the page says it: "moderator", or "operator · Counter-Strike 2".
+	Label string
+}
+
+// MembersPage lists the members and their grants; CanGrant (the page's User) adds the controls.
 type MembersPage struct {
 	Page
 	Members []MemberRow
+	// Roles and Scopes are the grant form's choices: admin, operator, moderator; every game or one.
+	Roles   []Option
+	Scopes  []Option
 	NextURL string
 }
 

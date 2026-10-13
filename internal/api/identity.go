@@ -262,8 +262,11 @@ func toProtoUser(u identity.User, o store.Organization) *hubv1.User {
 	if u.LastLoginAt != nil {
 		p.LastLoginAt = timestamppb.New(*u.LastLoginAt)
 	}
-	for _, c := range authz.ForMember(u.ID, p.Owner, u.Roles).Capabilities() {
+	for _, c := range authz.ForMember(u.ID, p.Owner, u.AuthzGrants()).Capabilities() {
 		p.Capabilities = append(p.Capabilities, string(c))
+	}
+	for _, g := range u.Grants {
+		p.Grants = append(p.Grants, toProtoGrant(g))
 	}
 	for _, i := range u.Identities {
 		p.Identities = append(p.Identities, toProtoIdentity(i))
@@ -290,23 +293,24 @@ func toProtoIdentity(i store.Identity) *hubv1.Identity {
 // SetUserRole grants or revokes a member's role: a caller holding roles:grant (the owner, in
 // person).
 func (s *IdentityServer) SetUserRole(ctx context.Context, req *connect.Request[hubv1.SetUserRoleRequest]) (*connect.Response[hubv1.SetUserRoleResponse], error) {
-	p, err := s.access.Require(ctx, authz.RolesGrant, authz.Target{})
+	// roles:grant somewhere gets the caller to the rules, which check its scope (ADR-0027 §5).
+	p, err := s.access.RequireAny(ctx, authz.RolesGrant)
 	if err != nil {
 		return nil, err
 	}
-	by := p.UserID
 	uid, err := uuid.Parse(req.Msg.GetUserId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("user_id is not a member id"))
 	}
-	if _, err := s.ids.SetRole(ctx, uid, req.Msg.GetRole(), req.Msg.GetGranted(), by); err != nil {
-		if errors.Is(err, identity.ErrUnknownRole) {
-			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("role %q is not one of %s", req.Msg.GetRole(), strings.Join(store.Roles, ", ")))
-		}
-		return nil, mapError(ctx, s.logger, err)
-	}
-	u, err := s.ids.Me(ctx, uid)
-	if err != nil {
+	u, err := s.ids.SetRole(ctx, p, uid, req.Msg.GetRole(), strings.TrimSpace(req.Msg.GetGameId()), req.Msg.GetGranted())
+	switch {
+	case errors.Is(err, identity.ErrUnknownRole):
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("role %q is not one of %s", req.Msg.GetRole(), strings.Join(store.Roles, ", ")))
+	case errors.Is(err, identity.ErrUnknownGame):
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("game %q is not one this hub has", req.Msg.GetGameId()))
+	case errors.Is(err, identity.ErrGrantRefused):
+		return nil, connect.NewError(connect.CodePermissionDenied, err)
+	case err != nil:
 		return nil, mapError(ctx, s.logger, err)
 	}
 	o, err := s.org.Get(ctx)
@@ -314,4 +318,39 @@ func (s *IdentityServer) SetUserRole(ctx context.Context, req *connect.Request[h
 		return nil, mapError(ctx, s.logger, err)
 	}
 	return connect.NewResponse(&hubv1.SetUserRoleResponse{User: toProtoUser(u, o)}), nil
+}
+
+// ListRoleGrants lists who holds which role where.
+func (s *IdentityServer) ListRoleGrants(ctx context.Context, req *connect.Request[hubv1.ListRoleGrantsRequest]) (*connect.Response[hubv1.ListRoleGrantsResponse], error) {
+	if _, err := s.access.Require(ctx, authz.IdentityRead, authz.Target{}); err != nil {
+		return nil, err
+	}
+	var ids []uuid.UUID
+	if raw := req.Msg.GetUserId(); raw != "" {
+		id, err := uuid.Parse(raw)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("user_id is not a member id"))
+		}
+		ids = []uuid.UUID{id}
+	}
+	grants, err := s.ids.RoleGrants(ctx, ids)
+	if err != nil {
+		return nil, mapError(ctx, s.logger, err)
+	}
+	out := &hubv1.ListRoleGrantsResponse{}
+	for _, g := range grants {
+		out.Grants = append(out.Grants, toProtoGrant(g))
+	}
+	return connect.NewResponse(out), nil
+}
+
+func toProtoGrant(g store.RoleGrant) *hubv1.RoleGrant {
+	p := &hubv1.RoleGrant{UserId: g.UserID.String(), Role: g.Role, GameId: g.GameID, GrantedAt: timestamppb.New(g.GrantedAt)}
+	if g.GrantedBy != nil {
+		p.GrantedByUserId = g.GrantedBy.String()
+	}
+	if g.GrantedByApp != nil {
+		p.GrantedByAppId = g.GrantedByApp.String()
+	}
+	return p
 }

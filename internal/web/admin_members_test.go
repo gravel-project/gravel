@@ -8,8 +8,8 @@ import (
 	"testing"
 )
 
-// The owner lists members and grants or revokes the moderator role; a member is refused, and only
-// the owner sees the Members link (ADR-0013).
+// The owner lists members and grants or revokes roles, instance-wide or for a game; a member is
+// refused, and only someone who may grant sees the Members link (ADR-0027).
 func TestMembersPage(t *testing.T) {
 	r := newRig(t)
 	jo, sam := browser(t), browser(t)
@@ -17,7 +17,7 @@ func TestMembersPage(t *testing.T) {
 	r.loginAs(t, jo, "jo")
 
 	// Before anyone owns the hub, Jo is a member like Sam.
-	if resp, body := get(t, jo, r.srv.URL+"/members"); resp.StatusCode != http.StatusForbidden || !strings.Contains(body, "Only the hub&#39;s owner") {
+	if resp, body := get(t, jo, r.srv.URL+"/members"); resp.StatusCode != http.StatusForbidden || !strings.Contains(body, "Only the hub&#39;s staff") {
 		t.Errorf("a member: %d", resp.StatusCode)
 	}
 	_, acct := get(t, jo, r.srv.URL+"/account")
@@ -28,34 +28,40 @@ func TestMembersPage(t *testing.T) {
 
 	resp, body := get(t, jo, r.srv.URL+"/members")
 	if resp.StatusCode != http.StatusOK || !strings.Contains(body, `href="/members"`) || !strings.Contains(body, ">owner<") ||
-		!strings.Contains(body, "Make Sam a moderator") || strings.Contains(body, "Make Jo a moderator") || !strings.Contains(body, "Discord") {
+		!strings.Contains(body, "Grant to Sam") || strings.Contains(body, "Grant to Jo") || !strings.Contains(body, `<option value="wardogs">War Dogs</option>`) {
 		t.Fatalf("the owner's Members page: %d %s", resp.StatusCode, body)
 	}
 	samID := regexpFind(t, body, `name="user_id" value="([^"]+)"`)
 
-	// Grant with htmx, revoke without; a form without the token is refused.
-	resp, body = post(t, jo, r.srv.URL+"/members/role", url.Values{"_csrf": {csrfOf(t, body)}, "user_id": {samID}, "role": {"moderator"}, "granted": {"1"}},
-		map[string]string{"HX-Request": "true"})
-	if resp.StatusCode != http.StatusOK || !strings.Contains(body, "Sam is now a moderator.") || !strings.Contains(body, ">moderator<") ||
-		!strings.Contains(body, "Remove moderator from Sam") {
+	// Grant with htmx (instance-wide, then for one game), revoke without; a form without the
+	// token is refused.
+	hx := map[string]string{"HX-Request": "true"}
+	resp, body = post(t, jo, r.srv.URL+"/members/role", url.Values{"_csrf": {csrfOf(t, body)}, "user_id": {samID}, "role": {"moderator"}, "game_id": {""}, "granted": {"1"}}, hx)
+	if resp.StatusCode != http.StatusOK || !strings.Contains(body, "Sam is now moderator.") || !strings.Contains(body, ">moderator<") || !strings.Contains(body, "Remove moderator from Sam") {
 		t.Errorf("grant: %d %s", resp.StatusCode, body)
+	}
+	resp, body = post(t, jo, r.srv.URL+"/members/role", url.Values{"_csrf": {csrfOf(t, body)}, "user_id": {samID}, "role": {"operator"}, "game_id": {"wardogs"}, "granted": {"1"}}, hx)
+	if resp.StatusCode != http.StatusOK || !strings.Contains(body, "Sam is now operator for wardogs.") || !strings.Contains(body, ">operator · War Dogs<") {
+		t.Errorf("a game-scoped grant: %d %s", resp.StatusCode, body)
 	}
 	resp, _ = post(t, jo, r.srv.URL+"/members/role", url.Values{"_csrf": {csrfOf(t, body)}, "user_id": {samID}, "role": {"moderator"}, "granted": {"0"}}, nil)
 	if resp.StatusCode != http.StatusSeeOther || resp.Header.Get("Location") != "/members" {
 		t.Errorf("revoke: %d %s", resp.StatusCode, resp.Header.Get("Location"))
 	}
-	if _, body = get(t, jo, r.srv.URL+"/members"); !strings.Contains(body, "Sam is no longer a moderator.") || !strings.Contains(body, "Make Sam a moderator") {
+	if _, body = get(t, jo, r.srv.URL+"/members"); !strings.Contains(body, "Sam is no longer moderator.") || strings.Contains(body, "Remove moderator from Sam") || !strings.Contains(body, "Remove operator · War Dogs from Sam") {
 		t.Errorf("after the revocation: %s", body)
 	}
 	if resp, _ = post(t, jo, r.srv.URL+"/members/role", url.Values{"user_id": {samID}, "role": {"moderator"}, "granted": {"1"}}, nil); resp.StatusCode != http.StatusForbidden {
 		t.Errorf("a form without the token: %d", resp.StatusCode)
 	}
-	// Sam can't grant, even with a valid form of their own.
+	// Sam (an operator for one game) can't grant, even with a valid form of their own.
 	_, samAcct := get(t, sam, r.srv.URL+"/account")
-	if resp, _ = post(t, sam, r.srv.URL+"/members/role", url.Values{"_csrf": {csrfOf(t, samAcct)}, "user_id": {samID}, "role": {"moderator"}, "granted": {"1"}}, nil); resp.StatusCode != http.StatusForbidden {
-		t.Errorf("a member granting: %d", resp.StatusCode)
+	if strings.Contains(samAcct, `href="/members"`) {
+		t.Error("an operator sees the Members link")
 	}
-	if ch := r.idSt.Changes(); len(ch) != 2 {
+	before := len(r.idSt.Changes())
+	post(t, sam, r.srv.URL+"/members/role", url.Values{"_csrf": {csrfOf(t, samAcct)}, "user_id": {samID}, "role": {"moderator"}, "granted": {"1"}}, nil)
+	if ch := r.idSt.Changes(); len(ch) != before || before != 3 {
 		t.Errorf("role changes = %+v", ch)
 	}
 }

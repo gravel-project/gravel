@@ -37,9 +37,7 @@ func TestCreateLocalAccountAndReset(t *testing.T) {
 		t.Fatal(err)
 	}
 	mod := r.user(t, "Mod", "2")
-	if _, err := r.ids.SetRole(ctx, mod.ID, store.RoleModerator, true, owner.ID); err != nil {
-		t.Fatal(err)
-	}
+	r.grant(t, owner.ID, mod.ID, store.RoleModerator)
 	asOwner := hubv1connect.NewIdentityServiceClient(cookieClient(http.DefaultClient, r.login(t, owner.ID)), r.srv.URL)
 	asMod := hubv1connect.NewIdentityServiceClient(cookieClient(http.DefaultClient, r.login(t, mod.ID)), r.srv.URL)
 

@@ -375,6 +375,45 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.ListIdentityEventsResponse'
+  /gravel.hub.v1.IdentityService/ListRoleGrants:
+    post:
+      tags:
+        - gravel.hub.v1.IdentityService
+      summary: ListRoleGrants
+      description: ListRoleGrants lists who holds which role where. identity:read.
+      operationId: gravel.hub.v1.IdentityService.ListRoleGrants
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.ListRoleGrantsRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.ListRoleGrantsResponse'
   /gravel.hub.v1.IdentityService/ListUsers:
     post:
       tags:
@@ -541,8 +580,9 @@ paths:
         - gravel.hub.v1.IdentityService
       summary: SetUserRole
       description: |-
-        SetUserRole grants or revokes a member's role (ADR-0013); every change is recorded with who
-         made it. The owner only; the owner holds every power already and needs no role.
+        SetUserRole grants or revokes a member's role, instance-wide or for one game (ADR-0027 §5):
+         roles:grant for that scope; only the owner changes an admin grant; an app changes moderator
+         only; nobody changes their own. Every change is recorded with who made it.
       operationId: gravel.hub.v1.IdentityService.SetUserRole
       parameters:
         - name: Connect-Protocol-Version
@@ -4352,6 +4392,25 @@ components:
           title: next_page_token
       title: ListMatchesResponse
       additionalProperties: false
+    gravel.hub.v1.ListRoleGrantsRequest:
+      type: object
+      properties:
+        userId:
+          type: string
+          title: user_id
+          description: One member's grants; empty for every member's.
+      title: ListRoleGrantsRequest
+      additionalProperties: false
+    gravel.hub.v1.ListRoleGrantsResponse:
+      type: object
+      properties:
+        grants:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.RoleGrant'
+          title: grants
+      title: ListRoleGrantsResponse
+      additionalProperties: false
     gravel.hub.v1.ListServerBansRequest:
       type: object
       properties:
@@ -5421,6 +5480,34 @@ components:
           description: How many sessions were ended, the caller's included.
       title: RevokeSessionsResponse
       additionalProperties: false
+    gravel.hub.v1.RoleGrant:
+      type: object
+      properties:
+        userId:
+          type: string
+          title: user_id
+        role:
+          type: string
+          title: role
+          description: '"admin", "operator" or "moderator".'
+        gameId:
+          type: string
+          title: game_id
+          description: The game it is for; empty is instance-wide.
+        grantedAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: granted_at
+        grantedByUserId:
+          type: string
+          title: granted_by_user_id
+          description: 'Who granted it: a member, an app, or neither (the migration from ADR-0013''s roles).'
+        grantedByAppId:
+          type: string
+          title: granted_by_app_id
+      title: RoleGrant
+      additionalProperties: false
+      description: RoleGrant is a role a member holds (ADR-0027 §3, §4).
     gravel.hub.v1.ScopeInfo:
       type: object
       properties:
@@ -5975,11 +6062,15 @@ components:
         role:
           type: string
           title: role
-          description: '"moderator".'
+          description: '"admin", "operator" or "moderator".'
         granted:
           type: boolean
           title: granted
           description: true grants the role, false revokes it.
+        gameId:
+          type: string
+          title: game_id
+          description: The game the grant is for; empty is instance-wide.
       title: SetUserRoleRequest
       additionalProperties: false
     gravel.hub.v1.SetUserRoleResponse:
@@ -6320,7 +6411,9 @@ components:
           items:
             type: string
           title: roles
-          description: 'Roles the owner granted (ADR-0013): "moderator".'
+          description: |-
+            The member's instance-wide grants by role name, sorted: "admin", "moderator", "operator"
+             (ADR-0027). A game-scoped grant is in grants, not here.
         capabilities:
           type: array
           items:
@@ -6330,6 +6423,12 @@ components:
             The capabilities the member holds in person, as "area:verb" names (ADR-0027): what their
              roles admit, or every capability a person can hold for the owner. A token an app holds for
              the member is narrowed further, to the token's scopes.
+        grants:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.RoleGrant'
+          title: grants
+          description: Every grant the member holds, instance-wide (no game_id) or for one game (ADR-0027 §4).
       title: User
       additionalProperties: false
       description: |-
