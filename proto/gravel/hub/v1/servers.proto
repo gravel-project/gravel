@@ -170,6 +170,78 @@ message ListServerPlayersResponse {
   google.protobuf.Timestamp observed_at = 2;
 }
 
+message GetFleetSummaryRequest {}
+
+// FleetTotals counts the fleet (gravel#190).
+message FleetTotals {
+  int32 servers = 1;
+  int32 up = 2;
+  int32 degraded = 3;
+  int32 down = 4;
+  int32 idle = 5;
+  int32 unknown = 6;
+  // Players on, and public slots, over the servers that are not idle and have answered.
+  int32 players = 7;
+  int32 capacity = 8;
+}
+
+// FleetAlarm is something wrong that needs a person, open for as long as its cause lasts; it is
+// computed on every read, never stored.
+message FleetAlarm {
+  // "server.down" (down for 2 minutes), "server.credential_refused", "server.credential_missing",
+  // "host.failing", "backup.stale", "backup.failed", "wal.failing", "hub.unowned".
+  string kind = 1;
+  // "warning" or "critical".
+  string severity = 2;
+  // The server it is about; empty for the hub itself.
+  string server_id = 3;
+  google.protobuf.Timestamp since = 4;
+  // One line saying what is wrong.
+  string detail = 5;
+}
+
+// FleetServer is one server's health, with what it is judged on.
+message FleetServer {
+  string id = 1;
+  string name = 2;
+  string game_id = 3;
+  string game_name = 4;
+  string trust = 5;
+  string driver = 6;
+  // "up", "degraded", "down", "idle" (parked or absent, as asked) or "unknown" (not polled yet).
+  string health = 7;
+  // One line saying why: "answering", "not answering", "the host is booting", ...
+  string reason = 8;
+  // Since when the health holds; unset when not known.
+  google.protobuf.Timestamp health_since = 9;
+  // The monitor's state (ServerStatus.state).
+  string state = 10;
+  int32 players = 11;
+  int32 max_players = 12;
+  string map = 13;
+  // The last successful poll; unset when there was none.
+  google.protobuf.Timestamp observed_at = 14;
+  // How long the last poll took, in milliseconds, and the failed polls in a row.
+  int32 poll_ms = 15;
+  int32 misses = 16;
+  // A cloud-VM server's host: its state and the code of the step it keeps failing; empty for a
+  // server whose host gravel doesn't make.
+  string host_state = 17;
+  string host_error_code = 18;
+  // The server's live lease: "starting", "ready", "ending"; empty for none.
+  string lease_state = 19;
+}
+
+message GetFleetSummaryResponse {
+  FleetTotals totals = 1;
+  // The open alarms, critical first, then oldest first.
+  repeated FleetAlarm alarms = 2;
+  // Trouble first: down, degraded, unknown, up, idle; then by players, most first.
+  repeated FleetServer servers = 3;
+  // When the summary was taken.
+  google.protobuf.Timestamp as_of = 4;
+}
+
 // ServerService reads the games and servers the hub controls (ADR-0010). They are applied from a
 // deployment's servers.yaml by `gravel-hub servers apply`; the hub polls each server through its
 // driver and answers from the last observation, so a caller never reaches a game server.
@@ -183,4 +255,8 @@ service ServerService {
   // ListServerPlayers is who was on at the last poll: names and provider identities, so a
   // logged-in member, the owner, or an app with the servers:read scope.
   rpc ListServerPlayers(ListServerPlayersRequest) returns (ListServerPlayersResponse);
+  // GetFleetSummary is every server's health, the fleet's totals and the open alarms (gravel#190):
+  // servers:read. A caller holding it for some games sees those games' servers and their alarms;
+  // the hub's own alarms (backups, WAL, the claim) need events:read everywhere.
+  rpc GetFleetSummary(GetFleetSummaryRequest) returns (GetFleetSummaryResponse);
 }

@@ -79,6 +79,8 @@ type Hub struct {
 
 	st         *store.Store
 	org        *org.Service
+	fleet      *servers.Fleet
+	alarms     *alarmSource
 	ids        *identity.Service
 	sess       *session.Manager
 	apps       *apps.Service
@@ -360,6 +362,27 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 	h.cloudvm.SetChatSink(h.chatProofs)
 	registry := Drivers(DriverDeps{CloudVM: h.cloudvm})
 	h.monitor = servers.NewMonitor(h.servers, registry, h.jobs, h.registry, "gravel-hub/"+h.version, logger)
+	// Fleet health (gravel#190): the monitor writes a server's health transitions into the events
+	// log; the fleet judges every server, and the alarms are computed from it and the hub's state.
+	h.monitor.SetHealthEvents(healthEvents{st: st, orgID: o.ID})
+	h.fleet = servers.NewFleet(h.servers, h.monitor, h.cloudvm, h.leases)
+	h.alarms = &alarmSource{statusFile: cfg.Backup.StatusFile, archiver: st, now: time.Now, owned: func(ctx context.Context) (bool, time.Time, error) {
+		o, err := h.org.Get(ctx)
+		return o.Owned(), o.CreatedAt, err
+	}}
+	gauges := newFleetGauges(h.registry)
+	h.jobs.Start(jobs.Job{Name: "fleet_health", Every: FleetEvery, Immediate: true, Run: func(ctx context.Context) error {
+		snap, err := h.fleet.Snapshot(ctx)
+		if err != nil {
+			return err
+		}
+		alarms, err := h.alarms.Alarms(ctx, snap)
+		if err != nil {
+			return err
+		}
+		gauges.set(snap, alarms)
+		return nil
+	}})
 	h.moderation = servers.NewModeration(h.servers, h.monitor, st, st, o.ID, h.registry, logger)
 	h.monitor.SetPrimer(h.moderation.Prime)
 	h.monitor.Start()
@@ -522,7 +545,7 @@ func (h *Hub) buildAPI() *http.ServeMux {
 	identityAPI := api.NewIdentityServer(h.ids, h.sess, h.org, access, h.logger).WithBaseURL(h.cfg.Auth.BaseURL)
 	identityAPI.SetProofs(h.proofs, h.servers, h.monitor)
 	mux.Handle(hubv1connect.NewIdentityServiceHandler(identityAPI, interceptors))
-	mux.Handle(hubv1connect.NewServerServiceHandler(api.NewServerServer(h.servers, h.monitor, h.ids, access, h.logger).WithSharedPasswords(h.hosts), interceptors))
+	mux.Handle(hubv1connect.NewServerServiceHandler(api.NewServerServer(h.servers, h.monitor, h.ids, access, h.logger).WithSharedPasswords(h.hosts).WithFleet(h.fleet, h.alarms), interceptors))
 	moderation := api.NewModerationServer(h.moderation, access, h.ids, h.logger)
 	mux.Handle(hubv1connect.NewModerationServiceHandler(moderation, interceptors))
 	mux.Handle(hubv1connect.NewServerHostServiceHandler(api.NewHostServer(h.hosts, access, h.logger), interceptors))

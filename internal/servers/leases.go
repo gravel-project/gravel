@@ -533,6 +533,14 @@ func (l *Leases) LiveLease(serverID string) (uuid.UUID, bool) {
 	return row.ID, ok
 }
 
+// LiveLeaseState is a server's live lease's state (starting, ready, ending), if it has one.
+func (l *Leases) LiveLeaseState(serverID string) (string, bool) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	row, ok := l.live[serverID]
+	return row.State, ok
+}
+
 // MatchEnded marks a server's live lease's match over (a MatchZy series_end): the lease lasts its
 // release_after more, so players see the result, then ends.
 func (l *Leases) MatchEnded(ctx context.Context, serverID string) {

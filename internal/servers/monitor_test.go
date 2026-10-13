@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/google/uuid"
@@ -285,5 +286,97 @@ func TestMonitorWatchesTheBuild(t *testing.T) {
 	r.apply(t)
 	if n := testutil.CollectAndCount(r.mon.buildInfo); n != 0 {
 		t.Errorf("build info after removal = %d series", n)
+	}
+}
+
+// fakeHealthEvents records the monitor's health events; last is what the log says it wrote before.
+type fakeHealthEvents struct {
+	mu   sync.Mutex
+	got  []string
+	last string
+}
+
+func (f *fakeHealthEvents) AppendHealthEvent(_ context.Context, e HealthEvent) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.got = append(f.got, e.Kind)
+	return nil
+}
+
+func (f *fakeHealthEvents) LastHealthEvent(context.Context, string) (string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.last, nil
+}
+
+func (f *fakeHealthEvents) kinds() string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return strings.Join(f.got, " ")
+}
+
+// One event per transition: a refused credential once however many polls, the recovery once, and
+// a server that stops answering only after the second miss (gravel#190).
+func TestMonitorHealthEvents(t *testing.T) {
+	r := newMonitorRig(t, wardogstest.Options{})
+	ev := &fakeHealthEvents{}
+	r.mon.SetHealthEvents(ev)
+	r.m.Servers[0].Name = "War Dogs #1 again" // a new definition: the worker starts again and reads the log
+	r.apply(t)
+	if _, err := r.poll(t); err != nil {
+		t.Fatal(err)
+	}
+	r.setCredential(t, "wrong")
+	if err := r.mon.Reconcile(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	for range 3 {
+		_, _ = r.poll(t)
+	}
+	r.setCredential(t, wardogstest.Token)
+	if err := r.mon.Reconcile(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		if _, err := r.poll(t); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := ev.kinds(); got != "server.credential_refused server.recovered" {
+		t.Errorf("credential: %q", got)
+	}
+	r.fake.Close()
+	o, _ := r.poll(t)
+	if got := ev.kinds(); got != "server.credential_refused server.recovered" || o.Misses != 1 || o.FailingSince.IsZero() {
+		t.Errorf("one miss: %q %+v", got, o)
+	}
+	for range 3 {
+		o, _ = r.poll(t)
+	}
+	if got := ev.kinds(); got != "server.credential_refused server.recovered server.unreachable" || o.Misses != 4 || o.LastError != StateUnreachable {
+		t.Errorf("unreachable: %q %+v", got, o)
+	}
+	if testutil.CollectAndCount(r.mon.pollDuration) != 1 {
+		t.Error("the poll duration has no series for the server")
+	}
+}
+
+// A restarted hub reads where the log left a server: no second unreachable, and the recovery that
+// follows is written.
+func TestMonitorHealthEventsAfterARestart(t *testing.T) {
+	r := newMonitorRig(t, wardogstest.Options{})
+	ev := &fakeHealthEvents{last: EventUnreachable}
+	r.mon.SetHealthEvents(ev)
+	r.m.Servers[0].Name = "War Dogs #1 again"
+	r.apply(t)
+	if _, err := r.poll(t); err != nil {
+		t.Fatal(err)
+	}
+	if got := ev.kinds(); got != "server.recovered" {
+		t.Errorf("after a restart: %q", got)
+	}
+	o, _ := r.mon.Observation("wd-1")
+	if o.WatchedSince.IsZero() || o.PollInterval == 0 || o.StateSince.IsZero() {
+		t.Errorf("observation: %+v", o)
 	}
 }

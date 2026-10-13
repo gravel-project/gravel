@@ -67,7 +67,7 @@ type Spec struct {
 
 var specs = []Spec{
 	{Name: IdentityRead, Apps: true, About: "look up members and their identities (LookupUser, ListUsers, ListIdentityEvents)"},
-	{Name: ServersRead, Apps: true, Scopable: true, About: "see who is on a server and its host: names and provider identities (ListServerPlayers, GetServerHost, ListServerHostEvents)"},
+	{Name: ServersRead, Apps: true, Scopable: true, About: "see who is on a server and its host: names and provider identities (ListServerPlayers, GetServerHost, ListServerHostEvents, GetFleetSummary)"},
 	{Name: ServersModerate, Apps: true, Scopable: true, About: "kick, ban, unban, message, broadcast to and move a server's players, list its bans and read the audit log (ModerationService)"},
 	{Name: ServersLease, Apps: true, Scopable: true, About: "take a leasable server for a match and give it back (ServerLeaseService)"},
 	{Name: ServersConfigure, Apps: true, Scopable: true, About: "read, plan and apply a server's configuration (ServerConfigService)"},

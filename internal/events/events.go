@@ -80,6 +80,11 @@ var kinds = []Kind{
 	{"action.host_destroy", Warning, "someone destroyed a parked server's remains"},
 	{"action.lease_request", Info, "an app or a member asked for a lease"},
 	{"action.lease_release", Info, "an app or a member gave a lease back"},
+	// A server's health, from the monitor's polls (gravel#190): on a transition only.
+	{"server.unreachable", Warning, "a server stopped answering its polls"},
+	{"server.recovered", Info, "a server is answering again"},
+	{"server.credential_refused", Warning, "a server refuses the hub's credential"},
+	{"server.credential_missing", Warning, "a server's credential file is missing or empty"},
 	// A cloud-VM server's host (ADR-0003): its transitions and steps.
 	{"host.absent", Info, "the host is gone"},
 	{"host.creating", Info, "the host is being made"},

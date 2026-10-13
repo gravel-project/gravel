@@ -659,6 +659,49 @@ cloud-VM server whose machine is not running, `parked` or `provisioning`), and t
 `capabilities` is what the server grants now, so a page or a bot shows an absent one as not
 available.
 
+**Fleet health** (gravel#190). Every server has a health, judged from its last observation, its
+host (a cloud-VM server's) and its lease, on every read (`internal/servers/health.go`):
+
+| Health | When |
+|---|---|
+| `down` | not answering (two failed polls in a row, or `error` twice); the credential refused or missing; never answered in 3 poll intervals since it was first watched; a host that should be running still not running after 10 minutes, or failing a step for 10 minutes |
+| `degraded` | one failed poll; `rate_limited`; no good poll for over 3 intervals; the last poll took over 2 s; its host starting, booting or resizing (under 10 minutes); its lease getting it ready |
+| `idle` | parked or absent as asked (or going there) |
+| `unknown` | watched for under 3 intervals and not polled yet |
+| `up` | anything else: answering, fresh and quick |
+
+Each comes with a one-line reason and since when. `ServerService.GetFleetSummary` (`servers:read`;
+a game-scoped holder sees its games' servers) answers the fleet: totals (servers by health, and
+players and capacity over the servers that are not idle), the open alarms, and every server with its
+health, reason, players, map, last poll, poll time, misses, host state and error code and lease
+state, trouble first (down, degraded, unknown, up, idle), then by players. It is what the admin
+dashboard's fleet view (#192) polls. `gravel_server_health{health}` counts the servers by health
+every 15 s; `gravel_server_poll_duration_seconds{server,game}` times each poll.
+
+**Health events.** The monitor writes `server.unreachable` (the second failed poll in a row),
+`server.credential_refused`, `server.credential_missing` and `server.recovered` (the next good
+poll) into the [events log](#events-adr-0028), each on its transition only; a restarted hub reads
+the last one for each server, so it repeats none and still writes the recovery.
+
+**Alarms.** Something wrong that needs a person, open for as long as its cause lasts. Alarms are
+computed on every read from the fleet and the hub's state, never stored, so a fixed cause or a
+removed server closes its alarm by itself:
+
+| Alarm | Severity | Open while |
+|---|---|---|
+| `server.down` | critical | a server has been down for 2 minutes (not for a credential, which has its own) |
+| `server.credential_refused` | critical | a server refuses the hub's credential |
+| `server.credential_missing` | critical | a server's credential file is missing or empty |
+| `host.failing` | warning | a cloud-VM host's step keeps failing |
+| `backup.failed` | critical | the last base backup failed, or the status file can't be read |
+| `backup.stale` | warning | no base backup has succeeded for 26 hours |
+| `wal.failing` | critical | WAL archiving has failed with nothing archived since for 10 minutes (an idle database archives nothing, which is not an alarm) |
+| `hub.unowned` | warning | nobody has claimed the hub |
+
+`GetFleetSummary` lists them critical first, then oldest; the hub's own (backups, WAL, the claim)
+only for a caller holding `events:read` everywhere. `gravel_alarms{kind}` counts them, 0 for each
+kind while closed. A notifier failing for an hour joins them with the notifiers (#196).
+
 **The build watcher.** A second job per server (`server_build`, every minute) reads the server's
 build from a route that needs no credential (War Dogs: `GET /v1/capabilities`). When the build
 changes (a game update) it reads the capabilities again, so the status API, the pages and
@@ -1403,6 +1446,10 @@ Notifiers (#196), the admin dashboard (#193) and the CLI (#194) read it; so can 
 
 | Kind | Severity | What |
 |---|---|---|
+| `server.unreachable` | warning | A server stopped answering its polls (the second failed poll in a row) |
+| `server.recovered` | info | A server is answering again |
+| `server.credential_refused` | warning | A server refuses the hub's credential |
+| `server.credential_missing` | warning | A server's credential file is missing or empty |
 | `identity.registered` | info | A new member registered with a provider or a username |
 | `identity.linked` | info | A member linked another account |
 | `identity.unlinked` | notice | A member unlinked an account |
@@ -1462,7 +1509,6 @@ Notifiers (#196), the admin dashboard (#193) and the CLI (#194) read it; so can 
 | `backup.stale` | warning | No base backup has succeeded for over 26 hours |
 | `backup.recovered` | info | A base backup succeeded again |
 
-Not yet events: a server becoming unreachable or recovering (#190).
 
 ## Pages (gravel#18)
 
@@ -1799,6 +1845,9 @@ and the digest-pin procedure.
 | `gravel_server_reachable` | gauge | `server`, `game` | 1 while a server answers its polls, 0 after two failed polls in a row | until the server's first poll; gone when it is removed |
 | `gravel_server_players`, `gravel_server_max_players` | gauge | `server`, `game` | players on, and public slots, at the last successful poll | until the first successful poll |
 | `gravel_server_last_observed_timestamp_seconds` | gauge | `server`, `game` | the last successful poll | until the first successful poll |
+| `gravel_server_poll_duration_seconds` | histogram (50 ms–30 s) | `server`, `game` | how long each poll took, answered or not; over 2 s makes a server degraded | until the server's first poll; gone when it is removed |
+| `gravel_server_health` | gauge | `health` (`up`, `degraded`, `down`, `idle`, `unknown`) | servers by [health](#servers-adr-0010), every 15 s | never |
+| `gravel_alarms` | gauge | `kind` (every alarm, 0 while closed) | open [alarms](#servers-adr-0010), every 15 s | never |
 | `gravel_cloudvm_host_state` | gauge | `server`, `state` (every state, 0 or 1) | the state of each cloud-VM server's host (ADR-0003) | until the hub first sees the host |
 | `gravel_cloudvm_state_since_timestamp_seconds` | gauge | `server` | when the host entered its state; long in a transition is a stuck step | until the hub first sees the host |
 | `gravel_cloudvm_host_failing` | gauge | `server`, `code` | 1 while a host's step keeps failing, by its error word | while nothing fails |
