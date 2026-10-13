@@ -154,11 +154,11 @@ func (h *Handler) consent(w http.ResponseWriter, r *http.Request, p templates.Au
 			}
 		}
 	}
-	policy := csp
+	policy := CSP
 	if u, err := url.Parse(p.RedirectURI); err == nil {
 		cp.ReturnHost = u.Host
 		if origin := u.Scheme + "://" + u.Host; plainOrigin.MatchString(origin) {
-			policy = strings.Replace(csp, "form-action 'self'", "form-action 'self' "+origin, 1)
+			policy = strings.Replace(CSP, "form-action 'self'", "form-action 'self' "+origin, 1)
 		}
 	}
 	h.renderWithPolicy(w, r, http.StatusOK, b, templates.Consent(cp), templates.ConsentContent(cp), policy)

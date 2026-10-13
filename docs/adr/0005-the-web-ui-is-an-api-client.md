@@ -19,3 +19,7 @@ The design says the web UI is templ + htmx over the Connect HTTP-JSON API, one d
 - A page can do only what the API allows; adding a page means adding or using a procedure, never a query.
 - Each page costs an extra session lookup per API call it makes (the middleware runs again on the in-process request); negligible at this scale, and the seam to cache it is the transport.
 - Hidden Token Gaming's branding is #7's data, not a fork of the templates.
+
+## Amendments
+
+- 2026-10-13, [ADR-0029](0029-the-admin-dashboard-is-a-static-client-in-the-binary.md): the admin dashboard at `/admin` is a React client built with Vite and embedded in the binary. §2's "no JavaScript build" holds for the member pages; §5's accessibility gate covers the dashboard too.

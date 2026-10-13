@@ -158,7 +158,7 @@ One protobuf definition serves gRPC, gRPC-Web, and plain HTTP-JSON. No separate 
 
 ### Web UI
 
-- **templ + htmx** to start: server-rendered Go, no JS build pipeline, one deploy artifact (htmx is vendored into the binary; the CSP allows nothing inline or third-party). The pages consume the same Connect HTTP-JSON API, called in process, so a page can do only what the API allows and a later SPA is a front-end-only change ([ADR-0005](docs/adr/0005-the-web-ui-is-an-api-client.md)). A host's theme (tokens, logo, navigation links) is data behind a `ThemeSource`, rendered as `/theme.css`; axe runs over the pages in CI.
+- **templ + htmx** to start: server-rendered Go, no JS build pipeline, one deploy artifact (htmx is vendored into the binary; the CSP allows nothing inline or third-party). The pages consume the same Connect HTTP-JSON API, called in process, so a page can do only what the API allows and a later SPA is a front-end-only change ([ADR-0005](docs/adr/0005-the-web-ui-is-an-api-client.md)). A host's theme (tokens, logo, navigation links) is data behind a `ThemeSource`, rendered as `/theme.css`; axe runs over the pages in CI. The **admin dashboard** at `/admin` is the one exception to "no JS build": a React client of the same API, built with Vite and embedded in the binary, under the same CSP ([ADR-0029](docs/adr/0029-the-admin-dashboard-is-a-static-client-in-the-binary.md)).
 - Per-game layout is **declarative data in the Game spec** (which stat cards, which leaderboard columns), rendered by the front end, host-overridable. The core stays game-agnostic.
 - Grafana is optional and operator-facing only (ops/health dashboards). Player-facing pages are native and branded.
 

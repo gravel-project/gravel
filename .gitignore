@@ -41,3 +41,9 @@ go.work.sum
 deploy/store/
 /.hub-vm/
 /.game-vm/
+
+# The admin dashboard (ADR-0029): its npm packages, and the bundle `make admin` builds for the hub
+# to embed. The .gitkeep keeps the directory, so a clone without a bundle still compiles.
+/web/admin/node_modules/
+/internal/web/admin/dist/*
+!/internal/web/admin/dist/.gitkeep

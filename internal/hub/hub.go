@@ -51,6 +51,7 @@ import (
 	"github.com/gravel-project/gravel/internal/stats"
 	"github.com/gravel-project/gravel/internal/store"
 	"github.com/gravel-project/gravel/internal/web"
+	"github.com/gravel-project/gravel/internal/web/admin"
 )
 
 // Options configure New.
@@ -562,6 +563,12 @@ func (h *Hub) buildPublic() http.Handler {
 
 	// The pages, rate-limited as HTTP; the procedures above are limited by the interceptor.
 	pages := http.NewServeMux()
+	// The admin dashboard (ADR-0029) first: a static client of the procedures above, at /admin.
+	dashboard := admin.New(admin.Bundle())
+	if !dashboard.Built() {
+		h.logger.Warn("this binary was built without the admin dashboard: /admin answers 503 (make build includes it)")
+	}
+	dashboard.Register(pages)
 	h.web.Register(pages)
 	mux.Handle("/", h.metrics.HTTP("pages", ratelimit.Middleware(scopes, h.rejected)(pages)))
 
