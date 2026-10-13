@@ -1,14 +1,14 @@
-// Overview: who the dashboard thinks you are here, and what you may do. The fleet overview
-// (gravel#190's summary) takes this page over; until then it is the place to check a grant.
+// Your access: who the dashboard thinks you are here, and what you may do: the place to check a
+// grant.
 import type { User } from "../gen/gravel/hub/v1/identity_pb";
 import type { Organization } from "../gen/gravel/hub/v1/organization_pb";
 
-export function Overview({ me, org }: { me: User; org: Organization | undefined }) {
+export function Access({ me, org }: { me: User; org: Organization | undefined }) {
   const roles = me.owner ? ["owner", ...me.roles] : me.roles;
   const scoped = me.grants.filter((g) => g.gameId !== "");
   return (
     <>
-      <h1 className="mb-4 text-2xl font-bold">Overview</h1>
+      <h1 className="mb-4 text-2xl font-bold">Your access</h1>
       <p className="mb-6">
         You are signed in to {org?.name ?? "this hub"} as <strong>{me.displayName}</strong>.
       </p>

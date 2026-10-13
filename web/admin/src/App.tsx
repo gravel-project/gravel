@@ -10,7 +10,8 @@ import type { User } from "./gen/gravel/hub/v1/identity_pb";
 import type { Organization } from "./gen/gravel/hub/v1/organization_pb";
 import { type NavItem, visible } from "./nav";
 import { NotFound } from "./pages/NotFound";
-import { Overview } from "./pages/Overview";
+import { Access } from "./pages/Access";
+import { Fleet } from "./pages/Fleet";
 import { type Browser, BrowserProvider, useMe, useOrganization, windowBrowser } from "./session";
 import { TransportProvider } from "./transport";
 
@@ -63,7 +64,10 @@ function Shell() {
         <Frame org={org} me={me.me}>
           <Switch>
             <Route path="/">
-              <Overview me={me.me} org={org} />
+              <Fleet />
+            </Route>
+            <Route path="/access">
+              <Access me={me.me} org={org} />
             </Route>
             <Route>
               <NotFound />
