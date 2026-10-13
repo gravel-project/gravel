@@ -316,6 +316,43 @@ message OrganizationSettings {
   map<string, GameSettings> games = 7;
   LocalAccountsSettings local_accounts = 8;
   EventsSettings events = 9;
+  // The notifiers, at most 20 (ADR-0028 §5). GetOrganizationSettings returns them only to a
+  // caller who may change the settings; to anyone else the list is empty.
+  repeated Notifier notifiers = 10;
+}
+
+// Notifier is one way the hub tells people what happened: the events its filter takes, carried
+// to a webhook, an ntfy topic or email addresses. Its secret (a JSON webhook's signing key, a
+// Discord webhook's URL, an ntfy access token) is in hub.yaml's notify.secrets, never here.
+message Notifier {
+  // Lower case letters, digits and hyphens, at most 32: its cursor, its secret's key, its metrics
+  // label.
+  string name = 1;
+  // "webhook", "ntfy" or "email".
+  string kind = 2;
+  // Sends nothing and lets the log pass; TestNotifier still reaches it.
+  bool disabled = 3;
+  // A JSON webhook's endpoint, or an ntfy server (empty: https://ntfy.sh). https, or http to the
+  // loopback interface.
+  string url = 4;
+  // A webhook's body: "json" (the default, signed) or "discord" (the URL is the secret).
+  string flavour = 5;
+  // An ntfy topic.
+  string topic = 6;
+  // An email notifier's addresses, at most 10.
+  repeated string to = 7;
+  NotifierEvents events = 8;
+}
+
+// NotifierEvents is which events a notifier takes; empty takes every warning and critical event.
+message NotifierEvents {
+  // Kinds ("server.unreachable") or groups ("server"); empty is every kind.
+  repeated string kinds = 1;
+  // "info", "notice", "warning" or "critical"; empty is "warning".
+  string min_severity = 2;
+  // Only these games' events, or these servers'; an event about no server passes neither.
+  repeated string games = 3;
+  repeated string servers = 4;
 }
 
 // EventsSettings is how long the events log keeps what it holds (ADR-0028).
@@ -388,6 +425,18 @@ message UpdateOrganizationSettingsResponse {
   OrganizationSettings settings = 1;
 }
 
+message TestNotifierRequest {
+  // A notifier's name in the settings; a disabled one is tested too.
+  string name = 1;
+}
+
+message TestNotifierResponse {
+  // Whether the notifier delivered the test event.
+  bool delivered = 1;
+  // Why it did not, without secrets; empty when it did.
+  string error = 2;
+}
+
 // OrganizationService reads the built-in organization and claims its ownership once.
 service OrganizationService {
   rpc GetOrganization(GetOrganizationRequest) returns (GetOrganizationResponse);
@@ -396,7 +445,8 @@ service OrganizationService {
   // single-use, expires, and no token exists once the hub is owned.
   rpc ClaimOwnership(ClaimOwnershipRequest) returns (ClaimOwnershipResponse);
   // GetOrganizationSettings returns the settings; public, because the pages render the theme
-  // before anyone logs in, and the document holds no credential.
+  // before anyone logs in, and the document holds no credential. The notifiers are left out
+  // unless the caller holds settings:write.
   rpc GetOrganizationSettings(GetOrganizationSettingsRequest) returns (GetOrganizationSettingsResponse);
   // UpdateOrganizationSettings replaces the settings. The owner only; invalid_argument names
   // every invalid field.
@@ -404,4 +454,7 @@ service OrganizationService {
   // ListEvents reads the events log by cursor (ADR-0028): events:read, and a caller holding it
   // for some games sees those games' events only.
   rpc ListEvents(ListEventsRequest) returns (ListEventsResponse);
+  // TestNotifier sends a test event (kind notifier.test, never in the log) to a notifier and says
+  // whether it was delivered: settings:write. not_found for a name the settings don't have.
+  rpc TestNotifier(TestNotifierRequest) returns (TestNotifierResponse);
 }

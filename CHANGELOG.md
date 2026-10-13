@@ -32,6 +32,13 @@ patch release is everything else.
 
 ### Added
 
+- **Notifiers** carry the events log to people with no Discord in the path (#196, ADR-0028 §5; H1, #182): a JSON webhook (signed), a Discord webhook, ntfy and email, each taking the events its filter names (`docs/hub.md`, Notifiers).
+  - **Settings:** `notifiers[]` in the Organization settings (`name`, `kind`, `disabled`, `url`, `flavour`, `topic`, `to`, `events{kinds, min_severity, games, servers}`; at most 20; `warning` and up by default). `GetOrganizationSettings` shows them only to a caller holding `settings:write`.
+  - **hub.yaml:** `notify.secrets.<name>.file` (a JSON webhook's signing key, a Discord webhook's whole URL, an ntfy access token) and `notify.smtp` (`host`, `port`, `username`, `password_file` or `GRAVEL_SMTP_PASSWORD`, `from`, `tls`). `gravel-hub config check` names the notifiers with a secret and the mail server.
+  - **Delivery:** the `notify` job every 10 seconds, a cursor per notifier (migration **00028**, `notifier_cursors`), batches of up to 20 as one message, a failed batch sent again whole after a backoff (10 s doubling to 10 min). A new notifier starts at the log's head; one removed and added again resumes; a disabled one lets the log pass. A JSON webhook is signed with `X-Gravel-Timestamp` and `X-Gravel-Signature` (HMAC-SHA256); `notify.Verify` checks one.
+  - **The API:** `OrganizationService.TestNotifier` (`settings:write`) sends a `notifier.test` event and says whether it arrived; the access matrix lists it.
+  - **Alarms and metrics:** `notifier.failing` (an enabled notifier failing for an hour); `gravel_notifications_total{notifier,result}` and `gravel_notifier_lag_seconds{notifier}`, on the hub dashboard's Events row.
+  - **Dependency:** `github.com/wneessen/go-mail` v0.8.1 for SMTP.
 - **Fleet health, alarms and a fleet summary** (#190; H1, #182). Every server is `up`, `degraded`, `down`, `idle` or `unknown`, with a reason and since when, judged from its polls, its host and its lease (`docs/hub.md`, Fleet health).
   - **The API:** `ServerService.GetFleetSummary` (`servers:read`, game-scoped; a member's token with the scope too): totals, the open alarms and every server's health, trouble first.
   - **Alarms,** computed on every read and never stored: `server.down` (2 minutes), `server.credential_refused`, `server.credential_missing`, `host.failing`, `backup.failed`, `backup.stale` (26 h), `wal.failing` (10 minutes), `hub.unowned`. The hub's own are shown to callers holding `events:read` everywhere.
@@ -48,7 +55,7 @@ patch release is everything else.
   - **Clients** generated from `proto/` by `buf.gen.ts.yaml` (protobuf-es as a pinned remote plugin) into `web/admin/src/gen/`, committed; `make generate` and its drift check cover them.
   - **Checks:** `make admin-check` (ESLint with no `style` prop, `tsc`, Vitest with axe over each route on fake services); CI's new required **`admin`** job runs it, builds the bundle and checks it holds nothing the CSP refuses; `make a11y` scans `/admin` in Chrome after checking it rendered. The publish job and goreleaser build the bundle before the images.
   - **Docs:** `docs/hub.md` "Admin dashboard", `CONTRIBUTING.md`; ADR-0005 amended.
-- The events log: one append-only record of what the hub did, read by cursor (#188, [ADR-0028](docs/adr/0028-events-and-notifiers-no-push-to-browsers-in-core.md) proposed; H1, #182). It is what notifiers, the admin dashboard and the CLI will read.
+- The events log: one append-only record of what the hub did, read by cursor (#188, [ADR-0028](docs/adr/0028-events-and-notifiers-no-push-to-browsers-in-core.md) proposed; H1, #182). It is what notifiers, the admin dashboard and the CLI read.
   - **Storage:** migration **00026**, `events`, with a trigger that refuses every change but the prune, and a backfill of `identity_events`, `role_changes`, finished `audit_log` rows and `server_host_events`, oldest first. Each event is keyed by its source row, so nothing is written twice.
   - **Writers,** each in its source's transaction: registrations, links, unlinks, proofs and password links (logins stay out); role grants; moderation and other audited actions with their outcome; a cloud-VM host's transitions, resizes, steps, and a step that starts failing or recovers; leases; a series ending; backups (`backup.failed`, `backup.stale`, `backup.recovered`, from the status file every five minutes).
   - **Kinds:** 52, each with a fixed severity (`info`, `notice`, `warning`, `critical`), in `internal/events`; a writer naming an unknown kind fails.

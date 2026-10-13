@@ -64,6 +64,7 @@ var memberProcedures = map[string]string{
 	// ResizeServerHost, UnpinServerHostSize, SnapshotServerHostVolume and DestroyServerHost are the owner's, in person, and stay out.
 	// StartProof and GetProof (gravel#5) are the member's, in person: an app never proves an account for them.
 	// CreateLocalAccount and IssuePasswordReset (gravel#187) are staff's, in person: a link is a password for an hour.
+	// TestNotifier (gravel#196) is the owner's, in person, like the settings it tests.
 	// ServerLeaseService (#20) is an app's (servers:lease) or a moderator's in person; a member's token never leases.
 	hubv1connect.ServerConfigServiceGetServerConfigProcedure:   apps.ScopeServersConfigure,
 	hubv1connect.ServerConfigServicePlanServerConfigProcedure:  apps.ScopeServersConfigure,

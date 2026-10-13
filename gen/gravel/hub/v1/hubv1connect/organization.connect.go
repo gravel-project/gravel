@@ -48,6 +48,9 @@ const (
 	// OrganizationServiceListEventsProcedure is the fully-qualified name of the OrganizationService's
 	// ListEvents RPC.
 	OrganizationServiceListEventsProcedure = "/gravel.hub.v1.OrganizationService/ListEvents"
+	// OrganizationServiceTestNotifierProcedure is the fully-qualified name of the OrganizationService's
+	// TestNotifier RPC.
+	OrganizationServiceTestNotifierProcedure = "/gravel.hub.v1.OrganizationService/TestNotifier"
 )
 
 // OrganizationServiceClient is a client for the gravel.hub.v1.OrganizationService service.
@@ -58,7 +61,8 @@ type OrganizationServiceClient interface {
 	// single-use, expires, and no token exists once the hub is owned.
 	ClaimOwnership(context.Context, *connect.Request[v1.ClaimOwnershipRequest]) (*connect.Response[v1.ClaimOwnershipResponse], error)
 	// GetOrganizationSettings returns the settings; public, because the pages render the theme
-	// before anyone logs in, and the document holds no credential.
+	// before anyone logs in, and the document holds no credential. The notifiers are left out
+	// unless the caller holds settings:write.
 	GetOrganizationSettings(context.Context, *connect.Request[v1.GetOrganizationSettingsRequest]) (*connect.Response[v1.GetOrganizationSettingsResponse], error)
 	// UpdateOrganizationSettings replaces the settings. The owner only; invalid_argument names
 	// every invalid field.
@@ -66,6 +70,9 @@ type OrganizationServiceClient interface {
 	// ListEvents reads the events log by cursor (ADR-0028): events:read, and a caller holding it
 	// for some games sees those games' events only.
 	ListEvents(context.Context, *connect.Request[v1.ListEventsRequest]) (*connect.Response[v1.ListEventsResponse], error)
+	// TestNotifier sends a test event (kind notifier.test, never in the log) to a notifier and says
+	// whether it was delivered: settings:write. not_found for a name the settings don't have.
+	TestNotifier(context.Context, *connect.Request[v1.TestNotifierRequest]) (*connect.Response[v1.TestNotifierResponse], error)
 }
 
 // NewOrganizationServiceClient constructs a client for the gravel.hub.v1.OrganizationService
@@ -109,6 +116,12 @@ func NewOrganizationServiceClient(httpClient connect.HTTPClient, baseURL string,
 			connect.WithSchema(organizationServiceMethods.ByName("ListEvents")),
 			connect.WithClientOptions(opts...),
 		),
+		testNotifier: connect.NewClient[v1.TestNotifierRequest, v1.TestNotifierResponse](
+			httpClient,
+			baseURL+OrganizationServiceTestNotifierProcedure,
+			connect.WithSchema(organizationServiceMethods.ByName("TestNotifier")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -119,6 +132,7 @@ type organizationServiceClient struct {
 	getOrganizationSettings    *connect.Client[v1.GetOrganizationSettingsRequest, v1.GetOrganizationSettingsResponse]
 	updateOrganizationSettings *connect.Client[v1.UpdateOrganizationSettingsRequest, v1.UpdateOrganizationSettingsResponse]
 	listEvents                 *connect.Client[v1.ListEventsRequest, v1.ListEventsResponse]
+	testNotifier               *connect.Client[v1.TestNotifierRequest, v1.TestNotifierResponse]
 }
 
 // GetOrganization calls gravel.hub.v1.OrganizationService.GetOrganization.
@@ -146,6 +160,11 @@ func (c *organizationServiceClient) ListEvents(ctx context.Context, req *connect
 	return c.listEvents.CallUnary(ctx, req)
 }
 
+// TestNotifier calls gravel.hub.v1.OrganizationService.TestNotifier.
+func (c *organizationServiceClient) TestNotifier(ctx context.Context, req *connect.Request[v1.TestNotifierRequest]) (*connect.Response[v1.TestNotifierResponse], error) {
+	return c.testNotifier.CallUnary(ctx, req)
+}
+
 // OrganizationServiceHandler is an implementation of the gravel.hub.v1.OrganizationService service.
 type OrganizationServiceHandler interface {
 	GetOrganization(context.Context, *connect.Request[v1.GetOrganizationRequest]) (*connect.Response[v1.GetOrganizationResponse], error)
@@ -154,7 +173,8 @@ type OrganizationServiceHandler interface {
 	// single-use, expires, and no token exists once the hub is owned.
 	ClaimOwnership(context.Context, *connect.Request[v1.ClaimOwnershipRequest]) (*connect.Response[v1.ClaimOwnershipResponse], error)
 	// GetOrganizationSettings returns the settings; public, because the pages render the theme
-	// before anyone logs in, and the document holds no credential.
+	// before anyone logs in, and the document holds no credential. The notifiers are left out
+	// unless the caller holds settings:write.
 	GetOrganizationSettings(context.Context, *connect.Request[v1.GetOrganizationSettingsRequest]) (*connect.Response[v1.GetOrganizationSettingsResponse], error)
 	// UpdateOrganizationSettings replaces the settings. The owner only; invalid_argument names
 	// every invalid field.
@@ -162,6 +182,9 @@ type OrganizationServiceHandler interface {
 	// ListEvents reads the events log by cursor (ADR-0028): events:read, and a caller holding it
 	// for some games sees those games' events only.
 	ListEvents(context.Context, *connect.Request[v1.ListEventsRequest]) (*connect.Response[v1.ListEventsResponse], error)
+	// TestNotifier sends a test event (kind notifier.test, never in the log) to a notifier and says
+	// whether it was delivered: settings:write. not_found for a name the settings don't have.
+	TestNotifier(context.Context, *connect.Request[v1.TestNotifierRequest]) (*connect.Response[v1.TestNotifierResponse], error)
 }
 
 // NewOrganizationServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -201,6 +224,12 @@ func NewOrganizationServiceHandler(svc OrganizationServiceHandler, opts ...conne
 		connect.WithSchema(organizationServiceMethods.ByName("ListEvents")),
 		connect.WithHandlerOptions(opts...),
 	)
+	organizationServiceTestNotifierHandler := connect.NewUnaryHandler(
+		OrganizationServiceTestNotifierProcedure,
+		svc.TestNotifier,
+		connect.WithSchema(organizationServiceMethods.ByName("TestNotifier")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/gravel.hub.v1.OrganizationService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case OrganizationServiceGetOrganizationProcedure:
@@ -213,6 +242,8 @@ func NewOrganizationServiceHandler(svc OrganizationServiceHandler, opts ...conne
 			organizationServiceUpdateOrganizationSettingsHandler.ServeHTTP(w, r)
 		case OrganizationServiceListEventsProcedure:
 			organizationServiceListEventsHandler.ServeHTTP(w, r)
+		case OrganizationServiceTestNotifierProcedure:
+			organizationServiceTestNotifierHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -240,4 +271,8 @@ func (UnimplementedOrganizationServiceHandler) UpdateOrganizationSettings(contex
 
 func (UnimplementedOrganizationServiceHandler) ListEvents(context.Context, *connect.Request[v1.ListEventsRequest]) (*connect.Response[v1.ListEventsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.OrganizationService.ListEvents is not implemented"))
+}
+
+func (UnimplementedOrganizationServiceHandler) TestNotifier(context.Context, *connect.Request[v1.TestNotifierRequest]) (*connect.Response[v1.TestNotifierResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.OrganizationService.TestNotifier is not implemented"))
 }

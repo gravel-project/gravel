@@ -13,6 +13,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/testutil"
 
 	"github.com/gravel-project/gravel/internal/backup"
+	"github.com/gravel-project/gravel/internal/notify"
 	"github.com/gravel-project/gravel/internal/servers"
 	"github.com/gravel-project/gravel/internal/store"
 	"github.com/gravel-project/gravel/internal/store/storetest"
@@ -91,6 +92,26 @@ func TestHubAlarms(t *testing.T) {
 			t.Errorf("%s: %v", c.name, got)
 		}
 	}
+	a.archiver = nil
+
+	// A notifier failing for an hour (gravel#196).
+	f := &fakeNotifiers{}
+	a.notifiers = f
+	if got := kinds(t, a); len(got) != 0 {
+		t.Errorf("no failing notifier: %v", got)
+	}
+	f.failing = []notify.Failing{{Name: "john-phone", Since: now.Add(-2 * time.Hour), LastError: "answered 401 Unauthorized"}}
+	all, err := a.Alarms(context.Background(), nil)
+	if err != nil || len(all) != 1 || all[0].Kind != AlarmNotifierFailing || all[0].Severity != servers.AlarmWarning || !all[0].Since.Equal(now.Add(-2*time.Hour)) ||
+		all[0].Detail != `the notifier "john-phone" has failed since 2026-10-13 10:00 UTC: answered 401 Unauthorized` {
+		t.Errorf("a failing notifier: %+v %v", all, err)
+	}
+}
+
+type fakeNotifiers struct{ failing []notify.Failing }
+
+func (f *fakeNotifiers) Failing(context.Context, time.Time) ([]notify.Failing, error) {
+	return f.failing, nil
 }
 
 // The gauges count the fleet by health and every alarm kind, at 0 while it is not open.

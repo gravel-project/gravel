@@ -23,6 +23,7 @@ import (
 	"github.com/gravel-project/gravel/internal/identity/identitytest"
 	"github.com/gravel-project/gravel/internal/identity/proof"
 	"github.com/gravel-project/gravel/internal/identity/proof/prooftest"
+	"github.com/gravel-project/gravel/internal/notify"
 	"github.com/gravel-project/gravel/internal/org"
 	"github.com/gravel-project/gravel/internal/org/orgtest"
 	"github.com/gravel-project/gravel/internal/results"
@@ -59,6 +60,22 @@ type rig struct {
 	events *fakeEvents
 	// fleet is the fleet GetFleetSummary reads (gravel#190): servers and alarms as the test sets them.
 	fleet *fakeFleet
+	// notifiers answer TestNotifier (gravel#196).
+	notifiers *fakeNotifiers
+}
+
+// fakeNotifiers answer TestNotifier: the test sets the error; it records what it was asked.
+type fakeNotifiers struct {
+	err    error
+	tested []string
+}
+
+func (f *fakeNotifiers) Test(_ context.Context, name, hub string) error {
+	f.tested = append(f.tested, name+"@"+hub)
+	if name == "nobody" {
+		return notify.ErrNoNotifier
+	}
+	return f.err
 }
 
 // fakeEvents is the events log: the test sets it; it records the query it was asked.
@@ -110,7 +127,7 @@ type rigIdentity func(r *rig) identity.Option
 func newRig(t *testing.T, idOpts ...rigIdentity) *rig {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	r := &rig{orgSt: &orgtest.FakeStore{}, idSt: identitytest.NewFakeStore(), appSt: appstest.NewFakeStore(), events: &fakeEvents{}, fleet: &fakeFleet{}}
+	r := &rig{orgSt: &orgtest.FakeStore{}, idSt: identitytest.NewFakeStore(), appSt: appstest.NewFakeStore(), events: &fakeEvents{}, fleet: &fakeFleet{}, notifiers: &fakeNotifiers{}}
 	r.org = org.New(r.orgSt, 15*time.Minute, logger).WithGames(servers.GameIDs()) // as the hub wires it
 	o, token, err := r.org.EnsureBuiltin(context.Background(), "Test")
 	if err != nil {
@@ -141,7 +158,7 @@ func newRig(t *testing.T, idOpts ...rigIdentity) *rig {
 	mux := http.NewServeMux()
 	member := connect.WithInterceptors(api.MemberTokens()) // as the hub wires it (ADR-0015)
 	access := api.NewAccess(r.org, r.ids, logger).WithServers(r.srvs)
-	mux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(r.org, access, logger).WithEvents(r.events), member))
+	mux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(r.org, access, logger).WithEvents(r.events).WithNotifiers(r.notifiers), member))
 	idAPI := api.NewIdentityServer(r.ids, r.sess, r.org, access, logger).WithBaseURL("https://hub.example.com")
 	r.proofSt = prooftest.NewFakeStore()
 	r.proofs = proof.New(r.proofSt, logger, []proof.Channel{proof.GameChat{ProviderName: "steam"}})

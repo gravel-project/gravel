@@ -26,10 +26,12 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"os"
 	"os/signal"
 	"runtime/debug"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -229,12 +231,31 @@ func configCheck(args []string, stdout, stderr io.Writer) int {
 	if cfg.Demos.Enabled() {
 		demos = fmt.Sprintf("bucket %s at %s, up to %d MiB", cfg.Demos.Bucket, cfg.Demos.Endpoint, cfg.Demos.MaxMiB)
 	}
-	fmt.Fprintf(stdout, "config OK: organization %q, listen %s, internal %s, database %s (from %s), migrate %s, login %s, pseudonyms %s, leases %s, demos %s\n",
-		cfg.Organization.Name, cfg.Server.Listen, cfg.Server.InternalListen, cfg.Database.RedactedURL(), cfg.Database.Source(), cfg.Database.Migrate, authSummary(cfg), pseudonyms, leases, demos)
+	fmt.Fprintf(stdout, "config OK: organization %q, listen %s, internal %s, database %s (from %s), migrate %s, login %s, pseudonyms %s, leases %s, demos %s, notify %s\n",
+		cfg.Organization.Name, cfg.Server.Listen, cfg.Server.InternalListen, cfg.Database.RedactedURL(), cfg.Database.Source(), cfg.Database.Migrate, authSummary(cfg), pseudonyms, leases, demos,
+		notifySummary(cfg.Notify))
 	if cfg.Demo {
 		fmt.Fprintln(stdout, "demo hub: every page says its members, matches and stats are made up, and `gravel-hub demo seed` may write made-up history into an empty database")
 	}
 	return 0
+}
+
+// notifySummary describes hub.yaml's notify section without a secret: which notifiers have one
+// (the settings say which exist) and the mail server.
+func notifySummary(n config.Notify) string {
+	secrets := "no notifier secrets"
+	if len(n.Secrets) > 0 {
+		secrets = "secrets for " + strings.Join(slices.Sorted(maps.Keys(n.Secrets)), ", ")
+	}
+	mail := "no mail server"
+	if s := n.SMTP; s.Enabled() {
+		mail = fmt.Sprintf("mail via %s:%d (%s, from %s", s.Host, s.PortOrDefault(), s.TLSMode(), s.From)
+		if src := s.PasswordSource(); src != "" {
+			mail += ", password from " + src
+		}
+		mail += ")"
+	}
+	return secrets + ", " + mail
 }
 
 // authSummary describes the login providers without any secret: which are enabled, whether

@@ -41,6 +41,7 @@ import (
 	"github.com/gravel-project/gravel/internal/ingest"
 	"github.com/gravel-project/gravel/internal/jobs"
 	"github.com/gravel-project/gravel/internal/metricnames"
+	"github.com/gravel-project/gravel/internal/notify"
 	"github.com/gravel-project/gravel/internal/objectstore"
 	"github.com/gravel-project/gravel/internal/org"
 	"github.com/gravel-project/gravel/internal/publicaddr"
@@ -77,10 +78,12 @@ type Hub struct {
 	logger  *slog.Logger
 	version string
 
-	st         *store.Store
-	org        *org.Service
-	fleet      *servers.Fleet
-	alarms     *alarmSource
+	st     *store.Store
+	org    *org.Service
+	fleet  *servers.Fleet
+	alarms *alarmSource
+	// notify carries the events log to the settings' notifiers (ADR-0028 §5).
+	notify     *notify.Dispatcher
 	ids        *identity.Service
 	sess       *session.Manager
 	apps       *apps.Service
@@ -366,7 +369,16 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 	// log; the fleet judges every server, and the alarms are computed from it and the hub's state.
 	h.monitor.SetHealthEvents(healthEvents{st: st, orgID: o.ID})
 	h.fleet = servers.NewFleet(h.servers, h.monitor, h.cloudvm, h.leases)
-	h.alarms = &alarmSource{statusFile: cfg.Backup.StatusFile, archiver: st, now: time.Now, owned: func(ctx context.Context) (bool, time.Time, error) {
+	// Notifiers (gravel#196): a dispatcher follows the log for each notifier the settings name,
+	// with its secret from hub.yaml; one failing for an hour is an alarm.
+	h.notify = notify.NewDispatcher(notify.Options{OrgID: o.ID, Log: st, Cursors: st, Logger: logger.With("job", "notify"), Registry: h.registry,
+		Notifiers: func(ctx context.Context) ([]org.Notifier, error) {
+			set, _, err := h.org.Settings(ctx)
+			return set.Notifiers, err
+		},
+		Build: h.notifier(o.Name)})
+	h.jobs.Start(jobs.Job{Name: "notify", Every: notify.Every, Immediate: true, Timeout: notify.MaxBatches*notify.SendTimeout + 10*time.Second, Run: h.notify.Run})
+	h.alarms = &alarmSource{statusFile: cfg.Backup.StatusFile, archiver: st, now: time.Now, notifiers: h.notify, owned: func(ctx context.Context) (bool, time.Time, error) {
 		o, err := h.org.Get(ctx)
 		return o.Owned(), o.CreatedAt, err
 	}}
@@ -491,6 +503,22 @@ func (h *Hub) buildProviders() []identity.Registration {
 // Handler is the public listener's handler: the Connect API, gRPC health and reflection,
 // /healthz and /readyz, and the pages. Serve it with unencrypted HTTP/2 enabled (Run does) so
 // gRPC works behind TLS termination.
+// notifier builds a notifier from its settings entry with its secret and the mail server from
+// hub.yaml.
+func (h *Hub) notifier(orgName string) func(n org.Notifier) (notify.Notifier, error) {
+	smtp := h.cfg.Notify.SMTP
+	d := notify.Deps{Hub: orgName, Client: &http.Client{Timeout: notify.SendTimeout},
+		SMTP: notify.SMTP{Host: smtp.Host, Port: smtp.PortOrDefault(), Username: smtp.Username, Password: smtp.Password, From: smtp.From, TLS: smtp.TLSMode()}}
+	if h.cfg.Auth.BaseURL != "" {
+		d.Link = h.cfg.Auth.BaseURL + "/admin"
+	}
+	return func(n org.Notifier) (notify.Notifier, error) {
+		d := d
+		d.Secret = h.cfg.Notify.Secret(n.Name)
+		return notify.New(n, d)
+	}
+}
+
 func (h *Hub) Handler() http.Handler { return h.public }
 
 // InternalHandler serves /metrics and /debug/pprof/. Keep it off the public network.
@@ -541,7 +569,7 @@ func (h *Hub) buildAPI() *http.ServeMux {
 	// A member's token (ADR-0015) is held to its scopes before any procedure runs.
 	interceptors := connect.WithInterceptors(h.metrics.Interceptor(), ratelimit.Interceptor(h.scopes(), h.rejected), api.MemberTokens())
 	access := api.NewAccess(h.org, h.ids, h.logger).WithServers(h.servers) // who is calling, for every capability check (ADR-0027)
-	mux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(h.org, access, h.logger).WithEvents(h.st), interceptors))
+	mux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(h.org, access, h.logger).WithEvents(h.st).WithNotifiers(h.notify), interceptors))
 	identityAPI := api.NewIdentityServer(h.ids, h.sess, h.org, access, h.logger).WithBaseURL(h.cfg.Auth.BaseURL)
 	identityAPI.SetProofs(h.proofs, h.servers, h.monitor)
 	mux.Handle(hubv1connect.NewIdentityServiceHandler(identityAPI, interceptors))
