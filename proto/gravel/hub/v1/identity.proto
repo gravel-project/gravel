@@ -137,6 +137,39 @@ message SetUserRoleResponse {
   User user = 1;
 }
 
+// PasswordLink is a one-time link that sets a local account's password (ADR-0026, gravel#187).
+// It is shown once: the hub keeps only a hash of it.
+message PasswordLink {
+  // The link to hand to the member: auth.base_url + /auth/local/reset/<token>, or only the path
+  // when the hub has no base_url.
+  string url = 1;
+  // "set" (a new account's first password) or "reset".
+  string purpose = 2;
+  // A link works once, for an hour.
+  google.protobuf.Timestamp expires_at = 3;
+}
+
+message CreateLocalAccountRequest {
+  // 3 to 32 of a-z 0-9 . _ -, starting with a letter or a digit; compared after NFKC and lower case.
+  string username = 1;
+  // Optional, and only ever for recovery: the hub never matches accounts by email.
+  string email = 2;
+}
+
+message CreateLocalAccountResponse {
+  User user = 1;
+  PasswordLink link = 2;
+}
+
+message IssuePasswordResetRequest {
+  // The local account's username.
+  string username = 1;
+}
+
+message IssuePasswordResetResponse {
+  PasswordLink link = 1;
+}
+
 message StartProofRequest {
   // The server whose chat the code is typed in: one whose status has the "chat" capability.
   string server_id = 1;
@@ -196,6 +229,13 @@ service IdentityService {
   // SetUserRole grants or revokes a member's role (ADR-0013); every change is recorded with who
   // made it. The owner only; the owner holds every power already and needs no role.
   rpc SetUserRole(SetUserRoleRequest) returns (SetUserRoleResponse);
+  // CreateLocalAccount makes a member with a local account (ADR-0026) and returns the one-time link
+  // that sets its password: how staff give someone an account while registration is closed.
+  // members:manage, in person; failed_precondition when local accounts are off.
+  rpc CreateLocalAccount(CreateLocalAccountRequest) returns (CreateLocalAccountResponse);
+  // IssuePasswordReset returns a one-time link that resets a local account's password; the
+  // account's earlier unused links stop working. members:manage, in person.
+  rpc IssuePasswordReset(IssuePasswordResetRequest) returns (IssuePasswordResetResponse);
   // StartProof draws a one-time code the caller types in a game server's chat to prove the account
   // they play as (gravel#5): the server's log names the account, and the hub links it to the
   // caller (or proves an existing link again; another member's account stays theirs). Good for ten

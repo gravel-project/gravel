@@ -111,9 +111,11 @@ type Hub struct {
 	oauthAuthorizations *prometheus.CounterVec
 	// localLogins counts local account logins and registrations by result (ADR-0026).
 	localLogins *prometheus.CounterVec
-	api         *http.ServeMux
-	public      http.Handler
-	internal    http.Handler
+	// passwordResets counts password links by result (gravel#187).
+	passwordResets *prometheus.CounterVec
+	api            *http.ServeMux
+	public         http.Handler
+	internal       http.Handler
 
 	listeners *listeners
 }
@@ -250,8 +252,11 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 				return identity.LocalPolicy{}, err
 			}
 			return identity.LocalPolicy{RegistrationOpen: set.LocalAccounts.Open(), MinPasswordLength: set.LocalAccounts.MinPasswordLength}, nil
-		}))
+		}), identity.WithPasswordLinks(st, func(result string) { h.passwordResets.WithLabelValues(result).Inc() }))
 	}
+	h.passwordResets = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "gravel_password_resets_total", Help: "Password links (set and reset) by result: issued, used, invalid (an unknown, used or expired link), refused (a password the rules turned down).",
+	}, []string{"result"})
 	h.ids = identity.New(st, o.ID, regs, cfg.Auth.AttemptTTL, logger, idOpts...)
 	h.sess = session.New(st, cfg.Auth.SessionTTL, cfg.Auth.Secure(), logger)
 	h.perIP = ratelimit.New(cfg.RateLimit.PerIP.RequestsPerMinute, cfg.RateLimit.PerIP.Burst)
@@ -286,7 +291,7 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 	h.oauthAuthorizations = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "gravel_oauth_authorizations_total", Help: "Requests at the authorization endpoint by result (issued, denied, rejected, error).",
 	}, []string{"result"})
-	h.registry.MustRegister(buildInfo, h.authTotal, h.limitedTotal, h.oauthAuthorizations, h.localLogins, backup.NewCollector(cfg.Backup.StatusFile, st, logger), newStatsCollector(st, providerNames, logger))
+	h.registry.MustRegister(buildInfo, h.authTotal, h.limitedTotal, h.oauthAuthorizations, h.localLogins, h.passwordResets, backup.NewCollector(cfg.Backup.StatusFile, st, logger), newStatsCollector(st, providerNames, logger))
 	// First-party apps (ADR-0008, ADR-0015): app tokens live apps.token_ttl, members' tokens an hour.
 	h.apps = apps.New(st, o.ID, cfg.Apps.TokenTTL, logger, apps.WithMetrics(h.registry))
 	h.metrics = httpx.NewMetrics(h.registry)
@@ -497,7 +502,7 @@ func (h *Hub) buildAPI() *http.ServeMux {
 	interceptors := connect.WithInterceptors(h.metrics.Interceptor(), ratelimit.Interceptor(h.scopes(), h.rejected), api.MemberTokens())
 	access := api.NewAccess(h.org, h.ids, h.logger) // who is calling, for every capability check (ADR-0027)
 	mux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(h.org, access, h.logger), interceptors))
-	identityAPI := api.NewIdentityServer(h.ids, h.sess, h.org, access, h.logger)
+	identityAPI := api.NewIdentityServer(h.ids, h.sess, h.org, access, h.logger).WithBaseURL(h.cfg.Auth.BaseURL)
 	identityAPI.SetProofs(h.proofs, h.servers, h.monitor)
 	mux.Handle(hubv1connect.NewIdentityServiceHandler(identityAPI, interceptors))
 	mux.Handle(hubv1connect.NewServerServiceHandler(api.NewServerServer(h.servers, h.monitor, h.ids, access, h.logger).WithSharedPasswords(h.hosts), interceptors))

@@ -173,6 +173,48 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.RevokeAppGrantResponse'
+  /gravel.hub.v1.IdentityService/CreateLocalAccount:
+    post:
+      tags:
+        - gravel.hub.v1.IdentityService
+      summary: CreateLocalAccount
+      description: |-
+        CreateLocalAccount makes a member with a local account (ADR-0026) and returns the one-time link
+         that sets its password: how staff give someone an account while registration is closed.
+         members:manage, in person; failed_precondition when local accounts are off.
+      operationId: gravel.hub.v1.IdentityService.CreateLocalAccount
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.CreateLocalAccountRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.CreateLocalAccountResponse'
   /gravel.hub.v1.IdentityService/GetMe:
     post:
       tags:
@@ -251,6 +293,47 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.GetProofResponse'
+  /gravel.hub.v1.IdentityService/IssuePasswordReset:
+    post:
+      tags:
+        - gravel.hub.v1.IdentityService
+      summary: IssuePasswordReset
+      description: |-
+        IssuePasswordReset returns a one-time link that resets a local account's password; the
+         account's earlier unused links stop working. members:manage, in person.
+      operationId: gravel.hub.v1.IdentityService.IssuePasswordReset
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.IssuePasswordResetRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.IssuePasswordResetResponse'
   /gravel.hub.v1.IdentityService/ListIdentityEvents:
     post:
       tags:
@@ -2910,6 +2993,32 @@ components:
       title: ConfigStripped
       additionalProperties: false
       description: ConfigStripped is a key, or a whole section with no key, the server drops.
+    gravel.hub.v1.CreateLocalAccountRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          title: username
+          description: 3 to 32 of a-z 0-9 . _ -, starting with a letter or a digit; compared after NFKC and lower case.
+        email:
+          type: string
+          title: email
+          description: 'Optional, and only ever for recovery: the hub never matches accounts by email.'
+      title: CreateLocalAccountRequest
+      additionalProperties: false
+    gravel.hub.v1.CreateLocalAccountResponse:
+      type: object
+      properties:
+        user:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.User'
+          title: user
+        link:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.PasswordLink'
+          title: link
+      title: CreateLocalAccountResponse
+      additionalProperties: false
     gravel.hub.v1.DestroyServerHostRequest:
       type: object
       properties:
@@ -4018,6 +4127,24 @@ components:
       description: |-
         IdentityEvent is one line of the append-only identity log: a registration, a login, a link or
          an unlink of one (provider, subject) pair.
+    gravel.hub.v1.IssuePasswordResetRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          title: username
+          description: The local account's username.
+      title: IssuePasswordResetRequest
+      additionalProperties: false
+    gravel.hub.v1.IssuePasswordResetResponse:
+      type: object
+      properties:
+        link:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.PasswordLink'
+          title: link
+      title: IssuePasswordResetResponse
+      additionalProperties: false
     gravel.hub.v1.KickPlayerRequest:
       type: object
       properties:
@@ -4887,6 +5014,29 @@ components:
       description: |-
         ParticipationTotals is a member's participation of one kind over one window: "all", "week",
          "month", or "season" with season naming one running now. from and to are unset for all time.
+    gravel.hub.v1.PasswordLink:
+      type: object
+      properties:
+        url:
+          type: string
+          title: url
+          description: |-
+            The link to hand to the member: auth.base_url + /auth/local/reset/<token>, or only the path
+             when the hub has no base_url.
+        purpose:
+          type: string
+          title: purpose
+          description: '"set" (a new account''s first password) or "reset".'
+        expiresAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: expires_at
+          description: A link works once, for an hour.
+      title: PasswordLink
+      additionalProperties: false
+      description: |-
+        PasswordLink is a one-time link that sets a local account's password (ADR-0026, gravel#187).
+         It is shown once: the hub keeps only a hash of it.
     gravel.hub.v1.PlanServerConfigRequest:
       type: object
       properties:

@@ -8,6 +8,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/gravel-project/gravel/internal/httpx"
 	"github.com/gravel-project/gravel/internal/identity"
 	"github.com/gravel-project/gravel/internal/ratelimit"
 	"github.com/gravel-project/gravel/internal/session"
@@ -234,4 +235,86 @@ func localProblem(err error) (problem string, status int, known bool) {
 		return identity.ErrRegistrationClosed.Error(), http.StatusNotFound, true
 	}
 	return "", 0, false
+}
+
+// resetLogPath is what the access log says for a password link: the token is a password for an
+// hour and never reaches a log.
+const resetLogPath = "/auth/local/reset/<redacted>"
+
+// resetHeaders keep the link's token on this page: no referrer to anything it loads or links to.
+func resetHeaders(w http.ResponseWriter, r *http.Request) {
+	httpx.SetLogPath(r.Context(), resetLogPath)
+	w.Header().Set("Referrer-Policy", "no-referrer")
+	w.Header().Set("Cache-Control", "no-store")
+}
+
+// resetForm is the page a password link opens (gravel#187); it spends nothing.
+func (h *Handler) resetForm(w http.ResponseWriter, r *http.Request) {
+	resetHeaders(w, r)
+	token := r.PathValue("token")
+	link, err := h.ids.PasswordLinkFor(r.Context(), token)
+	if err != nil {
+		h.linkError(w, r, err)
+		return
+	}
+	h.resetPage(w, r, http.StatusOK, nil, link, token)
+}
+
+// reset sets the password from the link, once, ends every session of the member and logs this
+// browser in.
+func (h *Handler) reset(w http.ResponseWriter, r *http.Request) {
+	resetHeaders(w, r)
+	token := r.PathValue("token")
+	link, err := h.ids.PasswordLinkFor(r.Context(), token)
+	if err != nil {
+		h.linkError(w, r, err)
+		return
+	}
+	status := http.StatusTooManyRequests
+	if !h.localAllowed(w, r, func(f *templates.Flash) { h.resetPage(w, r, status, f, link, token) }) {
+		return
+	}
+	u, _, err := h.ids.UsePasswordLink(r.Context(), token, r.PostFormValue("password"))
+	if err != nil {
+		if problem, status, known := localProblem(err); known {
+			h.resetPage(w, r, status, &templates.Flash{Kind: "err", Text: problem}, link, token)
+			return
+		}
+		h.linkError(w, r, err)
+		return
+	}
+	if _, err := h.sess.RevokeAll(r.Context(), u.ID); err != nil {
+		h.serverError(w, r, err)
+		return
+	}
+	if !h.startSession(w, r, identity.Completed{User: u}) {
+		return
+	}
+	h.setFlash(w, "ok", "Your password is set, and you are logged in as "+link.Username+".")
+	http.Redirect(w, r, "/account", http.StatusSeeOther)
+}
+
+func (h *Handler) linkError(w http.ResponseWriter, r *http.Request, err error) {
+	if errors.Is(err, identity.ErrLinkInvalid) {
+		h.fail(w, r, http.StatusNotFound, "Link not valid", "This link is unknown, used or expired. Ask the hub's staff for a new one.")
+		return
+	}
+	h.serverError(w, r, err)
+}
+
+func (h *Handler) resetPage(w http.ResponseWriter, r *http.Request, status int, flash *templates.Flash, link identity.PasswordLink, token string) {
+	p, b, err := h.page(r, "Choose a password")
+	if err != nil {
+		h.serverError(w, r, err)
+		return
+	}
+	if flash != nil {
+		p.Flash = flash
+	}
+	minLen := identity.DefaultMinPassword
+	if policy, err := h.ids.LocalPolicy(r.Context()); err == nil {
+		minLen = policy.MinPasswordLength
+	}
+	rp := templates.ResetPage{Page: p.Page, Username: link.Username, Set: link.Purpose == "set", MinPasswordLength: minLen, Action: "/auth/local/reset/" + token}
+	h.render(w, r, status, b, templates.Reset(rp), templates.ResetContent(rp))
 }

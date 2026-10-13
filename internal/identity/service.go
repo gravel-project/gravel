@@ -50,15 +50,17 @@ type Registration struct {
 
 // Service is the identity domain: the login and link flows, the account view, and lookups.
 type Service struct {
-	st         Store
-	orgID      uuid.UUID
-	providers  []Registration
-	byName     map[string]Registration
-	attemptTTL time.Duration
-	logger     *slog.Logger
-	orgName    string
-	local      *localAccounts // nil: local accounts are off (ADR-0026)
-	pwParams   PasswordParams
+	st          Store
+	orgID       uuid.UUID
+	providers   []Registration
+	byName      map[string]Registration
+	attemptTTL  time.Duration
+	logger      *slog.Logger
+	orgName     string
+	local       *localAccounts // nil: local accounts are off (ADR-0026)
+	pwParams    PasswordParams
+	links       LinkStore // nil: no password links (gravel#187)
+	observeLink func(result string)
 
 	now  func() time.Time
 	rand io.Reader
@@ -475,7 +477,13 @@ func (s *Service) Unlink(ctx context.Context, userID uuid.UUID, provider, subjec
 
 // Prune deletes expired attempts and reports how many.
 func (s *Service) Prune(ctx context.Context) (int64, error) {
-	return s.st.DeleteExpiredAuthAttempts(ctx, s.now())
+	n, err := s.st.DeleteExpiredAuthAttempts(ctx, s.now())
+	if err != nil || s.links == nil {
+		return n, err
+	}
+	// Password links are kept 30 days after they expire, for the record, then go.
+	m, err := s.links.DeleteExpiredPasswordLinks(ctx, s.now().Add(-30*24*time.Hour))
+	return n + m, err
 }
 
 func (s *Service) random() (string, error) {

@@ -77,7 +77,7 @@ var specs = []Spec{
 	{Name: ServersOperate, Scopable: true, About: "start, park and restart existing servers at their size (#185)"},
 	{Name: ServersProvision, Scopable: true, About: "resize, pin, snapshot and destroy a cloud-VM server's host: anything that changes what the hub spends (ResizeServerHost, UnpinServerHostSize, SnapshotServerHostVolume, DestroyServerHost)"},
 	{Name: ServersManage, About: "add, change and remove servers: the servers manifest (#195)"},
-	{Name: MembersManage, About: "create local accounts, issue set-password links and end members' sessions (#186, #187)"},
+	{Name: MembersManage, About: "create local accounts and issue their set-password and reset links (CreateLocalAccount, IssuePasswordReset)"},
 	{Name: RolesGrant, About: "grant and revoke members' roles (SetUserRole)"},
 	{Name: SettingsWrite, About: "change the Organization settings (UpdateOrganizationSettings)"},
 	{Name: AppsManage, About: "register and revoke first-party apps (#195)"},
