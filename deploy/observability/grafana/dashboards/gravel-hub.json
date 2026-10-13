@@ -2164,6 +2164,130 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
+      "description": "Servers by health (docs/hub.md, Fleet health): up, degraded (a missed poll, stale, slow, starting), down (not answering, a refused credential, a host that keeps failing), idle (parked as asked), unknown (just started). GetFleetSummary says which and why.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 12,
+        "x": 0,
+        "y": 79
+      },
+      "id": 39,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "gravel_server_health{job=\"$job\", instance=~\"$instance\"}",
+          "legendFormat": "{{health}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Fleet health",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Open alarms by kind (docs/hub.md, Alarms): a server down for 2 minutes, a refused or missing credential, a host failing, a stale or failed backup, WAL archiving failing, an unclaimed hub. Each closes when its cause does.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 12,
+        "x": 12,
+        "y": 79
+      },
+      "id": 40,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "gravel_alarms{job=\"$job\", instance=~\"$instance\"}",
+          "legendFormat": "{{kind}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Alarms open",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
       "description": "Down after two failed polls in a row (ADR-0010); the hub's log says why. No data is expected when no server is registered (servers.yaml).",
       "fieldConfig": {
         "defaults": {
@@ -2209,9 +2333,9 @@
         "h": 4,
         "w": 8,
         "x": 0,
-        "y": 79
+        "y": 83
       },
-      "id": 39,
+      "id": 41,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -2278,9 +2402,9 @@
         "h": 4,
         "w": 8,
         "x": 8,
-        "y": 79
+        "y": 83
       },
-      "id": 40,
+      "id": 42,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -2339,9 +2463,9 @@
         "h": 4,
         "w": 8,
         "x": 16,
-        "y": 79
+        "y": 83
       },
-      "id": 41,
+      "id": 43,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -2407,9 +2531,9 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 83
+        "y": 87
       },
-      "id": 42,
+      "id": 44,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2451,6 +2575,71 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
+      "description": "How long each server's poll takes, answered or not; over 2 s makes it degraded. No data is expected when no server is registered.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gravelOptional": "no server is registered",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 95
+      },
+      "id": 45,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "histogram_quantile(0.95, sum by (server, le) (rate(gravel_server_poll_duration_seconds_bucket{job=\"$job\", instance=~\"$instance\"}[$__rate_interval])))",
+          "legendFormat": "{{server}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Poll duration (p95)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
       "description": "The build each server runs, as the watcher last read it (every minute, ADR-0010). No data is expected when no server is registered, or none has answered yet.",
       "fieldConfig": {
         "defaults": {
@@ -2475,9 +2664,9 @@
         "h": 4,
         "w": 12,
         "x": 0,
-        "y": 91
+        "y": 103
       },
-      "id": 43,
+      "id": 46,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -2543,9 +2732,9 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 91
+        "y": 103
       },
-      "id": 44,
+      "id": 47,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2608,9 +2797,9 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 99
+        "y": 111
       },
-      "id": 45,
+      "id": 48,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2643,9 +2832,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 107
+        "y": 119
       },
-      "id": 46,
+      "id": 49,
       "panels": [],
       "title": "Server leases",
       "type": "row"
@@ -2679,9 +2868,9 @@
         "h": 4,
         "w": 6,
         "x": 0,
-        "y": 108
+        "y": 120
       },
-      "id": 47,
+      "id": 50,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -2746,9 +2935,9 @@
         "h": 8,
         "w": 6,
         "x": 6,
-        "y": 108
+        "y": 120
       },
-      "id": 48,
+      "id": 51,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2811,9 +3000,9 @@
         "h": 8,
         "w": 6,
         "x": 12,
-        "y": 108
+        "y": 120
       },
-      "id": 49,
+      "id": 52,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2876,9 +3065,9 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 116
+        "y": 128
       },
-      "id": 50,
+      "id": 53,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -2941,9 +3130,9 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 116
+        "y": 128
       },
-      "id": 51,
+      "id": 54,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3006,9 +3195,9 @@
         "h": 8,
         "w": 6,
         "x": 0,
-        "y": 124
+        "y": 136
       },
-      "id": 52,
+      "id": 55,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3041,9 +3230,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 132
+        "y": 144
       },
-      "id": 53,
+      "id": 56,
       "panels": [],
       "title": "Cloud VMs",
       "type": "row"
@@ -3077,9 +3266,9 @@
         "h": 4,
         "w": 6,
         "x": 0,
-        "y": 133
+        "y": 145
       },
-      "id": 54,
+      "id": 57,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -3146,9 +3335,9 @@
         "h": 4,
         "w": 6,
         "x": 6,
-        "y": 133
+        "y": 145
       },
-      "id": 55,
+      "id": 58,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -3207,9 +3396,9 @@
         "h": 4,
         "w": 6,
         "x": 12,
-        "y": 133
+        "y": 145
       },
-      "id": 56,
+      "id": 59,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -3268,9 +3457,9 @@
         "h": 4,
         "w": 6,
         "x": 18,
-        "y": 133
+        "y": 145
       },
-      "id": 57,
+      "id": 60,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -3336,9 +3525,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 137
+        "y": 149
       },
-      "id": 58,
+      "id": 61,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3401,9 +3590,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 137
+        "y": 149
       },
-      "id": 59,
+      "id": 62,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3466,9 +3655,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 137
+        "y": 149
       },
-      "id": 60,
+      "id": 63,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3531,9 +3720,9 @@
         "h": 8,
         "w": 6,
         "x": 0,
-        "y": 145
+        "y": 157
       },
-      "id": 61,
+      "id": 64,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3596,9 +3785,9 @@
         "h": 8,
         "w": 6,
         "x": 6,
-        "y": 145
+        "y": 157
       },
-      "id": 62,
+      "id": 65,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3654,9 +3843,9 @@
         "h": 4,
         "w": 6,
         "x": 12,
-        "y": 145
+        "y": 157
       },
-      "id": 63,
+      "id": 66,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -3715,9 +3904,9 @@
         "h": 4,
         "w": 6,
         "x": 18,
-        "y": 145
+        "y": 157
       },
-      "id": 64,
+      "id": 67,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -3776,9 +3965,9 @@
         "h": 4,
         "w": 6,
         "x": 0,
-        "y": 153
+        "y": 165
       },
-      "id": 65,
+      "id": 68,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -3844,9 +4033,9 @@
         "h": 8,
         "w": 6,
         "x": 6,
-        "y": 153
+        "y": 165
       },
-      "id": 66,
+      "id": 69,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3909,9 +4098,9 @@
         "h": 8,
         "w": 6,
         "x": 12,
-        "y": 153
+        "y": 165
       },
-      "id": 67,
+      "id": 70,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -3974,9 +4163,9 @@
         "h": 8,
         "w": 6,
         "x": 18,
-        "y": 153
+        "y": 165
       },
-      "id": 68,
+      "id": 71,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4039,9 +4228,9 @@
         "h": 8,
         "w": 6,
         "x": 0,
-        "y": 161
+        "y": 173
       },
-      "id": 69,
+      "id": 72,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4074,9 +4263,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 169
+        "y": 181
       },
-      "id": 70,
+      "id": 73,
       "panels": [],
       "title": "Stats",
       "type": "row"
@@ -4117,9 +4306,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 170
+        "y": 182
       },
-      "id": 71,
+      "id": 74,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4182,9 +4371,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 170
+        "y": 182
       },
-      "id": 72,
+      "id": 75,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4247,9 +4436,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 170
+        "y": 182
       },
-      "id": 73,
+      "id": 76,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4311,9 +4500,9 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 178
+        "y": 190
       },
-      "id": 74,
+      "id": 77,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4368,9 +4557,9 @@
         "h": 4,
         "w": 12,
         "x": 12,
-        "y": 178
+        "y": 190
       },
-      "id": 75,
+      "id": 78,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -4435,9 +4624,9 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 186
+        "y": 198
       },
-      "id": 76,
+      "id": 79,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4470,9 +4659,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 194
+        "y": 206
       },
-      "id": 77,
+      "id": 80,
       "panels": [],
       "title": "Ingestion",
       "type": "row"
@@ -4514,9 +4703,9 @@
         "h": 4,
         "w": 8,
         "x": 0,
-        "y": 195
+        "y": 207
       },
-      "id": 78,
+      "id": 81,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -4582,9 +4771,9 @@
         "h": 8,
         "w": 16,
         "x": 8,
-        "y": 195
+        "y": 207
       },
-      "id": 79,
+      "id": 82,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4617,9 +4806,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 203
+        "y": 215
       },
-      "id": 80,
+      "id": 83,
       "panels": [],
       "title": "Background jobs",
       "type": "row"
@@ -4659,9 +4848,9 @@
         "h": 8,
         "w": 16,
         "x": 0,
-        "y": 204
+        "y": 216
       },
-      "id": 81,
+      "id": 84,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4716,9 +4905,9 @@
         "h": 4,
         "w": 8,
         "x": 16,
-        "y": 204
+        "y": 216
       },
-      "id": 82,
+      "id": 85,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -4754,9 +4943,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 212
+        "y": 224
       },
-      "id": 83,
+      "id": 86,
       "panels": [],
       "title": "Events",
       "type": "row"
@@ -4797,9 +4986,9 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 213
+        "y": 225
       },
-      "id": 84,
+      "id": 87,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4832,9 +5021,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 221
+        "y": 233
       },
-      "id": 85,
+      "id": 88,
       "panels": [],
       "title": "Runtime",
       "type": "row"
@@ -4873,9 +5062,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 222
+        "y": 234
       },
-      "id": 86,
+      "id": 89,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4936,9 +5125,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 222
+        "y": 234
       },
-      "id": 87,
+      "id": 90,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4999,9 +5188,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 222
+        "y": 234
       },
-      "id": 88,
+      "id": 91,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5062,9 +5251,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 230
+        "y": 242
       },
-      "id": 89,
+      "id": 92,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5125,9 +5314,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 230
+        "y": 242
       },
-      "id": 90,
+      "id": 93,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5188,9 +5377,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 230
+        "y": 242
       },
-      "id": 91,
+      "id": 94,
       "options": {
         "legend": {
           "displayMode": "list",

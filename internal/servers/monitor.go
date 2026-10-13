@@ -59,6 +59,24 @@ type Observation struct {
 	Capabilities []string
 	Status       drivers.Status
 	Players      []drivers.Player
+
+	// What the fleet's health is judged on (gravel#190, health.go).
+	// StateSince is when State last changed.
+	StateSince time.Time
+	// WatchedSince is when the monitor started watching the server (its definition last changed).
+	WatchedSince time.Time
+	// PollInterval is the server's poll interval.
+	PollInterval time.Duration
+	// Misses is the failed polls in a row; a rate-limited poll is not one.
+	Misses int
+	// FailingSince is the first failed poll of the current run of failures; zero after a success.
+	FailingSince time.Time
+	// LastPollDuration is how long the last poll took, answered or not.
+	LastPollDuration time.Duration
+	// LastError is the state of the last failed poll ("unreachable", "credential_refused", ...),
+	// public like State; the error itself is in the log. LastErrorAt is when.
+	LastError   string
+	LastErrorAt time.Time
 }
 
 // Monitor polls every live server through its driver.
@@ -77,6 +95,9 @@ type Monitor struct {
 	observed     *prometheus.GaugeVec
 	buildInfo    *prometheus.GaugeVec
 	buildChanges *prometheus.CounterVec
+	pollDuration *prometheus.HistogramVec
+
+	events HealthEvents
 
 	sink    ObservationSink
 	primer  Primer
@@ -91,6 +112,9 @@ type worker struct {
 	cred   [32]byte // hash of the credential the driver holds
 	misses int
 	state  string // last state logged, so a lasting failure is logged once
+	// reported is the last health event written for the server ("" none, or after a recovery):
+	// events are written on a transition only, and a restarted hub picks up where the log is.
+	reported string
 }
 
 // NewMonitor builds a monitor and registers its metrics. Call Start before the runner runs.
@@ -117,10 +141,14 @@ func NewMonitor(svc *Service, registry drivers.Registry, runner *jobs.Runner, re
 		buildChanges: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Name: "gravel_driver_build_changes_total", Help: "Builds the watcher saw a server change to (a game update); each re-read the capabilities.",
 		}, labels),
+		pollDuration: prometheus.NewHistogramVec(prometheus.HistogramOpts{
+			Name: "gravel_server_poll_duration_seconds", Help: "How long a server's poll took, answered or not; a poll over 2 s makes the server degraded.",
+			Buckets: []float64{.05, .1, .25, .5, 1, 2, 5, 10, 30},
+		}, labels),
 		workers: map[string]*worker{},
 		obs:     map[string]Observation{},
 	}
-	reg.MustRegister(m.reachable, m.players, m.maxPlayers, m.observed, m.buildInfo, m.buildChanges)
+	reg.MustRegister(m.reachable, m.players, m.maxPlayers, m.observed, m.buildInfo, m.buildChanges, m.pollDuration)
 	return m
 }
 
@@ -256,10 +284,29 @@ func (m *Monitor) startWorker(def Server, cred string, sum [32]byte) error {
 	if old, ok := m.workers[def.ID]; ok && old.def.Game != def.Game {
 		m.deleteMetricsLocked(old.def)
 	}
-	m.workers[def.ID] = &worker{def: def, drv: drv, cred: sum}
-	if _, ok := m.obs[def.ID]; !ok {
-		m.obs[def.ID] = Observation{ServerID: def.ID, State: StateUnknown}
+	events := m.events
+	m.mu.Unlock()
+	reported := ""
+	if events != nil {
+		// Where the log left the server, so a restart neither repeats an event nor misses a recovery.
+		ectx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		last, err := events.LastHealthEvent(ectx, def.ID)
+		cancel()
+		if err != nil {
+			m.logger.Warn("could not read the server's last health event", "server", def.ID, "error", err.Error())
+		} else if last != "" && last != EventRecovered {
+			reported = last
+		}
 	}
+	now := m.now()
+	m.mu.Lock()
+	m.workers[def.ID] = &worker{def: def, drv: drv, cred: sum, reported: reported}
+	o, ok := m.obs[def.ID]
+	if !ok {
+		o = Observation{ServerID: def.ID, State: StateUnknown, StateSince: now}
+	}
+	o.WatchedSince, o.PollInterval = now, time.Duration(def.PollInterval)
+	m.obs[def.ID] = o
 	m.mu.Unlock()
 	every := time.Duration(def.PollInterval)
 	m.runner.Start(jobs.Job{
@@ -288,6 +335,7 @@ func (m *Monitor) deleteMetricsLocked(def Server) {
 	for _, g := range []*prometheus.GaugeVec{m.reachable, m.players, m.maxPlayers, m.observed} {
 		g.DeleteLabelValues(def.ID, def.Game)
 	}
+	m.pollDuration.DeleteLabelValues(def.ID, def.Game)
 	m.buildInfo.DeletePartialMatch(prometheus.Labels{"server": def.ID})
 	m.buildChanges.DeleteLabelValues(def.ID, def.Game)
 }
@@ -371,6 +419,12 @@ func (m *Monitor) poll(ctx context.Context, id string) error {
 	if !ok {
 		return nil // stopped between ticks
 	}
+	start := m.now()
+	took := func() time.Duration {
+		d := max(m.now().Sub(start), 0)
+		m.pollDuration.WithLabelValues(w.def.ID, w.def.Game).Observe(d.Seconds())
+		return d
+	}
 
 	build := ""
 	if caps == nil {
@@ -379,20 +433,21 @@ func (m *Monitor) poll(ctx context.Context, id string) error {
 			caps, err = w.drv.Capabilities(ctx)
 		}
 		if err != nil {
-			return m.failed(w, err)
+			return m.failed(ctx, w, err, took())
 		}
 	}
 	st, err := w.drv.Status(ctx)
 	if err != nil {
-		return m.failed(w, err)
+		return m.failed(ctx, w, err, took())
 	}
 	var players []drivers.Player
 	if slices.Contains(caps, drivers.CapPlayers) {
 		if players, err = w.drv.Players(ctx); err != nil {
-			return m.failed(w, err)
+			return m.failed(ctx, w, err, took())
 		}
 	}
 
+	d := took()
 	now := m.now()
 	m.mu.Lock()
 	if m.workers[id] != w {
@@ -400,8 +455,12 @@ func (m *Monitor) poll(ctx context.Context, id string) error {
 		return nil // replaced while polling
 	}
 	o := m.obs[id]
+	if o.State != StateOK {
+		o.StateSince = now
+	}
 	o.State, o.Reachable, o.ObservedAt = StateOK, true, now
 	o.Status, o.Players, o.Capabilities = st, players, caps
+	o.Misses, o.FailingSince, o.LastPollDuration = 0, time.Time{}, d
 	if build != "" {
 		o.Build = build
 		m.setBuildLocked(w.def, build)
@@ -411,6 +470,7 @@ func (m *Monitor) poll(ctx context.Context, id string) error {
 	recovered := w.state != "" && w.state != StateOK
 	w.state = StateOK
 	def := w.def
+	report := w.reported != ""
 	m.reachable.WithLabelValues(def.ID, def.Game).Set(1)
 	m.players.WithLabelValues(def.ID, def.Game).Set(float64(st.Players))
 	m.maxPlayers.WithLabelValues(def.ID, def.Game).Set(float64(st.MaxPlayers))
@@ -419,6 +479,9 @@ func (m *Monitor) poll(ctx context.Context, id string) error {
 	m.mu.Unlock()
 	if recovered {
 		m.logger.Info("server answering again", "server", id)
+	}
+	if report {
+		m.report(ctx, w, EventRecovered, now, map[string]any{"poll_ms": d.Milliseconds()})
 	}
 	if sink != nil {
 		// The stats store (ADR-0012) records the match from it; its trouble is its own, never the
@@ -468,8 +531,12 @@ func (m *Monitor) hostDown(w *worker, err error) error {
 		return nil
 	}
 	o := m.obs[w.def.ID]
+	if o.State != state {
+		o.StateSince = m.now()
+	}
 	o.State, o.Reachable, o.Players = state, false, nil
 	o.Status = drivers.Status{}
+	o.Misses, o.FailingSince = 0, time.Time{}
 	m.obs[w.def.ID] = o
 	w.misses = 0
 	first := w.state != state
@@ -484,11 +551,12 @@ func (m *Monitor) hostDown(w *worker, err error) error {
 }
 
 // failed records a failed poll and returns the error for the runner.
-func (m *Monitor) failed(w *worker, err error) error {
+func (m *Monitor) failed(ctx context.Context, w *worker, err error, took time.Duration) error {
 	if errors.Is(err, drivers.ErrHostNotRunning) {
 		return m.hostDown(w, err)
 	}
 	state := stateOf(err)
+	now := m.now()
 	m.mu.Lock()
 	if m.workers[w.def.ID] != w {
 		m.mu.Unlock()
@@ -497,8 +565,14 @@ func (m *Monitor) failed(w *worker, err error) error {
 	o := m.obs[w.def.ID]
 	if state != StateRateLimited {
 		w.misses++
+		if o.FailingSince.IsZero() {
+			o.FailingSince = now
+		}
 	}
-	o.State = state
+	if o.State != state {
+		o.StateSince = now
+	}
+	o.State, o.Misses, o.LastPollDuration, o.LastError, o.LastErrorAt = state, w.misses, took, state, now
 	switch state {
 	case StateCredentialRefused, StateCredentialMissing:
 		// The server answered; it is the credential that is wrong.
@@ -511,11 +585,84 @@ func (m *Monitor) failed(w *worker, err error) error {
 	first := w.state != state
 	w.state = state
 	m.reachable.WithLabelValues(w.def.ID, w.def.Game).Set(boolGauge(o.Reachable))
+	kind := ""
+	switch {
+	case state == StateCredentialRefused:
+		kind = EventCredentialRefused
+	case state == StateCredentialMissing:
+		kind = EventCredentialMissing
+	case !o.Reachable:
+		kind = EventUnreachable
+	}
+	report := kind != "" && kind != w.reported
 	m.mu.Unlock()
 	if first {
 		m.logger.Warn("server poll failed", "server", w.def.ID, "state", state, "error", err.Error())
 	}
+	if report {
+		m.report(ctx, w, kind, now, map[string]any{"state": state, "misses": o.Misses})
+	}
 	return fmt.Errorf("server %s: %s", w.def.ID, state)
+}
+
+// The health events the monitor writes, on a transition only (gravel#190, ADR-0028).
+const (
+	EventUnreachable       = "server.unreachable"
+	EventRecovered         = "server.recovered"
+	EventCredentialRefused = "server.credential_refused"
+	EventCredentialMissing = "server.credential_missing"
+)
+
+// HealthEvent is one server health event for the events log.
+type HealthEvent struct {
+	ServerID, Kind, Summary string
+	At                      time.Time
+	Detail                  map[string]any
+}
+
+// HealthEvents is where the monitor writes its events and reads the last one it wrote for a
+// server; the hub's is the events log.
+type HealthEvents interface {
+	AppendHealthEvent(ctx context.Context, e HealthEvent) error
+	// LastHealthEvent is the kind of the newest server.* event for the server, "" for none.
+	LastHealthEvent(ctx context.Context, serverID string) (string, error)
+}
+
+// SetHealthEvents sets where health events go; nil writes none.
+func (m *Monitor) SetHealthEvents(e HealthEvents) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.events = e
+}
+
+// report writes a health event and remembers it, so the next transition is measured from it. A
+// failed write is logged and left unremembered: the next poll in the same state tries again.
+func (m *Monitor) report(ctx context.Context, w *worker, kind string, at time.Time, detail map[string]any) {
+	m.mu.Lock()
+	events := m.events
+	m.mu.Unlock()
+	if events == nil {
+		return
+	}
+	summary := map[string]string{
+		EventUnreachable:       " stopped answering its polls",
+		EventRecovered:         " is answering again",
+		EventCredentialRefused: " refuses the hub's credential; fix its credential file",
+		EventCredentialMissing: " has no credential: its credential file is missing or empty",
+	}[kind]
+	e := HealthEvent{ServerID: w.def.ID, Kind: kind, At: at, Summary: w.def.Name + summary, Detail: detail}
+	if err := events.AppendHealthEvent(ctx, e); err != nil {
+		m.logger.Warn("could not record the server's health event", "server", w.def.ID, "kind", kind, "error", err.Error())
+		return
+	}
+	m.mu.Lock()
+	if m.workers[w.def.ID] == w {
+		w.reported = kind
+		if kind == EventRecovered {
+			w.reported = ""
+		}
+	}
+	m.mu.Unlock()
 }
 
 func stateOf(err error) string {

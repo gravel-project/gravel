@@ -32,6 +32,12 @@ patch release is everything else.
 
 ### Added
 
+- **Fleet health, alarms and a fleet summary** (#190; H1, #182). Every server is `up`, `degraded`, `down`, `idle` or `unknown`, with a reason and since when, judged from its polls, its host and its lease (`docs/hub.md`, Fleet health).
+  - **The API:** `ServerService.GetFleetSummary` (`servers:read`, game-scoped; a member's token with the scope too): totals, the open alarms and every server's health, trouble first.
+  - **Alarms,** computed on every read and never stored: `server.down` (2 minutes), `server.credential_refused`, `server.credential_missing`, `host.failing`, `backup.failed`, `backup.stale` (26 h), `wal.failing` (10 minutes), `hub.unowned`. The hub's own are shown to callers holding `events:read` everywhere.
+  - **Events:** `server.unreachable`, `server.recovered`, `server.credential_refused`, `server.credential_missing`, written by the monitor on a transition only; a restarted hub picks up from the log. 62 kinds now.
+  - **Metrics:** `gravel_server_poll_duration_seconds`, `gravel_server_health{health}`, `gravel_alarms{kind}`, on the hub dashboard's Servers row.
+
 - The owner claim, settings updates, apps and members' grants to apps leave an event (#189; ADR-0028, H1, #182). Each is written in the same transaction as the change, says who made it (the member, the app, or the command line on the host as `detail.via: cli`), and carries no secret.
   - **Kinds:** `ownership.claimed`; `settings.updated` with the top-level `sections` that changed and `settings_updated_at`; `app.created` and `app.revoked` (from `gravel-hub apps create|revoke`); `app.granted` when a member allows an app or widens what it may do, `app.grant_revoked` when they take it back. 58 kinds now.
   - **Migration 00027** backfills the claim, every app's registration and revocation and the grants members hold, oldest first, marked `"backfilled": true`.

@@ -1,11 +1,13 @@
 package api
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"log/slog"
 	"slices"
 	"strings"
+	"time"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/proto"
@@ -44,6 +46,16 @@ type SharedPasswords interface {
 	SharedJoinPassword(srv servers.Server) (password string, ok bool)
 }
 
+// FleetReader is every live server with its health (servers.Fleet).
+type FleetReader interface {
+	Snapshot(ctx context.Context) ([]servers.FleetServer, error)
+}
+
+// AlarmReader is the open alarms over a fleet snapshot: the servers' and the hub's own.
+type AlarmReader interface {
+	Alarms(ctx context.Context, snap []servers.FleetServer) ([]servers.Alarm, error)
+}
+
 // ServerServer serves gravel.hub.v1.ServerService.
 type ServerServer struct {
 	hubv1connect.UnimplementedServerServiceHandler
@@ -51,13 +63,96 @@ type ServerServer struct {
 	obs       Observer
 	members   MemberLookup
 	passwords SharedPasswords
+	fleet     FleetReader
+	alarms    AlarmReader
 	access    *Access
 	logger    *slog.Logger
+	now       func() time.Time
 }
 
 // NewServerServer wires the service.
 func NewServerServer(srv ServerReader, obs Observer, members MemberLookup, access *Access, logger *slog.Logger) *ServerServer {
-	return &ServerServer{servers: srv, obs: obs, members: members, access: access, logger: logger}
+	return &ServerServer{servers: srv, obs: obs, members: members, access: access, logger: logger, now: time.Now}
+}
+
+// WithFleet gives the service the fleet's health and the alarms for GetFleetSummary.
+func (s *ServerServer) WithFleet(f FleetReader, a AlarmReader) *ServerServer {
+	s.fleet, s.alarms = f, a
+	return s
+}
+
+// GetFleetSummary is the fleet's health, totals and open alarms; servers:read, scoped by game.
+func (s *ServerServer) GetFleetSummary(ctx context.Context, _ *connect.Request[hubv1.GetFleetSummaryRequest]) (*connect.Response[hubv1.GetFleetSummaryResponse], error) {
+	p, err := s.access.RequireAny(ctx, authz.ServersRead)
+	if err != nil {
+		return nil, err
+	}
+	if s.fleet == nil {
+		return nil, connect.NewError(connect.CodeUnavailable, errors.New("the fleet summary is not available on this hub"))
+	}
+	snap, err := s.fleet.Snapshot(ctx)
+	if err != nil {
+		return nil, mapError(ctx, s.logger, err)
+	}
+	var alarms []servers.Alarm
+	if s.alarms != nil {
+		if alarms, err = s.alarms.Alarms(ctx, snap); err != nil {
+			return nil, mapError(ctx, s.logger, err)
+		}
+	}
+	// A caller holding servers:read for some games sees those games' servers and their alarms;
+	// the hub's own alarms are for whoever reads the events log everywhere.
+	visible := map[string]bool{}
+	var mine []servers.FleetServer
+	for _, fs := range snap {
+		if p.Has(authz.ServersRead, authz.Target{ServerID: fs.Server.ID, GameID: fs.Server.Game}) {
+			mine = append(mine, fs)
+			visible[fs.Server.ID] = true
+		}
+	}
+	hubAlarms := p.Has(authz.EventsRead, authz.Target{})
+	out := &hubv1.GetFleetSummaryResponse{AsOf: timestamppb.New(s.now())}
+	t := servers.Totals(mine)
+	out.Totals = &hubv1.FleetTotals{Servers: int32(t.Servers), Up: int32(t.Up), Degraded: int32(t.Degraded), Down: int32(t.Down), //nolint:gosec // counts of servers
+		Idle: int32(t.Idle), Unknown: int32(t.Unknown), Players: int32(t.Players), Capacity: int32(t.Capacity)} //nolint:gosec // counts of servers and slots
+	slices.SortStableFunc(alarms, func(a, b servers.Alarm) int {
+		return cmp.Or(cmp.Compare(alarmRank(a.Severity), alarmRank(b.Severity)), a.Since.Compare(b.Since), cmp.Compare(a.Kind, b.Kind), cmp.Compare(a.ServerID, b.ServerID))
+	})
+	for _, a := range alarms {
+		if (a.ServerID == "" && !hubAlarms) || (a.ServerID != "" && !visible[a.ServerID]) {
+			continue
+		}
+		fa := &hubv1.FleetAlarm{Kind: a.Kind, Severity: a.Severity, ServerId: a.ServerID, Detail: a.Detail}
+		if !a.Since.IsZero() {
+			fa.Since = timestamppb.New(a.Since)
+		}
+		out.Alarms = append(out.Alarms, fa)
+	}
+	for _, fs := range mine {
+		o := fs.Observation
+		row := &hubv1.FleetServer{Id: fs.Server.ID, Name: fs.Server.Name, GameId: fs.Server.Game, GameName: fs.GameName, Trust: fs.Server.Trust,
+			Driver: fs.Server.Driver, Health: fs.Health, Reason: fs.Reason, State: o.State, LeaseState: fs.LeaseState,
+			PollMs: int32(o.LastPollDuration.Milliseconds()), Misses: int32(o.Misses)} //nolint:gosec // a poll's milliseconds and a count
+		if !fs.Since.IsZero() {
+			row.HealthSince = timestamppb.New(fs.Since)
+		}
+		if !o.ObservedAt.IsZero() {
+			row.ObservedAt = timestamppb.New(o.ObservedAt)
+			row.Players, row.MaxPlayers, row.Map = int32(o.Status.Players), int32(o.Status.MaxPlayers), o.Status.Map //nolint:gosec // slot counts
+		}
+		if fs.Host != nil {
+			row.HostState, row.HostErrorCode = fs.Host.State, fs.Host.ErrorCode
+		}
+		out.Servers = append(out.Servers, row)
+	}
+	return connect.NewResponse(out), nil
+}
+
+func alarmRank(severity string) int {
+	if severity == servers.AlarmCritical {
+		return 0
+	}
+	return 1
 }
 
 // WithSharedPasswords lets the service give a shared join password to an app holding servers:read.

@@ -1139,6 +1139,496 @@ func (x *ListServerPlayersResponse) GetObservedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+type GetFleetSummaryRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetFleetSummaryRequest) Reset() {
+	*x = GetFleetSummaryRequest{}
+	mi := &file_gravel_hub_v1_servers_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetFleetSummaryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetFleetSummaryRequest) ProtoMessage() {}
+
+func (x *GetFleetSummaryRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_servers_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetFleetSummaryRequest.ProtoReflect.Descriptor instead.
+func (*GetFleetSummaryRequest) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_servers_proto_rawDescGZIP(), []int{16}
+}
+
+// FleetTotals counts the fleet (gravel#190).
+type FleetTotals struct {
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Servers  int32                  `protobuf:"varint,1,opt,name=servers,proto3" json:"servers,omitempty"`
+	Up       int32                  `protobuf:"varint,2,opt,name=up,proto3" json:"up,omitempty"`
+	Degraded int32                  `protobuf:"varint,3,opt,name=degraded,proto3" json:"degraded,omitempty"`
+	Down     int32                  `protobuf:"varint,4,opt,name=down,proto3" json:"down,omitempty"`
+	Idle     int32                  `protobuf:"varint,5,opt,name=idle,proto3" json:"idle,omitempty"`
+	Unknown  int32                  `protobuf:"varint,6,opt,name=unknown,proto3" json:"unknown,omitempty"`
+	// Players on, and public slots, over the servers that are not idle and have answered.
+	Players       int32 `protobuf:"varint,7,opt,name=players,proto3" json:"players,omitempty"`
+	Capacity      int32 `protobuf:"varint,8,opt,name=capacity,proto3" json:"capacity,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FleetTotals) Reset() {
+	*x = FleetTotals{}
+	mi := &file_gravel_hub_v1_servers_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FleetTotals) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FleetTotals) ProtoMessage() {}
+
+func (x *FleetTotals) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_servers_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FleetTotals.ProtoReflect.Descriptor instead.
+func (*FleetTotals) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_servers_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *FleetTotals) GetServers() int32 {
+	if x != nil {
+		return x.Servers
+	}
+	return 0
+}
+
+func (x *FleetTotals) GetUp() int32 {
+	if x != nil {
+		return x.Up
+	}
+	return 0
+}
+
+func (x *FleetTotals) GetDegraded() int32 {
+	if x != nil {
+		return x.Degraded
+	}
+	return 0
+}
+
+func (x *FleetTotals) GetDown() int32 {
+	if x != nil {
+		return x.Down
+	}
+	return 0
+}
+
+func (x *FleetTotals) GetIdle() int32 {
+	if x != nil {
+		return x.Idle
+	}
+	return 0
+}
+
+func (x *FleetTotals) GetUnknown() int32 {
+	if x != nil {
+		return x.Unknown
+	}
+	return 0
+}
+
+func (x *FleetTotals) GetPlayers() int32 {
+	if x != nil {
+		return x.Players
+	}
+	return 0
+}
+
+func (x *FleetTotals) GetCapacity() int32 {
+	if x != nil {
+		return x.Capacity
+	}
+	return 0
+}
+
+// FleetAlarm is something wrong that needs a person, open for as long as its cause lasts; it is
+// computed on every read, never stored.
+type FleetAlarm struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// "server.down" (down for 2 minutes), "server.credential_refused", "server.credential_missing",
+	// "host.failing", "backup.stale", "backup.failed", "wal.failing", "hub.unowned".
+	Kind string `protobuf:"bytes,1,opt,name=kind,proto3" json:"kind,omitempty"`
+	// "warning" or "critical".
+	Severity string `protobuf:"bytes,2,opt,name=severity,proto3" json:"severity,omitempty"`
+	// The server it is about; empty for the hub itself.
+	ServerId string                 `protobuf:"bytes,3,opt,name=server_id,json=serverId,proto3" json:"server_id,omitempty"`
+	Since    *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=since,proto3" json:"since,omitempty"`
+	// One line saying what is wrong.
+	Detail        string `protobuf:"bytes,5,opt,name=detail,proto3" json:"detail,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FleetAlarm) Reset() {
+	*x = FleetAlarm{}
+	mi := &file_gravel_hub_v1_servers_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FleetAlarm) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FleetAlarm) ProtoMessage() {}
+
+func (x *FleetAlarm) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_servers_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FleetAlarm.ProtoReflect.Descriptor instead.
+func (*FleetAlarm) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_servers_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *FleetAlarm) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *FleetAlarm) GetSeverity() string {
+	if x != nil {
+		return x.Severity
+	}
+	return ""
+}
+
+func (x *FleetAlarm) GetServerId() string {
+	if x != nil {
+		return x.ServerId
+	}
+	return ""
+}
+
+func (x *FleetAlarm) GetSince() *timestamppb.Timestamp {
+	if x != nil {
+		return x.Since
+	}
+	return nil
+}
+
+func (x *FleetAlarm) GetDetail() string {
+	if x != nil {
+		return x.Detail
+	}
+	return ""
+}
+
+// FleetServer is one server's health, with what it is judged on.
+type FleetServer struct {
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Id       string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name     string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	GameId   string                 `protobuf:"bytes,3,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`
+	GameName string                 `protobuf:"bytes,4,opt,name=game_name,json=gameName,proto3" json:"game_name,omitempty"`
+	Trust    string                 `protobuf:"bytes,5,opt,name=trust,proto3" json:"trust,omitempty"`
+	Driver   string                 `protobuf:"bytes,6,opt,name=driver,proto3" json:"driver,omitempty"`
+	// "up", "degraded", "down", "idle" (parked or absent, as asked) or "unknown" (not polled yet).
+	Health string `protobuf:"bytes,7,opt,name=health,proto3" json:"health,omitempty"`
+	// One line saying why: "answering", "not answering", "the host is booting", ...
+	Reason string `protobuf:"bytes,8,opt,name=reason,proto3" json:"reason,omitempty"`
+	// Since when the health holds; unset when not known.
+	HealthSince *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=health_since,json=healthSince,proto3" json:"health_since,omitempty"`
+	// The monitor's state (ServerStatus.state).
+	State      string `protobuf:"bytes,10,opt,name=state,proto3" json:"state,omitempty"`
+	Players    int32  `protobuf:"varint,11,opt,name=players,proto3" json:"players,omitempty"`
+	MaxPlayers int32  `protobuf:"varint,12,opt,name=max_players,json=maxPlayers,proto3" json:"max_players,omitempty"`
+	Map        string `protobuf:"bytes,13,opt,name=map,proto3" json:"map,omitempty"`
+	// The last successful poll; unset when there was none.
+	ObservedAt *timestamppb.Timestamp `protobuf:"bytes,14,opt,name=observed_at,json=observedAt,proto3" json:"observed_at,omitempty"`
+	// How long the last poll took, in milliseconds, and the failed polls in a row.
+	PollMs int32 `protobuf:"varint,15,opt,name=poll_ms,json=pollMs,proto3" json:"poll_ms,omitempty"`
+	Misses int32 `protobuf:"varint,16,opt,name=misses,proto3" json:"misses,omitempty"`
+	// A cloud-VM server's host: its state and the code of the step it keeps failing; empty for a
+	// server whose host gravel doesn't make.
+	HostState     string `protobuf:"bytes,17,opt,name=host_state,json=hostState,proto3" json:"host_state,omitempty"`
+	HostErrorCode string `protobuf:"bytes,18,opt,name=host_error_code,json=hostErrorCode,proto3" json:"host_error_code,omitempty"`
+	// The server's live lease: "starting", "ready", "ending"; empty for none.
+	LeaseState    string `protobuf:"bytes,19,opt,name=lease_state,json=leaseState,proto3" json:"lease_state,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FleetServer) Reset() {
+	*x = FleetServer{}
+	mi := &file_gravel_hub_v1_servers_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FleetServer) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FleetServer) ProtoMessage() {}
+
+func (x *FleetServer) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_servers_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FleetServer.ProtoReflect.Descriptor instead.
+func (*FleetServer) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_servers_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *FleetServer) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *FleetServer) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *FleetServer) GetGameId() string {
+	if x != nil {
+		return x.GameId
+	}
+	return ""
+}
+
+func (x *FleetServer) GetGameName() string {
+	if x != nil {
+		return x.GameName
+	}
+	return ""
+}
+
+func (x *FleetServer) GetTrust() string {
+	if x != nil {
+		return x.Trust
+	}
+	return ""
+}
+
+func (x *FleetServer) GetDriver() string {
+	if x != nil {
+		return x.Driver
+	}
+	return ""
+}
+
+func (x *FleetServer) GetHealth() string {
+	if x != nil {
+		return x.Health
+	}
+	return ""
+}
+
+func (x *FleetServer) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+func (x *FleetServer) GetHealthSince() *timestamppb.Timestamp {
+	if x != nil {
+		return x.HealthSince
+	}
+	return nil
+}
+
+func (x *FleetServer) GetState() string {
+	if x != nil {
+		return x.State
+	}
+	return ""
+}
+
+func (x *FleetServer) GetPlayers() int32 {
+	if x != nil {
+		return x.Players
+	}
+	return 0
+}
+
+func (x *FleetServer) GetMaxPlayers() int32 {
+	if x != nil {
+		return x.MaxPlayers
+	}
+	return 0
+}
+
+func (x *FleetServer) GetMap() string {
+	if x != nil {
+		return x.Map
+	}
+	return ""
+}
+
+func (x *FleetServer) GetObservedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ObservedAt
+	}
+	return nil
+}
+
+func (x *FleetServer) GetPollMs() int32 {
+	if x != nil {
+		return x.PollMs
+	}
+	return 0
+}
+
+func (x *FleetServer) GetMisses() int32 {
+	if x != nil {
+		return x.Misses
+	}
+	return 0
+}
+
+func (x *FleetServer) GetHostState() string {
+	if x != nil {
+		return x.HostState
+	}
+	return ""
+}
+
+func (x *FleetServer) GetHostErrorCode() string {
+	if x != nil {
+		return x.HostErrorCode
+	}
+	return ""
+}
+
+func (x *FleetServer) GetLeaseState() string {
+	if x != nil {
+		return x.LeaseState
+	}
+	return ""
+}
+
+type GetFleetSummaryResponse struct {
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Totals *FleetTotals           `protobuf:"bytes,1,opt,name=totals,proto3" json:"totals,omitempty"`
+	// The open alarms, critical first, then oldest first.
+	Alarms []*FleetAlarm `protobuf:"bytes,2,rep,name=alarms,proto3" json:"alarms,omitempty"`
+	// Trouble first: down, degraded, unknown, up, idle; then by players, most first.
+	Servers []*FleetServer `protobuf:"bytes,3,rep,name=servers,proto3" json:"servers,omitempty"`
+	// When the summary was taken.
+	AsOf          *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=as_of,json=asOf,proto3" json:"as_of,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetFleetSummaryResponse) Reset() {
+	*x = GetFleetSummaryResponse{}
+	mi := &file_gravel_hub_v1_servers_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetFleetSummaryResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetFleetSummaryResponse) ProtoMessage() {}
+
+func (x *GetFleetSummaryResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_servers_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetFleetSummaryResponse.ProtoReflect.Descriptor instead.
+func (*GetFleetSummaryResponse) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_servers_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *GetFleetSummaryResponse) GetTotals() *FleetTotals {
+	if x != nil {
+		return x.Totals
+	}
+	return nil
+}
+
+func (x *GetFleetSummaryResponse) GetAlarms() []*FleetAlarm {
+	if x != nil {
+		return x.Alarms
+	}
+	return nil
+}
+
+func (x *GetFleetSummaryResponse) GetServers() []*FleetServer {
+	if x != nil {
+		return x.Servers
+	}
+	return nil
+}
+
+func (x *GetFleetSummaryResponse) GetAsOf() *timestamppb.Timestamp {
+	if x != nil {
+		return x.AsOf
+	}
+	return nil
+}
+
 var File_gravel_hub_v1_servers_proto protoreflect.FileDescriptor
 
 const file_gravel_hub_v1_servers_proto_rawDesc = "" +
@@ -1234,12 +1724,60 @@ const file_gravel_hub_v1_servers_proto_rawDesc = "" +
 	"\x19ListServerPlayersResponse\x125\n" +
 	"\aplayers\x18\x01 \x03(\v2\x1b.gravel.hub.v1.ServerPlayerR\aplayers\x12;\n" +
 	"\vobserved_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"observedAt2\xff\x02\n" +
+	"observedAt\"\x18\n" +
+	"\x16GetFleetSummaryRequest\"\xcb\x01\n" +
+	"\vFleetTotals\x12\x18\n" +
+	"\aservers\x18\x01 \x01(\x05R\aservers\x12\x0e\n" +
+	"\x02up\x18\x02 \x01(\x05R\x02up\x12\x1a\n" +
+	"\bdegraded\x18\x03 \x01(\x05R\bdegraded\x12\x12\n" +
+	"\x04down\x18\x04 \x01(\x05R\x04down\x12\x12\n" +
+	"\x04idle\x18\x05 \x01(\x05R\x04idle\x12\x18\n" +
+	"\aunknown\x18\x06 \x01(\x05R\aunknown\x12\x18\n" +
+	"\aplayers\x18\a \x01(\x05R\aplayers\x12\x1a\n" +
+	"\bcapacity\x18\b \x01(\x05R\bcapacity\"\xa3\x01\n" +
+	"\n" +
+	"FleetAlarm\x12\x12\n" +
+	"\x04kind\x18\x01 \x01(\tR\x04kind\x12\x1a\n" +
+	"\bseverity\x18\x02 \x01(\tR\bseverity\x12\x1b\n" +
+	"\tserver_id\x18\x03 \x01(\tR\bserverId\x120\n" +
+	"\x05since\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x05since\x12\x16\n" +
+	"\x06detail\x18\x05 \x01(\tR\x06detail\"\xbd\x04\n" +
+	"\vFleetServer\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x17\n" +
+	"\agame_id\x18\x03 \x01(\tR\x06gameId\x12\x1b\n" +
+	"\tgame_name\x18\x04 \x01(\tR\bgameName\x12\x14\n" +
+	"\x05trust\x18\x05 \x01(\tR\x05trust\x12\x16\n" +
+	"\x06driver\x18\x06 \x01(\tR\x06driver\x12\x16\n" +
+	"\x06health\x18\a \x01(\tR\x06health\x12\x16\n" +
+	"\x06reason\x18\b \x01(\tR\x06reason\x12=\n" +
+	"\fhealth_since\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\vhealthSince\x12\x14\n" +
+	"\x05state\x18\n" +
+	" \x01(\tR\x05state\x12\x18\n" +
+	"\aplayers\x18\v \x01(\x05R\aplayers\x12\x1f\n" +
+	"\vmax_players\x18\f \x01(\x05R\n" +
+	"maxPlayers\x12\x10\n" +
+	"\x03map\x18\r \x01(\tR\x03map\x12;\n" +
+	"\vobserved_at\x18\x0e \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"observedAt\x12\x17\n" +
+	"\apoll_ms\x18\x0f \x01(\x05R\x06pollMs\x12\x16\n" +
+	"\x06misses\x18\x10 \x01(\x05R\x06misses\x12\x1d\n" +
+	"\n" +
+	"host_state\x18\x11 \x01(\tR\thostState\x12&\n" +
+	"\x0fhost_error_code\x18\x12 \x01(\tR\rhostErrorCode\x12\x1f\n" +
+	"\vlease_state\x18\x13 \x01(\tR\n" +
+	"leaseState\"\xe7\x01\n" +
+	"\x17GetFleetSummaryResponse\x122\n" +
+	"\x06totals\x18\x01 \x01(\v2\x1a.gravel.hub.v1.FleetTotalsR\x06totals\x121\n" +
+	"\x06alarms\x18\x02 \x03(\v2\x19.gravel.hub.v1.FleetAlarmR\x06alarms\x124\n" +
+	"\aservers\x18\x03 \x03(\v2\x1a.gravel.hub.v1.FleetServerR\aservers\x12/\n" +
+	"\x05as_of\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x04asOf2\xe1\x03\n" +
 	"\rServerService\x12N\n" +
 	"\tListGames\x12\x1f.gravel.hub.v1.ListGamesRequest\x1a .gravel.hub.v1.ListGamesResponse\x12T\n" +
 	"\vListServers\x12!.gravel.hub.v1.ListServersRequest\x1a\".gravel.hub.v1.ListServersResponse\x12`\n" +
 	"\x0fGetServerStatus\x12%.gravel.hub.v1.GetServerStatusRequest\x1a&.gravel.hub.v1.GetServerStatusResponse\x12f\n" +
-	"\x11ListServerPlayers\x12'.gravel.hub.v1.ListServerPlayersRequest\x1a(.gravel.hub.v1.ListServerPlayersResponseB:Z8github.com/gravel-project/gravel/gen/gravel/hub/v1;hubv1b\x06proto3"
+	"\x11ListServerPlayers\x12'.gravel.hub.v1.ListServerPlayersRequest\x1a(.gravel.hub.v1.ListServerPlayersResponse\x12`\n" +
+	"\x0fGetFleetSummary\x12%.gravel.hub.v1.GetFleetSummaryRequest\x1a&.gravel.hub.v1.GetFleetSummaryResponseB:Z8github.com/gravel-project/gravel/gen/gravel/hub/v1;hubv1b\x06proto3"
 
 var (
 	file_gravel_hub_v1_servers_proto_rawDescOnce sync.Once
@@ -1253,7 +1791,7 @@ func file_gravel_hub_v1_servers_proto_rawDescGZIP() []byte {
 	return file_gravel_hub_v1_servers_proto_rawDescData
 }
 
-var file_gravel_hub_v1_servers_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
+var file_gravel_hub_v1_servers_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
 var file_gravel_hub_v1_servers_proto_goTypes = []any{
 	(*Band)(nil),                      // 0: gravel.hub.v1.Band
 	(*Game)(nil),                      // 1: gravel.hub.v1.Game
@@ -1271,12 +1809,17 @@ var file_gravel_hub_v1_servers_proto_goTypes = []any{
 	(*GetServerStatusResponse)(nil),   // 13: gravel.hub.v1.GetServerStatusResponse
 	(*ListServerPlayersRequest)(nil),  // 14: gravel.hub.v1.ListServerPlayersRequest
 	(*ListServerPlayersResponse)(nil), // 15: gravel.hub.v1.ListServerPlayersResponse
-	(*timestamppb.Timestamp)(nil),     // 16: google.protobuf.Timestamp
+	(*GetFleetSummaryRequest)(nil),    // 16: gravel.hub.v1.GetFleetSummaryRequest
+	(*FleetTotals)(nil),               // 17: gravel.hub.v1.FleetTotals
+	(*FleetAlarm)(nil),                // 18: gravel.hub.v1.FleetAlarm
+	(*FleetServer)(nil),               // 19: gravel.hub.v1.FleetServer
+	(*GetFleetSummaryResponse)(nil),   // 20: gravel.hub.v1.GetFleetSummaryResponse
+	(*timestamppb.Timestamp)(nil),     // 21: google.protobuf.Timestamp
 }
 var file_gravel_hub_v1_servers_proto_depIdxs = []int32{
 	0,  // 0: gravel.hub.v1.Game.bands:type_name -> gravel.hub.v1.Band
 	2,  // 1: gravel.hub.v1.Game.layout:type_name -> gravel.hub.v1.GameLayout
-	16, // 2: gravel.hub.v1.ServerStatus.observed_at:type_name -> google.protobuf.Timestamp
+	21, // 2: gravel.hub.v1.ServerStatus.observed_at:type_name -> google.protobuf.Timestamp
 	3,  // 3: gravel.hub.v1.ServerStatus.teams:type_name -> gravel.hub.v1.TeamScore
 	5,  // 4: gravel.hub.v1.ServerStatus.join:type_name -> gravel.hub.v1.ServerJoin
 	4,  // 5: gravel.hub.v1.Server.status:type_name -> gravel.hub.v1.ServerStatus
@@ -1284,20 +1827,29 @@ var file_gravel_hub_v1_servers_proto_depIdxs = []int32{
 	6,  // 7: gravel.hub.v1.ListServersResponse.servers:type_name -> gravel.hub.v1.Server
 	6,  // 8: gravel.hub.v1.GetServerStatusResponse.server:type_name -> gravel.hub.v1.Server
 	7,  // 9: gravel.hub.v1.ListServerPlayersResponse.players:type_name -> gravel.hub.v1.ServerPlayer
-	16, // 10: gravel.hub.v1.ListServerPlayersResponse.observed_at:type_name -> google.protobuf.Timestamp
-	8,  // 11: gravel.hub.v1.ServerService.ListGames:input_type -> gravel.hub.v1.ListGamesRequest
-	10, // 12: gravel.hub.v1.ServerService.ListServers:input_type -> gravel.hub.v1.ListServersRequest
-	12, // 13: gravel.hub.v1.ServerService.GetServerStatus:input_type -> gravel.hub.v1.GetServerStatusRequest
-	14, // 14: gravel.hub.v1.ServerService.ListServerPlayers:input_type -> gravel.hub.v1.ListServerPlayersRequest
-	9,  // 15: gravel.hub.v1.ServerService.ListGames:output_type -> gravel.hub.v1.ListGamesResponse
-	11, // 16: gravel.hub.v1.ServerService.ListServers:output_type -> gravel.hub.v1.ListServersResponse
-	13, // 17: gravel.hub.v1.ServerService.GetServerStatus:output_type -> gravel.hub.v1.GetServerStatusResponse
-	15, // 18: gravel.hub.v1.ServerService.ListServerPlayers:output_type -> gravel.hub.v1.ListServerPlayersResponse
-	15, // [15:19] is the sub-list for method output_type
-	11, // [11:15] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	21, // 10: gravel.hub.v1.ListServerPlayersResponse.observed_at:type_name -> google.protobuf.Timestamp
+	21, // 11: gravel.hub.v1.FleetAlarm.since:type_name -> google.protobuf.Timestamp
+	21, // 12: gravel.hub.v1.FleetServer.health_since:type_name -> google.protobuf.Timestamp
+	21, // 13: gravel.hub.v1.FleetServer.observed_at:type_name -> google.protobuf.Timestamp
+	17, // 14: gravel.hub.v1.GetFleetSummaryResponse.totals:type_name -> gravel.hub.v1.FleetTotals
+	18, // 15: gravel.hub.v1.GetFleetSummaryResponse.alarms:type_name -> gravel.hub.v1.FleetAlarm
+	19, // 16: gravel.hub.v1.GetFleetSummaryResponse.servers:type_name -> gravel.hub.v1.FleetServer
+	21, // 17: gravel.hub.v1.GetFleetSummaryResponse.as_of:type_name -> google.protobuf.Timestamp
+	8,  // 18: gravel.hub.v1.ServerService.ListGames:input_type -> gravel.hub.v1.ListGamesRequest
+	10, // 19: gravel.hub.v1.ServerService.ListServers:input_type -> gravel.hub.v1.ListServersRequest
+	12, // 20: gravel.hub.v1.ServerService.GetServerStatus:input_type -> gravel.hub.v1.GetServerStatusRequest
+	14, // 21: gravel.hub.v1.ServerService.ListServerPlayers:input_type -> gravel.hub.v1.ListServerPlayersRequest
+	16, // 22: gravel.hub.v1.ServerService.GetFleetSummary:input_type -> gravel.hub.v1.GetFleetSummaryRequest
+	9,  // 23: gravel.hub.v1.ServerService.ListGames:output_type -> gravel.hub.v1.ListGamesResponse
+	11, // 24: gravel.hub.v1.ServerService.ListServers:output_type -> gravel.hub.v1.ListServersResponse
+	13, // 25: gravel.hub.v1.ServerService.GetServerStatus:output_type -> gravel.hub.v1.GetServerStatusResponse
+	15, // 26: gravel.hub.v1.ServerService.ListServerPlayers:output_type -> gravel.hub.v1.ListServerPlayersResponse
+	20, // 27: gravel.hub.v1.ServerService.GetFleetSummary:output_type -> gravel.hub.v1.GetFleetSummaryResponse
+	23, // [23:28] is the sub-list for method output_type
+	18, // [18:23] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_gravel_hub_v1_servers_proto_init() }
@@ -1313,7 +1865,7 @@ func file_gravel_hub_v1_servers_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gravel_hub_v1_servers_proto_rawDesc), len(file_gravel_hub_v1_servers_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   16,
+			NumMessages:   21,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -57,6 +57,8 @@ type rig struct {
 	proofSt *prooftest.FakeStore
 	// events is the events log ListEvents reads (ADR-0028).
 	events *fakeEvents
+	// fleet is the fleet GetFleetSummary reads (gravel#190): servers and alarms as the test sets them.
+	fleet *fakeFleet
 }
 
 // fakeEvents is the events log: the test sets it; it records the query it was asked.
@@ -108,7 +110,7 @@ type rigIdentity func(r *rig) identity.Option
 func newRig(t *testing.T, idOpts ...rigIdentity) *rig {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	r := &rig{orgSt: &orgtest.FakeStore{}, idSt: identitytest.NewFakeStore(), appSt: appstest.NewFakeStore(), events: &fakeEvents{}}
+	r := &rig{orgSt: &orgtest.FakeStore{}, idSt: identitytest.NewFakeStore(), appSt: appstest.NewFakeStore(), events: &fakeEvents{}, fleet: &fakeFleet{}}
 	r.org = org.New(r.orgSt, 15*time.Minute, logger).WithGames(servers.GameIDs()) // as the hub wires it
 	o, token, err := r.org.EnsureBuiltin(context.Background(), "Test")
 	if err != nil {
@@ -145,7 +147,7 @@ func newRig(t *testing.T, idOpts ...rigIdentity) *rig {
 	r.proofs = proof.New(r.proofSt, logger, []proof.Channel{proof.GameChat{ProviderName: "steam"}})
 	idAPI.SetProofs(r.proofs, proofReader{}, r.obs)
 	mux.Handle(hubv1connect.NewIdentityServiceHandler(idAPI, member))
-	mux.Handle(hubv1connect.NewServerServiceHandler(api.NewServerServer(r.srvs, r.obs, r.ids, access, logger).WithSharedPasswords(r.pws), member))
+	mux.Handle(hubv1connect.NewServerServiceHandler(api.NewServerServer(r.srvs, r.obs, r.ids, access, logger).WithSharedPasswords(r.pws).WithFleet(r.fleet, r.fleet), member))
 	modServer := api.NewModerationServer(mod, access, r.ids, logger)
 	mux.Handle(hubv1connect.NewModerationServiceHandler(modServer, member))
 	// No cloud-VM manager: every host request that passes the caller checks is not_found.
