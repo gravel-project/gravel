@@ -66,6 +66,10 @@ type VMSpec struct {
 	ParkAfter Duration `yaml:"park_after,omitempty" json:"park_after,omitempty"`
 	// PasswordFile is the password players join with; empty is no password.
 	PasswordFile string `yaml:"password_file,omitempty" json:"password_file,omitempty"`
+	// SharePassword gives the join password to apps holding servers:read while the server is up
+	// and not leased (#180), so a status card can show it beside the address; never to a public
+	// read. Needs PasswordFile.
+	SharePassword bool `yaml:"share_password,omitempty" json:"share_password,omitempty"`
 	// PublisherTokenFile is a token the game's publisher issues a server (CS2's Game Server Login
 	// Token); empty is none.
 	PublisherTokenFile string `yaml:"publisher_token_file,omitempty" json:"publisher_token_file,omitempty"`
@@ -507,6 +511,9 @@ func validateVM(at string, s Server, spec Spec, gameOK bool, locations map[strin
 	files := map[string]string{"credential_file": s.CredentialFile}
 	if s.Feed != nil {
 		files["feed.token_file"] = s.Feed.TokenFile
+	}
+	if vm.SharePassword && vm.PasswordFile == "" {
+		bad("%s.vm.share_password: there is no password to share (set vm.password_file)", at)
 	}
 	if vm.PasswordFile != "" {
 		checkFile(at+".vm.password_file", vm.PasswordFile, bad)

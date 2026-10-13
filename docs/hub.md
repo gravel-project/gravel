@@ -430,6 +430,15 @@ of the Community browser". That is the only way in that works (hidden-token-gami
 2026-10-11): no launch URI and no `steam://connect` joins a War Dogs server. The server page and the
 Discord card show it while the server is live.
 
+**A shared join password (#180).** A cloud-VM server whose manifest entry sets
+`vm.share_password: true` (it needs `vm.password_file`) gives its password as `join.password` to an
+**app whose token carries `servers:read`**, and to no one else: an anonymous caller, a member, a
+member's token an app holds and the web pages always get it empty, so public reads still carry no
+credential (ADR-0010 §1). It is set only while the server is up (`ok` and reachable), and never
+while a lease is live: a lease's own password goes only to its holder (ADR-0023 §3). The hub reads
+the file each time and keeps nothing. The stock bot's server card shows it under the connect line,
+for a community that posts its casual password where members find the server anyway.
+
 ## Service credentials (ADR-0008)
 
 A first-party service (a host's Discord bot, later Muster) calls the API as an **app**, not as a
@@ -452,7 +461,7 @@ curl -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{
 | Scope | Admits |
 |---|---|
 | `identity:read` | `LookupUser`, `ListUsers`, `ListIdentityEvents`: members and their identities, for role sync |
-| `servers:read` | `ListServerPlayers`: who is on a server, for a live card (the rest of `ServerService` is public) |
+| `servers:read` | `ListServerPlayers`: who is on a server, for a live card (the rest of `ServerService` is public), and a server's shared join password in `ServerStatus.join` (`vm.share_password`, #180) |
 | `servers:moderate` | `ModerationService`: kick, ban, unban, message, broadcast and move players, list a server's bans, read the audit log |
 | `servers:configure` | `ServerConfigService`: read, plan and apply a server's configuration |
 | `stats:read` | `StatsService` `GetBoard`, `GetParticipationBoard` and `ListMatches` while the settings keep stats private |
@@ -680,6 +689,7 @@ servers:
       address: reserved                      # reserved (kept across parks and resizes; default) or ephemeral
       park_after: 30m                        # optional: park after this long empty (5m–24h); absent never
       password_file: /run/secrets/cs2-join-password   # optional: the password players join with
+      share_password: true     # optional: give it to apps with servers:read while up, for a card (#180)
       publisher_token_file: /run/secrets/cs2-gslt     # optional: a Game Server Login Token
       scaling: {}                            # optional: walk the game's ladder as the room fills (below)
       seed_snapshot: {name: cs2-install}     # optional: make a NEW volume from this snapshot (or {id: …})

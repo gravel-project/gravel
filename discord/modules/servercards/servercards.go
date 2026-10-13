@@ -574,22 +574,18 @@ var markdown = strings.NewReplacer("\\", "\\\\", "*", "\\*", "_", "\\_", "~", "\
 	"@", "@\u200b", "\n", " ", "\r", " ")
 
 // joinLine is how a player gets onto the server, from the driver: the method's label, the value as
-// code (one tap copies it on a phone) and the hint underneath; "" when the hub knows no way. The
-// value can't leave its code span, and the hint is escaped like any name.
+// code (one tap copies it on a phone), the password when the hub shares it with the bot (#180) and
+// the hint underneath; "" when the hub knows no way. Neither value can leave its code span, and the
+// hint is escaped like any name.
 func joinLine(j *hubv1.ServerJoin) string {
-	value := strings.Map(func(r rune) rune {
-		if r == '`' || unicode.IsControl(r) {
-			return -1
-		}
-		return r
-	}, strings.TrimSpace(j.GetValue()))
+	value := codeValue(j.GetValue())
 	if value == "" {
 		return ""
 	}
-	if utf8.RuneCountInString(value) > maxJoinValue {
-		return ""
-	}
 	line := fmt.Sprintf("**%s:** `%s`", joinLabel(j.GetMethod()), value)
+	if pw := codeValue(j.GetPassword()); pw != "" {
+		line += fmt.Sprintf("\n**Password:** `%s`", pw)
+	}
 	if hint := plain(j.GetHint()); hint != "" {
 		line += "\n-# " + hint
 	}
@@ -598,6 +594,21 @@ func joinLine(j *hubv1.ServerJoin) string {
 
 // maxJoinValue bounds a join value; a longer one is not shown rather than cut.
 const maxJoinValue = 200
+
+// codeValue is a join value fit for a code span: trimmed, without backticks or control characters;
+// "" when nothing is left or it is longer than maxJoinValue.
+func codeValue(v string) string {
+	v = strings.Map(func(r rune) rune {
+		if r == '`' || unicode.IsControl(r) {
+			return -1
+		}
+		return r
+	}, strings.TrimSpace(v))
+	if utf8.RuneCountInString(v) > maxJoinValue {
+		return ""
+	}
+	return v
+}
 
 func joinLabel(method string) string {
 	switch method {

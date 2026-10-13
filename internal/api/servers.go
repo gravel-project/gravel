@@ -37,18 +37,31 @@ type MemberLookup interface {
 	Lookup(ctx context.Context, provider, subject string) (identity.User, error)
 }
 
+// SharedPasswords is a server's join password when its manifest shares it (vm.share_password,
+// #180); ok is false otherwise, and while the server is leased.
+type SharedPasswords interface {
+	SharedJoinPassword(srv servers.Server) (password string, ok bool)
+}
+
 // ServerServer serves gravel.hub.v1.ServerService.
 type ServerServer struct {
 	hubv1connect.UnimplementedServerServiceHandler
-	servers ServerReader
-	obs     Observer
-	members MemberLookup
-	logger  *slog.Logger
+	servers   ServerReader
+	obs       Observer
+	members   MemberLookup
+	passwords SharedPasswords
+	logger    *slog.Logger
 }
 
 // NewServerServer wires the service.
 func NewServerServer(srv ServerReader, obs Observer, members MemberLookup, logger *slog.Logger) *ServerServer {
 	return &ServerServer{servers: srv, obs: obs, members: members, logger: logger}
+}
+
+// WithSharedPasswords lets the service give a shared join password to an app holding servers:read.
+func (s *ServerServer) WithSharedPasswords(p SharedPasswords) *ServerServer {
+	s.passwords = p
+	return s
 }
 
 // ListGames is the enabled games; public.
@@ -78,7 +91,7 @@ func (s *ServerServer) ListServers(ctx context.Context, _ *connect.Request[hubv1
 	}
 	out := &hubv1.ListServersResponse{}
 	for _, srv := range all {
-		out.Servers = append(out.Servers, s.server(srv))
+		out.Servers = append(out.Servers, s.server(ctx, srv))
 	}
 	return connect.NewResponse(out), nil
 }
@@ -89,7 +102,7 @@ func (s *ServerServer) GetServerStatus(ctx context.Context, req *connect.Request
 	if err != nil {
 		return nil, err
 	}
-	return connect.NewResponse(&hubv1.GetServerStatusResponse{Server: s.server(srv)}), nil
+	return connect.NewResponse(&hubv1.GetServerStatusResponse{Server: s.server(ctx, srv)}), nil
 }
 
 // ListServerPlayers is who was on at the last poll; a member, the owner or servers:read.
@@ -137,8 +150,9 @@ func (s *ServerServer) lookup(ctx context.Context, id string) (servers.Server, e
 	return srv, nil
 }
 
-// server is the public view: never the endpoint or the credential file.
-func (s *ServerServer) server(srv servers.Server) *hubv1.Server {
+// server is the public view: never the endpoint or the credential file. The one exception is a
+// shared join password, for an app holding servers:read while the server is up (sharedPassword).
+func (s *ServerServer) server(ctx context.Context, srv servers.Server) *hubv1.Server {
 	p := &hubv1.Server{Id: srv.ID, Name: srv.Name, GameId: srv.Game, Location: srv.Location, Trust: srv.Trust, Driver: srv.Driver}
 	st := &hubv1.ServerStatus{State: servers.StateUnknown, RotationIndex: -1, NextRotationIndex: -1}
 	if o, ok := s.obs.Observation(srv.ID); ok {
@@ -153,6 +167,9 @@ func (s *ServerServer) server(srv servers.Server) *hubv1.Server {
 			st.RotationMap, st.NextRotationMap = x.RotationMap, x.NextRotationMap
 			if j := x.Join; j.Method != "" && j.Value != "" {
 				st.Join = &hubv1.ServerJoin{Method: j.Method, Value: j.Value, Hint: j.Hint}
+				if o.State == servers.StateOK && o.Reachable {
+					st.Join.Password = s.sharedPassword(ctx, srv)
+				}
 			}
 			counts, known := teamCounts(o)
 			for _, t := range x.Teams {
@@ -166,6 +183,26 @@ func (s *ServerServer) server(srv servers.Server) *hubv1.Server {
 	}
 	p.Status = st
 	return p
+}
+
+// sharedPassword is the server's shared join password for an app whose token carries servers:read;
+// "" for any other caller (anonymous, a member, a session, the web pages in process) and for a
+// server that shares none (ADR-0010 §1: public reads carry no credential).
+func (s *ServerServer) sharedPassword(ctx context.Context, srv servers.Server) string {
+	if s.passwords == nil {
+		return ""
+	}
+	if a, ok := apps.FromContext(ctx); !ok || !a.Has(apps.ScopeServersRead) {
+		return ""
+	}
+	if _, ok := apps.MemberFromContext(ctx); ok {
+		return "" // a member's token an app holds is the member, not the app
+	}
+	pw, ok := s.passwords.SharedJoinPassword(srv)
+	if !ok {
+		return ""
+	}
+	return pw
 }
 
 // teamCounts are the players on each team at the last poll, by the team's key in lower case; known

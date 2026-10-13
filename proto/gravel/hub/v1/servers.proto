@@ -90,8 +90,8 @@ message ServerStatus {
   ServerJoin join = 17;
 }
 
-// ServerJoin is how a player reaches a server from the game. It is public: what a community
-// shares to bring players in.
+// ServerJoin is how a player reaches a server from the game. It is public, what a community
+// shares to bring players in, except password, which only an app holding servers:read sees.
 message ServerJoin {
   // "id": paste value into the game's own server browser (War Dogs: Join by ID); "address":
   // value is host:port; "uri": value is a link that launches the game onto the server.
@@ -99,6 +99,10 @@ message ServerJoin {
   string value = 2;
   // One line saying where the value goes, in the game's terms.
   string hint = 3;
+  // The password players join with, only for an app holding servers:read, and only while the
+  // server is up, is not leased, and its manifest entry shares it (vm.share_password, #180).
+  // Never in a public read: an anonymous caller, a member and the web pages get "".
+  string password = 4;
 }
 
 // Server is a server a driver controls (ManagedServer), as the public sees it: never its control

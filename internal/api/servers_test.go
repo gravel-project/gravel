@@ -223,3 +223,53 @@ func TestListServerPlayersNeedsAMemberOrTheScope(t *testing.T) {
 		t.Errorf("no id = %v", err)
 	}
 }
+
+// A shared join password (vm.share_password, #180) reaches only an app whose token carries
+// servers:read, and only while the server is up: never an anonymous caller, a member, an app
+// without the scope or a member's token an app holds (ADR-0010 §1).
+func TestSharedJoinPasswordOnlyForAnAppWithServersRead(t *testing.T) {
+	r := newRig(t)
+	r.withServer(t)
+	r.pws.pw["wd-1"] = "hunter2"
+	ctx := context.Background()
+	member := r.user(t, "Member", "111")
+	status := func(c hubv1connect.ServerServiceClient) (get, list string) {
+		t.Helper()
+		g, err := c.GetServerStatus(ctx, connect.NewRequest(&hubv1.GetServerStatusRequest{ServerId: "wd-1"}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		l, err := c.ListServers(ctx, connect.NewRequest(&hubv1.ListServersRequest{}))
+		if err != nil || len(l.Msg.GetServers()) != 1 {
+			t.Fatalf("list = %v %v", l, err)
+		}
+		return g.Msg.GetServer().GetStatus().GetJoin().GetPassword(), l.Msg.GetServers()[0].GetStatus().GetJoin().GetPassword()
+	}
+	for name, c := range map[string]hubv1connect.ServerServiceClient{
+		"anonymous":             hubv1connect.NewServerServiceClient(http.DefaultClient, r.srv.URL),
+		"member":                hubv1connect.NewServerServiceClient(cookieClient(http.DefaultClient, r.login(t, member.ID)), r.srv.URL),
+		"app without the scope": hubv1connect.NewServerServiceClient(bearerClient(http.DefaultClient, r.bearer(t, "scopeless", "identity:read")), r.srv.URL),
+		"member's token":        hubv1connect.NewServerServiceClient(bearerClient(http.DefaultClient, r.memberToken(t, member.ID, []string{"servers:read"}, "servers:read")), r.srv.URL),
+	} {
+		if get, list := status(c); get != "" || list != "" {
+			t.Errorf("%s got the password: %q %q", name, get, list)
+		}
+	}
+	card := hubv1connect.NewServerServiceClient(bearerClient(http.DefaultClient, r.bearer(t, "card", "servers:read")), r.srv.URL)
+	if get, list := status(card); get != "hunter2" || list != "hunter2" {
+		t.Errorf("an app with servers:read: %q %q", get, list)
+	}
+	// Down, or sharing none: no password, though the join stays.
+	o := r.obs.obs["wd-1"]
+	o.State, o.Reachable = servers.StateUnreachable, false
+	r.obs.obs["wd-1"] = o
+	if get, _ := status(card); get != "" {
+		t.Errorf("an unreachable server's password: %q", get)
+	}
+	o.State, o.Reachable = servers.StateOK, true
+	r.obs.obs["wd-1"] = o
+	delete(r.pws.pw, "wd-1")
+	if get, _ := status(card); get != "" {
+		t.Errorf("a server that shares none: %q", get)
+	}
+}

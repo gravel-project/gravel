@@ -270,3 +270,34 @@ func TestHostRowRoundTrip(t *testing.T) {
 		t.Errorf("round trip:\n got %+v\nwant %+v", got, h)
 	}
 }
+
+// A cloud-VM server's own join password goes to the API only when its manifest shares it, never
+// while a lease is live (the lease's password is the holder's alone), and not when unreadable.
+func TestSharedJoinPassword(t *testing.T) {
+	r := newHostsRig(t)
+	srv := r.m.Servers[0]
+	if pw, ok := r.hosts.SharedJoinPassword(srv); ok || pw != "" {
+		t.Errorf("not shared: %q %v", pw, ok)
+	}
+	srv.VM.SharePassword = true
+	if pw, ok := r.hosts.SharedJoinPassword(srv); !ok || pw != "join-pw" {
+		t.Errorf("shared: %q %v", pw, ok)
+	}
+	leased := true
+	r.hosts.SetLeased(func(id string) bool { return leased && id == srv.ID })
+	if pw, ok := r.hosts.SharedJoinPassword(srv); ok || pw != "" {
+		t.Errorf("leased: %q %v", pw, ok)
+	}
+	leased = false
+	if err := os.Remove(srv.VM.PasswordFile); err != nil {
+		t.Fatal(err)
+	}
+	if pw, ok := r.hosts.SharedJoinPassword(srv); ok || pw != "" {
+		t.Errorf("unreadable: %q %v", pw, ok)
+	}
+	other := srv
+	other.Driver = "wardogs"
+	if _, ok := r.hosts.SharedJoinPassword(other); ok {
+		t.Error("another driver's server shares nothing")
+	}
+}
