@@ -19,6 +19,8 @@ why, ADR-0004 the login design, ADR-0008 the app credentials; `deploy/README.md`
 | `gravel-hub apps create --name NAME --scopes SCOPES [--redirect-uri URL]...` | Register a first-party app (ADR-0008) and print its client id and secret once; the hub keeps the secret's hash. `--redirect-uri` (repeatable) is where its web pages receive a member who signed in ([Members sign in to apps](#members-sign-in-to-apps-adr-0015)): https, or http on 127.0.0.1, `[::1]` or localhost, compared as an exact string. |
 | `gravel-hub apps list` | The registered apps: client id, name, scopes, redirect URIs, created, revoked. |
 | `gravel-hub apps revoke --client-id ID` | Revoke an app: its tokens (its own and its members'), the grants members gave it and its unexchanged codes are deleted, and no new token is issued. |
+| `gravel-hub users create-local --username NAME [--email ADDRESS]` | Make a member with a local account and print the one-time link that sets its password ([Local accounts](#local-accounts-adr-0026)), with no API credential: how a hub with no provider gets its first member. Needs `auth.local.enabled`. |
+| `gravel-hub users reset-password --username NAME` | Print a one-time link that resets a local account's password; its earlier links stop working. |
 | `gravel-hub servers export` | Print the games and servers as a `servers.yaml` manifest ([Servers](#servers-adr-0010)). |
 | `gravel-hub servers apply <servers.yaml> [--dry-run]` | Validate a manifest, check each credential file is readable where it runs, and store it; prints each change. With `--dry-run`, exit 3 when something would change. A running hub picks it up within 30 s. |
 | `gravel-hub servers check <servers.yaml>` | Validate a manifest with no configuration, no database and no secret: exit 0 with its summary, 1 with every problem named, 2 on a usage error. |
@@ -172,6 +174,7 @@ every page works without it):
 | `POST /auth/local/login` | a username and password ([Local accounts](#local-accounts-adr-0026)); 401 with one answer for every refusal, 429 past the per-address limit |
 | `GET`, `POST /auth/local/register` | make a local account and log in, when `local_accounts.registration` is `open`; 404 otherwise |
 | `POST /account/local` | give the logged-in member a username and password, with the CSRF token |
+| `GET`, `POST /auth/local/reset/{token}` | a password link: choose the password, once, within the hour; every other session of the member ends and this browser is logged in. 404 for an unknown, used or expired link. The access log shows `/auth/local/reset/<redacted>`, and the page sends no referrer |
 | `POST /auth/logout` | this session (`Logout`), or every session with `everywhere=1` (`RevokeSessions`) |
 | `POST /account/unlink`, `POST /account/claim`, `POST /account/apps/revoke` | forms; every POST carries the session's CSRF token in `_csrf`; with `HX-Request: true` the answer is the page's content, else a redirect |
 | `GET /theme.css` | the theme's tokens as custom properties, with an ETag |
@@ -1413,11 +1416,20 @@ password is stored beside it as an argon2id hash and goes with it when it is unl
   good login doubles it, up to a day. A good login clears it. Failures while locked don't count.
 - **Limits:** local logins and registrations are also limited to 10 a minute per client address
   (5 at once), on top of the pages' own limit, because each hashes a password.
-- **Email** is optional and only ever for recovery (#187); the hub never matches or merges
-  accounts by email.
+- **Password links** (#187): staff with `members:manage` make an account with
+  `IdentityService.CreateLocalAccount` (or `gravel-hub users create-local` on the host) and hand its
+  owner the one-time link that sets the password; a forgotten password gets a new link from
+  `IssuePasswordReset` (or `gravel-hub users reset-password`). A link works once, for an hour, and
+  a newer one for the account ends the older ones. Using it clears a lockout, ends every session
+  the member had, and logs the browser in. Only the link's SHA-256 is stored; the link is never
+  logged. Links are kept 30 days after they expire, then pruned.
+- **Email** is optional and only ever for recovery; the hub never matches or merges accounts by
+  email. Mailing a reset link to it waits for the email notifier: #234, after #196.
 - `gravel_local_logins_total{result}` counts `ok`, `refused`, `locked`, `invalid` (a refused
-  registration), `rate_limited` and `error`, on the hub dashboard's Login row, and
-  `gravel_identities{provider="local"}` the local accounts.
+  registration), `rate_limited` and `error`, and `gravel_password_resets_total{result}` counts links
+  `issued`, `used`, `invalid` and `refused`, both on the hub dashboard's Login row;
+  `gravel_identities{provider="local"}` counts the local accounts. Identity events
+  `password_reset_issued`, `password_set` and `password_reset` go on the identity log.
 
 ### Proof in game (ADR-0022)
 
@@ -1484,6 +1496,19 @@ is unowned) or over the API with the session cookie:
 ```sh
 curl -X POST -H 'Content-Type: application/json' -b '__Host-gravel_session=<cookie>' -d '{"token":"<token>"}' https://app.example.com/gravel.hub.v1.OrganizationService/ClaimOwnership
 ```
+
+**With no Discord or Steam at all** (ADR-0025's single machine): turn local accounts on
+(`auth.local.enabled: true`), start the hub, and from the host
+
+```sh
+gravel-hub users create-local --username neckbeard --config /etc/gravel/hub.yaml
+# local account created: neckbeard
+# password link (shown once, works once, until 2026-10-13 14:05 UTC):
+# https://app.example.com/auth/local/reset/…
+```
+
+Open the link, choose the password (you are logged in), and paste the claim token on the account
+page.
 
 The caller becomes the owner (`owner_user_id`). The claim is single-use and atomic. A call without
 a session answers `unauthenticated`, a second call `failed_precondition` (the hub is owned), a

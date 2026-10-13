@@ -133,6 +133,8 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /auth/local/register", h.registerForm)
 	mux.HandleFunc("POST /auth/local/register", h.register)
 	mux.HandleFunc("POST /account/local", h.setLocal)
+	mux.HandleFunc("GET /auth/local/reset/{token}", h.resetForm)
+	mux.HandleFunc("POST /auth/local/reset/{token}", h.reset)
 	mux.HandleFunc("GET /auth/{provider}/start", h.startLogin)
 	mux.HandleFunc("GET /auth/{provider}/link", h.startLink)
 	mux.HandleFunc("GET /auth/{provider}/roles", h.startRoles)
@@ -753,7 +755,9 @@ func (h *Handler) renderWithPolicy(w http.ResponseWriter, r *http.Request, statu
 	hdr := w.Header()
 	hdr.Set("Content-Type", "text/html; charset=utf-8")
 	hdr.Set("Content-Security-Policy", policy)
-	hdr.Set("Referrer-Policy", "same-origin")
+	if hdr.Get("Referrer-Policy") == "" { // a page with a secret in its URL sets no-referrer first
+		hdr.Set("Referrer-Policy", "same-origin")
+	}
 	hdr.Set("X-Content-Type-Options", "nosniff")
 	hdr.Set("Cache-Control", "no-store")
 	hdr.Set("Vary", "HX-Request, Cookie")

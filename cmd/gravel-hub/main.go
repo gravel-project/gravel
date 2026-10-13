@@ -70,6 +70,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		return settings(ctx, args, stdout, stderr)
 	case "apps":
 		return appsCmd(ctx, args, stdout, stderr)
+	case "users":
+		return usersCmd(ctx, args, stdout, stderr)
 	case "servers":
 		return serversCmd(ctx, args, stdout, stderr)
 	case "ingest":
@@ -104,6 +106,8 @@ func usage(w io.Writer) {
   settings      export the Organization settings as a manifest, apply one (--dry-run exits 3 on a change),
                 or check one without a config or database
   apps          register, list or revoke first-party apps (create prints the client secret once)
+  users         make a local account (create-local) or reset one's password (reset-password); each prints a
+                one-time link that sets the password: how a hub with no provider gets its first member
   servers       export the games and servers as a servers.yaml manifest, apply one (--dry-run exits 3 on a
                 change), or check one without a config or database
   wardogs       record a War Dogs server's read-only answers as per-build test fixtures

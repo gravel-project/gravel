@@ -75,7 +75,10 @@ func (f *fakePasswords) SharedJoinPassword(srv servers.Server) (string, bool) {
 	return pw, ok
 }
 
-func newRig(t *testing.T) *rig {
+// rigIdentity adds an option to the rig's identity service, built over the rig's stores.
+type rigIdentity func(r *rig) identity.Option
+
+func newRig(t *testing.T, idOpts ...rigIdentity) *rig {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	r := &rig{orgSt: &orgtest.FakeStore{}, idSt: identitytest.NewFakeStore(), appSt: appstest.NewFakeStore()}
@@ -85,7 +88,11 @@ func newRig(t *testing.T) *rig {
 		t.Fatal(err)
 	}
 	r.token = token
-	r.ids = identity.New(r.idSt, o.ID, nil, 10*time.Minute, logger)
+	var opts []identity.Option
+	for _, o := range idOpts {
+		opts = append(opts, o(r))
+	}
+	r.ids = identity.New(r.idSt, o.ID, nil, 10*time.Minute, logger, opts...)
 	r.sess = session.New(r.idSt, time.Hour, false, logger)
 	r.apps = apps.New(r.appSt, o.ID, time.Hour, logger)
 	r.srvs = servers.New(serverstest.NewFakeStore(), o.ID, []string{"wardogs"}, logger)
@@ -106,7 +113,7 @@ func newRig(t *testing.T) *rig {
 	member := connect.WithInterceptors(api.MemberTokens()) // as the hub wires it (ADR-0015)
 	access := api.NewAccess(r.org, r.ids, logger)
 	mux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(r.org, access, logger), member))
-	idAPI := api.NewIdentityServer(r.ids, r.sess, r.org, access, logger)
+	idAPI := api.NewIdentityServer(r.ids, r.sess, r.org, access, logger).WithBaseURL("https://hub.example.com")
 	r.proofSt = prooftest.NewFakeStore()
 	r.proofs = proof.New(r.proofSt, logger, []proof.Channel{proof.GameChat{ProviderName: "steam"}})
 	idAPI.SetProofs(r.proofs, proofReader{}, r.obs)

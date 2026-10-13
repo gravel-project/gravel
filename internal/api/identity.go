@@ -33,6 +33,8 @@ type IdentityServer struct {
 	org    *org.Service
 	access *Access
 	logger *slog.Logger
+	// baseURL is what password links are built on (WithBaseURL).
+	baseURL string
 
 	// Proof of control (SetProofs); nil when the hub takes none.
 	proofs       *proof.Service

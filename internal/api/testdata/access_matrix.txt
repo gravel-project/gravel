@@ -83,6 +83,26 @@
   app+stats:read                 permission_denied
   app+all                        permission_denied
 
+/gravel.hub.v1.IdentityService/CreateLocalAccount
+  anonymous                      unauthenticated
+  member                         permission_denied
+  moderator                      permission_denied
+  owner                          failed_precondition
+  member-token                   permission_denied
+  moderator-token                permission_denied
+  owner-token                    permission_denied
+  owner-token-unscoped           permission_denied
+  app                            permission_denied
+  app-host                       permission_denied
+  app+identity:read              permission_denied
+  app+participation:write        permission_denied
+  app+servers:configure          permission_denied
+  app+servers:lease              permission_denied
+  app+servers:moderate           permission_denied
+  app+servers:read               permission_denied
+  app+stats:read                 permission_denied
+  app+all                        permission_denied
+
 /gravel.hub.v1.IdentityService/GetMe
   anonymous                      unauthenticated
   member                         ok
@@ -108,6 +128,26 @@
   member                         invalid_argument
   moderator                      invalid_argument
   owner                          invalid_argument
+  member-token                   permission_denied
+  moderator-token                permission_denied
+  owner-token                    permission_denied
+  owner-token-unscoped           permission_denied
+  app                            permission_denied
+  app-host                       permission_denied
+  app+identity:read              permission_denied
+  app+participation:write        permission_denied
+  app+servers:configure          permission_denied
+  app+servers:lease              permission_denied
+  app+servers:moderate           permission_denied
+  app+servers:read               permission_denied
+  app+stats:read                 permission_denied
+  app+all                        permission_denied
+
+/gravel.hub.v1.IdentityService/IssuePasswordReset
+  anonymous                      unauthenticated
+  member                         permission_denied
+  moderator                      permission_denied
+  owner                          failed_precondition
   member-token                   permission_denied
   moderator-token                permission_denied
   owner-token                    permission_denied

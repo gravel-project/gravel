@@ -25,6 +25,13 @@ patch release is everything else.
 
 ### Added
 
+- Password links: staff give someone a local account, and a forgotten password a reset, with a one-time link (#187, ADR-0026). It is how a hub with registration closed gets members, and how a hub with no provider gets its first owner.
+  - **The API:** `IdentityService.CreateLocalAccount{username, email}` and `IssuePasswordReset{username}`, behind `members:manage` (the owner, in person), each return a `PasswordLink` (`url` on `auth.base_url`, `purpose`, `expires_at`); `failed_precondition` when local accounts are off. The access matrix gains both.
+  - **The host:** `gravel-hub users create-local --username NAME [--email ADDRESS]` and `gravel-hub users reset-password --username NAME`, with no API credential.
+  - **The page:** `/auth/local/reset/{token}` sets the password once, within the hour, clears a lockout, ends every session the member had and logs the browser in. The token is never logged (the access log says `<redacted>`), and the page sends `Referrer-Policy: no-referrer`; a page that sets its own referrer policy now keeps it.
+  - **Storage:** migration **00024**, `password_links` (the token's SHA-256, purpose, who issued it, expiry, use); a newer link for an account deletes its unused ones; links go with their identity and are pruned 30 days after they expire. Identity events `password_reset_issued`, `password_set`, `password_reset`.
+  - **Metrics:** `gravel_password_resets_total{result}` (`issued`, `used`, `invalid`, `refused`) on the hub dashboard's Login row.
+  - **Not yet:** mailing a reset link to a recovery address waits for the email notifier: #234, after #196.
 - Local accounts: a username and a password are one more way in (#186, [ADR-0026](docs/adr/0026-local-accounts-a-username-and-password-are-a-provider.md) proposed; H1, #182). A hub with no Discord application can have members and an owner.
   - **Config:** `hub.yaml` `auth.local.enabled` (off by default); `config check` names it.
   - **Settings:** `local_accounts` in the Organization settings: `registration` `closed` (the default) or `open`, and `min_password_length` (12 by default, 8 to 128); `LocalAccountsSettings` in the API; `settings check` says them.

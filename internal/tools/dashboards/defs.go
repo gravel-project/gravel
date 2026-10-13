@@ -87,6 +87,9 @@ func hubDashboard() dashboard {
 				{Title: "Username and password logins", Kind: "timeseries", Width: 12, Optional: "local accounts are off, or nobody used them in the range",
 					Description: "Local account logins and registrations (ADR-0026): ok, refused (an unknown username or a wrong password), locked (5 failures in a row lock an account for 15 minutes, doubling), invalid (a refused username or password at registration), rate_limited, error. Many refused from one hub is someone guessing.",
 					Targets:     []target{{Expr: `sum by (result) (increase(gravel_local_logins_total{` + sel + `}[$__rate_interval]))`, Legend: "{{result}}"}}},
+				{Title: "Password links", Kind: "timeseries", Width: 12, Optional: "local accounts are off, or no link was issued or used in the range",
+					Description: "One-time links that set or reset a local account's password (gravel#187): issued (by staff or from the host), used, invalid (an unknown, used or expired link), refused (a password the rules turned down). Many invalid is someone guessing links.",
+					Targets:     []target{{Expr: `sum by (result) (increase(gravel_password_resets_total{` + sel + `}[$__rate_interval]))`, Legend: "{{result}}"}}},
 			}},
 			{Title: "First-party apps", Panels: []panel{
 				{Title: "Sign-ins to apps", Kind: "timeseries", Width: 8, Optional: "no app signed a member in during the range",
