@@ -6,11 +6,11 @@ import { demoNotice } from "./App";
 import { member, renderShell } from "./test/rig";
 
 describe("the shell", () => {
-  it("shows a member with no capabilities only the overview, and says so", async () => {
-    const { container } = renderShell({ me: member() });
-    expect(await screen.findByRole("heading", { level: 1, name: "Overview" })).toBeTruthy();
+  it("shows a member with no capabilities only their access, and says so", async () => {
+    const { container } = renderShell({ me: member(), path: "/access" });
+    expect(await screen.findByRole("heading", { level: 1, name: "Your access" })).toBeTruthy();
     const nav = screen.getByRole("navigation", { name: "Admin" });
-    expect(within(nav).getAllByRole("link").map((a) => a.textContent)).toEqual(["Overview"]);
+    expect(within(nav).getAllByRole("link").map((a) => a.textContent)).toEqual(["Your access"]);
     expect(screen.getByText(/no role is granted to you/)).toBeTruthy();
     expect(screen.getByText(/Nothing beyond what every visitor may/)).toBeTruthy();
     const account = within(screen.getByRole("navigation", { name: "Account" }));
@@ -28,6 +28,7 @@ describe("the shell", () => {
 
   it("lists an owner's roles, grants and capabilities", async () => {
     const { container } = renderShell({
+      path: "/access",
       me: member({
         owner: true,
         roles: ["admin"],
@@ -38,6 +39,8 @@ describe("the shell", () => {
     const roles = within((await screen.findByRole("heading", { name: "Your roles" })).closest("section") as HTMLElement);
     expect(roles.getAllByRole("listitem").map((li) => li.textContent)).toEqual(["owner, everywhere", "admin, everywhere", "moderator, for cs2"]);
     expect(screen.getByText("members:manage")).toBeTruthy();
+    const nav = screen.getByRole("navigation", { name: "Admin" });
+    expect(within(nav).getAllByRole("link").map((a) => a.textContent)).toEqual(["Fleet", "Your access"]);
     expect(await axe(container)).toHaveNoViolations();
   });
 

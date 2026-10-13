@@ -13,6 +13,7 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/a-h/templ"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	hubv1 "github.com/gravel-project/gravel/gen/gravel/hub/v1"
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
@@ -39,6 +40,30 @@ type a11yOrg struct {
 
 func (a11yOrg) GetOrganization(context.Context, *connect.Request[hubv1.GetOrganizationRequest]) (*connect.Response[hubv1.GetOrganizationResponse], error) {
 	return connect.NewResponse(&hubv1.GetOrganizationResponse{Organization: &hubv1.Organization{Id: "o1", Name: "Hidden Token Gaming", Owned: true, Demo: true}}), nil
+}
+
+// a11yFleet is a fleet with every health and both alarm severities, so the fleet page (gravel#192)
+// is scanned with everything it can show.
+type a11yFleet struct {
+	hubv1connect.UnimplementedServerServiceHandler
+}
+
+func (a11yFleet) GetFleetSummary(context.Context, *connect.Request[hubv1.GetFleetSummaryRequest]) (*connect.Response[hubv1.GetFleetSummaryResponse], error) {
+	now := time.Now()
+	ago := func(d time.Duration) *timestamppb.Timestamp { return timestamppb.New(now.Add(-d)) }
+	return connect.NewResponse(&hubv1.GetFleetSummaryResponse{AsOf: timestamppb.New(now),
+		Totals: &hubv1.FleetTotals{Servers: 5, Up: 1, Degraded: 1, Down: 1, Idle: 1, Unknown: 1, Players: 31, Capacity: 190},
+		Alarms: []*hubv1.FleetAlarm{
+			{Kind: "server.down", Severity: "critical", ServerId: "htg-wardogs-2", Since: ago(3 * time.Minute), Detail: "not answering"},
+			{Kind: "backup.stale", Severity: "warning", Since: ago(27 * time.Hour), Detail: "no base backup has succeeded since yesterday"},
+		},
+		Servers: []*hubv1.FleetServer{
+			{Id: "htg-wardogs-2", Name: "HTG WARDOGS | NA WEST | #2", GameId: "wardogs", GameName: "War Dogs", Health: "down", Reason: "not answering", HealthSince: ago(5 * time.Minute), Misses: 6, MaxPlayers: 80},
+			{Id: "htg-cs2-1", Name: "HTG CS2 #1", GameId: "cs2", GameName: "Counter-Strike 2", Health: "degraded", Reason: "the host is booting", HostState: "booting", LeaseState: "starting", MaxPlayers: 10},
+			{Id: "htg-wardogs-3", Name: "HTG WARDOGS #3", GameId: "wardogs", GameName: "War Dogs", Health: "unknown", Reason: "not polled yet"},
+			{Id: "htg-wardogs-1", Name: "HTG WARDOGS | NA WEST | #1", GameId: "wardogs", GameName: "War Dogs", Health: "up", Reason: "answering", Players: 31, MaxPlayers: 100, Map: "Ozeti", ObservedAt: ago(8 * time.Second), PollMs: 120},
+			{Id: "htg-cs2-2", Name: "HTG CS2 #2", GameId: "cs2", GameName: "Counter-Strike 2", Health: "idle", Reason: "parked, as asked", HostState: "parked"},
+		}}), nil
 }
 
 // TestAccessibility runs axe (@axe-core/cli through npx, driving Chrome) over the rendered
@@ -350,6 +375,7 @@ func TestAccessibility(t *testing.T) {
 	dashboard.Register(mux)
 	mux.Handle(hubv1connect.NewIdentityServiceHandler(a11yMe{}))
 	mux.Handle(hubv1connect.NewOrganizationServiceHandler(a11yOrg{}))
+	mux.Handle(hubv1connect.NewServerServiceHandler(a11yFleet{}))
 	for path, build := range fixtures {
 		mux.HandleFunc("GET "+path, func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -388,9 +414,11 @@ func TestAccessibility(t *testing.T) {
 		"/fixture/server-moderator", "/fixture/server-host", "/fixture/server-host-parked", "/fixture/host-confirm", "/fixture/confirm", "/fixture/log", "/fixture/account-apps", "/fixture/consent",
 		"/fixture/account-proof", "/fixture/proof", "/fixture/proof-proven", "/fixture/host-expect", "/fixture/result",
 		"/fixture/login-local", "/fixture/register", "/fixture/account-local", "/fixture/reset",
-		"/admin", "/admin/nowhere"}
+		"/admin", "/admin/access", "/admin/nowhere"}
 	// What each dashboard route shows once rendered in the browser.
-	adminRenders := map[string]string{"/admin": "<h1 class=\"mb-4 text-2xl font-bold\">Overview</h1>", "/admin/nowhere": ">Not found</h1>"}
+	adminRenders := map[string]string{"/admin": ">HTG WARDOGS | NA WEST | #1</a>", "/admin/access": ">Your access</h1>", "/admin/nowhere": ">Not found</h1>"}
+	// The same, as text on the page, for the viewport script.
+	adminRenderText := map[string]string{"/admin": "HTG WARDOGS | NA WEST | #1", "/admin/access": "Your access"}
 	// A fixture left out of the list would never be scanned and the run would still pass.
 	for path := range fixtures {
 		if !slices.Contains(paths, path) {
@@ -418,6 +446,28 @@ func TestAccessibility(t *testing.T) {
 			}
 		})
 	}
+	// The dashboard at a phone's and an iPad's sizes (gravel#192): no sideways scroll and no axe
+	// violation at either, which @axe-core/cli above cannot check (it scans at Chrome's default).
+	t.Run("admin-viewports", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+		defer cancel()
+		chrome := os.Getenv("AXE_CHROME_PATH")
+		if chrome == "" {
+			var err error
+			if chrome, err = exec.LookPath("google-chrome"); err != nil {
+				t.Fatal("no Chrome: set AXE_CHROME_PATH or put google-chrome on the PATH")
+			}
+		}
+		// The script resolves puppeteer-core and axe-core from web/admin's node_modules (make admin).
+		cmd := exec.CommandContext(ctx, "node", "../../web/admin/scripts/viewport.mjs", chrome,
+			srv.URL+"/admin", adminRenderText["/admin"], srv.URL+"/admin/access", adminRenderText["/admin/access"])
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("the dashboard at phone and iPad sizes:\n%s", out)
+		}
+		t.Logf("%s", out)
+	})
+
 }
 
 // renderedDOM loads url in headless Chrome (AXE_CHROME_PATH, else google-chrome on the PATH) and

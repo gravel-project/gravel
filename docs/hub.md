@@ -1614,18 +1614,34 @@ limit applies in front of all of it.
 
 `/admin` is the operators' dashboard: a React client of the same API as the pages, embedded in the
 binary ([ADR-0029](adr/0029-the-admin-dashboard-is-a-static-client-in-the-binary.md); the source is
-`web/admin/`). It is H1's in-progress surface: this version has the shell and an **Overview** of who
-you are here, your roles (everywhere and per game) and your capabilities; the fleet (#192), the
-events feed and alarms (#193), servers, people, settings and the rest arrive page by page.
+`web/admin/`). It is H1's in-progress surface: this version has the **Fleet** and **Your access**;
+the events feed (#193), servers, people, settings and the rest arrive page by page.
+
+- **Fleet** (`/admin`, `servers:read`, which every member holds): what is up, who is playing, what
+  is wrong, trouble first, from `GetFleetSummary` ([Servers](#servers-adr-0010), Fleet health). A
+  strip counts the servers up (of those not idle, with how many are down, degraded, unknown and
+  idle), the players (of the public slots) and the open alarms; the alarms follow, critical first,
+  each with its server and since when; then every server in the hub's order (down, degraded,
+  unknown, up, idle): its health and why, for how long, players against capacity, the map, when it
+  was last polled and how long the poll took, and its host's and lease's state. A down or degraded
+  server's row is marked; a server's name opens its member page, where its controls are. Times are
+  counted on the hub's clock (`as_of`), so a viewer's wrong clock can't make a server look stale.
+  The page says **Stale** when the last poll failed or none has answered for 15 s. An empty fleet
+  says how to add servers (`gravel-hub servers apply`). It is laid out for a phone and an iPad as
+  well as a desktop.
+- **Your access** (`/admin/access`): who you are here, your roles (everywhere and per game) and your
+  capabilities.
 
 - **Signing in:** the dashboard has no login of its own. It asks `GetMe` with the session cookie;
   without a session it sends the browser to `/login?return_to=/admin/...`, which brings it back.
   The header links to the member pages and to `/account`.
 - **What you see:** the nav lists the pages whose capability you hold, everywhere or through a
   game-scoped grant ([Capabilities](#capabilities-adr-0027)). The API decides every call anyway; a
-  member with no role sees the Overview only.
+  member with no role sees the Fleet and their access.
 - **Live data:** every view refetches every 5 s while its tab is visible and stops in a background
-  tab; nothing is pushed. Each refetch is an API call under the per-user rate limit.
+  tab; nothing is pushed. Each refetch is an API call under the per-user rate limit: an open Fleet
+  tab makes 36 calls a minute (the caller, the organization and the summary), and
+  `rate_limit.per_user` admits 600, so about 16 tabs per member.
 - **Theme:** the brand tokens, under the Organization settings' theme (`/theme.css`), light or dark
   as the viewer's system says; a demo hub's banner shows on every view.
 - **Headers:** the pages' Content-Security-Policy; the index is `Cache-Control: no-cache`, the

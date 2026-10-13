@@ -32,6 +32,11 @@ patch release is everything else.
 
 ### Added
 
+- **The fleet page** in the admin dashboard (#192; H1, #182): `/admin` shows what is up, who is playing and what is wrong, trouble first, from `GetFleetSummary` (`docs/hub.md`, Admin dashboard).
+  - **On the page:** a strip (servers up of those not idle, players of the public slots, alarms open), the alarms (critical first, with their server and since when), and every server in the hub's order with its health and why, for how long, players against capacity, map, last poll and its time, and its host's and lease's state; a down or degraded row is marked and each name opens the server's member page. Times count on the hub's clock; the page says **Stale** after a failed poll or 15 s without an answer; an empty fleet says how to add servers.
+  - **Moved:** the dashboard's former Overview (your roles and capabilities) is **Your access** at `/admin/access`.
+  - **Phone and iPad:** `make a11y` loads the dashboard at 390×844, 820×1180 and 1180×820 with puppeteer-core (`web/admin/scripts/viewport.mjs`) and fails on a sideways scroll or an axe violation at any of them; axe-core is now a pinned dev dependency (4.13.0), with puppeteer-core 25.12.0.
+  - **Rate limit:** checked, unchanged: a Fleet tab makes 36 calls a minute against `rate_limit.per_user`'s 600.
 - **Notifiers** carry the events log to people with no Discord in the path (#196, ADR-0028 §5; H1, #182): a JSON webhook (signed), a Discord webhook, ntfy and email, each taking the events its filter names (`docs/hub.md`, Notifiers).
   - **Settings:** `notifiers[]` in the Organization settings (`name`, `kind`, `disabled`, `url`, `flavour`, `topic`, `to`, `events{kinds, min_severity, games, servers}`; at most 20; `warning` and up by default). `GetOrganizationSettings` shows them only to a caller holding `settings:write`.
   - **hub.yaml:** `notify.secrets.<name>.file` (a JSON webhook's signing key, a Discord webhook's whole URL, an ntfy access token) and `notify.smtp` (`host`, `port`, `username`, `password_file` or `GRAVEL_SMTP_PASSWORD`, `from`, `tls`). `gravel-hub config check` names the notifiers with a secret and the mail server.
