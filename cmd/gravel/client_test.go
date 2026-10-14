@@ -34,6 +34,8 @@ type fakeHub struct {
 	hubv1connect.UnimplementedIdentityServiceHandler
 	hubv1connect.UnimplementedOrganizationServiceHandler
 	hubv1connect.UnimplementedServerServiceHandler
+	hubv1connect.UnimplementedAppServiceHandler
+	hubv1connect.UnimplementedStatsServiceHandler
 
 	t   *testing.T
 	srv *httptest.Server
@@ -50,6 +52,7 @@ type fakeHub struct {
 	fleet      *hubv1.GetFleetSummaryResponse
 	servers    []*hubv1.Server
 	logins     int
+	adm        *adminState // the operator's procedures (admin_test.go)
 }
 
 func newFakeHub(t *testing.T) *fakeHub {
@@ -61,11 +64,14 @@ func newFakeHub(t *testing.T) *fakeHub {
 		claimToken: "claim-me",
 		clientID:   "htg-bot",
 		secret:     "s3cret",
+		adm:        newAdminState(),
 	}
 	mux := http.NewServeMux()
 	mux.Handle(hubv1connect.NewIdentityServiceHandler(h))
 	mux.Handle(hubv1connect.NewOrganizationServiceHandler(h))
 	mux.Handle(hubv1connect.NewServerServiceHandler(h))
+	mux.Handle(hubv1connect.NewAppServiceHandler(h))
+	mux.Handle(hubv1connect.NewStatsServiceHandler(h))
 	api := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if ct := r.Header.Get("Content-Type"); ct != "application/json" {
 			t.Errorf("%s came as %q: the CLI speaks Connect's JSON only", r.URL.Path, ct)
@@ -416,11 +422,11 @@ func TestWhoamiAndLogout(t *testing.T) {
 		t.Errorf("after logout the store is %+v (%v), want empty", creds, err)
 	}
 	if code, _, stderr := (cli{t: t}).run(context.Background(), "whoami", "--hub", h.srv.URL); code != exitLoggedIn || !strings.Contains(stderr, "not logged in") {
-		t.Errorf("whoami after logout: exit %d, %q; want 3", code, stderr)
+		t.Errorf("whoami after logout: exit %d, %q; want 4", code, stderr)
 	}
 }
 
-func TestEndedSessionExits3(t *testing.T) {
+func TestEndedSessionExits4(t *testing.T) {
 	isolate(t)
 	h := newFakeHub(t)
 	login(t, h)
@@ -430,7 +436,7 @@ func TestEndedSessionExits3(t *testing.T) {
 	for _, args := range [][]string{{"whoami"}, {"fleet"}, {"events"}, {"claim", "x"}} {
 		code, _, stderr := cli{t: t}.run(context.Background(), args...)
 		if code != exitLoggedIn || !strings.Contains(stderr, "session on "+h.srv.URL+" has ended") {
-			t.Errorf("%v: exit %d, stderr %q; want 3 and the session ended", args, code, stderr)
+			t.Errorf("%v: exit %d, stderr %q; want 4 and the session ended", args, code, stderr)
 		}
 	}
 }
@@ -443,7 +449,7 @@ func TestNoHubNoCredential(t *testing.T) {
 	h := newFakeHub(t)
 	t.Setenv("GRAVEL_HUB", h.srv.URL)
 	if code, _, stderr := (cli{t: t}).run(context.Background(), "fleet"); code != exitLoggedIn || !strings.Contains(stderr, "not logged in to "+h.srv.URL) {
-		t.Errorf("exit %d, %q; want 3 and not logged in", code, stderr)
+		t.Errorf("exit %d, %q; want 4 and not logged in", code, stderr)
 	}
 }
 
@@ -681,7 +687,7 @@ func TestLoginApp(t *testing.T) {
 	}
 	h.secret = "rotated"
 	if code, _, stderr := (cli{t: t}).run(context.Background(), "whoami"); code != exitLoggedIn || !strings.Contains(stderr, "refused the app's client credentials") {
-		t.Errorf("a revoked secret: exit %d, %q; want 3", code, stderr)
+		t.Errorf("a revoked secret: exit %d, %q; want 4", code, stderr)
 	}
 	h.clientID = "nobody"
 	if code, _, _ := (cli{t: t}).run(context.Background(), "login", "--app", "--client-id", "htg-bot", "--secret-file", secret, "--hub", h.srv.URL); code != exitFailed {

@@ -23,10 +23,11 @@ import (
 
 // Exit codes of the commands that call a hub.
 const (
-	exitOK       = 0
-	exitFailed   = 1 // the call failed, or (fleet) something is down
-	exitUsage    = 2
-	exitLoggedIn = 3 // no credential for the hub, or the hub no longer takes it: log in again
+	exitOK          = 0
+	exitFailed      = 1 // the call failed, or (fleet) something is down
+	exitUsage       = 2
+	exitWouldChange = 3 // a --dry-run found something to change, as gravel-hub and gravel hub say it
+	exitLoggedIn    = 4 // no credential for the hub, or the hub no longer takes it: log in again
 )
 
 // requestTimeout bounds one call to the hub.

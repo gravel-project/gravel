@@ -8,8 +8,15 @@
 //	gravel whoami        who this machine is on the hub, and what they may do
 //	gravel claim         become the owner of an unowned hub with its one-time token
 //	gravel fleet         every server's health and the open alarms; exit 1 when one is down
-//	gravel servers       list the servers, or one server's last observation
+//	gravel servers       list the servers, or one server's last observation; export, check and apply the manifest
 //	gravel events        the hub's events log; --follow keeps printing
+//	gravel members       list the members, grant and revoke roles, end a member's sessions
+//	gravel owner         hand the hub to another member: nominate, accept, cancel
+//	gravel users         make a local account, or a password reset link
+//	gravel apps          register, list and revoke apps
+//	gravel settings      export, check and apply the Organization settings manifest
+//	gravel stats         erase a player's identity from the stats
+//	gravel notifiers     send a notifier a test event
 //	gravel hub create    make (or find) the hub's VM, data volume and firewall through a cloud provider
 //	gravel hub status    what exists for a hub, its address, and the owner-claim token while unowned
 //	gravel hub destroy   delete the hub's VM (the data volume and firewall stay unless asked)
@@ -60,9 +67,23 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 	case "fleet":
 		return fleetCmd(ctx, args, stdout, stderr)
 	case "servers":
-		return serversCmd(ctx, args, stdout, stderr)
+		return serversCmd(ctx, args, stdin, stdout, stderr)
 	case "events":
 		return eventsCmd(ctx, args, stdout, stderr)
+	case "members":
+		return membersCmd(ctx, args, stdout, stderr)
+	case "owner":
+		return ownerCmd(ctx, args, stdout, stderr)
+	case "users":
+		return usersCmd(ctx, args, stdout, stderr)
+	case "apps":
+		return appsCmd(ctx, args, stdout, stderr)
+	case "settings":
+		return settingsCmd(ctx, args, stdin, stdout, stderr)
+	case "stats":
+		return statsCmd(ctx, args, stdout, stderr)
+	case "notifiers":
+		return notifiersCmd(ctx, args, stdout, stderr)
 	case "version":
 		fmt.Fprintln(stdout, buildVersion())
 		return 0
@@ -86,10 +107,19 @@ func usage(w io.Writer) {
   whoami   who this machine is on the hub, and what they may do
   claim    become the owner of an unowned hub with the token it printed
   fleet    every server's health and the open alarms; exit 1 when one is down
-  servers  list the servers, or one server's last observation
+  servers  list the servers, or one server's last observation; export, check and apply the manifest
   events   the hub's events log; --follow keeps printing what comes
 
-  The hub is --hub, else GRAVEL_HUB, else the one last logged in to. Exit 3: log in (again).
+  members    list the members, grant and revoke roles, end a member's sessions
+  owner      hand the hub to another member: nominate, accept, cancel
+  users      make a local account, or a password reset link
+  apps       register, list and revoke apps
+  settings   export, check and apply the Organization settings manifest
+  stats      erase a player's identity from the stats
+  notifiers  send a notifier a test event
+
+  The hub is --hub, else GRAVEL_HUB, else the one last logged in to. Exit 3: a --dry-run would
+  change something. Exit 4: log in (again).
 
   version  print the version
 `)

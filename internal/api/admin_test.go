@@ -163,3 +163,69 @@ func TestAdminEraseAndSessions(t *testing.T) {
 		t.Errorf("an unknown member: %v", err)
 	}
 }
+
+// The settings as a manifest over the API (#201): export, check and apply for the owner, a dry
+// run that changes nothing, and an apply that matches the stored settings writes nothing.
+func TestAdminSettingsManifest(t *testing.T) {
+	r := newRig(t)
+	ctx := context.Background()
+	jo := r.user(t, "Jo", "1")
+	sam := r.user(t, "Sam", "2")
+	if _, err := r.org.Claim(ctx, r.token, store.Actor{UserID: &jo.ID}); err != nil {
+		t.Fatal(err)
+	}
+	c := hubv1connect.NewOrganizationServiceClient(cookieClient(http.DefaultClient, r.login(t, jo.ID)), r.srv.URL)
+	member := hubv1connect.NewOrganizationServiceClient(cookieClient(http.DefaultClient, r.login(t, sam.ID)), r.srv.URL)
+	if _, err := member.ExportSettings(ctx, connect.NewRequest(&hubv1.ExportSettingsRequest{})); connect.CodeOf(err) != connect.CodePermissionDenied {
+		t.Errorf("a member exports: %v", err)
+	}
+
+	exp, err := c.ExportSettings(ctx, connect.NewRequest(&hubv1.ExportSettingsRequest{}))
+	if err != nil || !strings.Contains(exp.Msg.GetManifest(), "version: 1") {
+		t.Fatalf("export: %v %v", exp, err)
+	}
+	want := exp.Msg.GetManifest() + "nav:\n  - label: Discord\n    url: https://discord.gg/x\n"
+
+	if chk, err := c.CheckSettings(ctx, connect.NewRequest(&hubv1.CheckSettingsRequest{Manifest: want})); err != nil || !strings.HasPrefix(chk.Msg.GetSummary(), "1 nav links, theme default") {
+		t.Errorf("check: %v %v", chk, err)
+	}
+	for name, bad := range map[string]string{
+		"unknown key":  "colour: red\n",
+		"invalid":      "nav:\n  - label: x\n    url: javascript:alert(1)\n",
+		"unknown game": "games:\n  wardog:\n    nav:\n      - {label: x, url: /x}\n",
+	} {
+		if _, err := c.CheckSettings(ctx, connect.NewRequest(&hubv1.CheckSettingsRequest{Manifest: bad})); connect.CodeOf(err) != connect.CodeInvalidArgument {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+
+	// A hub that never stored its settings has none: the first apply stores every section, as the
+	// settings.updated event of the first write says.
+	first, err := c.ApplySettings(ctx, connect.NewRequest(&hubv1.ApplySettingsRequest{Manifest: exp.Msg.GetManifest()}))
+	if err != nil || !first.Msg.GetApplied() || strings.Join(first.Msg.GetChanges(), ",") != "theme,version" {
+		t.Fatalf("first apply: %v %v", first, err)
+	}
+	// A dry run names the sections and changes nothing.
+	writes := len(r.orgSt.Writes)
+	dry, err := c.ApplySettings(ctx, connect.NewRequest(&hubv1.ApplySettingsRequest{Manifest: want, DryRun: true}))
+	if err != nil || dry.Msg.GetApplied() || strings.Join(dry.Msg.GetChanges(), ",") != "nav" || len(r.orgSt.Writes) != writes {
+		t.Fatalf("dry run: %v %v (writes %v)", dry, err, r.orgSt.Writes[writes:])
+	}
+	got, err := c.ApplySettings(ctx, connect.NewRequest(&hubv1.ApplySettingsRequest{Manifest: want}))
+	if err != nil || !got.Msg.GetApplied() || strings.Join(got.Msg.GetChanges(), ",") != "nav" {
+		t.Fatalf("apply: %v %v", got, err)
+	}
+	rec := r.orgSt.Recorded[len(r.orgSt.Recorded)-1]
+	if rec.Kind != "settings.updated" || rec.By.UserID == nil || *rec.By.UserID != jo.ID || rec.By.Via != store.ViaAPI || strings.Join(rec.Sections, ",") != "nav" {
+		t.Errorf("recorded: %+v", rec)
+	}
+	// The same manifest again changes nothing and records nothing.
+	recorded := len(r.orgSt.Recorded)
+	again, err := c.ApplySettings(ctx, connect.NewRequest(&hubv1.ApplySettingsRequest{Manifest: want}))
+	if err != nil || again.Msg.GetApplied() || len(again.Msg.GetChanges()) != 0 || len(r.orgSt.Recorded) != recorded {
+		t.Errorf("apply again: %v %v", again, err)
+	}
+	if exp, err := c.ExportSettings(ctx, connect.NewRequest(&hubv1.ExportSettingsRequest{})); err != nil || !strings.Contains(exp.Msg.GetManifest(), "https://discord.gg/x") {
+		t.Errorf("export after apply: %v %v", exp, err)
+	}
+}

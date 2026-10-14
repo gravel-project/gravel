@@ -8,8 +8,16 @@ why, ADR-0004 the login design, ADR-0008 the app credentials; `deploy/README.md`
 
 `gravel-hub`'s commands run on the hub's host, against its database: they are for **bootstrap**
 (before anyone can log in) and for what only the host may change. Day to day, staff do the same
-over the API behind a capability ([Admin procedures](#admin-procedures-adr-0031)): apps, the
-servers manifest (all but its files and secret destinations), erasure and logging a member out.
+over the API behind a capability ([Admin procedures](#admin-procedures-adr-0031)) with the
+`gravel` CLI from their own machine ([docs/cli.md](cli.md#operating-a-hub)): apps, the settings
+and servers manifests (all but the servers' files and secret destinations), local accounts and
+their password links, erasure and logging a member out.
+
+Only the host has `serve`, `migrate`, `config check`, `healthcheck`, `ingest export`, `wardogs
+record` and `demo`; `settings check` and `servers check` stay offline for a deployment's CI;
+`users create-local` makes a hub's first member, before anyone can log in; and `servers apply`
+is the only way to add a location or a server, or change a file or where a secret goes. Each of
+the others has a `gravel` command over the API that takes the same flags.
 
 | Command | Does |
 |---|---|
@@ -161,6 +169,7 @@ Public listener (`server.listen`), HTTP/1.1 and unencrypted HTTP/2 so gRPC works
 | `/gravel.hub.v1.OrganizationService/ListEvents` | `{"after_id": 0, "kinds": ["host"], "min_severity": "warning", "game_id": "cs2"}` → the events log by cursor ([Events](#events-adr-0028)); `events:read`, a game-scoped holder that game's events |
 | `/gravel.hub.v1.OrganizationService/ListEventKinds` | `{}` → every kind of event, its group, severity and meaning, for a filter; `events:read` anywhere |
 | `/gravel.hub.v1.AppService/CreateApp`, `ListApps`, `RevokeApp` | register an app (`{"name", "scopes", "redirect_uris"}` → the app and its secret, once), list them, revoke one; `apps:manage` ([Admin procedures](#admin-procedures-adr-0031)) |
+| `/gravel.hub.v1.OrganizationService/ExportSettings`, `CheckSettings`, `ApplySettings` | the settings as a YAML manifest; `{"manifest": "…", "dry_run": true}` → the top-level sections that differ and the summary; `settings:write`, in person; a manifest that matches the stored settings writes nothing |
 | `/gravel.hub.v1.ServerService/ExportServers`, `CheckServers`, `ApplyServers` | the servers manifest as YAML; `{"manifest": "…", "dry_run": true}` → the changes; `servers:manage`, never a file or where a secret goes |
 | `/gravel.hub.v1.StatsService/EraseIdentity` | `{"provider": "steam", "subject": "…"}` → what was re-keyed; `stats:erase`, in person |
 | `/gravel.hub.v1.IdentityService/RevokeUserSessions` | `{"user_id": "…"}` → log a member out everywhere, with the tokens apps hold for them; `members:manage` |
@@ -1441,10 +1450,13 @@ read and goes in #199.
 | `stats:read` | the boards, match lists and match results while stats are private | admins, operators, moderators; apps |
 | `participation:write` | `RecordParticipation` | apps only |
 | `roles:grant` | `SetUserRole` | admins; apps (moderator only) |
-| `members:manage` | `CreateLocalAccount`, `IssuePasswordReset` | admins |
-| `settings:write` | `UpdateOrganizationSettings` | admins |
+| `members:manage` | `CreateLocalAccount`, `IssuePasswordReset`, `RevokeUserSessions` | admins |
+| `settings:write` | `UpdateOrganizationSettings`, `ExportSettings`, `CheckSettings`, `ApplySettings`, `TestNotifier` | admins |
 | `events:read` | `ListEvents` | admins, operators, moderators (a game-scoped grant: that game's events); apps |
-| `servers:manage`, `apps:manage`, `metrics:read`, `stats:erase` | named now; their procedures arrive with H1 | per the roles above |
+| `servers:manage` | `ExportServers`, `CheckServers`, `ApplyServers` | admins |
+| `apps:manage` | `CreateApp`, `ListApps`, `RevokeApp` | admins |
+| `stats:erase` | `EraseIdentity` | admins |
+| `metrics:read` | named now; its procedures arrive with H1 | per the roles above |
 | `org:transfer` | `NominateOwner` ([Ownership transfer](#ownership-transfer-adr-0027-6)) | the owner alone, in person |
 
 **The access matrix.** `internal/api/testdata/access_matrix.txt` is every procedure's answer to every
@@ -1845,6 +1857,7 @@ are refused), and writes an event.
 |---|---|---|
 | `AppService.CreateApp` / `RevokeApp` (`ListApps` reads) | `apps:manage` | `app.created` / `app.revoked` |
 | `ServerService.ApplyServers` (`ExportServers` and `CheckServers` read) | `servers:manage` | `servers.applied`, with the changes and servers |
+| `OrganizationService.ApplySettings` (`ExportSettings` and `CheckSettings` read; #201) | `settings:write` | `settings.updated`, with the sections; only when something changed |
 | `StatsService.EraseIdentity` | `stats:erase` | `stats.erased`, with the counts and the provider, never the identity |
 | `IdentityService.RevokeUserSessions` | `members:manage` | `sessions.revoked` |
 

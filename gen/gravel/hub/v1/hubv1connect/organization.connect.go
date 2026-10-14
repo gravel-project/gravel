@@ -63,6 +63,15 @@ const (
 	// OrganizationServiceTestNotifierProcedure is the fully-qualified name of the OrganizationService's
 	// TestNotifier RPC.
 	OrganizationServiceTestNotifierProcedure = "/gravel.hub.v1.OrganizationService/TestNotifier"
+	// OrganizationServiceExportSettingsProcedure is the fully-qualified name of the
+	// OrganizationService's ExportSettings RPC.
+	OrganizationServiceExportSettingsProcedure = "/gravel.hub.v1.OrganizationService/ExportSettings"
+	// OrganizationServiceCheckSettingsProcedure is the fully-qualified name of the
+	// OrganizationService's CheckSettings RPC.
+	OrganizationServiceCheckSettingsProcedure = "/gravel.hub.v1.OrganizationService/CheckSettings"
+	// OrganizationServiceApplySettingsProcedure is the fully-qualified name of the
+	// OrganizationService's ApplySettings RPC.
+	OrganizationServiceApplySettingsProcedure = "/gravel.hub.v1.OrganizationService/ApplySettings"
 )
 
 // OrganizationServiceClient is a client for the gravel.hub.v1.OrganizationService service.
@@ -97,6 +106,15 @@ type OrganizationServiceClient interface {
 	// TestNotifier sends a test event (kind notifier.test, never in the log) to a notifier and says
 	// whether it was delivered: settings:write. not_found for a name the settings don't have.
 	TestNotifier(context.Context, *connect.Request[v1.TestNotifierRequest]) (*connect.Response[v1.TestNotifierResponse], error)
+	// ExportSettings is the stored settings as a manifest: settings:write, in person.
+	ExportSettings(context.Context, *connect.Request[v1.ExportSettingsRequest]) (*connect.Response[v1.ExportSettingsResponse], error)
+	// CheckSettings validates a manifest against this hub and changes nothing: settings:write, in
+	// person. invalid_argument names every problem.
+	CheckSettings(context.Context, *connect.Request[v1.CheckSettingsRequest]) (*connect.Response[v1.CheckSettingsResponse], error)
+	// ApplySettings stores a manifest, or with dry_run says which sections would change:
+	// settings:write, in person. A manifest that matches the stored settings changes nothing and
+	// records no event.
+	ApplySettings(context.Context, *connect.Request[v1.ApplySettingsRequest]) (*connect.Response[v1.ApplySettingsResponse], error)
 }
 
 // NewOrganizationServiceClient constructs a client for the gravel.hub.v1.OrganizationService
@@ -170,6 +188,24 @@ func NewOrganizationServiceClient(httpClient connect.HTTPClient, baseURL string,
 			connect.WithSchema(organizationServiceMethods.ByName("TestNotifier")),
 			connect.WithClientOptions(opts...),
 		),
+		exportSettings: connect.NewClient[v1.ExportSettingsRequest, v1.ExportSettingsResponse](
+			httpClient,
+			baseURL+OrganizationServiceExportSettingsProcedure,
+			connect.WithSchema(organizationServiceMethods.ByName("ExportSettings")),
+			connect.WithClientOptions(opts...),
+		),
+		checkSettings: connect.NewClient[v1.CheckSettingsRequest, v1.CheckSettingsResponse](
+			httpClient,
+			baseURL+OrganizationServiceCheckSettingsProcedure,
+			connect.WithSchema(organizationServiceMethods.ByName("CheckSettings")),
+			connect.WithClientOptions(opts...),
+		),
+		applySettings: connect.NewClient[v1.ApplySettingsRequest, v1.ApplySettingsResponse](
+			httpClient,
+			baseURL+OrganizationServiceApplySettingsProcedure,
+			connect.WithSchema(organizationServiceMethods.ByName("ApplySettings")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -185,6 +221,9 @@ type organizationServiceClient struct {
 	listEvents                 *connect.Client[v1.ListEventsRequest, v1.ListEventsResponse]
 	listEventKinds             *connect.Client[v1.ListEventKindsRequest, v1.ListEventKindsResponse]
 	testNotifier               *connect.Client[v1.TestNotifierRequest, v1.TestNotifierResponse]
+	exportSettings             *connect.Client[v1.ExportSettingsRequest, v1.ExportSettingsResponse]
+	checkSettings              *connect.Client[v1.CheckSettingsRequest, v1.CheckSettingsResponse]
+	applySettings              *connect.Client[v1.ApplySettingsRequest, v1.ApplySettingsResponse]
 }
 
 // GetOrganization calls gravel.hub.v1.OrganizationService.GetOrganization.
@@ -237,6 +276,21 @@ func (c *organizationServiceClient) TestNotifier(ctx context.Context, req *conne
 	return c.testNotifier.CallUnary(ctx, req)
 }
 
+// ExportSettings calls gravel.hub.v1.OrganizationService.ExportSettings.
+func (c *organizationServiceClient) ExportSettings(ctx context.Context, req *connect.Request[v1.ExportSettingsRequest]) (*connect.Response[v1.ExportSettingsResponse], error) {
+	return c.exportSettings.CallUnary(ctx, req)
+}
+
+// CheckSettings calls gravel.hub.v1.OrganizationService.CheckSettings.
+func (c *organizationServiceClient) CheckSettings(ctx context.Context, req *connect.Request[v1.CheckSettingsRequest]) (*connect.Response[v1.CheckSettingsResponse], error) {
+	return c.checkSettings.CallUnary(ctx, req)
+}
+
+// ApplySettings calls gravel.hub.v1.OrganizationService.ApplySettings.
+func (c *organizationServiceClient) ApplySettings(ctx context.Context, req *connect.Request[v1.ApplySettingsRequest]) (*connect.Response[v1.ApplySettingsResponse], error) {
+	return c.applySettings.CallUnary(ctx, req)
+}
+
 // OrganizationServiceHandler is an implementation of the gravel.hub.v1.OrganizationService service.
 type OrganizationServiceHandler interface {
 	GetOrganization(context.Context, *connect.Request[v1.GetOrganizationRequest]) (*connect.Response[v1.GetOrganizationResponse], error)
@@ -269,6 +323,15 @@ type OrganizationServiceHandler interface {
 	// TestNotifier sends a test event (kind notifier.test, never in the log) to a notifier and says
 	// whether it was delivered: settings:write. not_found for a name the settings don't have.
 	TestNotifier(context.Context, *connect.Request[v1.TestNotifierRequest]) (*connect.Response[v1.TestNotifierResponse], error)
+	// ExportSettings is the stored settings as a manifest: settings:write, in person.
+	ExportSettings(context.Context, *connect.Request[v1.ExportSettingsRequest]) (*connect.Response[v1.ExportSettingsResponse], error)
+	// CheckSettings validates a manifest against this hub and changes nothing: settings:write, in
+	// person. invalid_argument names every problem.
+	CheckSettings(context.Context, *connect.Request[v1.CheckSettingsRequest]) (*connect.Response[v1.CheckSettingsResponse], error)
+	// ApplySettings stores a manifest, or with dry_run says which sections would change:
+	// settings:write, in person. A manifest that matches the stored settings changes nothing and
+	// records no event.
+	ApplySettings(context.Context, *connect.Request[v1.ApplySettingsRequest]) (*connect.Response[v1.ApplySettingsResponse], error)
 }
 
 // NewOrganizationServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -338,6 +401,24 @@ func NewOrganizationServiceHandler(svc OrganizationServiceHandler, opts ...conne
 		connect.WithSchema(organizationServiceMethods.ByName("TestNotifier")),
 		connect.WithHandlerOptions(opts...),
 	)
+	organizationServiceExportSettingsHandler := connect.NewUnaryHandler(
+		OrganizationServiceExportSettingsProcedure,
+		svc.ExportSettings,
+		connect.WithSchema(organizationServiceMethods.ByName("ExportSettings")),
+		connect.WithHandlerOptions(opts...),
+	)
+	organizationServiceCheckSettingsHandler := connect.NewUnaryHandler(
+		OrganizationServiceCheckSettingsProcedure,
+		svc.CheckSettings,
+		connect.WithSchema(organizationServiceMethods.ByName("CheckSettings")),
+		connect.WithHandlerOptions(opts...),
+	)
+	organizationServiceApplySettingsHandler := connect.NewUnaryHandler(
+		OrganizationServiceApplySettingsProcedure,
+		svc.ApplySettings,
+		connect.WithSchema(organizationServiceMethods.ByName("ApplySettings")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/gravel.hub.v1.OrganizationService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case OrganizationServiceGetOrganizationProcedure:
@@ -360,6 +441,12 @@ func NewOrganizationServiceHandler(svc OrganizationServiceHandler, opts ...conne
 			organizationServiceListEventKindsHandler.ServeHTTP(w, r)
 		case OrganizationServiceTestNotifierProcedure:
 			organizationServiceTestNotifierHandler.ServeHTTP(w, r)
+		case OrganizationServiceExportSettingsProcedure:
+			organizationServiceExportSettingsHandler.ServeHTTP(w, r)
+		case OrganizationServiceCheckSettingsProcedure:
+			organizationServiceCheckSettingsHandler.ServeHTTP(w, r)
+		case OrganizationServiceApplySettingsProcedure:
+			organizationServiceApplySettingsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -407,4 +494,16 @@ func (UnimplementedOrganizationServiceHandler) ListEventKinds(context.Context, *
 
 func (UnimplementedOrganizationServiceHandler) TestNotifier(context.Context, *connect.Request[v1.TestNotifierRequest]) (*connect.Response[v1.TestNotifierResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.OrganizationService.TestNotifier is not implemented"))
+}
+
+func (UnimplementedOrganizationServiceHandler) ExportSettings(context.Context, *connect.Request[v1.ExportSettingsRequest]) (*connect.Response[v1.ExportSettingsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.OrganizationService.ExportSettings is not implemented"))
+}
+
+func (UnimplementedOrganizationServiceHandler) CheckSettings(context.Context, *connect.Request[v1.CheckSettingsRequest]) (*connect.Response[v1.CheckSettingsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.OrganizationService.CheckSettings is not implemented"))
+}
+
+func (UnimplementedOrganizationServiceHandler) ApplySettings(context.Context, *connect.Request[v1.ApplySettingsRequest]) (*connect.Response[v1.ApplySettingsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.OrganizationService.ApplySettings is not implemented"))
 }

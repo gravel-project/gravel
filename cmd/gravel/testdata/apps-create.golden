@@ -1,0 +1,8 @@
+app registered: Muster
+client_id: gravel_new
+client_secret: shown-once
+scopes: stats:read,participation:write
+redirect_uri: https://a.example/cb
+redirect_uri: https://b.example/cb
+
+The secret is shown once; the hub keeps its hash. Give it to the app as a secret file.

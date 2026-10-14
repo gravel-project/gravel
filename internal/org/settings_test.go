@@ -740,6 +740,11 @@ func TestChangedSections(t *testing.T) {
 		{`{"version":1,"nav":[{"a":1}]}`, `{"nav": [ {"a": 1} ], "version": 1}`, []string{}},
 		{`{"version":1,"theme":{"font":"x"}}`, `{"version":1,"theme":{"font":"y"},"stats":{}}`, []string{"stats", "theme"}},
 		{`{"version":1,"discord":{}}`, `{"version":1}`, []string{"discord"}},
+		// As jsonb stores it: an object's keys reordered, the same values.
+		{`{"nav": [{"url": "/x", "label": "X"}], "theme": {"dark": {}, "light": {}}, "version": 1}`,
+			`{"version":1,"theme":{"light":{},"dark":{}},"nav":[{"label":"X","url":"/x"}]}`, []string{}},
+		{`{"nav": [{"url": "/x", "label": "X"}], "version": 1}`, `{"version":1,"nav":[{"label":"X","url":"/y"}]}`, []string{"nav"}},
+		{`{"nav": [{"label": "A"}, {"label": "B"}], "version": 1}`, `{"version":1,"nav":[{"label":"B"},{"label":"A"}]}`, []string{"nav"}},
 	} {
 		got, err := changedSections(json.RawMessage(c.stored), json.RawMessage(c.next))
 		if err != nil || !slices.Equal(got, c.want) {

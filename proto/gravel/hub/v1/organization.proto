@@ -491,6 +491,43 @@ message TestNotifierResponse {
   string error = 2;
 }
 
+// The settings as a YAML manifest over the API (gravel#201): what `gravel-hub settings` does on
+// the host, for an operator's `gravel settings`. The hub parses, validates and compares the
+// manifest with its own rules, so a client carries none of them.
+message ExportSettingsRequest {}
+
+message ExportSettingsResponse {
+  // The stored settings as a manifest, notifiers included.
+  string manifest = 1;
+}
+
+message CheckSettingsRequest {
+  // A settings manifest, the whole of it.
+  string manifest = 1;
+}
+
+message CheckSettingsResponse {
+  // "3 nav links, theme default, discord unmapped, …".
+  string summary = 1;
+}
+
+message ApplySettingsRequest {
+  // A settings manifest, the whole of it.
+  string manifest = 1;
+  // Say what would change and change nothing.
+  bool dry_run = 2;
+}
+
+message ApplySettingsResponse {
+  // The top-level sections that differ from the stored settings, sorted ("discord", "nav");
+  // empty when nothing would change.
+  repeated string changes = 1;
+  // Whether the changes were made (false on a dry run, and when there were none).
+  bool applied = 2;
+  // The manifest in one line, as CheckSettings has it.
+  string summary = 3;
+}
+
 // OrganizationService reads the built-in organization and claims its ownership once.
 service OrganizationService {
   rpc GetOrganization(GetOrganizationRequest) returns (GetOrganizationResponse);
@@ -523,4 +560,13 @@ service OrganizationService {
   // TestNotifier sends a test event (kind notifier.test, never in the log) to a notifier and says
   // whether it was delivered: settings:write. not_found for a name the settings don't have.
   rpc TestNotifier(TestNotifierRequest) returns (TestNotifierResponse);
+  // ExportSettings is the stored settings as a manifest: settings:write, in person.
+  rpc ExportSettings(ExportSettingsRequest) returns (ExportSettingsResponse);
+  // CheckSettings validates a manifest against this hub and changes nothing: settings:write, in
+  // person. invalid_argument names every problem.
+  rpc CheckSettings(CheckSettingsRequest) returns (CheckSettingsResponse);
+  // ApplySettings stores a manifest, or with dry_run says which sections would change:
+  // settings:write, in person. A manifest that matches the stored settings changes nothing and
+  // records no event.
+  rpc ApplySettings(ApplySettingsRequest) returns (ApplySettingsResponse);
 }
