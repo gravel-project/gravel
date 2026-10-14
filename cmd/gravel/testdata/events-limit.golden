@@ -1,0 +1,5 @@
+2026-10-14T01:55:00Z  notice    server.recovered                htg-wardogs-1     event 26
+2026-10-14T01:56:00Z  notice    role.granted                    -                 event 27
+2026-10-14T01:57:00Z  warning   server.unreachable              htg-wardogs-1     event 28
+2026-10-14T01:58:00Z  notice    server.recovered                htg-wardogs-1     event 29
+2026-10-14T01:59:00Z  notice    role.granted                    -                 event 30

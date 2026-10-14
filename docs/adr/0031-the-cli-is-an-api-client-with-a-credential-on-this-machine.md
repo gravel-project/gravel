@@ -1,6 +1,6 @@
 # ADR-0031: The CLI is an API client with a credential on this machine
 
-**Status:** proposed (2026-10-14; accepted when John merges #194's pull request) · **Changes:** how an operator runs a hub from their own machine; amends ADR-0007 §4 (`gravel-hub settings apply` is bootstrap, the API is the day-to-day path) and ADR-0010 §1 (the servers manifest is applied over the API too, all but what only the host may change); fulfils ADR-0002's `gravel claim` · **Decided in:** John's design session *gravel — Design Session: Hub, Spines & Dashboard* (2026-10-10 to 12), handbook D35; the host-only rule by John on 2026-10-14 (#195) · **Built in steps:** #195 (§1 to §3: the admin procedures), #194 (§4 and §5: the client, its credential and its commands) · **Part of:** H1 (#182), the unplug test (ADR-0025)
+**Status:** accepted (2026-10-14, with #194) · **Changes:** how an operator runs a hub from their own machine; amends ADR-0007 §4 (`gravel-hub settings apply` is bootstrap, the API is the day-to-day path) and ADR-0010 §1 (the servers manifest is applied over the API too, all but what only the host may change); fulfils ADR-0002's `gravel claim` · **Decided in:** John's design session *gravel — Design Session: Hub, Spines & Dashboard* (2026-10-10 to 12), handbook D35; the host-only rule by John on 2026-10-14 (#195) · **Built in steps:** #195 (§1 to §3: the admin procedures), #194 (§4 and §5: the client, its credential and its commands) · **Part of:** H1 (#182), the unplug test (ADR-0025)
 
 ## Context
 
@@ -26,3 +26,14 @@
 - The procedures are in `internal/api/admin.go`; the rule is `internal/servers/hostonly.go`. `ApplyServers` runs `servers.Service.Apply` with the hub's own options (credential files checked, a scaling ladder against the cloud), the caller as `By`.
 - Events, each in its source's transaction: `servers.applied` (notice; the changes and the servers touched; only when something changed), `stats.erased` (notice; the counts and the provider) and `sessions.revoked` (notice; the member). `app.created` and `app.revoked` already were (#189).
 - `RevokeUserSessions` ends a member's sessions and the tokens apps hold for them, as "log out everywhere" does; `not_found` for an unknown member.
+
+## As built (#194, 2026-10-14)
+
+- The client is `cmd/gravel/client.go`: connect-go clients with `WithProtoJSON` over an `http.Client` that follows no redirect and carries the credential, `gravel/<version>` as its user agent. `TestNoGRPC` runs `go list -deps` on `cmd/gravel` and fails on any `google.golang.org/grpc` package; the tests' fake hub refuses a request that is not `application/json`.
+- The store is `cmd/gravel/credentials.go`: `{current, credentials: [{hub_url, kind, cookie | client_id + secret_file}]}`, written 0600 through a temporary file in a 0700 directory, refused on read when others can read it; `GRAVEL_CREDENTIALS` names another file. The hub is `--hub`, else `GRAVEL_HUB`, else `current` (the last logged in to).
+- `login --local` posts the hub's own form (`POST /auth/local/login`), as a browser does, and keeps the session cookie from its 303: the form is the one place a password is checked, with the lockout and the limit per address (ADR-0026), so there is no login procedure in the API. Its answers map to messages: 401 refused or locked, 429 with Retry-After, 404 no local accounts. A login is kept only after `GetMe` answers with it.
+- `login --app` reuses `discord/hubclient` (client credentials at `/oauth/token`, the token refreshed once on a 401), with the secret read from its file on every run, never stored.
+- `logout` calls `IdentityService.Logout` (an ended session is no error) and forgets the entry. Exit 3 is "log in again": no credential (`unauthenticated` as nobody), an ended session (`unauthenticated` with a cookie), an app's credentials refused (`hubclient.ErrInvalidClient`).
+- `events --since` pages back with `before_id` (500 at a time) until an older event; `--follow` asks `after_id` from the `head_id` of its first read every 5 s, draining in pages of 500. `ListEvents` has no time filter, so `--since` is the client's.
+- `claim` turns `failed_precondition` into "already has an owner" and `permission_denied` into "the token is wrong, used, or expired"; `gravel hub status` and the hub's unowned log line name `gravel claim`.
+- The admin commands over #195's procedures (apps, the servers manifest, erasure, sessions) are H1-14's.

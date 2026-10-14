@@ -1,0 +1,8 @@
+hub           HUB
+member        Alice (8d4c0f5e-0000-4000-8000-000000000001)
+owner         no
+roles         admin
+game roles    operator of cs2
+identity      local alice
+identity      discord alice#0
+capabilities  events:read, servers:read

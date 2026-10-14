@@ -1793,9 +1793,11 @@ it once at WARN level:
 ```
 
 Log in, then claim it within `claim.token_ttl` on the account page (the form shows while the hub
-is unowned) or over the API with the session cookie:
+is unowned), with the CLI ([docs/cli.md](cli.md#talking-to-a-hub)), or over the API with the
+session cookie:
 
 ```sh
+gravel login --local --hub https://app.example.com && gravel claim <token>
 curl -X POST -H 'Content-Type: application/json' -b '__Host-gravel_session=<cookie>' -d '{"token":"<token>"}' https://app.example.com/gravel.hub.v1.OrganizationService/ClaimOwnership
 ```
 

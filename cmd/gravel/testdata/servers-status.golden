@@ -1,0 +1,16 @@
+server     htg-wardogs-1 (HTG War Dogs #1)
+game       wardogs
+location   qonzer-slc
+driver     wardogs
+trust      official
+state      ok
+reachable  yes
+observed   2026-10-14T02:00:00Z
+build      1.4.2
+players    12/64
+map        Ozeti
+rotation   Europe, next Pacific
+team       Blue 120
+team       Red 95
+can        status, players, kick
+join       id 4411 (Join by ID in the server browser)
