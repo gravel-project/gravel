@@ -1,4 +1,5 @@
 -- +goose Up
+-- gravel:cost instant
 -- The audit log (ADR-0010 §5): one row per moderation call through the hub, from the web or a bot.
 -- A row is written BEFORE the driver is called, so nothing is done that is not recorded; the
 -- outcome is filled in once, afterwards. Nothing else ever changes and nothing is deleted: the

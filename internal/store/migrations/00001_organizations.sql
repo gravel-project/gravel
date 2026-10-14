@@ -1,4 +1,5 @@
 -- +goose Up
+-- gravel:cost instant
 -- The single tenant a hub serves. `organization` is the seam on every top-level object; exactly
 -- one row is the built-in organization today, and nothing else is enforced (no quotas or
 -- isolation until a real second tenant exists).

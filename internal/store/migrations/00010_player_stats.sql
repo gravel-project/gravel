@@ -1,4 +1,5 @@
 -- +goose Up
+-- gravel:cost instant
 -- The stats store (ADR-0012), its first step: matches and each player's totals in them, recorded
 -- from the hub's polls of a server. A board counts match_stats, so it is right without a feed;
 -- the feed's events (#4) add detail later. Rows are keyed by provider identity, never a user id

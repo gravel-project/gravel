@@ -1,4 +1,5 @@
 -- +goose Up
+-- gravel:cost instant
 -- Proof of control (gravel#5): a member proves they control a provider account by putting a
 -- one-time code where only that account can, such as typing it in a game server's chat, where
 -- the server's log carries the account's id. A proof is bound to the member who asked, the channel

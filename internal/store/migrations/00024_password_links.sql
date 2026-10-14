@@ -1,4 +1,5 @@
 -- +goose Up
+-- gravel:cost instant
 -- One-time links that set or reset a local account's password (gravel#187, ADR-0026): issued by
 -- staff with members:manage, or from the host (`gravel-hub users`, issued_by NULL). Only the
 -- token's SHA-256 is stored. A link is used once, within its hour; issuing a new one for an

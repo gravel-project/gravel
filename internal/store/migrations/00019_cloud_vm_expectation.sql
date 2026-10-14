@@ -1,4 +1,5 @@
 -- +goose Up
+-- gravel:cost instant
 -- An expected population, a scaling signal (gravel#172): the owner, a moderator or an app with
 -- servers:moderate says how many players a server should expect and until when (a PUG that has
 -- filled, a session about to start). Until then the scaling policy treats the larger of the live

@@ -4,14 +4,19 @@ package hub
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/pprof"
 	"os"
+	"regexp"
 	"runtime"
+	"sync"
 	"time"
 
 	"connectrpc.com/connect"
@@ -60,6 +65,10 @@ type Options struct {
 	Config  config.Config
 	Logger  *slog.Logger
 	Version string
+	// Image is the image this hub runs as its deployment names it (GRAVEL_IMAGE), reported on
+	// /healthz with its digest when pinned by one (gravel#214); empty when the deployment says
+	// nothing.
+	Image string
 	// Providers replaces the login providers the configuration describes. Tests use it to
 	// drive the flows with a fake; nil means "build them from the configuration".
 	Providers []identity.Registration
@@ -77,6 +86,7 @@ type Hub struct {
 	cfg     config.Config
 	logger  *slog.Logger
 	version string
+	image   string
 
 	st     *store.Store
 	org    *org.Service
@@ -197,7 +207,8 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	h := &Hub{cfg: cfg, logger: logger, version: opts.Version, listeners: newListeners()}
+	h := &Hub{cfg: cfg, logger: logger, version: opts.Version, image: opts.Image, listeners: newListeners()}
+	go binarySHA256() // hashed once, off the first health check's path
 
 	logger.Info("connecting to the database", "url", cfg.Database.RedactedURL(), "source", cfg.Database.Source())
 	st, err := store.Open(ctx, cfg.Database.URL, cfg.Database.MaxConns, cfg.Database.ConnectTimeout, logger)
@@ -696,9 +707,48 @@ func (h *Hub) buildInternal() http.Handler {
 	return httpx.Chain(mux, httpx.RequestID, httpx.Recover(h.logger))
 }
 
+// healthz says the process runs, and what it is (gravel#214): the version, the image its
+// deployment names with that image's digest, and the SHA-256 of the executable itself, which is
+// true however the hub was deployed.
 func (h *Hub) healthz(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "version": h.version})
+	body := map[string]string{"status": "ok", "version": h.version, "binary_sha256": binarySHA256()}
+	if h.image != "" {
+		body["image"] = h.image
+		if d := imageDigest(h.image); d != "" {
+			body["digest"] = d
+		}
+	}
+	writeJSON(w, http.StatusOK, body)
 }
+
+// digestRE is an image reference's pinned digest.
+var digestRE = regexp.MustCompile(`@(sha256:[0-9a-f]{64})$`)
+
+// imageDigest is the digest an image reference is pinned to, or "".
+func imageDigest(ref string) string {
+	if m := digestRE.FindStringSubmatch(ref); m != nil {
+		return m[1]
+	}
+	return ""
+}
+
+// binarySHA256 is the hex SHA-256 of the running executable, read once; "" when it can't be read.
+var binarySHA256 = sync.OnceValue(func() string {
+	path, err := os.Executable()
+	if err != nil {
+		return ""
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return ""
+	}
+	defer func() { _ = f.Close() }()
+	sum := sha256.New()
+	if _, err := io.Copy(sum, f); err != nil {
+		return ""
+	}
+	return hex.EncodeToString(sum.Sum(nil))
+})
 
 func (h *Hub) readyz(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)

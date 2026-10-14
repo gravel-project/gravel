@@ -1,4 +1,5 @@
 -- +goose Up
+-- gravel:cost scan auth_attempts
 -- A third kind of authentication attempt: "roles", Discord's Linked Roles verification (ADR-0008
 -- §4). It logs the member in like "login" and also publishes their linked accounts to Discord with
 -- the grant in hand; nothing of the grant is stored, so only the intent's allowed values change.

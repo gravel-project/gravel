@@ -1,4 +1,5 @@
 -- +goose Up
+-- gravel:cost instant
 -- The stats store's retention (ADR-0012 §6): match_stats rows older than the Organization
 -- settings' stats.raw_retention_months roll up into stats_monthly, one row per identity, server,
 -- trust and period, and the raw rows are deleted. A period is a calendar month in the

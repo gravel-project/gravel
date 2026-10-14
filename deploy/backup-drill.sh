@@ -93,5 +93,5 @@ rows="$(psql "$name-pg2" "SELECT count(*) FROM drill")"
 last="$(psql "$name-pg2" "SELECT max(n) FROM drill")"
 echo "restored in $((t1 - t0)) s: $rows rows, last n = $last"
 [ "$rows" = 200 ] && [ "$last" = 200 ] || { echo "expected exactly the 200 rows before the point" >&2; exit 1; }
-GRAVEL_DATABASE_URL="$(hub_url "$name-pg2")" "$HUB" migrate --status --config "$work/hub.yaml"
+GRAVEL_DATABASE_URL="$(hub_url "$name-pg2")" "$HUB" migrate --check --config "$work/hub.yaml"
 say "drill passed: restore to a point in time in $((t1 - t0)) s"

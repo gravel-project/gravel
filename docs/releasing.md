@@ -142,7 +142,9 @@ not at the next 0.Y.0. Read `[Unreleased]` before moving a pin.
 under a floating tag. A cut moves the backup set's pin only when the release published a new
 Postgres image. `deploy/quadlet/observability/` and the `observability` profile in
 `deploy/compose.yaml` pin Prometheus and Grafana by index digest too; they are upstream images, so
-moving them is a deliberate PR after reading their release notes, not part of every release. After verifying a new release, put its digests in `Image=` by PR;
+moving them is a deliberate PR after reading their release notes, not part of every release. After verifying a new release, put its digests in `Image=` by PR,
+and the hub's in `GRAVEL_IMAGE` beside it too, which `/healthz` reports (`TestHubImageIsReportedAsPinned`
+fails until both move);
 consumers (Hidden Token Gaming's `deploy` repository) pin the same way, a release's digest or a main
 build's. gravel's own units here pin releases. The Postgres image's
 identity for `cosign verify` is the same workflow at the tag that published it.

@@ -136,7 +136,8 @@ func TestHubEndToEnd(t *testing.T) {
 
 	cfg.Database.Migrate = config.MigrateAuto
 	regs := fakeProviders()
-	h, err := hub.New(ctx, hub.Options{Config: cfg, Logger: quiet(), Version: "test", Providers: regs})
+	h, err := hub.New(ctx, hub.Options{Config: cfg, Logger: quiet(), Version: "test", Providers: regs,
+		Image: "ghcr.io/gravel-project/gravel-hub@sha256:440148d47a9731b5526bbcea1db96eebc4b356e295ab8c8a9bb490856042b2a2"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -150,7 +151,8 @@ func TestHubEndToEnd(t *testing.T) {
 	internal := httptest.NewServer(h.InternalHandler())
 	defer internal.Close()
 
-	if code, body := getJSON(t, public.URL+"/healthz"); code != 200 || body["status"] != "ok" || body["version"] != "test" {
+	if code, body := getJSON(t, public.URL+"/healthz"); code != 200 || body["status"] != "ok" || body["version"] != "test" ||
+		body["digest"] != "sha256:440148d47a9731b5526bbcea1db96eebc4b356e295ab8c8a9bb490856042b2a2" || len(body["binary_sha256"].(string)) != 64 {
 		t.Errorf("healthz: %d %v", code, body)
 	}
 	if code, body := getJSON(t, public.URL+"/readyz"); code != 200 || body["status"] != "ready" {
