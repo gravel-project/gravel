@@ -155,7 +155,7 @@ in it is as good as the password:
 ```
 
 `gravel logout` ends the session on the hub and forgets the entry. A session ends on the hub too
-(its lifetime, "log out everywhere", staff revoking it); the next command then exits 3 and says to
+(its lifetime, "log out everywhere", staff revoking it); the next command then exits 4 and says to
 log in again.
 
 **Events.** `gravel events` prints the newest 20 (`--limit`), or every one since `--since` (a
@@ -167,6 +167,50 @@ started, until interrupted; a failed poll is reported and retried. It needs `eve
 **The wire.** Every call is Connect's protocol with JSON bodies (connect-go with `WithProtoJSON`):
 what `curl` sends, and what a proxy can read. The gRPC stack is not in the binary; a test on its
 dependencies keeps it out.
+
+## Operating a hub
+
+After bootstrap (the hub is up, someone claimed it), an operator runs it from their own machine:
+these commands call the same procedures as the admin dashboard
+([docs/hub.md](hub.md#admin-procedures-adr-0031)), and the hub checks each against what the
+logged-in member holds. Where `gravel-hub` has the command on the host they take its flags and
+print what it prints, so a script moves from one to the other by changing the binary.
+
+```sh
+gravel members list --game cs2                         # members, their roles and identities
+gravel members grant discord:1234 operator --game cs2  # a member by id, or by an identity
+gravel members revoke local:sam moderator
+gravel members logout local:sam                        # end every session they have
+gravel users create-local --username sam               # prints the one-time password link
+gravel apps create --name "HTG Bot" --scopes identity:read,roles:grant
+gravel settings export > organization.yaml
+gravel settings apply organization.yaml --dry-run      # exit 3: the sections that would change
+gravel servers apply servers.yaml                      # all but what only the host changes
+gravel stats erase --provider steam --subject 7656119…
+gravel notifiers test john-phone
+gravel owner nominate local:sam                        # then Sam runs: gravel owner accept
+```
+
+**Members** are named by their id (`gravel members list` shows it) or by one of their identities
+as `provider:subject`: `local:sam`, `discord:1234`, `steam:7656119…`. `members list` needs
+`identity:read`; `grant` and `revoke` (admin, operator or moderator, instance-wide or for one
+game with `--game`) need `roles:grant`; `logout` needs `members:manage`.
+
+**Manifests.** `settings` and `servers` `export` print the manifest, `check` validates one
+against this hub, and `apply` stores it; `-` reads it from stdin. The hub parses and checks it with
+its own rules and names every problem. `apply --dry-run` says what would change and exits 3 when
+something would, so a converge can check before it writes; applying a manifest that matches what
+is stored changes nothing and records no event. A servers manifest that adds a location or a
+server, or changes a file or where a secret goes, is refused: that is `gravel-hub servers apply`
+on the host ([docs/hub.md](hub.md#admin-procedures-adr-0031)).
+
+**In person.** These are a member's: a session from `gravel login --local`. An app's credential is
+refused, as an app may not hold these capabilities. `owner nominate` is the owner's; `owner
+accept` the nominee's, who may also decline with `owner cancel`.
+
+What stays on the host: `gravel-hub serve`, `migrate` and the other commands
+[docs/hub.md](hub.md#commands) lists as host-only, the offline `settings check` and
+`servers check` for CI, and `users create-local` for the first member, before anyone can log in.
 
 ## A hub host in a local VM
 
@@ -200,16 +244,33 @@ The VMs a hub makes for its game servers are the hub's, not the CLI's: they come
 | `gravel hub cloud-init` | print the document for `--name` and `--device` | 0; 1; 2 |
 | `gravel login` | `--local`: a local account's session; `--app`: an app's client id and secret file | 0; 1 refused; 2 usage |
 | `gravel logout` | end the session on the hub and forget the credential | 0; 1 |
-| `gravel whoami` | the member (their roles, identities and capabilities), or the app | 0; 1; 3 log in |
-| `gravel claim TOKEN` | become the owner of an unowned hub (ADR-0002) | 0; 1 refused or owned; 2; 3 |
-| `gravel fleet` | the totals, the open alarms and each server's health, trouble first | 0; 1 a server is down, or failed; 3 |
-| `gravel servers list` | every server: game, location, driver, state, players, map | 0; 1; 3 |
-| `gravel servers status SERVER` | one server's last observation | 0; 1 unknown or failed; 3 |
-| `gravel events` | the events log; `--follow`, `--since`, `--kind`, `--severity`, `--server`, `--limit` | 0; 1; 2; 3 |
+| `gravel whoami` | the member (their roles, identities and capabilities), or the app | 0; 1; 4 log in |
+| `gravel claim TOKEN` | become the owner of an unowned hub (ADR-0002) | 0; 1 refused or owned; 2; 4 |
+| `gravel fleet` | the totals, the open alarms and each server's health, trouble first | 0; 1 a server is down, or failed; 4 |
+| `gravel servers list` | every server: game, location, driver, state, players, map | 0; 1; 4 |
+| `gravel servers status SERVER` | one server's last observation | 0; 1 unknown or failed; 4 |
+| `gravel events` | the events log; `--follow`, `--since`, `--kind`, `--severity`, `--server`, `--limit` | 0; 1; 2; 4 |
+| `gravel servers export` | the games and servers as a `servers.yaml` manifest | 0; 1; 4 |
+| `gravel servers check MANIFEST` | validate a manifest against the hub | 0 valid; 1 every problem named; 2; 4 |
+| `gravel servers apply MANIFEST` | apply it, all but what only the host changes; prints each change | 0; 1 refused; 2; 3 `--dry-run` would change something; 4 |
+| `gravel members list` | the members: id, name, roles, identities, last login; `--game` | 0; 1; 4 |
+| `gravel members grant\|revoke MEMBER ROLE` | grant or revoke admin, operator or moderator; `--game` for one game | 0; 1 not a member or refused; 2; 4 |
+| `gravel members logout MEMBER` | end every session the member has | 0; 1; 2; 4 |
+| `gravel owner status` | who owns the hub, and the nomination | 0; 1; 4 |
+| `gravel owner nominate MEMBER` | name the member who may take the hub over, for 7 days | 0; 1; 2; 4 |
+| `gravel owner accept\|cancel` | the nominee takes the hub over; the owner cancels or the nominee declines | 0; 1 no nomination; 4 |
+| `gravel users create-local\|reset-password` | a local account or a reset, and its one-time password link; `--username`, `--email` | 0; 1; 2; 4 |
+| `gravel apps create\|list\|revoke` | register an app (its secret once), list them, revoke one; `gravel-hub apps`' flags | 0; 1; 2; 4 |
+| `gravel settings export` | the Organization settings as a manifest | 0; 1; 4 |
+| `gravel settings check MANIFEST` | validate a manifest against the hub | 0 valid; 1 every problem named; 2; 4 |
+| `gravel settings apply MANIFEST` | store it; says which sections changed | 0; 1; 2; 3 `--dry-run` would change something; 4 |
+| `gravel stats erase` | erase a player's identity from the stats; `--provider`, `--subject` | 0; 1; 2; 4 |
+| `gravel notifiers test NAME` | send the notifier a test event | 0 delivered; 1 not, or no such notifier; 4 |
 | `gravel version` | the version | 0 |
 
-Exit 3 from a command that calls a hub means log in (again): no credential for the hub, a
-session that ended, or an app's credentials the hub refused. Every hub command takes `--hub`.
+Exit 3 is a `--dry-run` that would change something, as with `gravel hub` and `gravel-hub`. Exit 4
+from a command that calls a hub means log in (again): no credential for the hub, a session that
+ended, or an app's credentials the hub refused. Every hub command takes `--hub`.
 
 Every cloud command takes `--provider` (`digitalocean`), `--token-file` (default
 `$GRAVEL_<PROVIDER>_TOKEN_FILE`) and `--project`.
