@@ -153,7 +153,7 @@ source that serves the same bytes by the same digest.
 | Image | Source | Why there |
 |---|---|---|
 | `gravel-hub`, `gravel-bot`, `gravel-postgres` | `ghcr.io/gravel-project/…` | gravel's own, cosign-signed on release |
-| Postgres 17 (the base of `gravel-postgres`; the test database in CI and the docs) | `public.ecr.aws/docker/library/postgres:17` | AWS's mirror of the Docker Official Images; the digest is Docker Hub's. Unauthenticated pulls: one a second, 500 GB a month |
+| Postgres 17 (the base of `gravel-postgres`; the stock unit; the test database in CI and the docs) | `ghcr.io/gravel-project/mirror/postgres:17` | copied weekly from AWS's mirror of the Docker Official Images (`public.ecr.aws/docker/library/postgres:17`; the digest is Docker Hub's) by `mirror.yml`, because ECR Public caps the data anonymous pulls may take and GitHub's shared runners hit it (#233). The Containerfile, the stock quadlet, `ci.yml`'s service and `observability/check.sh` pin one digest; Dependabot bumps the Containerfile and `TestPostgresPinsAgree` fails until the other three follow |
 | Prometheus | `quay.io/prometheus/prometheus` | the project publishes there beside Docker Hub, same digest |
 | Grafana, cloudflared | `ghcr.io/gravel-project/mirror/…` | they exist only on Docker Hub, so `.github/workflows/mirror.yml` copies the versions in `deploy/mirror/images.txt` weekly with `skopeo copy --all`, digest preserved; the packages are public |
 | versitygw (the development object store) | `ghcr.io/versity/versitygw` | the project's own |
