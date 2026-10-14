@@ -1,4 +1,5 @@
 -- +goose Up
+-- gravel:cost scan organizations, apps, app_grants
 -- The owner claim, settings updates, apps and members' grants to apps are events now (gravel#189,
 -- ADR-0028); their writers are internal/store's ClaimOrganization, UpdateOrganizationSettings,
 -- CreateApp, RevokeApp, SaveAppGrant and DeleteAppGrant. This backfills what the hub already knew:

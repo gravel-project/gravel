@@ -99,6 +99,10 @@ CLAUDE.md holds the full list; these are the ones a change most often meets:
   document (ADR-0007), not in a new configuration key or table.
 - **Metric names are a public interface.** A new or renamed metric goes on a dashboard in the same
   pull request (ADR-0009); a test fails otherwise.
+- **A migration says what it costs.** Its second line, after `-- +goose Up`, is
+  `-- gravel:cost instant`, `scan <table>, …` or `rewrite <table>, …` ([docs/hub.md](docs/hub.md#migrations)),
+  so `gravel-hub migrate --check` can tell an operator what an upgrade will lock and for how long;
+  the store's tests refuse one without it.
 - **Secrets** reach containers as podman secrets, never in plaintext config, the database or a
   bind mount.
 

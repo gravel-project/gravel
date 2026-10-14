@@ -1,4 +1,5 @@
 -- +goose Up
+-- gravel:cost instant
 -- Participation events from first-party apps (ADR-0014; gravel#19): a seeding session, an event a
 -- member attended, posted by an app holding participation:write. They feed participation boards
 -- and profiles only (ADR-0011's trust mapping for first_party), never a combat board, which counts

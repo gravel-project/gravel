@@ -1,4 +1,5 @@
 -- +goose Up
+-- gravel:cost scan organizations
 -- Ownership transfer in two steps (gravel#197, ADR-0027 §6): the owner nominates a member, who
 -- accepts within 7 days. The nomination is these three columns, set and cleared together; there
 -- is at most one at a time, and a new one replaces it. Accepting moves owner_user_id in the same

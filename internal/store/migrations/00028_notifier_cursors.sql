@@ -1,4 +1,5 @@
 -- +goose Up
+-- gravel:cost instant
 -- Notifiers (gravel#196, ADR-0028 §5): each notifier the Organization settings name follows the
 -- events log with a cursor of its own, so one that fails never holds up another. A notifier's row
 -- is made at the log's head the first time the dispatcher sees it (a new notifier sends nothing

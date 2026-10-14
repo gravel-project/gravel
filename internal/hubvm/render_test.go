@@ -252,7 +252,8 @@ func TestRenderStructure(t *testing.T) {
 				t.Errorf("%d quadlet files, want 5", n)
 			}
 			dropIn, _, _ := c.file("/usr/local/share/gravel/gravel-hub-vm.conf")
-			if !strings.Contains(dropIn, "Secret=gravel-stats-pseudonym-key\n") || !strings.Contains(dropIn, "Image="+testImage+"\n") {
+			if !strings.Contains(dropIn, "Secret=gravel-stats-pseudonym-key\n") || !strings.Contains(dropIn, "Image="+testImage+"\n") ||
+				!strings.Contains(dropIn, "Environment=GRAVEL_IMAGE="+testImage+"\n") {
 				t.Errorf("drop-in:\n%s", dropIn)
 			}
 			if !strings.Contains(firstBoot, "podman secret create gravel-db-password -") {

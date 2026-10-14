@@ -1,7 +1,7 @@
 // Command gravel-hub runs the gravel hub.
 //
 //	gravel-hub serve        [--config hub.yaml]           serve the API (default)
-//	gravel-hub migrate      [--config hub.yaml] [--status] apply pending migrations, or show them
+//	gravel-hub migrate      [--config hub.yaml] [--check] apply pending migrations, or list them with their cost
 //	gravel-hub config check [--config hub.yaml]           load and validate the configuration
 //	gravel-hub healthcheck  [--url http://127.0.0.1:8080/healthz]
 //	gravel-hub settings export [--config hub.yaml]              print the Organization settings as a manifest
@@ -34,6 +34,7 @@ import (
 	"slices"
 	"strings"
 	"syscall"
+	"text/tabwriter"
 	"time"
 
 	"github.com/gravel-project/gravel/internal/config"
@@ -102,7 +103,7 @@ func usage(w io.Writer) {
 	fmt.Fprint(w, `usage: gravel-hub <command> [flags]
 
   serve         serve the API (default); --config hub.yaml
-  migrate       apply pending migrations; --status shows them instead
+  migrate       apply pending migrations; --check lists them with their cost instead (exit 3 when any are pending)
   config check  load and validate the configuration
   healthcheck   GET /healthz and exit 0 when it answers; --url
   settings      export the Organization settings as a manifest, apply one (--dry-run exits 3 on a change),
@@ -165,7 +166,7 @@ func serve(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	ctx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	h, err := hub.New(ctx, hub.Options{Config: cfg, Logger: logger, Version: buildVersion()})
+	h, err := hub.New(ctx, hub.Options{Config: cfg, Logger: logger, Version: buildVersion(), Image: os.Getenv("GRAVEL_IMAGE")})
 	if err != nil {
 		logger.Error("start failed", "error", err.Error())
 		return 1
@@ -180,10 +181,12 @@ func serve(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 func migrate(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	fs := newFlagSet("migrate", stderr)
 	path := configFlag(fs)
-	status := fs.Bool("status", false, "show the schema version and pending migrations; change nothing")
+	check := fs.Bool("check", false, "list the pending migrations with what each costs; change nothing (exit 3 when any are pending)")
+	status := fs.Bool("status", false, "the same as --check (its name before gravel#214)")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
+	*status = *status || *check
 	cfg, ok := load(*path, stderr)
 	if !ok {
 		return 1
@@ -208,6 +211,11 @@ func migrate(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	}
 	fmt.Fprintf(stdout, "schema version %d, latest %d, pending %d\n", s.Current, s.Latest, s.Pending)
 	if *status && s.Pending > 0 {
+		tw := tabwriter.NewWriter(stdout, 0, 0, 2, ' ', 0)
+		for _, m := range s.PendingMigrations {
+			fmt.Fprintf(tw, "  %05d\t%s\t%s\n", m.Version, m.Name, m.Cost)
+		}
+		_ = tw.Flush()
 		return 3
 	}
 	return 0

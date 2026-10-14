@@ -8,6 +8,11 @@
 *.so
 *.dylib
 
+# The binaries `go build ./cmd/<name>` drops in the repository root (make build puts them in .bin/)
+/gravel
+/gravel-hub
+/gravel-bot
+
 # Test binary, built with `go test -c`
 *.test
 

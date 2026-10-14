@@ -1,4 +1,5 @@
 -- +goose Up
+-- gravel:cost instant
 -- Session recaps (ADR-0018). server_occupancy is how many players a server had, by the minute:
 -- the fewest and the most its polls saw in that minute, written only for a minute anyone was on.
 -- A recap counts the minutes whose fewest reached the floor it is asked for, so nothing about a

@@ -1,4 +1,5 @@
 -- +goose Up
+-- gravel:cost instant
 -- The hub's ban list per server (ADR-0010 §5–6; John, 2026-10-10: the hub owns War Dogs'
 -- DefaultBannedPlayerIds). A ban is keyed by the player's provider identity (principle 5). The
 -- hub writes its active bans into the server's configuration; a deployment's own document leaves

@@ -1,4 +1,5 @@
 -- +goose Up
+-- gravel:cost scan identity_events, role_changes, audit_log, server_host_events
 -- The events log (gravel#188, ADR-0028): one append-only record of what the hub did, read by
 -- notifiers, the admin dashboard and the CLI through a cursor. Every source appends its event in
 -- its own transaction; the kinds and their severities are internal/events' registry. Rows are never

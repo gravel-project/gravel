@@ -1,4 +1,5 @@
 -- +goose Up
+-- gravel:cost scan users, role_changes
 -- Role grants (gravel#185, ADR-0027 §3 to §5): a member holds admin, operator or moderator,
 -- instance-wide or for one game (game_id). The owner is never a grant (organizations.owner_user_id)
 -- and member is the base everyone holds. users.roles is no longer written or read; #199 drops it.

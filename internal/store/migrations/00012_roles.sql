@@ -1,4 +1,5 @@
 -- +goose Up
+-- gravel:cost scan users
 -- Hub roles (ADR-0013): the owner grants a member a role, today only "moderator", who may then
 -- moderate servers from the web as the owner does. A role is on the member, the hub is its
 -- authority, and every grant and revocation is kept in role_changes (who, by whom, when), which

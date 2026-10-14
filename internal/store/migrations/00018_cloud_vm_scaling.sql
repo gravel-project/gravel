@@ -1,4 +1,5 @@
 -- +goose Up
+-- gravel:cost instant
 -- A cloud-VM server's vertical scaling policy (ADR-0003 §4, gravel#37). The policy itself is the
 -- manifest's (managed_servers.vm); the host row keeps what it decided and what the owner fixed:
 -- a size the owner pinned (the policy stands aside, an unparked host comes back to it), a decision

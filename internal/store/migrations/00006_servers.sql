@@ -1,4 +1,5 @@
 -- +goose Up
+-- gravel:cost instant
 -- Games and the servers a driver controls (ADR-0010), applied from a deployment's servers.yaml
 -- by `gravel-hub servers apply`. A game row enables a Game spec gravel ships, with the manifest's
 -- tightenings of its bands. A server row says where its credential is (a file), never what it

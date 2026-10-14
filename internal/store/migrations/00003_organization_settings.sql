@@ -1,4 +1,5 @@
 -- +goose Up
+-- gravel:cost instant
 -- The Organization settings resource (gravel#7): every host-configurable knob in one JSON
 -- document, versioned by its own "version" key, managed through the API (and the hub's
 -- `settings apply` for a committed manifest). Theme tokens and navigation links first; the

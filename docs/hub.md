@@ -23,7 +23,7 @@ the others has a `gravel` command over the API that takes the same flags.
 |---|---|
 | `gravel-hub serve` (default) | Serve the API. Stops cleanly on SIGINT/SIGTERM, draining for `server.shutdown_timeout`. |
 | `gravel-hub migrate` | Apply pending migrations, then print the schema version. |
-| `gravel-hub migrate --status` | Print the schema version and pending count; exit 3 when migrations are pending. |
+| `gravel-hub migrate --check` | Print the schema version and each pending migration with its cost ([Migrations](#migrations)); exit 3 when any are pending. `--status` is the same. |
 | `gravel-hub config check` | Load and validate the configuration, print a summary with the login providers (never a secret). |
 | `gravel-hub healthcheck [--url …]` | GET `/healthz` and exit 0 when it answers 200. The container healthcheck. |
 | `gravel-hub settings export` | Print the Organization settings as a YAML manifest. |
@@ -188,7 +188,7 @@ Public listener (`server.listen`), HTTP/1.1 and unencrypted HTTP/2 so gRPC works
 | `/gravel.hub.v1.ServerService/ListServerPlayers` | `{"server_id": "…"}` → who was on at the last poll (name, provider identity, team, kills, deaths, ping, and the member's user id when that identity is linked); a logged-in member, the owner, or an app with `servers:read` |
 | `/grpc.health.v1.Health/Check` | gRPC health |
 | `/grpc.reflection.v1.ServerReflection/…` (and v1alpha) | gRPC reflection, so `grpcurl` and `buf curl` discover the API |
-| `GET /healthz` | 200 `{"status":"ok","version":"…"}` while the process runs |
+| `GET /healthz` | 200 `{"status":"ok","version":"…","binary_sha256":"…","image":"…","digest":"sha256:…"}` while the process runs: the version, the SHA-256 of the running executable (true however the hub was deployed), and the image its deployment names in `GRAVEL_IMAGE` with the digest it is pinned to. `image` is left out when `GRAVEL_IMAGE` is unset, `digest` when the image is named by tag only. The stock quadlet, compose and `gravel hub create` set it beside `Image=` (#214) |
 | `GET /readyz` | 200 `{"status":"ready"}` when Postgres answers and no migration is pending, else 503 with a reason |
 | `/gravel.hub.v1.AppService/PrepareAuthorization`, `Authorize` | the authorization endpoint's checks and consent, which the `/oauth/authorize` page calls ([Members sign in to apps](#members-sign-in-to-apps-adr-0015)); a session only, never a bearer token |
 | `/gravel.hub.v1.AppService/ListAppGrants`, `RevokeAppGrant` | `{}` → the apps the member allowed (name, scopes, when); `{"client_id": "…"}` → revoke one with the member's tokens for it; a session only |
@@ -1962,6 +1962,28 @@ SQL migrations live in `internal/store/migrations/` and are embedded in the bina
 `database.migrate: auto` the hub applies pending ones at start; with `manual` it refuses to start
 until `gravel-hub migrate` has run, and `/readyz` reports pending migrations either way. Every
 migration has a `-- +goose Down` section so tests can reset a database.
+
+**What an upgrade will do.** Every migration's second line says what applying it costs, so an
+operator, or a fleet rolling upgrades out in waves, knows before it starts (#214):
+
+| `-- gravel:cost` | Means | How long |
+|---|---|---|
+| `instant` | catalog changes only: a new table and its indexes, a nullable column or one with a constant default, a dropped column | milliseconds, whatever the data |
+| `scan <table>, …` | reads every row of those tables: a constraint or foreign key checked, an index built on a table with rows, a backfill read; writes to them wait meanwhile | grows with those tables' rows |
+| `rewrite <table>, …` | rewrites every row: a column's type changed, a volatile default; reads and writes wait, and the disk needs room for a second copy | grows with those tables' size |
+
+`gravel-hub migrate --check` lists the pending ones before an upgrade, and exits 3 while any are:
+
+```text
+$ gravel-hub migrate --check --config hub.yaml
+schema version 27, latest 29, pending 2
+  00028  notifier_cursors    instant
+  00029  ownership_transfer  scan organizations
+```
+
+A migration without a valid cost line fails the build's tests (`TestEveryMigrationHasACost`). Up to
+29, the scans are of small tables (the organization, users, apps and their grants, the history the
+events log was backfilled from), and none rewrites one.
 
 ## Running it
 

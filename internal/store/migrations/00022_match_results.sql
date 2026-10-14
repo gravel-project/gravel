@@ -1,4 +1,5 @@
 -- +goose Up
+-- gravel:cost instant
 -- Match results from a game's match plugin (#20's PUG flow, ADR-0024): MatchZy posts a series' events
 -- to the hub, which keeps the series (teams, score, winner), each map (score, winner, its demo in
 -- object storage) and each player's totals on each map. A series is a server's plugin match id; a
