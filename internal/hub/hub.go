@@ -243,7 +243,7 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 	if token != "" {
 		logger.Warn("the hub is unowned: claim it once with this token (it expires; a restart mints a new one)",
 			"token", token, "expires_at", o.ClaimTokenExpiresAt.UTC().Format(time.RFC3339),
-			"how", "log in, then paste it on the account page or call ClaimOwnership on gravel.hub.v1.OrganizationService")
+			"how", "log in, then run gravel claim <token>, paste it on the account page, or call ClaimOwnership on gravel.hub.v1.OrganizationService")
 	} else {
 		logger.Info("organization", "name", o.Name, "id", o.ID, "owned", true, "claimed_at", o.ClaimedAt, "owner_user_id", o.OwnerUserID)
 	}
