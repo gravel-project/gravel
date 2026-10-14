@@ -6,6 +6,11 @@ why, ADR-0004 the login design, ADR-0008 the app credentials; `deploy/README.md`
 
 ## Commands
 
+`gravel-hub`'s commands run on the hub's host, against its database: they are for **bootstrap**
+(before anyone can log in) and for what only the host may change. Day to day, staff do the same
+over the API behind a capability ([Admin procedures](#admin-procedures-adr-0031)): apps, the
+servers manifest (all but its files and secret destinations), erasure and logging a member out.
+
 | Command | Does |
 |---|---|
 | `gravel-hub serve` (default) | Serve the API. Stops cleanly on SIGINT/SIGTERM, draining for `server.shutdown_timeout`. |
@@ -17,15 +22,15 @@ why, ADR-0004 the login design, ADR-0008 the app credentials; `deploy/README.md`
 | `gravel-hub settings apply <manifest.yaml> [--dry-run]` | Validate and store a manifest; "unchanged" or "applied". With `--dry-run`, exit 3 when it would change something. |
 | `gravel-hub settings check <manifest.yaml>` | Validate a manifest with no configuration and no database: exit 0 and print its summary, 1 with every problem named, 2 on a usage error. |
 | `gravel-hub apps create --name NAME --scopes SCOPES [--redirect-uri URL]...` | Register a first-party app (ADR-0008) and print its client id and secret once; the hub keeps the secret's hash. `--redirect-uri` (repeatable) is where its web pages receive a member who signed in ([Members sign in to apps](#members-sign-in-to-apps-adr-0015)): https, or http on 127.0.0.1, `[::1]` or localhost, compared as an exact string. |
-| `gravel-hub apps list` | The registered apps: client id, name, scopes, redirect URIs, created, revoked. |
+| `gravel-hub apps list` | The registered apps: client id, name, scopes, redirect URIs, created, revoked. Over the API: `AppService.CreateApp`, `ListApps`, `RevokeApp` (`apps:manage`). |
 | `gravel-hub apps revoke --client-id ID` | Revoke an app: its tokens (its own and its members'), the grants members gave it and its unexchanged codes are deleted, and no new token is issued. |
 | `gravel-hub users create-local --username NAME [--email ADDRESS]` | Make a member with a local account and print the one-time link that sets its password ([Local accounts](#local-accounts-adr-0026)), with no API credential: how a hub with no provider gets its first member. Needs `auth.local.enabled`. |
 | `gravel-hub users reset-password --username NAME` | Print a one-time link that resets a local account's password; its earlier links stop working. |
 | `gravel-hub servers export` | Print the games and servers as a `servers.yaml` manifest ([Servers](#servers-adr-0010)). |
-| `gravel-hub servers apply <servers.yaml> [--dry-run]` | Validate a manifest, check each credential file is readable where it runs, and store it; prints each change. With `--dry-run`, exit 3 when something would change. A running hub picks it up within 30 s. |
+| `gravel-hub servers apply <servers.yaml> [--dry-run]` | Validate a manifest, check each credential file is readable where it runs, and store it; prints each change. With `--dry-run`, exit 3 when something would change. A running hub picks it up within 30 s. The only way to add a location or a server, or change a file or an endpoint ([Admin procedures](#admin-procedures-adr-0031)). |
 | `gravel-hub servers check <servers.yaml>` | Validate a manifest with no configuration, no database and no secret: exit 0 with its summary, 1 with every problem named, 2 on a usage error. |
 | `gravel-hub ingest export --server ID [--after ID] [--limit N]` | Print a server's stored ingest batches, oldest first, one JSON object per line: a JSON body as JSON, anything else as base64 ([Ingestion](#ingestion-adr-0011)). They hold players' SteamIDs: redact before they leave the host. |
-| `gravel-hub stats erase --provider P --subject S` | Erase a player from the stats store ([Stats](#stats-adr-0012), Erasure): their identity becomes a random token in every stats table (participation included) and the stored ingest batches, their pseudonym is deleted, the numbers stay. For an operator acting on a request they have verified. Prints the counts, never the identity. |
+| `gravel-hub stats erase --provider P --subject S` | Erase a player from the stats store ([Stats](#stats-adr-0012), Erasure): their identity becomes a random token in every stats table (participation included) and the stored ingest batches, their pseudonym is deleted, the numbers stay. For an operator acting on a request they have verified. Prints the counts, never the identity. Over the API: `StatsService.EraseIdentity` (`stats:erase`). |
 | `gravel-hub wardogs record --base-url URL [--token-file FILE] [--dir DIR]` | Record a War Dogs server's read-only answers as test fixtures in `<dir>/<build>/` (default `games/wardogs/testdata`), with people, addresses and secrets replaced (ADR-0010; `games/wardogs/README.md`). One token, never retried; without one, only the public routes. |
 | `gravel-hub demo wardogs-server --listen ADDR --token-file FILE [--profile FILE] [--seed N]` | Serve a simulated War Dogs server for a demo hub to poll ([Demo hub](#demo-hub-gravel112)). |
 | `gravel-hub demo seed [--days 90] [--members 40] [--seed N] [--profile FILE]` | Write made-up members, matches and moderation into a demo hub's database: only with `demo: true`, only into a database nobody signed in to and nothing was recorded in ([Demo hub](#demo-hub-gravel112)). |
@@ -154,6 +159,10 @@ Public listener (`server.listen`), HTTP/1.1 and unencrypted HTTP/2 so gRPC works
 | `/gravel.hub.v1.IdentityService/SetUserRole` | `{"user_id": "…", "role": "operator", "game_id": "cs2", "granted": true}` → the member with their roles, grants and capabilities ([Roles](#roles)); `roles:grant` for the grant's scope, admin grants by the owner only, an app moderator only, never one's own; every change recorded |
 | `/gravel.hub.v1.OrganizationService/TestNotifier` | `{"name": "john-phone"}` → whether the notifier delivered a test event (kind `notifier.test`, never in the log), and why not ([Notifiers](#notifiers-adr-0028-5)); `settings:write`; `not_found` for a name the settings don't have |
 | `/gravel.hub.v1.OrganizationService/ListEvents` | `{"after_id": 0, "kinds": ["host"], "min_severity": "warning"}` → the events log by cursor ([Events](#events-adr-0028)); `events:read`, a game-scoped holder that game's events |
+| `/gravel.hub.v1.AppService/CreateApp`, `ListApps`, `RevokeApp` | register an app (`{"name", "scopes", "redirect_uris"}` → the app and its secret, once), list them, revoke one; `apps:manage` ([Admin procedures](#admin-procedures-adr-0031)) |
+| `/gravel.hub.v1.ServerService/ExportServers`, `CheckServers`, `ApplyServers` | the servers manifest as YAML; `{"manifest": "…", "dry_run": true}` → the changes; `servers:manage`, never a file or where a secret goes |
+| `/gravel.hub.v1.StatsService/EraseIdentity` | `{"provider": "steam", "subject": "…"}` → what was re-keyed; `stats:erase`, in person |
+| `/gravel.hub.v1.IdentityService/RevokeUserSessions` | `{"user_id": "…"}` → log a member out everywhere, with the tokens apps hold for them; `members:manage` |
 | `/gravel.hub.v1.IdentityService/ListRoleGrants` | `{"user_id": "…"}` (or `{}` for everyone) → who holds which role where; `identity:read` |
 | `/gravel.hub.v1.IdentityService/ListIdentityEvents` | `{"after_id": 0, "limit": 100}` → the identity log after a position, oldest first, the id to continue from, and the log's newest id (`head_id`, where a reader that just made a full pass starts); role sync's incremental pass; `identity:read` or the owner |
 | `/gravel.hub.v1.ServerService/ListGames` | the enabled games, their identity provider, bands, layout and `no_paid_perks`; public |
@@ -1808,6 +1817,31 @@ a session answers `unauthenticated`, a second call `failed_precondition` (the hu
 wrong or expired token `permission_denied`, an empty token `invalid_argument`. An owned hub never
 mints a token again. A claim made by 0.1.0 bound no user; migration 2 reopens it, so such a hub
 logs a fresh token after the upgrade.
+
+## Admin procedures (ADR-0031)
+
+What `gravel-hub` does against the database on the host, staff do over the API (#195), so an
+operator needs neither the host nor the database: the admin dashboard and the `gravel` CLI call
+these. Each checks one capability, is in person only (no app may hold these, and members' tokens
+are refused), and writes an event.
+
+| Procedure | Capability | Event |
+|---|---|---|
+| `AppService.CreateApp` / `RevokeApp` (`ListApps` reads) | `apps:manage` | `app.created` / `app.revoked` |
+| `ServerService.ApplyServers` (`ExportServers` and `CheckServers` read) | `servers:manage` | `servers.applied`, with the changes and servers |
+| `StatsService.EraseIdentity` | `stats:erase` | `stats.erased`, with the counts and the provider, never the identity |
+| `IdentityService.RevokeUserSessions` | `members:manage` | `sessions.revoked` |
+
+**What only the host changes.** A servers manifest names files on the hub's host (a server's
+credential file, its feed token, a cloud-VM server's password and publisher token, a location's
+cloud token and SSH key) and says where their secrets go (an endpoint, a feed URL, a location, a
+driver). Over the API anyone with `servers:manage` could otherwise point a credential file at any
+file on the host and its endpoint at a machine of their own. So `ApplyServers` refuses
+(`failed_precondition`, naming each) a manifest that adds, changes or removes a location, adds a
+server, or changes an existing server's driver, location, endpoint, credential file, feed, or its
+VM's password file, publisher token file or `share_password`. Everything else applies: names,
+games and their bands, poll intervals, trust, sizes and scaling, settings, and removing a server.
+Those changes are `gravel-hub servers apply` on the host.
 
 ## Ownership transfer (ADR-0027 §6)
 

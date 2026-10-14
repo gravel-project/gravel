@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file gravel/hub/v1/apps.proto.
  */
 export const file_gravel_hub_v1_apps: GenFile = /*@__PURE__*/
-  fileDesc("ChhncmF2ZWwvaHViL3YxL2FwcHMucHJvdG8SDWdyYXZlbC5odWIudjEiLgoJU2NvcGVJbmZvEgwKBG5hbWUYASABKAkSEwoLZGVzY3JpcHRpb24YAiABKAkimwEKE0F1dGhvcml6YXRpb25QYXJhbXMSFQoNcmVzcG9uc2VfdHlwZRgBIAEoCRIRCgljbGllbnRfaWQYAiABKAkSFAoMcmVkaXJlY3RfdXJpGAMgASgJEg0KBXNjb3BlGAQgASgJEhYKDmNvZGVfY2hhbGxlbmdlGAUgASgJEh0KFWNvZGVfY2hhbGxlbmdlX21ldGhvZBgGIAEoCSJRChtQcmVwYXJlQXV0aG9yaXphdGlvblJlcXVlc3QSMgoGcGFyYW1zGAEgASgLMiIuZ3JhdmVsLmh1Yi52MS5BdXRob3JpemF0aW9uUGFyYW1zIrEBChxQcmVwYXJlQXV0aG9yaXphdGlvblJlc3BvbnNlEhAKCGFwcF9uYW1lGAEgASgJEhEKCWNsaWVudF9pZBgCIAEoCRIoCgZzY29wZXMYAyADKAsyGC5ncmF2ZWwuaHViLnYxLlNjb3BlSW5mbxIYChBjb25zZW50X3JlcXVpcmVkGAQgASgIEg0KBWVycm9yGAUgASgJEhkKEWVycm9yX2Rlc2NyaXB0aW9uGAYgASgJIkYKEEF1dGhvcml6ZVJlcXVlc3QSMgoGcGFyYW1zGAEgASgLMiIuZ3JhdmVsLmh1Yi52MS5BdXRob3JpemF0aW9uUGFyYW1zIjEKEUF1dGhvcml6ZVJlc3BvbnNlEgwKBGNvZGUYASABKAkSDgoGc2NvcGVzGAIgAygJIokBCghBcHBHcmFudBIRCgljbGllbnRfaWQYASABKAkSEAoIYXBwX25hbWUYAiABKAkSKAoGc2NvcGVzGAMgAygLMhguZ3JhdmVsLmh1Yi52MS5TY29wZUluZm8SLgoKZ3JhbnRlZF9hdBgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAiFgoUTGlzdEFwcEdyYW50c1JlcXVlc3QiQAoVTGlzdEFwcEdyYW50c1Jlc3BvbnNlEicKBmdyYW50cxgBIAMoCzIXLmdyYXZlbC5odWIudjEuQXBwR3JhbnQiKgoVUmV2b2tlQXBwR3JhbnRSZXF1ZXN0EhEKCWNsaWVudF9pZBgBIAEoCSIwChZSZXZva2VBcHBHcmFudFJlc3BvbnNlEhYKDnJldm9rZWRfdG9rZW5zGAEgASgFMogDCgpBcHBTZXJ2aWNlEm8KFFByZXBhcmVBdXRob3JpemF0aW9uEiouZ3JhdmVsLmh1Yi52MS5QcmVwYXJlQXV0aG9yaXphdGlvblJlcXVlc3QaKy5ncmF2ZWwuaHViLnYxLlByZXBhcmVBdXRob3JpemF0aW9uUmVzcG9uc2USTgoJQXV0aG9yaXplEh8uZ3JhdmVsLmh1Yi52MS5BdXRob3JpemVSZXF1ZXN0GiAuZ3JhdmVsLmh1Yi52MS5BdXRob3JpemVSZXNwb25zZRJaCg1MaXN0QXBwR3JhbnRzEiMuZ3JhdmVsLmh1Yi52MS5MaXN0QXBwR3JhbnRzUmVxdWVzdBokLmdyYXZlbC5odWIudjEuTGlzdEFwcEdyYW50c1Jlc3BvbnNlEl0KDlJldm9rZUFwcEdyYW50EiQuZ3JhdmVsLmh1Yi52MS5SZXZva2VBcHBHcmFudFJlcXVlc3QaJS5ncmF2ZWwuaHViLnYxLlJldm9rZUFwcEdyYW50UmVzcG9uc2VCOlo4Z2l0aHViLmNvbS9ncmF2ZWwtcHJvamVjdC9ncmF2ZWwvZ2VuL2dyYXZlbC9odWIvdjE7aHVidjFiBnByb3RvMw", [file_google_protobuf_timestamp]);
+  fileDesc("ChhncmF2ZWwvaHViL3YxL2FwcHMucHJvdG8SDWdyYXZlbC5odWIudjEiLgoJU2NvcGVJbmZvEgwKBG5hbWUYASABKAkSEwoLZGVzY3JpcHRpb24YAiABKAkimwEKE0F1dGhvcml6YXRpb25QYXJhbXMSFQoNcmVzcG9uc2VfdHlwZRgBIAEoCRIRCgljbGllbnRfaWQYAiABKAkSFAoMcmVkaXJlY3RfdXJpGAMgASgJEg0KBXNjb3BlGAQgASgJEhYKDmNvZGVfY2hhbGxlbmdlGAUgASgJEh0KFWNvZGVfY2hhbGxlbmdlX21ldGhvZBgGIAEoCSJRChtQcmVwYXJlQXV0aG9yaXphdGlvblJlcXVlc3QSMgoGcGFyYW1zGAEgASgLMiIuZ3JhdmVsLmh1Yi52MS5BdXRob3JpemF0aW9uUGFyYW1zIrEBChxQcmVwYXJlQXV0aG9yaXphdGlvblJlc3BvbnNlEhAKCGFwcF9uYW1lGAEgASgJEhEKCWNsaWVudF9pZBgCIAEoCRIoCgZzY29wZXMYAyADKAsyGC5ncmF2ZWwuaHViLnYxLlNjb3BlSW5mbxIYChBjb25zZW50X3JlcXVpcmVkGAQgASgIEg0KBWVycm9yGAUgASgJEhkKEWVycm9yX2Rlc2NyaXB0aW9uGAYgASgJIkYKEEF1dGhvcml6ZVJlcXVlc3QSMgoGcGFyYW1zGAEgASgLMiIuZ3JhdmVsLmh1Yi52MS5BdXRob3JpemF0aW9uUGFyYW1zIjEKEUF1dGhvcml6ZVJlc3BvbnNlEgwKBGNvZGUYASABKAkSDgoGc2NvcGVzGAIgAygJIokBCghBcHBHcmFudBIRCgljbGllbnRfaWQYASABKAkSEAoIYXBwX25hbWUYAiABKAkSKAoGc2NvcGVzGAMgAygLMhguZ3JhdmVsLmh1Yi52MS5TY29wZUluZm8SLgoKZ3JhbnRlZF9hdBgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAiFgoUTGlzdEFwcEdyYW50c1JlcXVlc3QiQAoVTGlzdEFwcEdyYW50c1Jlc3BvbnNlEicKBmdyYW50cxgBIAMoCzIXLmdyYXZlbC5odWIudjEuQXBwR3JhbnQiKgoVUmV2b2tlQXBwR3JhbnRSZXF1ZXN0EhEKCWNsaWVudF9pZBgBIAEoCSIwChZSZXZva2VBcHBHcmFudFJlc3BvbnNlEhYKDnJldm9rZWRfdG9rZW5zGAEgASgFIq0BCgNBcHASEQoJY2xpZW50X2lkGAEgASgJEgwKBG5hbWUYAiABKAkSDgoGc2NvcGVzGAMgAygJEhUKDXJlZGlyZWN0X3VyaXMYBCADKAkSLgoKY3JlYXRlZF9hdBgFIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLgoKcmV2b2tlZF9hdBgGIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAiRwoQQ3JlYXRlQXBwUmVxdWVzdBIMCgRuYW1lGAEgASgJEg4KBnNjb3BlcxgCIAMoCRIVCg1yZWRpcmVjdF91cmlzGAMgAygJIksKEUNyZWF0ZUFwcFJlc3BvbnNlEh8KA2FwcBgBIAEoCzISLmdyYXZlbC5odWIudjEuQXBwEhUKDWNsaWVudF9zZWNyZXQYAiABKAkiEQoPTGlzdEFwcHNSZXF1ZXN0IjQKEExpc3RBcHBzUmVzcG9uc2USIAoEYXBwcxgBIAMoCzISLmdyYXZlbC5odWIudjEuQXBwIiUKEFJldm9rZUFwcFJlcXVlc3QSEQoJY2xpZW50X2lkGAEgASgJIhMKEVJldm9rZUFwcFJlc3BvbnNlMvUECgpBcHBTZXJ2aWNlEm8KFFByZXBhcmVBdXRob3JpemF0aW9uEiouZ3JhdmVsLmh1Yi52MS5QcmVwYXJlQXV0aG9yaXphdGlvblJlcXVlc3QaKy5ncmF2ZWwuaHViLnYxLlByZXBhcmVBdXRob3JpemF0aW9uUmVzcG9uc2USTgoJQXV0aG9yaXplEh8uZ3JhdmVsLmh1Yi52MS5BdXRob3JpemVSZXF1ZXN0GiAuZ3JhdmVsLmh1Yi52MS5BdXRob3JpemVSZXNwb25zZRJaCg1MaXN0QXBwR3JhbnRzEiMuZ3JhdmVsLmh1Yi52MS5MaXN0QXBwR3JhbnRzUmVxdWVzdBokLmdyYXZlbC5odWIudjEuTGlzdEFwcEdyYW50c1Jlc3BvbnNlEl0KDlJldm9rZUFwcEdyYW50EiQuZ3JhdmVsLmh1Yi52MS5SZXZva2VBcHBHcmFudFJlcXVlc3QaJS5ncmF2ZWwuaHViLnYxLlJldm9rZUFwcEdyYW50UmVzcG9uc2USTgoJQ3JlYXRlQXBwEh8uZ3JhdmVsLmh1Yi52MS5DcmVhdGVBcHBSZXF1ZXN0GiAuZ3JhdmVsLmh1Yi52MS5DcmVhdGVBcHBSZXNwb25zZRJLCghMaXN0QXBwcxIeLmdyYXZlbC5odWIudjEuTGlzdEFwcHNSZXF1ZXN0Gh8uZ3JhdmVsLmh1Yi52MS5MaXN0QXBwc1Jlc3BvbnNlEk4KCVJldm9rZUFwcBIfLmdyYXZlbC5odWIudjEuUmV2b2tlQXBwUmVxdWVzdBogLmdyYXZlbC5odWIudjEuUmV2b2tlQXBwUmVzcG9uc2VCOlo4Z2l0aHViLmNvbS9ncmF2ZWwtcHJvamVjdC9ncmF2ZWwvZ2VuL2dyYXZlbC9odWIvdjE7aHVidjFiBnByb3RvMw", [file_google_protobuf_timestamp]);
 
 /**
  * ScopeInfo is a scope with what it lets an app do as the member, in the member's words.
@@ -310,10 +310,175 @@ export const RevokeAppGrantResponseSchema: GenMessage<RevokeAppGrantResponse> = 
   messageDesc(file_gravel_hub_v1_apps, 10);
 
 /**
- * AppService is a member's side of first-party apps (ADR-0015): the authorization endpoint's
- * checks and consent, which the hub's /oauth/authorize page calls, and the apps the member
- * allowed. Every procedure but PrepareAuthorization needs a session cookie; no bearer token, an
- * app's or a member's, may call any of them.
+ * App is a registered first-party app (ADR-0008, ADR-0015), as the operator sees it; never its
+ * secret, which CreateApp answers once.
+ *
+ * @generated from message gravel.hub.v1.App
+ */
+export type App = Message<"gravel.hub.v1.App"> & {
+  /**
+   * @generated from field: string client_id = 1;
+   */
+  clientId: string;
+
+  /**
+   * @generated from field: string name = 2;
+   */
+  name: string;
+
+  /**
+   * @generated from field: repeated string scopes = 3;
+   */
+  scopes: string[];
+
+  /**
+   * @generated from field: repeated string redirect_uris = 4;
+   */
+  redirectUris: string[];
+
+  /**
+   * @generated from field: google.protobuf.Timestamp created_at = 5;
+   */
+  createdAt?: Timestamp | undefined;
+
+  /**
+   * Unset while the app is live.
+   *
+   * @generated from field: google.protobuf.Timestamp revoked_at = 6;
+   */
+  revokedAt?: Timestamp | undefined;
+};
+
+/**
+ * Describes the message gravel.hub.v1.App.
+ * Use `create(AppSchema)` to create a new message.
+ */
+export const AppSchema: GenMessage<App> = /*@__PURE__*/
+  messageDesc(file_gravel_hub_v1_apps, 11);
+
+/**
+ * @generated from message gravel.hub.v1.CreateAppRequest
+ */
+export type CreateAppRequest = Message<"gravel.hub.v1.CreateAppRequest"> & {
+  /**
+   * @generated from field: string name = 1;
+   */
+  name: string;
+
+  /**
+   * The scopes the app may use: capabilities an app may hold, or a host's own (host:<name>).
+   *
+   * @generated from field: repeated string scopes = 2;
+   */
+  scopes: string[];
+
+  /**
+   * Where the app's web pages receive a member who signed in; https, or http to the loopback.
+   *
+   * @generated from field: repeated string redirect_uris = 3;
+   */
+  redirectUris: string[];
+};
+
+/**
+ * Describes the message gravel.hub.v1.CreateAppRequest.
+ * Use `create(CreateAppRequestSchema)` to create a new message.
+ */
+export const CreateAppRequestSchema: GenMessage<CreateAppRequest> = /*@__PURE__*/
+  messageDesc(file_gravel_hub_v1_apps, 12);
+
+/**
+ * @generated from message gravel.hub.v1.CreateAppResponse
+ */
+export type CreateAppResponse = Message<"gravel.hub.v1.CreateAppResponse"> & {
+  /**
+   * @generated from field: gravel.hub.v1.App app = 1;
+   */
+  app?: App | undefined;
+
+  /**
+   * Shown this once; the hub keeps only its hash. Give it to the app as a secret file.
+   *
+   * @generated from field: string client_secret = 2;
+   */
+  clientSecret: string;
+};
+
+/**
+ * Describes the message gravel.hub.v1.CreateAppResponse.
+ * Use `create(CreateAppResponseSchema)` to create a new message.
+ */
+export const CreateAppResponseSchema: GenMessage<CreateAppResponse> = /*@__PURE__*/
+  messageDesc(file_gravel_hub_v1_apps, 13);
+
+/**
+ * @generated from message gravel.hub.v1.ListAppsRequest
+ */
+export type ListAppsRequest = Message<"gravel.hub.v1.ListAppsRequest"> & {
+};
+
+/**
+ * Describes the message gravel.hub.v1.ListAppsRequest.
+ * Use `create(ListAppsRequestSchema)` to create a new message.
+ */
+export const ListAppsRequestSchema: GenMessage<ListAppsRequest> = /*@__PURE__*/
+  messageDesc(file_gravel_hub_v1_apps, 14);
+
+/**
+ * @generated from message gravel.hub.v1.ListAppsResponse
+ */
+export type ListAppsResponse = Message<"gravel.hub.v1.ListAppsResponse"> & {
+  /**
+   * Every app, revoked ones included, oldest first.
+   *
+   * @generated from field: repeated gravel.hub.v1.App apps = 1;
+   */
+  apps: App[];
+};
+
+/**
+ * Describes the message gravel.hub.v1.ListAppsResponse.
+ * Use `create(ListAppsResponseSchema)` to create a new message.
+ */
+export const ListAppsResponseSchema: GenMessage<ListAppsResponse> = /*@__PURE__*/
+  messageDesc(file_gravel_hub_v1_apps, 15);
+
+/**
+ * @generated from message gravel.hub.v1.RevokeAppRequest
+ */
+export type RevokeAppRequest = Message<"gravel.hub.v1.RevokeAppRequest"> & {
+  /**
+   * @generated from field: string client_id = 1;
+   */
+  clientId: string;
+};
+
+/**
+ * Describes the message gravel.hub.v1.RevokeAppRequest.
+ * Use `create(RevokeAppRequestSchema)` to create a new message.
+ */
+export const RevokeAppRequestSchema: GenMessage<RevokeAppRequest> = /*@__PURE__*/
+  messageDesc(file_gravel_hub_v1_apps, 16);
+
+/**
+ * @generated from message gravel.hub.v1.RevokeAppResponse
+ */
+export type RevokeAppResponse = Message<"gravel.hub.v1.RevokeAppResponse"> & {
+};
+
+/**
+ * Describes the message gravel.hub.v1.RevokeAppResponse.
+ * Use `create(RevokeAppResponseSchema)` to create a new message.
+ */
+export const RevokeAppResponseSchema: GenMessage<RevokeAppResponse> = /*@__PURE__*/
+  messageDesc(file_gravel_hub_v1_apps, 17);
+
+/**
+ * AppService is first-party apps (ADR-0008, ADR-0015): a member's side (the authorization
+ * endpoint's checks and consent, which the hub's /oauth/authorize page calls, and the apps the
+ * member allowed) and the operator's (registering and revoking apps, #195). Every procedure but
+ * PrepareAuthorization needs a session cookie; no bearer token, an app's or a member's, may call
+ * any of them.
  *
  * @generated from service gravel.hub.v1.AppService
  */
@@ -364,6 +529,38 @@ export const AppService: GenService<{
     methodKind: "unary";
     input: typeof RevokeAppGrantRequestSchema;
     output: typeof RevokeAppGrantResponseSchema;
+  },
+  /**
+   * CreateApp registers an app and answers its secret once: apps:manage. invalid_argument names a
+   * bad name, scope or redirect URI.
+   *
+   * @generated from rpc gravel.hub.v1.AppService.CreateApp
+   */
+  createApp: {
+    methodKind: "unary";
+    input: typeof CreateAppRequestSchema;
+    output: typeof CreateAppResponseSchema;
+  },
+  /**
+   * ListApps lists every app: apps:manage.
+   *
+   * @generated from rpc gravel.hub.v1.AppService.ListApps
+   */
+  listApps: {
+    methodKind: "unary";
+    input: typeof ListAppsRequestSchema;
+    output: typeof ListAppsResponseSchema;
+  },
+  /**
+   * RevokeApp revokes an app with its tokens and members' grants: apps:manage. not_found for an
+   * unknown or already revoked app.
+   *
+   * @generated from rpc gravel.hub.v1.AppService.RevokeApp
+   */
+  revokeApp: {
+    methodKind: "unary";
+    input: typeof RevokeAppRequestSchema;
+    output: typeof RevokeAppResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_gravel_hub_v1_apps, 0);

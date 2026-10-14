@@ -573,7 +573,13 @@ func (h *Hub) buildAPI() *http.ServeMux {
 	identityAPI := api.NewIdentityServer(h.ids, h.sess, h.org, access, h.logger).WithBaseURL(h.cfg.Auth.BaseURL)
 	identityAPI.SetProofs(h.proofs, h.servers, h.monitor)
 	mux.Handle(hubv1connect.NewIdentityServiceHandler(identityAPI, interceptors))
-	mux.Handle(hubv1connect.NewServerServiceHandler(api.NewServerServer(h.servers, h.monitor, h.ids, access, h.logger).WithSharedPasswords(h.hosts).WithFleet(h.fleet, h.alarms), interceptors))
+	// The servers manifest over the API (#195) is applied as `gravel-hub servers apply` does on the
+	// host: the credential files checked, a scaling ladder against the cloud's sizes.
+	applyOpts := servers.ApplyOptions{CheckCredentials: true, Clouds: func(_ context.Context, l servers.Location, token string) (cloud.Provider, error) {
+		return NewCloudProvider(l.Provider, token, l.Project, h.version)
+	}}
+	mux.Handle(hubv1connect.NewServerServiceHandler(api.NewServerServer(h.servers, h.monitor, h.ids, access, h.logger).WithSharedPasswords(h.hosts).
+		WithFleet(h.fleet, h.alarms).WithManifests(h.servers, applyOpts), interceptors))
 	moderation := api.NewModerationServer(h.moderation, access, h.ids, h.logger)
 	mux.Handle(hubv1connect.NewModerationServiceHandler(moderation, interceptors))
 	mux.Handle(hubv1connect.NewServerHostServiceHandler(api.NewHostServer(h.hosts, access, h.logger), interceptors))
@@ -581,8 +587,15 @@ func (h *Hub) buildAPI() *http.ServeMux {
 	mux.Handle(hubv1connect.NewServerConfigServiceHandler(api.NewConfigServer(h.moderation, access, h.logger), interceptors))
 	statsAPI := api.NewStatsServer(h.stats, h.participation, access, h.ids, h.logger)
 	statsAPI.SetResults(h.results)
+	statsAPI.WithEraser(func(ctx context.Context, key store.PlayerKey, by store.Actor) (store.Erasure, error) {
+		o, err := h.org.Get(ctx)
+		if err != nil {
+			return store.Erasure{}, err
+		}
+		return stats.Erase(ctx, h.st, o.ID, key, by, time.Now().UTC())
+	})
 	mux.Handle(hubv1connect.NewStatsServiceHandler(statsAPI, interceptors))
-	mux.Handle(hubv1connect.NewAppServiceHandler(api.NewAppServer(h.apps, h.logger), interceptors))
+	mux.Handle(hubv1connect.NewAppServiceHandler(api.NewAppServer(h.apps, h.logger).WithAccess(access), interceptors))
 	return mux
 }
 

@@ -26,6 +26,29 @@
   app+stats:read                 permission_denied
   app+all                        permission_denied
 
+/gravel.hub.v1.AppService/CreateApp
+  anonymous                      unauthenticated
+  member                         permission_denied
+  moderator                      permission_denied
+  owner                          invalid_argument
+  member-token                   permission_denied
+  moderator-token                permission_denied
+  owner-token                    permission_denied
+  owner-token-unscoped           permission_denied
+  app                            permission_denied
+  app-host                       permission_denied
+  app+events:read                permission_denied
+  app+identity:read              permission_denied
+  app+participation:write        permission_denied
+  app+roles:grant                permission_denied
+  app+servers:configure          permission_denied
+  app+servers:lease              permission_denied
+  app+servers:moderate           permission_denied
+  app+servers:operate            permission_denied
+  app+servers:read               permission_denied
+  app+stats:read                 permission_denied
+  app+all                        permission_denied
+
 /gravel.hub.v1.AppService/ListAppGrants
   anonymous                      unauthenticated
   member                         ok
@@ -49,10 +72,56 @@
   app+stats:read                 permission_denied
   app+all                        permission_denied
 
+/gravel.hub.v1.AppService/ListApps
+  anonymous                      unauthenticated
+  member                         permission_denied
+  moderator                      permission_denied
+  owner                          ok
+  member-token                   permission_denied
+  moderator-token                permission_denied
+  owner-token                    permission_denied
+  owner-token-unscoped           permission_denied
+  app                            permission_denied
+  app-host                       permission_denied
+  app+events:read                permission_denied
+  app+identity:read              permission_denied
+  app+participation:write        permission_denied
+  app+roles:grant                permission_denied
+  app+servers:configure          permission_denied
+  app+servers:lease              permission_denied
+  app+servers:moderate           permission_denied
+  app+servers:operate            permission_denied
+  app+servers:read               permission_denied
+  app+stats:read                 permission_denied
+  app+all                        permission_denied
+
 /gravel.hub.v1.AppService/PrepareAuthorization
   anonymous                      not_found
   member                         not_found
   moderator                      not_found
+  owner                          not_found
+  member-token                   permission_denied
+  moderator-token                permission_denied
+  owner-token                    permission_denied
+  owner-token-unscoped           permission_denied
+  app                            permission_denied
+  app-host                       permission_denied
+  app+events:read                permission_denied
+  app+identity:read              permission_denied
+  app+participation:write        permission_denied
+  app+roles:grant                permission_denied
+  app+servers:configure          permission_denied
+  app+servers:lease              permission_denied
+  app+servers:moderate           permission_denied
+  app+servers:operate            permission_denied
+  app+servers:read               permission_denied
+  app+stats:read                 permission_denied
+  app+all                        permission_denied
+
+/gravel.hub.v1.AppService/RevokeApp
+  anonymous                      unauthenticated
+  member                         permission_denied
+  moderator                      permission_denied
   owner                          not_found
   member-token                   permission_denied
   moderator-token                permission_denied
@@ -324,6 +393,29 @@
   app+servers:read               unauthenticated
   app+stats:read                 unauthenticated
   app+all                        unauthenticated
+
+/gravel.hub.v1.IdentityService/RevokeUserSessions
+  anonymous                      unauthenticated
+  member                         permission_denied
+  moderator                      permission_denied
+  owner                          invalid_argument
+  member-token                   permission_denied
+  moderator-token                permission_denied
+  owner-token                    permission_denied
+  owner-token-unscoped           permission_denied
+  app                            permission_denied
+  app-host                       permission_denied
+  app+events:read                permission_denied
+  app+identity:read              permission_denied
+  app+participation:write        permission_denied
+  app+roles:grant                permission_denied
+  app+servers:configure          permission_denied
+  app+servers:lease              permission_denied
+  app+servers:moderate           permission_denied
+  app+servers:operate            permission_denied
+  app+servers:read               permission_denied
+  app+stats:read                 permission_denied
+  app+all                        permission_denied
 
 /gravel.hub.v1.IdentityService/SetUserRole
   anonymous                      unauthenticated
@@ -1153,6 +1245,75 @@
   app+stats:read                 permission_denied
   app+all                        invalid_argument
 
+/gravel.hub.v1.ServerService/ApplyServers
+  anonymous                      unauthenticated
+  member                         permission_denied
+  moderator                      permission_denied
+  owner                          invalid_argument
+  member-token                   permission_denied
+  moderator-token                permission_denied
+  owner-token                    permission_denied
+  owner-token-unscoped           permission_denied
+  app                            permission_denied
+  app-host                       permission_denied
+  app+events:read                permission_denied
+  app+identity:read              permission_denied
+  app+participation:write        permission_denied
+  app+roles:grant                permission_denied
+  app+servers:configure          permission_denied
+  app+servers:lease              permission_denied
+  app+servers:moderate           permission_denied
+  app+servers:operate            permission_denied
+  app+servers:read               permission_denied
+  app+stats:read                 permission_denied
+  app+all                        permission_denied
+
+/gravel.hub.v1.ServerService/CheckServers
+  anonymous                      unauthenticated
+  member                         permission_denied
+  moderator                      permission_denied
+  owner                          invalid_argument
+  member-token                   permission_denied
+  moderator-token                permission_denied
+  owner-token                    permission_denied
+  owner-token-unscoped           permission_denied
+  app                            permission_denied
+  app-host                       permission_denied
+  app+events:read                permission_denied
+  app+identity:read              permission_denied
+  app+participation:write        permission_denied
+  app+roles:grant                permission_denied
+  app+servers:configure          permission_denied
+  app+servers:lease              permission_denied
+  app+servers:moderate           permission_denied
+  app+servers:operate            permission_denied
+  app+servers:read               permission_denied
+  app+stats:read                 permission_denied
+  app+all                        permission_denied
+
+/gravel.hub.v1.ServerService/ExportServers
+  anonymous                      unauthenticated
+  member                         permission_denied
+  moderator                      permission_denied
+  owner                          ok
+  member-token                   permission_denied
+  moderator-token                permission_denied
+  owner-token                    permission_denied
+  owner-token-unscoped           permission_denied
+  app                            permission_denied
+  app-host                       permission_denied
+  app+events:read                permission_denied
+  app+identity:read              permission_denied
+  app+participation:write        permission_denied
+  app+roles:grant                permission_denied
+  app+servers:configure          permission_denied
+  app+servers:lease              permission_denied
+  app+servers:moderate           permission_denied
+  app+servers:operate            permission_denied
+  app+servers:read               permission_denied
+  app+stats:read                 permission_denied
+  app+all                        permission_denied
+
 /gravel.hub.v1.ServerService/GetFleetSummary
   anonymous                      unauthenticated
   member                         ok
@@ -1267,6 +1428,29 @@
   app+servers:read               ok
   app+stats:read                 ok
   app+all                        ok
+
+/gravel.hub.v1.StatsService/EraseIdentity
+  anonymous                      unauthenticated
+  member                         permission_denied
+  moderator                      permission_denied
+  owner                          invalid_argument
+  member-token                   permission_denied
+  moderator-token                permission_denied
+  owner-token                    permission_denied
+  owner-token-unscoped           permission_denied
+  app                            permission_denied
+  app-host                       permission_denied
+  app+events:read                permission_denied
+  app+identity:read              permission_denied
+  app+participation:write        permission_denied
+  app+roles:grant                permission_denied
+  app+servers:configure          permission_denied
+  app+servers:lease              permission_denied
+  app+servers:moderate           permission_denied
+  app+servers:operate            permission_denied
+  app+servers:read               permission_denied
+  app+stats:read                 permission_denied
+  app+all                        permission_denied
 
 /gravel.hub.v1.StatsService/GetBoard
   anonymous                      unauthenticated

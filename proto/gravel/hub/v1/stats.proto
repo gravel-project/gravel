@@ -243,6 +243,22 @@ message ParticipationTotals {
 
 // StatsService is the stats boards (ADR-0012): counts from the hub's own polls of each server,
 // keyed by provider identity, unlinked players under pseudonyms; and participation from
+message EraseIdentityRequest {
+  // The identity to erase: "steam" and a SteamID64.
+  string provider = 1;
+  string subject = 2;
+}
+
+// EraseIdentityResponse counts what the erasure re-keyed; it never repeats the identity.
+message EraseIdentityResponse {
+  int32 match_rows = 1;
+  int32 monthly_rows = 2;
+  int32 participation_rows = 3;
+  int32 participation_monthly_rows = 4;
+  int32 ingest_batches = 5;
+  bool pseudonym_deleted = 6;
+}
+
 // first-party apps, on boards of its own (ADR-0014).
 service StatsService {
   // GetBoard ranks the players of a server, a game or the organization over a window. Public when
@@ -278,6 +294,9 @@ service StatsService {
   // GetMatchDemo is a link to download a map's demo, good for 15 minutes; not_found when the map
   // has none. Who may GetBoard.
   rpc GetMatchDemo(GetMatchDemoRequest) returns (GetMatchDemoResponse);
+  // EraseIdentity erases a player's identity from the stats (ADR-0012 §7), for a request the
+  // operator verified: stats:erase, in person only. The numbers stay, as a deleted player's.
+  rpc EraseIdentity(EraseIdentityRequest) returns (EraseIdentityResponse);
 }
 
 // MatchResult is one series a server's match plugin ran.

@@ -73,6 +73,16 @@ func (s *Store) DeleteSession(ctx context.Context, id uuid.UUID) error {
 // member's sessions revokes what apps hold as that member); the grants stay, so the member's next
 // sign-in to an app needs a login but no new consent.
 func (s *Store) DeleteUserSessions(ctx context.Context, userID uuid.UUID) (int64, error) {
+	return s.deleteUserSessions(ctx, userID, nil, time.Time{})
+}
+
+// RevokeUserSessions is DeleteUserSessions done to a member by staff (#195), recorded in the
+// events log (sessions.revoked) in the same transaction. ErrNotFound for an unknown member.
+func (s *Store) RevokeUserSessions(ctx context.Context, userID uuid.UUID, by Actor, at time.Time) (int64, error) {
+	return s.deleteUserSessions(ctx, userID, &by, at)
+}
+
+func (s *Store) deleteUserSessions(ctx context.Context, userID uuid.UUID, by *Actor, at time.Time) (int64, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("store: delete user sessions: %w", err)
@@ -84,6 +94,20 @@ func (s *Store) DeleteUserSessions(ctx context.Context, userID uuid.UUID) (int64
 	}
 	if _, err := tx.Exec(ctx, `DELETE FROM app_tokens WHERE user_id = $1`, userID); err != nil {
 		return 0, fmt.Errorf("store: delete user sessions: member tokens: %w", err)
+	}
+	if by != nil {
+		var exists bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM users WHERE id = $1)`, userID).Scan(&exists); err != nil {
+			return 0, fmt.Errorf("store: revoke user sessions: %w", err)
+		}
+		if !exists {
+			return 0, ErrNotFound
+		}
+		if err := s.appendEvent(ctx, tx, by.event(Event{At: at, Kind: "sessions.revoked", SubjectUserID: &userID,
+			Summary: "{user} was logged out everywhere by staff", Detail: map[string]any{"sessions": tag.RowsAffected()},
+			Source: "sessions.revoke", SourceID: fmt.Sprintf("%s:%d", userID, at.UnixMicro())})); err != nil {
+			return 0, err
+		}
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return 0, fmt.Errorf("store: delete user sessions: %w", err)

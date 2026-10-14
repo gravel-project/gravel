@@ -1,0 +1,28 @@
+# ADR-0031: The CLI is an API client with a credential on this machine
+
+**Status:** proposed (2026-10-14; accepted when John merges #194's pull request) · **Changes:** how an operator runs a hub from their own machine; amends ADR-0007 §4 (`gravel-hub settings apply` is bootstrap, the API is the day-to-day path) and ADR-0010 §1 (the servers manifest is applied over the API too, all but what only the host may change); fulfils ADR-0002's `gravel claim` · **Decided in:** John's design session *gravel — Design Session: Hub, Spines & Dashboard* (2026-10-10 to 12), handbook D35; the host-only rule by John on 2026-10-14 (#195) · **Built in steps:** #195 (§1 to §3: the admin procedures), #194 (§4 and §5: the client, its credential and its commands) · **Part of:** H1 (#182), the unplug test (ADR-0025)
+
+## Context
+
+`gravel-hub settings|apps|servers|users|stats` run on the hub's host and write Postgres directly (finding F6 of the 2026-10-12 truth pass). That broke principle 3 (business rules live in the API exactly once), and it meant an operator needed a shell on the host and the database for everyday work: registering an app, renaming a server, logging a member out. The `gravel` CLI had no API client at all, so `gravel claim` (ADR-0002) never existed. The design session asked for the CLI to be an API client like the dashboard, with the host's commands kept for bootstrap.
+
+## Decision
+
+1. **Every admin action is an API procedure behind one capability** (#195): `AppService.CreateApp`, `ListApps`, `RevokeApp` (`apps:manage`); `ServerService.ExportServers`, `CheckServers`, `ApplyServers` (`servers:manage`); `StatsService.EraseIdentity` (`stats:erase`); `IdentityService.RevokeUserSessions` (`members:manage`). Each runs the same domain code as the host's command, writes an event (ADR-0028), and is a member's in person: no app may hold these capabilities, and members' tokens are refused.
+2. **What only the host may change stays on the host.** A servers manifest names files on the hub's host (credential, feed token, join password and publisher token files, a location's cloud token and SSH key) and decides where their secrets go (an endpoint, a feed URL, a location, a driver). Applied over the API, a member with `servers:manage` could point a credential file at any file on the host and the endpoint at their own machine, and the hub would send them the file; for a hosted hub (GRVL), the hub's owner and the host's operator are not the same person. So `ApplyServers` refuses a manifest that adds, changes or removes a location, adds a server, or changes an existing server's driver, location, endpoint, credential file, feed, or its VM's password file, publisher token file or `share_password`; everything else applies. `servers.HostOnly` is the rule, tested on its own.
+3. **The host's commands are bootstrap.** `gravel-hub` keeps them, against the database, for a hub nobody can log in to yet and for the host-only changes; its usage and `docs/hub.md` say so. A change from the host's command line is recorded `via: cli`.
+4. **The CLI holds a credential on this machine** (#194): `~/.config/gravel/credentials`, mode 0600, `{hub_url, kind session|app, cookie | client_id + secret_file}`, chosen by `--hub` or `GRAVEL_HUB`. `gravel login --local` (a local account, ADR-0026) stores the session cookie; `gravel login --app` points at an app's secret file. The browser login flow and `gravel mcp` (#163) share the store.
+5. **The CLI speaks Connect's HTTP-JSON only** (principle 4): connect-go with `WithProtoJSON`, never the gRPC stack, enforced by a test on its dependencies. `gravel claim`, `whoami`, `fleet`, `servers list|status` and `events --follow` come first; the admin commands over these procedures follow (H1-14).
+
+## Consequences
+
+- An operator needs neither a shell on the host nor the database for day-to-day work; the dashboard (ADR-0029) and the CLI call the same procedures.
+- Adding a server or a location, or changing where a server's secrets come from or go, still needs the host. That is the price of keeping host files away from the hub's admins; a hosted hub's operator does it for its customer.
+- `ListApps` never answers a secret; `CreateApp` answers it once, like the host's command.
+- `stats.erased` records the counts and the provider, never the identity, so the events log can't undo an erasure.
+
+## As built (#195, 2026-10-14)
+
+- The procedures are in `internal/api/admin.go`; the rule is `internal/servers/hostonly.go`. `ApplyServers` runs `servers.Service.Apply` with the hub's own options (credential files checked, a scaling ladder against the cloud), the caller as `By`.
+- Events, each in its source's transaction: `servers.applied` (notice; the changes and the servers touched; only when something changed), `stats.erased` (notice; the counts and the provider) and `sessions.revoked` (notice; the member). `app.created` and `app.revoked` already were (#189).
+- `RevokeUserSessions` ends a member's sessions and the tokens apps hold for them, as "log out everywhere" does; `not_found` for an unknown member.

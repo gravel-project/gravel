@@ -21,6 +21,7 @@ import (
 type AppServer struct {
 	hubv1connect.UnimplementedAppServiceHandler
 	apps   *apps.Service
+	access *Access // the operator's procedures (WithAccess); nil refuses them
 	logger *slog.Logger
 }
 

@@ -62,6 +62,16 @@ type rig struct {
 	fleet *fakeFleet
 	// notifiers answer TestNotifier (gravel#196).
 	notifiers *fakeNotifiers
+	// erased are the erasures EraseIdentity asked for (#195).
+	erased []erasure
+	// srvSt is the servers' store, which keeps what applies recorded (servers.applied).
+	srvSt *serverstest.FakeStore
+}
+
+// erasure is one EraseIdentity call: whose identity, and who asked.
+type erasure struct {
+	key store.PlayerKey
+	by  store.Actor
 }
 
 // fakeNotifiers answer TestNotifier: the test sets the error; it records what it was asked.
@@ -152,7 +162,8 @@ func newRig(t *testing.T, idOpts ...rigIdentity) *rig {
 	r.ids = identity.New(r.idSt, o.ID, nil, 10*time.Minute, logger, opts...)
 	r.sess = session.New(r.idSt, time.Hour, false, logger)
 	r.apps = apps.New(r.appSt, o.ID, time.Hour, logger)
-	r.srvs = servers.New(serverstest.NewFakeStore(), o.ID, []string{"wardogs"}, logger)
+	r.srvSt = serverstest.NewFakeStore()
+	r.srvs = servers.New(r.srvSt, o.ID, []string{"wardogs"}, logger)
 	r.obs = &fakeObserver{obs: map[string]servers.Observation{}}
 	r.pws = &fakePasswords{pw: map[string]string{}}
 	r.drv = &fakeDriver{errs: map[string]error{}}
@@ -175,7 +186,8 @@ func newRig(t *testing.T, idOpts ...rigIdentity) *rig {
 	r.proofs = proof.New(r.proofSt, logger, []proof.Channel{proof.GameChat{ProviderName: "steam"}})
 	idAPI.SetProofs(r.proofs, proofReader{}, r.obs)
 	mux.Handle(hubv1connect.NewIdentityServiceHandler(idAPI, member))
-	mux.Handle(hubv1connect.NewServerServiceHandler(api.NewServerServer(r.srvs, r.obs, r.ids, access, logger).WithSharedPasswords(r.pws).WithFleet(r.fleet, r.fleet), member))
+	mux.Handle(hubv1connect.NewServerServiceHandler(api.NewServerServer(r.srvs, r.obs, r.ids, access, logger).WithSharedPasswords(r.pws).WithFleet(r.fleet, r.fleet).
+		WithManifests(r.srvs, servers.ApplyOptions{}), member))
 	modServer := api.NewModerationServer(mod, access, r.ids, logger)
 	mux.Handle(hubv1connect.NewModerationServiceHandler(modServer, member))
 	// No cloud-VM manager: every host request that passes the caller checks is not_found.
@@ -184,10 +196,13 @@ func newRig(t *testing.T, idOpts ...rigIdentity) *rig {
 	leases := servers.NewLeases(r.srvs, hosts, serverstest.NewLeaseRows(), r.audit, o.ID, []byte("0123456789abcdef0123456789abcdef"), prometheus.NewRegistry(), logger)
 	mux.Handle(hubv1connect.NewServerLeaseServiceHandler(api.NewLeaseServer(leases, access, logger), member))
 	mux.Handle(hubv1connect.NewServerConfigServiceHandler(api.NewConfigServer(mod, access, logger), member))
-	statsAPI := api.NewStatsServer(boards, part, access, r.ids, logger)
+	statsAPI := api.NewStatsServer(boards, part, access, r.ids, logger).WithEraser(func(_ context.Context, key store.PlayerKey, by store.Actor) (store.Erasure, error) {
+		r.erased = append(r.erased, erasure{key, by})
+		return store.Erasure{MatchRows: 3, Pseudonym: true}, nil
+	})
 	statsAPI.SetResults(results.New(emptyResults{}, o.ID, nil, func(string) string { return "" }, nil, 0, prometheus.NewRegistry(), logger))
 	mux.Handle(hubv1connect.NewStatsServiceHandler(statsAPI, member))
-	mux.Handle(hubv1connect.NewAppServiceHandler(api.NewAppServer(r.apps, logger), member))
+	mux.Handle(hubv1connect.NewAppServiceHandler(api.NewAppServer(r.apps, logger).WithAccess(access), member))
 	r.srv = newH2CServer(r.sess.Middleware(r.apps.Middleware(mux)))
 	t.Cleanup(r.srv.Close)
 	return r

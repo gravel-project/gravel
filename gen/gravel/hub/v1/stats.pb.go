@@ -1730,6 +1730,146 @@ func (x *ParticipationTotals) GetSeconds() int32 {
 	return 0
 }
 
+// StatsService is the stats boards (ADR-0012): counts from the hub's own polls of each server,
+// keyed by provider identity, unlinked players under pseudonyms; and participation from
+type EraseIdentityRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The identity to erase: "steam" and a SteamID64.
+	Provider      string `protobuf:"bytes,1,opt,name=provider,proto3" json:"provider,omitempty"`
+	Subject       string `protobuf:"bytes,2,opt,name=subject,proto3" json:"subject,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EraseIdentityRequest) Reset() {
+	*x = EraseIdentityRequest{}
+	mi := &file_gravel_hub_v1_stats_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EraseIdentityRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EraseIdentityRequest) ProtoMessage() {}
+
+func (x *EraseIdentityRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_stats_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EraseIdentityRequest.ProtoReflect.Descriptor instead.
+func (*EraseIdentityRequest) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_stats_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *EraseIdentityRequest) GetProvider() string {
+	if x != nil {
+		return x.Provider
+	}
+	return ""
+}
+
+func (x *EraseIdentityRequest) GetSubject() string {
+	if x != nil {
+		return x.Subject
+	}
+	return ""
+}
+
+// EraseIdentityResponse counts what the erasure re-keyed; it never repeats the identity.
+type EraseIdentityResponse struct {
+	state                    protoimpl.MessageState `protogen:"open.v1"`
+	MatchRows                int32                  `protobuf:"varint,1,opt,name=match_rows,json=matchRows,proto3" json:"match_rows,omitempty"`
+	MonthlyRows              int32                  `protobuf:"varint,2,opt,name=monthly_rows,json=monthlyRows,proto3" json:"monthly_rows,omitempty"`
+	ParticipationRows        int32                  `protobuf:"varint,3,opt,name=participation_rows,json=participationRows,proto3" json:"participation_rows,omitempty"`
+	ParticipationMonthlyRows int32                  `protobuf:"varint,4,opt,name=participation_monthly_rows,json=participationMonthlyRows,proto3" json:"participation_monthly_rows,omitempty"`
+	IngestBatches            int32                  `protobuf:"varint,5,opt,name=ingest_batches,json=ingestBatches,proto3" json:"ingest_batches,omitempty"`
+	PseudonymDeleted         bool                   `protobuf:"varint,6,opt,name=pseudonym_deleted,json=pseudonymDeleted,proto3" json:"pseudonym_deleted,omitempty"`
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
+}
+
+func (x *EraseIdentityResponse) Reset() {
+	*x = EraseIdentityResponse{}
+	mi := &file_gravel_hub_v1_stats_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EraseIdentityResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EraseIdentityResponse) ProtoMessage() {}
+
+func (x *EraseIdentityResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_stats_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EraseIdentityResponse.ProtoReflect.Descriptor instead.
+func (*EraseIdentityResponse) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_stats_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *EraseIdentityResponse) GetMatchRows() int32 {
+	if x != nil {
+		return x.MatchRows
+	}
+	return 0
+}
+
+func (x *EraseIdentityResponse) GetMonthlyRows() int32 {
+	if x != nil {
+		return x.MonthlyRows
+	}
+	return 0
+}
+
+func (x *EraseIdentityResponse) GetParticipationRows() int32 {
+	if x != nil {
+		return x.ParticipationRows
+	}
+	return 0
+}
+
+func (x *EraseIdentityResponse) GetParticipationMonthlyRows() int32 {
+	if x != nil {
+		return x.ParticipationMonthlyRows
+	}
+	return 0
+}
+
+func (x *EraseIdentityResponse) GetIngestBatches() int32 {
+	if x != nil {
+		return x.IngestBatches
+	}
+	return 0
+}
+
+func (x *EraseIdentityResponse) GetPseudonymDeleted() bool {
+	if x != nil {
+		return x.PseudonymDeleted
+	}
+	return false
+}
+
 // MatchResult is one series a server's match plugin ran.
 type MatchResult struct {
 	state    protoimpl.MessageState `protogen:"open.v1"`
@@ -1755,7 +1895,7 @@ type MatchResult struct {
 
 func (x *MatchResult) Reset() {
 	*x = MatchResult{}
-	mi := &file_gravel_hub_v1_stats_proto_msgTypes[23]
+	mi := &file_gravel_hub_v1_stats_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1767,7 +1907,7 @@ func (x *MatchResult) String() string {
 func (*MatchResult) ProtoMessage() {}
 
 func (x *MatchResult) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_stats_proto_msgTypes[23]
+	mi := &file_gravel_hub_v1_stats_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1780,7 +1920,7 @@ func (x *MatchResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MatchResult.ProtoReflect.Descriptor instead.
 func (*MatchResult) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_stats_proto_rawDescGZIP(), []int{23}
+	return file_gravel_hub_v1_stats_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *MatchResult) GetId() string {
@@ -1892,7 +2032,7 @@ type MatchResultMap struct {
 
 func (x *MatchResultMap) Reset() {
 	*x = MatchResultMap{}
-	mi := &file_gravel_hub_v1_stats_proto_msgTypes[24]
+	mi := &file_gravel_hub_v1_stats_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1904,7 +2044,7 @@ func (x *MatchResultMap) String() string {
 func (*MatchResultMap) ProtoMessage() {}
 
 func (x *MatchResultMap) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_stats_proto_msgTypes[24]
+	mi := &file_gravel_hub_v1_stats_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1917,7 +2057,7 @@ func (x *MatchResultMap) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MatchResultMap.ProtoReflect.Descriptor instead.
 func (*MatchResultMap) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_stats_proto_rawDescGZIP(), []int{24}
+	return file_gravel_hub_v1_stats_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *MatchResultMap) GetMapNumber() int32 {
@@ -1999,7 +2139,7 @@ type MatchResultPlayer struct {
 
 func (x *MatchResultPlayer) Reset() {
 	*x = MatchResultPlayer{}
-	mi := &file_gravel_hub_v1_stats_proto_msgTypes[25]
+	mi := &file_gravel_hub_v1_stats_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2011,7 +2151,7 @@ func (x *MatchResultPlayer) String() string {
 func (*MatchResultPlayer) ProtoMessage() {}
 
 func (x *MatchResultPlayer) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_stats_proto_msgTypes[25]
+	mi := &file_gravel_hub_v1_stats_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2024,7 +2164,7 @@ func (x *MatchResultPlayer) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MatchResultPlayer.ProtoReflect.Descriptor instead.
 func (*MatchResultPlayer) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_stats_proto_rawDescGZIP(), []int{25}
+	return file_gravel_hub_v1_stats_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *MatchResultPlayer) GetMapNumber() int32 {
@@ -2126,7 +2266,7 @@ type ListMatchResultsRequest struct {
 
 func (x *ListMatchResultsRequest) Reset() {
 	*x = ListMatchResultsRequest{}
-	mi := &file_gravel_hub_v1_stats_proto_msgTypes[26]
+	mi := &file_gravel_hub_v1_stats_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2138,7 +2278,7 @@ func (x *ListMatchResultsRequest) String() string {
 func (*ListMatchResultsRequest) ProtoMessage() {}
 
 func (x *ListMatchResultsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_stats_proto_msgTypes[26]
+	mi := &file_gravel_hub_v1_stats_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2151,7 +2291,7 @@ func (x *ListMatchResultsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMatchResultsRequest.ProtoReflect.Descriptor instead.
 func (*ListMatchResultsRequest) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_stats_proto_rawDescGZIP(), []int{26}
+	return file_gravel_hub_v1_stats_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *ListMatchResultsRequest) GetServerId() string {
@@ -2198,7 +2338,7 @@ type ListMatchResultsResponse struct {
 
 func (x *ListMatchResultsResponse) Reset() {
 	*x = ListMatchResultsResponse{}
-	mi := &file_gravel_hub_v1_stats_proto_msgTypes[27]
+	mi := &file_gravel_hub_v1_stats_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2210,7 +2350,7 @@ func (x *ListMatchResultsResponse) String() string {
 func (*ListMatchResultsResponse) ProtoMessage() {}
 
 func (x *ListMatchResultsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_stats_proto_msgTypes[27]
+	mi := &file_gravel_hub_v1_stats_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2223,7 +2363,7 @@ func (x *ListMatchResultsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMatchResultsResponse.ProtoReflect.Descriptor instead.
 func (*ListMatchResultsResponse) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_stats_proto_rawDescGZIP(), []int{27}
+	return file_gravel_hub_v1_stats_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *ListMatchResultsResponse) GetResults() []*MatchResult {
@@ -2242,7 +2382,7 @@ type GetMatchResultRequest struct {
 
 func (x *GetMatchResultRequest) Reset() {
 	*x = GetMatchResultRequest{}
-	mi := &file_gravel_hub_v1_stats_proto_msgTypes[28]
+	mi := &file_gravel_hub_v1_stats_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2254,7 +2394,7 @@ func (x *GetMatchResultRequest) String() string {
 func (*GetMatchResultRequest) ProtoMessage() {}
 
 func (x *GetMatchResultRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_stats_proto_msgTypes[28]
+	mi := &file_gravel_hub_v1_stats_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2267,7 +2407,7 @@ func (x *GetMatchResultRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMatchResultRequest.ProtoReflect.Descriptor instead.
 func (*GetMatchResultRequest) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_stats_proto_rawDescGZIP(), []int{28}
+	return file_gravel_hub_v1_stats_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *GetMatchResultRequest) GetId() string {
@@ -2286,7 +2426,7 @@ type GetMatchResultResponse struct {
 
 func (x *GetMatchResultResponse) Reset() {
 	*x = GetMatchResultResponse{}
-	mi := &file_gravel_hub_v1_stats_proto_msgTypes[29]
+	mi := &file_gravel_hub_v1_stats_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2298,7 +2438,7 @@ func (x *GetMatchResultResponse) String() string {
 func (*GetMatchResultResponse) ProtoMessage() {}
 
 func (x *GetMatchResultResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_stats_proto_msgTypes[29]
+	mi := &file_gravel_hub_v1_stats_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2311,7 +2451,7 @@ func (x *GetMatchResultResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMatchResultResponse.ProtoReflect.Descriptor instead.
 func (*GetMatchResultResponse) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_stats_proto_rawDescGZIP(), []int{29}
+	return file_gravel_hub_v1_stats_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *GetMatchResultResponse) GetResult() *MatchResult {
@@ -2331,7 +2471,7 @@ type GetMatchDemoRequest struct {
 
 func (x *GetMatchDemoRequest) Reset() {
 	*x = GetMatchDemoRequest{}
-	mi := &file_gravel_hub_v1_stats_proto_msgTypes[30]
+	mi := &file_gravel_hub_v1_stats_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2343,7 +2483,7 @@ func (x *GetMatchDemoRequest) String() string {
 func (*GetMatchDemoRequest) ProtoMessage() {}
 
 func (x *GetMatchDemoRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_stats_proto_msgTypes[30]
+	mi := &file_gravel_hub_v1_stats_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2356,7 +2496,7 @@ func (x *GetMatchDemoRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMatchDemoRequest.ProtoReflect.Descriptor instead.
 func (*GetMatchDemoRequest) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_stats_proto_rawDescGZIP(), []int{30}
+	return file_gravel_hub_v1_stats_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *GetMatchDemoRequest) GetId() string {
@@ -2383,7 +2523,7 @@ type GetMatchDemoResponse struct {
 
 func (x *GetMatchDemoResponse) Reset() {
 	*x = GetMatchDemoResponse{}
-	mi := &file_gravel_hub_v1_stats_proto_msgTypes[31]
+	mi := &file_gravel_hub_v1_stats_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2395,7 +2535,7 @@ func (x *GetMatchDemoResponse) String() string {
 func (*GetMatchDemoResponse) ProtoMessage() {}
 
 func (x *GetMatchDemoResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_stats_proto_msgTypes[31]
+	mi := &file_gravel_hub_v1_stats_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2408,7 +2548,7 @@ func (x *GetMatchDemoResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMatchDemoResponse.ProtoReflect.Descriptor instead.
 func (*GetMatchDemoResponse) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_stats_proto_rawDescGZIP(), []int{31}
+	return file_gravel_hub_v1_stats_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *GetMatchDemoResponse) GetUrl() string {
@@ -2438,7 +2578,7 @@ type GetSessionRecapRequest struct {
 
 func (x *GetSessionRecapRequest) Reset() {
 	*x = GetSessionRecapRequest{}
-	mi := &file_gravel_hub_v1_stats_proto_msgTypes[32]
+	mi := &file_gravel_hub_v1_stats_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2450,7 +2590,7 @@ func (x *GetSessionRecapRequest) String() string {
 func (*GetSessionRecapRequest) ProtoMessage() {}
 
 func (x *GetSessionRecapRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_stats_proto_msgTypes[32]
+	mi := &file_gravel_hub_v1_stats_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2463,7 +2603,7 @@ func (x *GetSessionRecapRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSessionRecapRequest.ProtoReflect.Descriptor instead.
 func (*GetSessionRecapRequest) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_stats_proto_rawDescGZIP(), []int{32}
+	return file_gravel_hub_v1_stats_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *GetSessionRecapRequest) GetServerId() string {
@@ -2512,7 +2652,7 @@ type RecapMatch struct {
 
 func (x *RecapMatch) Reset() {
 	*x = RecapMatch{}
-	mi := &file_gravel_hub_v1_stats_proto_msgTypes[33]
+	mi := &file_gravel_hub_v1_stats_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2524,7 +2664,7 @@ func (x *RecapMatch) String() string {
 func (*RecapMatch) ProtoMessage() {}
 
 func (x *RecapMatch) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_stats_proto_msgTypes[33]
+	mi := &file_gravel_hub_v1_stats_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2537,7 +2677,7 @@ func (x *RecapMatch) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RecapMatch.ProtoReflect.Descriptor instead.
 func (*RecapMatch) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_stats_proto_rawDescGZIP(), []int{33}
+	return file_gravel_hub_v1_stats_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *RecapMatch) GetId() string {
@@ -2603,7 +2743,7 @@ type GetSessionRecapResponse struct {
 
 func (x *GetSessionRecapResponse) Reset() {
 	*x = GetSessionRecapResponse{}
-	mi := &file_gravel_hub_v1_stats_proto_msgTypes[34]
+	mi := &file_gravel_hub_v1_stats_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2615,7 +2755,7 @@ func (x *GetSessionRecapResponse) String() string {
 func (*GetSessionRecapResponse) ProtoMessage() {}
 
 func (x *GetSessionRecapResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_stats_proto_msgTypes[34]
+	mi := &file_gravel_hub_v1_stats_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2628,7 +2768,7 @@ func (x *GetSessionRecapResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSessionRecapResponse.ProtoReflect.Descriptor instead.
 func (*GetSessionRecapResponse) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_stats_proto_rawDescGZIP(), []int{34}
+	return file_gravel_hub_v1_stats_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *GetSessionRecapResponse) GetFrom() *timestamppb.Timestamp {
@@ -2834,7 +2974,18 @@ const file_gravel_hub_v1_stats_proto_rawDesc = "" +
 	"\x02to\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x02to\x12\x12\n" +
 	"\x04kind\x18\x05 \x01(\tR\x04kind\x12\x16\n" +
 	"\x06events\x18\x06 \x01(\x05R\x06events\x12\x18\n" +
-	"\aseconds\x18\a \x01(\x05R\aseconds\"\xe9\x03\n" +
+	"\aseconds\x18\a \x01(\x05R\aseconds\"L\n" +
+	"\x14EraseIdentityRequest\x12\x1a\n" +
+	"\bprovider\x18\x01 \x01(\tR\bprovider\x12\x18\n" +
+	"\asubject\x18\x02 \x01(\tR\asubject\"\x9a\x02\n" +
+	"\x15EraseIdentityResponse\x12\x1d\n" +
+	"\n" +
+	"match_rows\x18\x01 \x01(\x05R\tmatchRows\x12!\n" +
+	"\fmonthly_rows\x18\x02 \x01(\x05R\vmonthlyRows\x12-\n" +
+	"\x12participation_rows\x18\x03 \x01(\x05R\x11participationRows\x12<\n" +
+	"\x1aparticipation_monthly_rows\x18\x04 \x01(\x05R\x18participationMonthlyRows\x12%\n" +
+	"\x0eingest_batches\x18\x05 \x01(\x05R\ringestBatches\x12+\n" +
+	"\x11pseudonym_deleted\x18\x06 \x01(\bR\x10pseudonymDeleted\"\xe9\x03\n" +
 	"\vMatchResult\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\tserver_id\x18\x02 \x01(\tR\bserverId\x12\x19\n" +
@@ -2928,7 +3079,7 @@ const file_gravel_hub_v1_stats_proto_rawDesc = "" +
 	"\x10minutes_at_floor\x18\x06 \x01(\x05R\x0eminutesAtFloor\x12\x18\n" +
 	"\aplayers\x18\a \x01(\x05R\aplayers\x123\n" +
 	"\amatches\x18\b \x03(\v2\x19.gravel.hub.v1.RecapMatchR\amatches\x12+\n" +
-	"\x03top\x18\t \x03(\v2\x19.gravel.hub.v1.BoardEntryR\x03top2\xa9\b\n" +
+	"\x03top\x18\t \x03(\v2\x19.gravel.hub.v1.BoardEntryR\x03top2\x85\t\n" +
 	"\fStatsService\x12K\n" +
 	"\bGetBoard\x12\x1e.gravel.hub.v1.GetBoardRequest\x1a\x1f.gravel.hub.v1.GetBoardResponse\x12T\n" +
 	"\vListMatches\x12!.gravel.hub.v1.ListMatchesRequest\x1a\".gravel.hub.v1.ListMatchesResponse\x12W\n" +
@@ -2940,7 +3091,8 @@ const file_gravel_hub_v1_stats_proto_rawDesc = "" +
 	"\x0fGetSessionRecap\x12%.gravel.hub.v1.GetSessionRecapRequest\x1a&.gravel.hub.v1.GetSessionRecapResponse\x12c\n" +
 	"\x10ListMatchResults\x12&.gravel.hub.v1.ListMatchResultsRequest\x1a'.gravel.hub.v1.ListMatchResultsResponse\x12]\n" +
 	"\x0eGetMatchResult\x12$.gravel.hub.v1.GetMatchResultRequest\x1a%.gravel.hub.v1.GetMatchResultResponse\x12W\n" +
-	"\fGetMatchDemo\x12\".gravel.hub.v1.GetMatchDemoRequest\x1a#.gravel.hub.v1.GetMatchDemoResponseB:Z8github.com/gravel-project/gravel/gen/gravel/hub/v1;hubv1b\x06proto3"
+	"\fGetMatchDemo\x12\".gravel.hub.v1.GetMatchDemoRequest\x1a#.gravel.hub.v1.GetMatchDemoResponse\x12Z\n" +
+	"\rEraseIdentity\x12#.gravel.hub.v1.EraseIdentityRequest\x1a$.gravel.hub.v1.EraseIdentityResponseB:Z8github.com/gravel-project/gravel/gen/gravel/hub/v1;hubv1b\x06proto3"
 
 var (
 	file_gravel_hub_v1_stats_proto_rawDescOnce sync.Once
@@ -2954,7 +3106,7 @@ func file_gravel_hub_v1_stats_proto_rawDescGZIP() []byte {
 	return file_gravel_hub_v1_stats_proto_rawDescData
 }
 
-var file_gravel_hub_v1_stats_proto_msgTypes = make([]protoimpl.MessageInfo, 35)
+var file_gravel_hub_v1_stats_proto_msgTypes = make([]protoimpl.MessageInfo, 37)
 var file_gravel_hub_v1_stats_proto_goTypes = []any{
 	(*BoardEntry)(nil),                    // 0: gravel.hub.v1.BoardEntry
 	(*GetBoardRequest)(nil),               // 1: gravel.hub.v1.GetBoardRequest
@@ -2979,62 +3131,64 @@ var file_gravel_hub_v1_stats_proto_goTypes = []any{
 	(*GetParticipationBoardRequest)(nil),  // 20: gravel.hub.v1.GetParticipationBoardRequest
 	(*GetParticipationBoardResponse)(nil), // 21: gravel.hub.v1.GetParticipationBoardResponse
 	(*ParticipationTotals)(nil),           // 22: gravel.hub.v1.ParticipationTotals
-	(*MatchResult)(nil),                   // 23: gravel.hub.v1.MatchResult
-	(*MatchResultMap)(nil),                // 24: gravel.hub.v1.MatchResultMap
-	(*MatchResultPlayer)(nil),             // 25: gravel.hub.v1.MatchResultPlayer
-	(*ListMatchResultsRequest)(nil),       // 26: gravel.hub.v1.ListMatchResultsRequest
-	(*ListMatchResultsResponse)(nil),      // 27: gravel.hub.v1.ListMatchResultsResponse
-	(*GetMatchResultRequest)(nil),         // 28: gravel.hub.v1.GetMatchResultRequest
-	(*GetMatchResultResponse)(nil),        // 29: gravel.hub.v1.GetMatchResultResponse
-	(*GetMatchDemoRequest)(nil),           // 30: gravel.hub.v1.GetMatchDemoRequest
-	(*GetMatchDemoResponse)(nil),          // 31: gravel.hub.v1.GetMatchDemoResponse
-	(*GetSessionRecapRequest)(nil),        // 32: gravel.hub.v1.GetSessionRecapRequest
-	(*RecapMatch)(nil),                    // 33: gravel.hub.v1.RecapMatch
-	(*GetSessionRecapResponse)(nil),       // 34: gravel.hub.v1.GetSessionRecapResponse
-	(*timestamppb.Timestamp)(nil),         // 35: google.protobuf.Timestamp
-	(*TeamScore)(nil),                     // 36: gravel.hub.v1.TeamScore
+	(*EraseIdentityRequest)(nil),          // 23: gravel.hub.v1.EraseIdentityRequest
+	(*EraseIdentityResponse)(nil),         // 24: gravel.hub.v1.EraseIdentityResponse
+	(*MatchResult)(nil),                   // 25: gravel.hub.v1.MatchResult
+	(*MatchResultMap)(nil),                // 26: gravel.hub.v1.MatchResultMap
+	(*MatchResultPlayer)(nil),             // 27: gravel.hub.v1.MatchResultPlayer
+	(*ListMatchResultsRequest)(nil),       // 28: gravel.hub.v1.ListMatchResultsRequest
+	(*ListMatchResultsResponse)(nil),      // 29: gravel.hub.v1.ListMatchResultsResponse
+	(*GetMatchResultRequest)(nil),         // 30: gravel.hub.v1.GetMatchResultRequest
+	(*GetMatchResultResponse)(nil),        // 31: gravel.hub.v1.GetMatchResultResponse
+	(*GetMatchDemoRequest)(nil),           // 32: gravel.hub.v1.GetMatchDemoRequest
+	(*GetMatchDemoResponse)(nil),          // 33: gravel.hub.v1.GetMatchDemoResponse
+	(*GetSessionRecapRequest)(nil),        // 34: gravel.hub.v1.GetSessionRecapRequest
+	(*RecapMatch)(nil),                    // 35: gravel.hub.v1.RecapMatch
+	(*GetSessionRecapResponse)(nil),       // 36: gravel.hub.v1.GetSessionRecapResponse
+	(*timestamppb.Timestamp)(nil),         // 37: google.protobuf.Timestamp
+	(*TeamScore)(nil),                     // 38: gravel.hub.v1.TeamScore
 }
 var file_gravel_hub_v1_stats_proto_depIdxs = []int32{
 	0,  // 0: gravel.hub.v1.GetBoardResponse.entries:type_name -> gravel.hub.v1.BoardEntry
-	35, // 1: gravel.hub.v1.GetBoardResponse.from:type_name -> google.protobuf.Timestamp
-	35, // 2: gravel.hub.v1.GetBoardResponse.to:type_name -> google.protobuf.Timestamp
-	35, // 3: gravel.hub.v1.MatchSummary.started_at:type_name -> google.protobuf.Timestamp
-	35, // 4: gravel.hub.v1.MatchSummary.ended_at:type_name -> google.protobuf.Timestamp
+	37, // 1: gravel.hub.v1.GetBoardResponse.from:type_name -> google.protobuf.Timestamp
+	37, // 2: gravel.hub.v1.GetBoardResponse.to:type_name -> google.protobuf.Timestamp
+	37, // 3: gravel.hub.v1.MatchSummary.started_at:type_name -> google.protobuf.Timestamp
+	37, // 4: gravel.hub.v1.MatchSummary.ended_at:type_name -> google.protobuf.Timestamp
 	3,  // 5: gravel.hub.v1.ListMatchesResponse.matches:type_name -> gravel.hub.v1.MatchSummary
-	35, // 6: gravel.hub.v1.ProfileTotals.from:type_name -> google.protobuf.Timestamp
-	35, // 7: gravel.hub.v1.ProfileTotals.to:type_name -> google.protobuf.Timestamp
-	35, // 8: gravel.hub.v1.PlayerMatch.started_at:type_name -> google.protobuf.Timestamp
-	35, // 9: gravel.hub.v1.PlayerMatch.ended_at:type_name -> google.protobuf.Timestamp
+	37, // 6: gravel.hub.v1.ProfileTotals.from:type_name -> google.protobuf.Timestamp
+	37, // 7: gravel.hub.v1.ProfileTotals.to:type_name -> google.protobuf.Timestamp
+	37, // 8: gravel.hub.v1.PlayerMatch.started_at:type_name -> google.protobuf.Timestamp
+	37, // 9: gravel.hub.v1.PlayerMatch.ended_at:type_name -> google.protobuf.Timestamp
 	10, // 10: gravel.hub.v1.GetMemberProfileResponse.totals:type_name -> gravel.hub.v1.ProfileTotals
 	11, // 11: gravel.hub.v1.GetMemberProfileResponse.recent:type_name -> gravel.hub.v1.PlayerMatch
 	22, // 12: gravel.hub.v1.GetMemberProfileResponse.participation:type_name -> gravel.hub.v1.ParticipationTotals
 	14, // 13: gravel.hub.v1.ParticipationEvent.identity:type_name -> gravel.hub.v1.PlayerIdentity
-	35, // 14: gravel.hub.v1.ParticipationEvent.occurred_at:type_name -> google.protobuf.Timestamp
+	37, // 14: gravel.hub.v1.ParticipationEvent.occurred_at:type_name -> google.protobuf.Timestamp
 	15, // 15: gravel.hub.v1.RecordParticipationRequest.events:type_name -> gravel.hub.v1.ParticipationEvent
 	17, // 16: gravel.hub.v1.RecordParticipationResponse.results:type_name -> gravel.hub.v1.ParticipationResult
 	19, // 17: gravel.hub.v1.GetParticipationBoardResponse.entries:type_name -> gravel.hub.v1.ParticipationEntry
-	35, // 18: gravel.hub.v1.GetParticipationBoardResponse.from:type_name -> google.protobuf.Timestamp
-	35, // 19: gravel.hub.v1.GetParticipationBoardResponse.to:type_name -> google.protobuf.Timestamp
-	35, // 20: gravel.hub.v1.ParticipationTotals.from:type_name -> google.protobuf.Timestamp
-	35, // 21: gravel.hub.v1.ParticipationTotals.to:type_name -> google.protobuf.Timestamp
-	35, // 22: gravel.hub.v1.MatchResult.started_at:type_name -> google.protobuf.Timestamp
-	35, // 23: gravel.hub.v1.MatchResult.ended_at:type_name -> google.protobuf.Timestamp
-	24, // 24: gravel.hub.v1.MatchResult.maps:type_name -> gravel.hub.v1.MatchResultMap
-	25, // 25: gravel.hub.v1.MatchResult.players:type_name -> gravel.hub.v1.MatchResultPlayer
-	35, // 26: gravel.hub.v1.MatchResultMap.started_at:type_name -> google.protobuf.Timestamp
-	35, // 27: gravel.hub.v1.MatchResultMap.ended_at:type_name -> google.protobuf.Timestamp
-	35, // 28: gravel.hub.v1.ListMatchResultsRequest.ended_after:type_name -> google.protobuf.Timestamp
-	23, // 29: gravel.hub.v1.ListMatchResultsResponse.results:type_name -> gravel.hub.v1.MatchResult
-	23, // 30: gravel.hub.v1.GetMatchResultResponse.result:type_name -> gravel.hub.v1.MatchResult
-	35, // 31: gravel.hub.v1.GetMatchDemoResponse.expires_at:type_name -> google.protobuf.Timestamp
-	35, // 32: gravel.hub.v1.GetSessionRecapRequest.from:type_name -> google.protobuf.Timestamp
-	35, // 33: gravel.hub.v1.GetSessionRecapRequest.to:type_name -> google.protobuf.Timestamp
-	35, // 34: gravel.hub.v1.RecapMatch.started_at:type_name -> google.protobuf.Timestamp
-	35, // 35: gravel.hub.v1.RecapMatch.ended_at:type_name -> google.protobuf.Timestamp
-	36, // 36: gravel.hub.v1.RecapMatch.teams:type_name -> gravel.hub.v1.TeamScore
-	35, // 37: gravel.hub.v1.GetSessionRecapResponse.from:type_name -> google.protobuf.Timestamp
-	35, // 38: gravel.hub.v1.GetSessionRecapResponse.to:type_name -> google.protobuf.Timestamp
-	33, // 39: gravel.hub.v1.GetSessionRecapResponse.matches:type_name -> gravel.hub.v1.RecapMatch
+	37, // 18: gravel.hub.v1.GetParticipationBoardResponse.from:type_name -> google.protobuf.Timestamp
+	37, // 19: gravel.hub.v1.GetParticipationBoardResponse.to:type_name -> google.protobuf.Timestamp
+	37, // 20: gravel.hub.v1.ParticipationTotals.from:type_name -> google.protobuf.Timestamp
+	37, // 21: gravel.hub.v1.ParticipationTotals.to:type_name -> google.protobuf.Timestamp
+	37, // 22: gravel.hub.v1.MatchResult.started_at:type_name -> google.protobuf.Timestamp
+	37, // 23: gravel.hub.v1.MatchResult.ended_at:type_name -> google.protobuf.Timestamp
+	26, // 24: gravel.hub.v1.MatchResult.maps:type_name -> gravel.hub.v1.MatchResultMap
+	27, // 25: gravel.hub.v1.MatchResult.players:type_name -> gravel.hub.v1.MatchResultPlayer
+	37, // 26: gravel.hub.v1.MatchResultMap.started_at:type_name -> google.protobuf.Timestamp
+	37, // 27: gravel.hub.v1.MatchResultMap.ended_at:type_name -> google.protobuf.Timestamp
+	37, // 28: gravel.hub.v1.ListMatchResultsRequest.ended_after:type_name -> google.protobuf.Timestamp
+	25, // 29: gravel.hub.v1.ListMatchResultsResponse.results:type_name -> gravel.hub.v1.MatchResult
+	25, // 30: gravel.hub.v1.GetMatchResultResponse.result:type_name -> gravel.hub.v1.MatchResult
+	37, // 31: gravel.hub.v1.GetMatchDemoResponse.expires_at:type_name -> google.protobuf.Timestamp
+	37, // 32: gravel.hub.v1.GetSessionRecapRequest.from:type_name -> google.protobuf.Timestamp
+	37, // 33: gravel.hub.v1.GetSessionRecapRequest.to:type_name -> google.protobuf.Timestamp
+	37, // 34: gravel.hub.v1.RecapMatch.started_at:type_name -> google.protobuf.Timestamp
+	37, // 35: gravel.hub.v1.RecapMatch.ended_at:type_name -> google.protobuf.Timestamp
+	38, // 36: gravel.hub.v1.RecapMatch.teams:type_name -> gravel.hub.v1.TeamScore
+	37, // 37: gravel.hub.v1.GetSessionRecapResponse.from:type_name -> google.protobuf.Timestamp
+	37, // 38: gravel.hub.v1.GetSessionRecapResponse.to:type_name -> google.protobuf.Timestamp
+	35, // 39: gravel.hub.v1.GetSessionRecapResponse.matches:type_name -> gravel.hub.v1.RecapMatch
 	0,  // 40: gravel.hub.v1.GetSessionRecapResponse.top:type_name -> gravel.hub.v1.BoardEntry
 	1,  // 41: gravel.hub.v1.StatsService.GetBoard:input_type -> gravel.hub.v1.GetBoardRequest
 	4,  // 42: gravel.hub.v1.StatsService.ListMatches:input_type -> gravel.hub.v1.ListMatchesRequest
@@ -3043,23 +3197,25 @@ var file_gravel_hub_v1_stats_proto_depIdxs = []int32{
 	12, // 45: gravel.hub.v1.StatsService.GetMemberProfile:input_type -> gravel.hub.v1.GetMemberProfileRequest
 	16, // 46: gravel.hub.v1.StatsService.RecordParticipation:input_type -> gravel.hub.v1.RecordParticipationRequest
 	20, // 47: gravel.hub.v1.StatsService.GetParticipationBoard:input_type -> gravel.hub.v1.GetParticipationBoardRequest
-	32, // 48: gravel.hub.v1.StatsService.GetSessionRecap:input_type -> gravel.hub.v1.GetSessionRecapRequest
-	26, // 49: gravel.hub.v1.StatsService.ListMatchResults:input_type -> gravel.hub.v1.ListMatchResultsRequest
-	28, // 50: gravel.hub.v1.StatsService.GetMatchResult:input_type -> gravel.hub.v1.GetMatchResultRequest
-	30, // 51: gravel.hub.v1.StatsService.GetMatchDemo:input_type -> gravel.hub.v1.GetMatchDemoRequest
-	2,  // 52: gravel.hub.v1.StatsService.GetBoard:output_type -> gravel.hub.v1.GetBoardResponse
-	5,  // 53: gravel.hub.v1.StatsService.ListMatches:output_type -> gravel.hub.v1.ListMatchesResponse
-	7,  // 54: gravel.hub.v1.StatsService.GetBoardName:output_type -> gravel.hub.v1.GetBoardNameResponse
-	9,  // 55: gravel.hub.v1.StatsService.SetBoardName:output_type -> gravel.hub.v1.SetBoardNameResponse
-	13, // 56: gravel.hub.v1.StatsService.GetMemberProfile:output_type -> gravel.hub.v1.GetMemberProfileResponse
-	18, // 57: gravel.hub.v1.StatsService.RecordParticipation:output_type -> gravel.hub.v1.RecordParticipationResponse
-	21, // 58: gravel.hub.v1.StatsService.GetParticipationBoard:output_type -> gravel.hub.v1.GetParticipationBoardResponse
-	34, // 59: gravel.hub.v1.StatsService.GetSessionRecap:output_type -> gravel.hub.v1.GetSessionRecapResponse
-	27, // 60: gravel.hub.v1.StatsService.ListMatchResults:output_type -> gravel.hub.v1.ListMatchResultsResponse
-	29, // 61: gravel.hub.v1.StatsService.GetMatchResult:output_type -> gravel.hub.v1.GetMatchResultResponse
-	31, // 62: gravel.hub.v1.StatsService.GetMatchDemo:output_type -> gravel.hub.v1.GetMatchDemoResponse
-	52, // [52:63] is the sub-list for method output_type
-	41, // [41:52] is the sub-list for method input_type
+	34, // 48: gravel.hub.v1.StatsService.GetSessionRecap:input_type -> gravel.hub.v1.GetSessionRecapRequest
+	28, // 49: gravel.hub.v1.StatsService.ListMatchResults:input_type -> gravel.hub.v1.ListMatchResultsRequest
+	30, // 50: gravel.hub.v1.StatsService.GetMatchResult:input_type -> gravel.hub.v1.GetMatchResultRequest
+	32, // 51: gravel.hub.v1.StatsService.GetMatchDemo:input_type -> gravel.hub.v1.GetMatchDemoRequest
+	23, // 52: gravel.hub.v1.StatsService.EraseIdentity:input_type -> gravel.hub.v1.EraseIdentityRequest
+	2,  // 53: gravel.hub.v1.StatsService.GetBoard:output_type -> gravel.hub.v1.GetBoardResponse
+	5,  // 54: gravel.hub.v1.StatsService.ListMatches:output_type -> gravel.hub.v1.ListMatchesResponse
+	7,  // 55: gravel.hub.v1.StatsService.GetBoardName:output_type -> gravel.hub.v1.GetBoardNameResponse
+	9,  // 56: gravel.hub.v1.StatsService.SetBoardName:output_type -> gravel.hub.v1.SetBoardNameResponse
+	13, // 57: gravel.hub.v1.StatsService.GetMemberProfile:output_type -> gravel.hub.v1.GetMemberProfileResponse
+	18, // 58: gravel.hub.v1.StatsService.RecordParticipation:output_type -> gravel.hub.v1.RecordParticipationResponse
+	21, // 59: gravel.hub.v1.StatsService.GetParticipationBoard:output_type -> gravel.hub.v1.GetParticipationBoardResponse
+	36, // 60: gravel.hub.v1.StatsService.GetSessionRecap:output_type -> gravel.hub.v1.GetSessionRecapResponse
+	29, // 61: gravel.hub.v1.StatsService.ListMatchResults:output_type -> gravel.hub.v1.ListMatchResultsResponse
+	31, // 62: gravel.hub.v1.StatsService.GetMatchResult:output_type -> gravel.hub.v1.GetMatchResultResponse
+	33, // 63: gravel.hub.v1.StatsService.GetMatchDemo:output_type -> gravel.hub.v1.GetMatchDemoResponse
+	24, // 64: gravel.hub.v1.StatsService.EraseIdentity:output_type -> gravel.hub.v1.EraseIdentityResponse
+	53, // [53:65] is the sub-list for method output_type
+	41, // [41:53] is the sub-list for method input_type
 	41, // [41:41] is the sub-list for extension type_name
 	41, // [41:41] is the sub-list for extension extendee
 	0,  // [0:41] is the sub-list for field type_name
@@ -3077,7 +3233,7 @@ func file_gravel_hub_v1_stats_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gravel_hub_v1_stats_proto_rawDesc), len(file_gravel_hub_v1_stats_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   35,
+			NumMessages:   37,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
