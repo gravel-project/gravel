@@ -34,6 +34,12 @@ patch release is everything else.
 
 ### Added
 
+- **People** in the admin dashboard (#203, ADR-0027; H1, #182): `/admin/people` has every people action, and the templ Members page is gone (`/members` redirects there; `/members/{id}` stays).
+  - **Members and roles:** every member, 100 a page, with their accounts, joined and last login, and grants named by game; grant (role, every game or one) and revoke, offered as the granter rules allow (`web/admin/src/people.ts` mirrors `identity.SetRole`: roles:grant for the scope, admin grants only by the owner, nobody their own); the hub still decides every call.
+  - **Accounts and sessions** (`members:manage`): add a local account with its set-password link, issue a reset link for a local account, log a member out everywhere (asked first). A one-time link is shown once, in the page's memory, with Copy and Done.
+  - **Handing the hub over:** the owner's *Hand the hub to …* (asked first); a standing nomination with Cancel for the owner and Accept/Decline for the nominee, who sees People in the nav even without `identity:read`. The account page keeps its Accept, Decline and Cancel.
+  - **Tests:** the granter rules (unit), every action against the rig's fakes (the calls, the refreshed list, the link gone after Done, refusals said), paging, the nominee's view, axe; `make a11y` scans `/admin/people` at desktop, phone and iPad sizes. `POST /members/role` and `/members/nominate` are gone.
+
 - **What a hub runs, and what an upgrade will do** (#214; H1, #182; for GRVL's waved upgrades).
   - **`/healthz`** gains `binary_sha256` (the running executable's SHA-256, true however the hub was deployed) and, from `GRAVEL_IMAGE`, `image` with the `digest` it is pinned to. The stock quadlet, `deploy/compose.yaml` and `gravel hub create`'s drop-in set `GRAVEL_IMAGE` beside `Image=`; `TestHubImageIsReportedAsPinned` fails when the stock unit's two drift, so moving the pin is a two-line change (`docs/releasing.md`).
   - **`gravel-hub migrate --check`** lists each pending migration with its cost and exits 3 while any are pending (`--status`, its old name, does the same). Every migration's second line is `-- gravel:cost instant | scan <tables> | rewrite <tables>` (`docs/hub.md`, Migrations), backfilled for the 29 there are: 22 instant, 7 scans of small tables, no rewrite. `TestEveryMigrationHasACost` refuses a migration without one.

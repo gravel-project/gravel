@@ -1,14 +1,40 @@
 package web_test
 
 import (
+	"context"
+	"errors"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"testing"
+
+	"github.com/google/uuid"
+
+	"github.com/gravel-project/gravel/internal/org"
+	"github.com/gravel-project/gravel/internal/store"
 )
 
-// The handover through the pages (#197): the owner nominates a member on Members, the member
-// accepts on their account page, and the old owner is an admin afterwards.
+// idOf is the member a browser is logged in as: /profile sends them to /members/<id>.
+func idOf(t *testing.T, c *http.Client, r *rig) uuid.UUID {
+	t.Helper()
+	resp, _ := get(t, c, r.srv.URL+"/profile")
+	id, err := uuid.Parse(strings.TrimPrefix(resp.Header.Get("Location"), "/members/"))
+	if err != nil {
+		t.Fatalf("/profile sent the member to %q", resp.Header.Get("Location"))
+	}
+	return id
+}
+
+// nominate is the owner's nomination, as /admin/people makes it through the API (gravel#203).
+func (r *rig) nominate(t *testing.T, by, nominee uuid.UUID) error {
+	t.Helper()
+	_, err := r.org.NominateOwner(context.Background(), nominee, store.Actor{UserID: &by, Via: store.ViaAPI})
+	return err
+}
+
+// The handover through the pages (#197): the owner nominates a member (on /admin/people since
+// #203), the member accepts on their account page, and the old owner is an admin afterwards.
 func TestOwnershipTransferPages(t *testing.T) {
 	r := newRig(t)
 	jo, sam := browser(t), browser(t)
@@ -17,16 +43,11 @@ func TestOwnershipTransferPages(t *testing.T) {
 	_, acct := get(t, jo, r.srv.URL+"/account")
 	post(t, jo, r.srv.URL+"/account/claim", url.Values{"_csrf": {csrfOf(t, acct)}, "token": {r.token}}, nil)
 
-	_, body := get(t, jo, r.srv.URL+"/members")
-	if !strings.Contains(body, "Hand the hub to Sam") || strings.Contains(body, "Hand the hub to Jo") {
-		t.Fatalf("the owner's Members page: %s", body)
+	joID, samID := idOf(t, jo, r), idOf(t, sam, r)
+	if err := r.nominate(t, joID, samID); err != nil {
+		t.Fatal(err)
 	}
-	samID := regexpFind(t, body, `href="/members/([^"]+)">Sam</a>`)
-	hx := map[string]string{"HX-Request": "true"}
-	resp, body := post(t, jo, r.srv.URL+"/members/nominate", url.Values{"_csrf": {csrfOf(t, body)}, "user_id": {samID}}, hx)
-	if resp.StatusCode != http.StatusOK || !strings.Contains(body, "Sam has until ") || !strings.Contains(body, "nominated to own") || strings.Contains(body, "Hand the hub to Sam") {
-		t.Fatalf("the nomination: %d %s", resp.StatusCode, body)
-	}
+	var body string
 	if _, body = get(t, jo, r.srv.URL+"/account"); !strings.Contains(body, "Handing the hub over") || !strings.Contains(body, "You nominated Sam") || !strings.Contains(body, "Cancel the nomination") {
 		t.Errorf("the owner's account page: %s", body)
 	}
@@ -35,7 +56,7 @@ func TestOwnershipTransferPages(t *testing.T) {
 	if !strings.Contains(samAcct, "You were nominated to own this hub") || !strings.Contains(samAcct, "Accept: own this hub") || !strings.Contains(samAcct, ">Decline<") {
 		t.Fatalf("the nominee's account page: %s", samAcct)
 	}
-	resp, _ = post(t, sam, r.srv.URL+"/account/ownership/accept", url.Values{"_csrf": {csrfOf(t, samAcct)}}, nil)
+	resp, _ := post(t, sam, r.srv.URL+"/account/ownership/accept", url.Values{"_csrf": {csrfOf(t, samAcct)}}, nil)
 	if resp.StatusCode != http.StatusSeeOther {
 		t.Fatalf("accept: %d", resp.StatusCode)
 	}
@@ -43,18 +64,15 @@ func TestOwnershipTransferPages(t *testing.T) {
 		t.Errorf("after accepting: %s", samAcct)
 	}
 	// Sam owns the hub and can hand it on; Jo is an admin and can't.
-	if _, body = get(t, sam, r.srv.URL+"/members"); !strings.Contains(body, "Hand the hub to Jo") || !strings.Contains(body, ">admin<") {
-		t.Errorf("the new owner's Members page: %s", body)
+	j, err := r.ids.Me(context.Background(), joID)
+	if err != nil || !slices.ContainsFunc(j.Grants, func(g store.RoleGrant) bool { return g.Role == store.RoleAdmin && g.GameID == "" }) {
+		t.Errorf("the old owner is not an admin: %+v %v", j.Grants, err)
 	}
-	if _, body = get(t, jo, r.srv.URL+"/members"); strings.Contains(body, "Hand the hub to") || !strings.Contains(body, ">admin<") {
-		t.Errorf("the old owner (an admin, with no handover): %s", body)
+	if err := r.nominate(t, joID, samID); !errors.Is(err, org.ErrNotOwner) {
+		t.Errorf("the old owner's nomination: %v", err)
 	}
-	resp, _ = post(t, jo, r.srv.URL+"/members/nominate", url.Values{"_csrf": {csrfOf(t, body)}, "user_id": {samID}}, nil)
-	if resp.StatusCode != http.StatusSeeOther {
-		t.Errorf("the old owner's nomination: %d", resp.StatusCode)
-	}
-	if _, body = get(t, jo, r.srv.URL+"/members"); !strings.Contains(body, "You can&#39;t nominate that member") {
-		t.Errorf("the old owner is told: %s", body)
+	if err := r.nominate(t, samID, joID); err != nil {
+		t.Errorf("the new owner's nomination: %v", err)
 	}
 }
 
@@ -66,13 +84,11 @@ func TestOwnershipDeclineAndCancel(t *testing.T) {
 	r.loginAs(t, jo, "jo")
 	_, acct := get(t, jo, r.srv.URL+"/account")
 	post(t, jo, r.srv.URL+"/account/claim", url.Values{"_csrf": {csrfOf(t, acct)}, "token": {r.token}}, nil)
-	_, body := get(t, jo, r.srv.URL+"/members")
-	samID := regexpFind(t, body, `href="/members/([^"]+)">Sam</a>`)
+	joID, samID := idOf(t, jo, r), idOf(t, sam, r)
 	nominate := func() {
 		t.Helper()
-		_, body := get(t, jo, r.srv.URL+"/members")
-		if resp, _ := post(t, jo, r.srv.URL+"/members/nominate", url.Values{"_csrf": {csrfOf(t, body)}, "user_id": {samID}}, nil); resp.StatusCode != http.StatusSeeOther {
-			t.Fatalf("nominate: %d", resp.StatusCode)
+		if err := r.nominate(t, joID, samID); err != nil {
+			t.Fatal(err)
 		}
 	}
 

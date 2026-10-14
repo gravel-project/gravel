@@ -652,34 +652,6 @@ func KindLabel(kind string) string {
 	return string(unicode.ToUpper(r)) + s[n:]
 }
 
-// MemberRow is one member on the owner's Members page.
-type MemberRow struct {
-	ID          string
-	DisplayName string
-	Accounts    string
-	Joined      time.Time
-	Owner       bool
-	Grants      []GrantView
-}
-
-// GrantView is one role a member holds, instance-wide or for a game (ADR-0027).
-type GrantView struct {
-	Role   string
-	GameID string // "" is every game
-	// Label is how the page says it: "moderator", or "operator · Counter-Strike 2".
-	Label string
-}
-
-// MembersPage lists the members and their grants; CanGrant (the page's User) adds the controls.
-type MembersPage struct {
-	Page
-	Members []MemberRow
-	// Roles and Scopes are the grant form's choices: admin, operator, moderator; every game or one.
-	Roles   []Option
-	Scopes  []Option
-	NextURL string
-}
-
 // Join is how a player reaches a server from the game: the label for its method ("Join by ID"),
 // the value to copy and where it goes.
 type Join struct {

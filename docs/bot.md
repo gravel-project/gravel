@@ -153,7 +153,7 @@ the module idles and says so once.
 **What sync never grants (ADR-0027 §5).** Role sync writes Discord roles from the hub, never hub
 roles from Discord. When a module maps a Discord role onto a hub role, the bot's app holds
 `roles:grant` and the hub lets an app change **moderator** grants only: owner and admin (and
-operator) are gravel's alone, given on the hub's Members page, so a compromised bot or a Discord
+operator) are gravel's alone, given on the hub's People page (`/admin/people`), so a compromised bot or a Discord
 admin can't make anyone an admin of the hub.
 
 Run `dry_run: true` first on a guild whose roles were given by hand: every change is logged

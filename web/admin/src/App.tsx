@@ -13,6 +13,7 @@ import { NotFound } from "./pages/NotFound";
 import { Access } from "./pages/Access";
 import { Events } from "./pages/Events";
 import { Fleet } from "./pages/Fleet";
+import { People } from "./pages/People";
 import { type Browser, BrowserProvider, useMe, useOrganization, windowBrowser } from "./session";
 import { TransportProvider } from "./transport";
 
@@ -70,6 +71,9 @@ function Shell() {
             <Route path="/events">
               <Events />
             </Route>
+            <Route path="/people">
+              <People me={me.me} org={org} />
+            </Route>
             <Route path="/access">
               <Access me={me.me} org={org} />
             </Route>
@@ -98,7 +102,7 @@ function Frame({ org, me, children }: { org: Organization | undefined; me?: User
           <span className="font-bold">
             {org?.name ?? "gravel"} <span className="font-normal text-muted">admin</span>
           </span>
-          {me && <Nav items={visible(me)} />}
+          {me && <Nav items={visible(me, undefined, org)} />}
         </div>
         <nav aria-label="Account" className="flex flex-wrap items-center gap-4">
           {me && <span className="text-muted">{me.displayName}</span>}

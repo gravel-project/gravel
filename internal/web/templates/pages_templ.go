@@ -1250,7 +1250,7 @@ func AccountContent(p AccountPage) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 99, " without an answer. Nominate them again from <a href=\"/members\">Members</a>, or cancel it.</p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 99, " without an answer. Nominate them again from <a href=\"/admin/people\">People</a>, or cancel it.</p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

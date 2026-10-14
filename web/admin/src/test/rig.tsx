@@ -7,7 +7,9 @@ import { QueryClient } from "@tanstack/react-query";
 import { memoryLocation } from "wouter/memory-location";
 
 import { App } from "../App";
-import { IdentityService, UserSchema } from "../gen/gravel/hub/v1/identity_pb";
+import { timestampFromDate } from "@bufbuild/protobuf/wkt";
+
+import { IdentityService, PasswordLinkSchema, RoleGrantSchema, UserSchema } from "../gen/gravel/hub/v1/identity_pb";
 import {
   type Event,
   EventKindSchema,
@@ -35,7 +37,17 @@ export interface RigOptions {
   games?: MessageInitShape<typeof GameSchema>[];
   // poll is the dashboard's refetch interval in ms; off (0) unless a test follows.
   poll?: number;
+  // users are ListUsers' members, one page of pageSize at a time; the people actions change them.
+  users?: Member[];
+  pageSize?: number;
+  // org adds to GetOrganization's answer: a pending nomination.
+  org?: MessageInitShape<typeof OrganizationSchema>;
+  // refuse names the procedures that answer permission_denied ("listUsers", "setUserRole", …).
+  refuse?: readonly string[];
 }
+
+// Call is one of the people actions as the page sent it.
+export type Call = { method: string; req: unknown };
 
 export type LogEvent = MessageInitShape<typeof EventSchema>;
 
@@ -47,9 +59,28 @@ export function member(fields: Member = {}): Member {
   return { id: "u1", displayName: "Jo", ...fields };
 }
 
-export function renderShell({ me, demo = false, path = "/", fleet = { totals: {} }, log = [], kinds = [], servers = [], games = [], poll = 0 }: RigOptions = {}) {
+export function renderShell({ me, demo = false, path = "/", fleet = { totals: {} }, log = [], kinds = [], servers = [], games = [], poll = 0,
+  users = [], pageSize = 100, org = {}, refuse = [] }: RigOptions = {}) {
   // calls are the ListEvents requests, in order, for a test to check the cursors.
   const calls: ListEventsRequest[] = [];
+  // actions are the people actions, in order; people and the organization are what they changed.
+  const actions: Call[] = [];
+  const people = users.map((u) => create(UserSchema, u));
+  const organization = create(OrganizationSchema, { id: "o1", name: "Hidden Token Gaming", owned: true, demo, ...org });
+  const expires = timestampFromDate(new Date("2026-10-15T12:00:00Z"));
+  const act = (method: string, req: unknown) => {
+    if (refuse.includes(method)) {
+      throw new ConnectError("not allowed to change that grant: only the owner changes an admin grant", Code.PermissionDenied);
+    }
+    actions.push({ method, req });
+  };
+  const find = (id: string) => {
+    const u = people.find((p) => p.id === id);
+    if (!u) {
+      throw new ConnectError("no such member", Code.NotFound);
+    }
+    return u;
+  };
   const transport = createRouterTransport(({ service }) => {
     service(IdentityService, {
       getMe: () => {
@@ -58,9 +89,61 @@ export function renderShell({ me, demo = false, path = "/", fleet = { totals: {}
         }
         return { user: create(UserSchema, me) };
       },
+      listUsers: (req) => {
+        if (refuse.includes("listUsers")) {
+          throw new ConnectError("needs identity:read", Code.PermissionDenied);
+        }
+        const from = req.pageToken === "" ? 0 : Number(req.pageToken);
+        const size = Math.min(req.pageSize || 100, pageSize);
+        const next = from + size < people.length ? String(from + size) : "";
+        return { users: people.slice(from, from + size), nextPageToken: next };
+      },
+      setUserRole: (req) => {
+        act("setUserRole", req);
+        const u = find(req.userId);
+        u.grants = u.grants.filter((g) => !(g.role === req.role && g.gameId === req.gameId));
+        if (req.granted) {
+          u.grants.push(create(RoleGrantSchema, { userId: u.id, role: req.role, gameId: req.gameId }));
+        }
+        return { user: u };
+      },
+      createLocalAccount: (req) => {
+        act("createLocalAccount", req);
+        const u = create(UserSchema, { id: "new-" + req.username, displayName: req.username, identities: [{ provider: "local", subject: req.username }] });
+        people.push(u);
+        return { user: u, link: create(PasswordLinkSchema, { url: "/auth/local/reset/set-" + req.username, purpose: "set", expiresAt: expires }) };
+      },
+      issuePasswordReset: (req) => {
+        act("issuePasswordReset", req);
+        return { link: create(PasswordLinkSchema, { url: "https://hub.example.org/auth/local/reset/reset-" + req.username, purpose: "reset", expiresAt: expires }) };
+      },
+      revokeUserSessions: (req) => {
+        act("revokeUserSessions", req);
+        find(req.userId);
+        return { revoked: 3 };
+      },
     });
     service(OrganizationService, {
-      getOrganization: () => ({ organization: create(OrganizationSchema, { id: "o1", name: "Hidden Token Gaming", owned: true, demo }) }),
+      getOrganization: () => ({ organization: organization }),
+      nominateOwner: (req) => {
+        act("nominateOwner", req);
+        const u = find(req.userId);
+        organization.pendingOwnerUserId = u.id;
+        organization.pendingOwnerName = u.displayName;
+        organization.pendingOwnerExpiresAt = timestampFromDate(new Date("2026-10-21T12:00:00Z"));
+        return { organization };
+      },
+      acceptOwnership: (req) => {
+        act("acceptOwnership", req);
+        organization.ownerUserId = organization.pendingOwnerUserId;
+        organization.pendingOwnerUserId = "";
+        return { organization };
+      },
+      cancelOwnershipTransfer: (req) => {
+        act("cancelOwnershipTransfer", req);
+        organization.pendingOwnerUserId = "";
+        return { organization };
+      },
       listEvents: (req) => {
         calls.push(req);
         if (log instanceof ConnectError) {
@@ -88,7 +171,7 @@ export function renderShell({ me, demo = false, path = "/", fleet = { totals: {}
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, refetchInterval: poll > 0 ? poll : false } } });
   const { hook } = memoryLocation({ path: here });
   const view = render(<App transport={transport} queryClient={queryClient} browser={browser} location={hook} />);
-  return { ...view, left, calls };
+  return { ...view, left, calls, actions, people, organization };
 }
 
 // readLog answers ListEvents as the hub does (internal/api/events.go): after_id oldest first,

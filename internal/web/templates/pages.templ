@@ -277,7 +277,7 @@ templ AccountContent(p AccountPage) {
 		<section aria-labelledby="transfer-heading">
 			<h2 id="transfer-heading">Handing the hub over</h2>
 			if n.Expired {
-				<p>Your nomination of { n.Name } expired on { n.ExpiresAt.UTC().Format("2006-01-02 15:04 UTC") } without an answer. Nominate them again from <a href="/members">Members</a>, or cancel it.</p>
+				<p>Your nomination of { n.Name } expired on { n.ExpiresAt.UTC().Format("2006-01-02 15:04 UTC") } without an answer. Nominate them again from <a href="/admin/people">People</a>, or cancel it.</p>
 			} else {
 				<p>You nominated { n.Name } to own this hub; they have until { n.ExpiresAt.UTC().Format("2006-01-02 15:04 UTC") } to accept. Until then you own it, and when they accept you stay on as an admin.</p>
 			}
