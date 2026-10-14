@@ -1,9 +1,11 @@
 # The gravel CLI
 
-`gravel` is the operator's command line. Its first commands make and look after the hub's own
+`gravel` is the operator's command line. Its `hub` commands make and look after the hub's own
 host through a cloud provider ([ADR-0020](adr/0020-the-hubs-own-host-made-by-the-cli-through-the-cloud-provider.md)).
-Commands that act on a running hub (`gravel claim` and the rest of build order step 5) will call
-the hub's HTTP-JSON API only.
+The commands that act on a running hub (`login`, `claim`, `whoami`, `fleet`, `servers`, `events`)
+call the hub's HTTP-JSON API only, as the admin dashboard does, with a credential on this machine
+([ADR-0031](adr/0031-the-cli-is-an-api-client-with-a-credential-on-this-machine.md); see
+[Talking to a hub](#talking-to-a-hub)).
 
 ```sh
 go install github.com/gravel-project/gravel/cmd/gravel@latest   # or a release archive, or make build
@@ -108,6 +110,64 @@ configuration. A new instance has a new outbound address; anything that admits t
 instance. `--dry-run` on `create`, `destroy` and `allow-ssh` exits 3 when it would change
 something and 0 when it would not.
 
+## Talking to a hub
+
+```sh
+gravel login --local --hub https://hub.example.org     # asks for a username and password
+gravel claim Q_iZ5HNSAmLF…                             # an unowned hub: become its owner
+gravel whoami                                          # who you are there, and what you may do
+gravel fleet                                           # every server's health; exit 1 when one is down
+gravel servers list
+gravel servers status htg-wardogs-1
+gravel events --since 1h --kind server                 # or --follow, until Ctrl-C
+gravel logout
+```
+
+**The hub** is `--hub`, else `GRAVEL_HUB`, else the one you last logged in to. A bare host name
+means `https://`.
+
+**Logging in.** `gravel login --local` logs in with a local account
+([ADR-0026](adr/0026-local-accounts-a-username-and-password-are-a-provider.md)): it asks for the
+username (or takes `--username`) and the password without echo, or reads them a line each from
+stdin when that is not a terminal, and posts them to the hub's own login form, so the hub's lockout
+and its limit per address apply as they do in a browser. It keeps the session cookie the hub sets.
+An account made with `gravel-hub users create-local` gets its password from the one-time link the
+command prints, in a browser. Over plain HTTP to another machine it warns: the password and the
+session cross the network in the clear.
+
+`gravel login --app --client-id ID --secret-file FILE` calls the hub as a registered app instead
+(`gravel-hub apps create`), within the app's scopes: the secret stays in its file (mode 0600, or it
+is refused) and the CLI trades it for a token on each run. `claim` refuses an app: an owner is a
+member.
+
+**The credential** is `~/.config/gravel/credentials` (`GRAVEL_CREDENTIALS` names another), mode
+0600 in a 0700 directory, one entry per hub; a file others can read is refused, as a session cookie
+in it is as good as the password:
+
+```json
+{
+  "current": "https://hub.example.org",
+  "credentials": [
+    {"hub_url": "https://hub.example.org", "kind": "session", "cookie": "__Host-gravel_session=…"},
+    {"hub_url": "https://hub-2.example.org", "kind": "app", "client_id": "gravel_47ca…", "secret_file": "/home/me/.config/gravel/hub-2-secret"}
+  ]
+}
+```
+
+`gravel logout` ends the session on the hub and forgets the entry. A session ends on the hub too
+(its lifetime, "log out everywhere", staff revoking it); the next command then exits 3 and says to
+log in again.
+
+**Events.** `gravel events` prints the newest 20 (`--limit`), or every one since `--since` (a
+duration back, `1h`, or a time, `2026-10-14T02:00:00Z`), oldest first, in UTC. `--kind` (a kind,
+`server.down`, or a group, `server`; repeatable), `--severity` (that and above) and `--server`
+narrow it. `--follow` then asks for what is new every 5 seconds, from the log's head when it
+started, until interrupted; a failed poll is reported and retried. It needs `events:read`.
+
+**The wire.** Every call is Connect's protocol with JSON bodies (connect-go with `WithProtoJSON`):
+what `curl` sends, and what a proxy can read. The gRPC stack is not in the binary; a test on its
+dependencies keeps it out.
+
 ## A hub host in a local VM
 
 `deploy/hub-vm.sh` boots the same document on Fedora Cloud under qemu/KVM with a second disk as the
@@ -138,7 +198,18 @@ The VMs a hub makes for its game servers are the hub's, not the CLI's: they come
 | `gravel hub allow-ssh` | replace the addresses SSH is admitted from | 0; 1; 2; 3 `--dry-run` |
 | `gravel hub ssh` | ssh to the host as `gravel` (`--admin`: as `admin`) | the remote command's |
 | `gravel hub cloud-init` | print the document for `--name` and `--device` | 0; 1; 2 |
+| `gravel login` | `--local`: a local account's session; `--app`: an app's client id and secret file | 0; 1 refused; 2 usage |
+| `gravel logout` | end the session on the hub and forget the credential | 0; 1 |
+| `gravel whoami` | the member (their roles, identities and capabilities), or the app | 0; 1; 3 log in |
+| `gravel claim TOKEN` | become the owner of an unowned hub (ADR-0002) | 0; 1 refused or owned; 2; 3 |
+| `gravel fleet` | the totals, the open alarms and each server's health, trouble first | 0; 1 a server is down, or failed; 3 |
+| `gravel servers list` | every server: game, location, driver, state, players, map | 0; 1; 3 |
+| `gravel servers status SERVER` | one server's last observation | 0; 1 unknown or failed; 3 |
+| `gravel events` | the events log; `--follow`, `--since`, `--kind`, `--severity`, `--server`, `--limit` | 0; 1; 2; 3 |
 | `gravel version` | the version | 0 |
+
+Exit 3 from a command that calls a hub means log in (again): no credential for the hub, a
+session that ended, or an app's credentials the hub refused. Every hub command takes `--hub`.
 
 Every cloud command takes `--provider` (`digitalocean`), `--token-file` (default
 `$GRAVEL_<PROVIDER>_TOKEN_FILE`) and `--project`.

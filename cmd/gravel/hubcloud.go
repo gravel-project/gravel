@@ -365,7 +365,7 @@ func hubStatus(ctx context.Context, args []string, stdout, stderr io.Writer) int
 	case err != nil:
 		fmt.Fprintf(stdout, "hub       could not read the hub's log over SSH: %v\n", err)
 	case token != "":
-		fmt.Fprintf(stdout, "hub       unowned; claim token %s (expires %s): log in, then paste it on the account page\n", token, expires)
+		fmt.Fprintf(stdout, "hub       unowned; claim token %s (expires %s): gravel login, then gravel claim TOKEN (or paste it on the account page)\n", token, expires)
 	}
 	return 0
 }

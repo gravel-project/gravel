@@ -1,0 +1,10 @@
+HUB as of 2026-10-14T02:00:00Z
+3 servers: 1 up, 0 degraded, 1 down, 1 idle, 0 unknown; 12 of 64 players
+
+ALARM        SEVERITY  SERVER         SINCE                 DETAIL
+server.down  critical  htg-wardogs-2  2026-10-14T01:50:00Z  not answering for 10 minutes
+
+SERVER         GAME     HEALTH  SINCE                 PLAYERS  MAP    REASON
+htg-wardogs-2  wardogs  down    2026-10-14T01:50:00Z  -        -      not answering
+htg-wardogs-1  wardogs  up      2026-10-13T23:00:00Z  12/64    Ozeti  answering
+htg-cs2-1      cs2      idle    2026-10-13T02:00:00Z  -        -      parked
