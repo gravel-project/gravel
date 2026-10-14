@@ -33,6 +33,7 @@ type StatsServer struct {
 	members       MemberReader
 	logger        *slog.Logger
 	results       *results.Service // match results (ADR-0024); nil: none
+	erase         Eraser           // EraseIdentity (#195); nil: none
 }
 
 // MemberReader reads a member with their linked identities (identity.Service).

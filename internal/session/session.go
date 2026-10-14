@@ -58,6 +58,7 @@ type Store interface {
 	TouchSession(ctx context.Context, id uuid.UUID, lastSeen time.Time) error
 	DeleteSession(ctx context.Context, id uuid.UUID) error
 	DeleteUserSessions(ctx context.Context, userID uuid.UUID) (int64, error)
+	RevokeUserSessions(ctx context.Context, userID uuid.UUID, by store.Actor, at time.Time) (int64, error)
 	DeleteExpiredSessions(ctx context.Context, now time.Time) (int64, error)
 }
 
@@ -173,6 +174,12 @@ func (m *Manager) Delete(ctx context.Context, s store.Session) error {
 // its own cookie.
 func (m *Manager) RevokeAll(ctx context.Context, userID uuid.UUID) (int64, error) {
 	return m.st.DeleteUserSessions(ctx, userID)
+}
+
+// RevokeFor ends every session of a member, and the tokens apps hold for them, for staff (#195):
+// recorded in the events log as by's (sessions.revoked). ErrNotFound for an unknown member.
+func (m *Manager) RevokeFor(ctx context.Context, userID uuid.UUID, by store.Actor) (int64, error) {
+	return m.st.RevokeUserSessions(ctx, userID, by, m.now())
 }
 
 // Clear deletes the session cookie.

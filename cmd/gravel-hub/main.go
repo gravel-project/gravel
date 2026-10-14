@@ -120,6 +120,10 @@ func usage(w io.Writer) {
                 made-up members and matches, only into an empty database of a hub with demo: true
   version       print the version
 
+apps, servers, users and stats run against the database on this host: they are for bootstrap and
+for what only the host may change (a servers manifest's files and where their secrets go). Day to day,
+staff do the same over the API (docs/hub.md, Admin procedures).
+
 The config path comes from --config, then $GRAVEL_CONFIG, then `+defaultConfigPath+`.
 `)
 }

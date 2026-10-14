@@ -27,7 +27,7 @@ type Store interface {
 	ListGames(ctx context.Context, orgID uuid.UUID, includeRemoved bool) ([]store.Game, error)
 	ListManagedServers(ctx context.Context, orgID uuid.UUID, includeRemoved bool) ([]store.ManagedServer, error)
 	ListLocations(ctx context.Context, orgID uuid.UUID) ([]store.Location, error)
-	ApplyServers(ctx context.Context, orgID uuid.UUID, games []store.Game, locations []store.Location, servers []store.ManagedServer, now time.Time) error
+	ApplyServersRecorded(ctx context.Context, orgID uuid.UUID, games []store.Game, locations []store.Location, servers []store.ManagedServer, now time.Time, rec store.Applied) error
 }
 
 // Service applies manifests and reads the games and servers back.
@@ -193,6 +193,9 @@ type ApplyOptions struct {
 	// Clouds makes a location's provider from its token, so a scaling ladder is walked against
 	// the cloud's sizes when it is saved (#37); nil skips that check. Only with CheckCredentials.
 	Clouds func(ctx context.Context, l Location, token string) (cloud.Provider, error)
+	// By is who applies, for the events log (servers.applied): the host's command line, or a
+	// member or app through the API (#195).
+	By store.Actor
 }
 
 // ErrCredentialFile is a credential file apply could not read.
@@ -273,7 +276,14 @@ func (s *Service) Apply(ctx context.Context, m Manifest, opt ApplyOptions) ([]Ch
 		}
 		rows = append(rows, r)
 	}
-	if err := s.st.ApplyServers(ctx, s.orgID, games, locs, rows, s.now()); err != nil {
+	rec := store.Applied{By: opt.By}
+	for _, c := range changes {
+		rec.Changes = append(rec.Changes, c.String())
+		if c.Kind == "server" {
+			rec.Servers = append(rec.Servers, c.ID)
+		}
+	}
+	if err := s.st.ApplyServersRecorded(ctx, s.orgID, games, locs, rows, s.now(), rec); err != nil {
 		return nil, err
 	}
 	for _, c := range changes {

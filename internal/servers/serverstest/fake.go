@@ -18,10 +18,12 @@ import (
 // FakeStore keeps games and servers in memory, with the store's apply rules (insert, update
 // where different, revive, mark the rest removed).
 type FakeStore struct {
-	mu      sync.Mutex
-	games   map[string]store.Game
-	servers map[string]store.ManagedServer
-	locs    map[string]store.Location
+	// Recorded are the applies the real store would record in the events log (servers.applied).
+	Recorded []store.Applied
+	mu       sync.Mutex
+	games    map[string]store.Game
+	servers  map[string]store.ManagedServer
+	locs     map[string]store.Location
 	// Applies counts ApplyServers calls.
 	Applies int
 }
@@ -74,10 +76,19 @@ func (f *FakeStore) ListManagedServers(_ context.Context, _ uuid.UUID, includeRe
 }
 
 // ApplyServers applies like the real store.
-func (f *FakeStore) ApplyServers(_ context.Context, orgID uuid.UUID, games []store.Game, locations []store.Location, servers []store.ManagedServer, now time.Time) error {
+func (f *FakeStore) ApplyServers(ctx context.Context, orgID uuid.UUID, games []store.Game, locations []store.Location, servers []store.ManagedServer, now time.Time) error {
+	return f.ApplyServersRecorded(ctx, orgID, games, locations, servers, now, store.Applied{})
+}
+
+// ApplyServersRecorded is ApplyServers; the record is kept in Applied, as the real store writes
+// it to the events log.
+func (f *FakeStore) ApplyServersRecorded(_ context.Context, orgID uuid.UUID, games []store.Game, locations []store.Location, servers []store.ManagedServer, now time.Time, rec store.Applied) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.Applies++
+	if len(rec.Changes) > 0 {
+		f.Recorded = append(f.Recorded, rec)
+	}
 	keepG := map[string]bool{}
 	for _, g := range games {
 		keepG[g.ID] = true

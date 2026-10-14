@@ -1629,6 +1629,284 @@ func (x *GetFleetSummaryResponse) GetAsOf() *timestamppb.Timestamp {
 	return nil
 }
 
+type ExportServersRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ExportServersRequest) Reset() {
+	*x = ExportServersRequest{}
+	mi := &file_gravel_hub_v1_servers_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ExportServersRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ExportServersRequest) ProtoMessage() {}
+
+func (x *ExportServersRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_servers_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ExportServersRequest.ProtoReflect.Descriptor instead.
+func (*ExportServersRequest) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_servers_proto_rawDescGZIP(), []int{21}
+}
+
+type ExportServersResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The stored games, locations and servers as a servers.yaml manifest.
+	Manifest      string `protobuf:"bytes,1,opt,name=manifest,proto3" json:"manifest,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ExportServersResponse) Reset() {
+	*x = ExportServersResponse{}
+	mi := &file_gravel_hub_v1_servers_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ExportServersResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ExportServersResponse) ProtoMessage() {}
+
+func (x *ExportServersResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_servers_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ExportServersResponse.ProtoReflect.Descriptor instead.
+func (*ExportServersResponse) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_servers_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *ExportServersResponse) GetManifest() string {
+	if x != nil {
+		return x.Manifest
+	}
+	return ""
+}
+
+type ApplyServersRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// A servers.yaml manifest, the whole of it.
+	Manifest string `protobuf:"bytes,1,opt,name=manifest,proto3" json:"manifest,omitempty"`
+	// Say what would change and change nothing.
+	DryRun        bool `protobuf:"varint,2,opt,name=dry_run,json=dryRun,proto3" json:"dry_run,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ApplyServersRequest) Reset() {
+	*x = ApplyServersRequest{}
+	mi := &file_gravel_hub_v1_servers_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ApplyServersRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ApplyServersRequest) ProtoMessage() {}
+
+func (x *ApplyServersRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_servers_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ApplyServersRequest.ProtoReflect.Descriptor instead.
+func (*ApplyServersRequest) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_servers_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *ApplyServersRequest) GetManifest() string {
+	if x != nil {
+		return x.Manifest
+	}
+	return ""
+}
+
+func (x *ApplyServersRequest) GetDryRun() bool {
+	if x != nil {
+		return x.DryRun
+	}
+	return false
+}
+
+type ApplyServersResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Each change, "server htg-wardogs-1 changed"; empty when nothing would change.
+	Changes []string `protobuf:"bytes,1,rep,name=changes,proto3" json:"changes,omitempty"`
+	// Whether the changes were made (false on a dry run, and when there were none).
+	Applied       bool `protobuf:"varint,2,opt,name=applied,proto3" json:"applied,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ApplyServersResponse) Reset() {
+	*x = ApplyServersResponse{}
+	mi := &file_gravel_hub_v1_servers_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ApplyServersResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ApplyServersResponse) ProtoMessage() {}
+
+func (x *ApplyServersResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_servers_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ApplyServersResponse.ProtoReflect.Descriptor instead.
+func (*ApplyServersResponse) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_servers_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *ApplyServersResponse) GetChanges() []string {
+	if x != nil {
+		return x.Changes
+	}
+	return nil
+}
+
+func (x *ApplyServersResponse) GetApplied() bool {
+	if x != nil {
+		return x.Applied
+	}
+	return false
+}
+
+type CheckServersRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Manifest      string                 `protobuf:"bytes,1,opt,name=manifest,proto3" json:"manifest,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CheckServersRequest) Reset() {
+	*x = CheckServersRequest{}
+	mi := &file_gravel_hub_v1_servers_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CheckServersRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CheckServersRequest) ProtoMessage() {}
+
+func (x *CheckServersRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_servers_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CheckServersRequest.ProtoReflect.Descriptor instead.
+func (*CheckServersRequest) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_servers_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *CheckServersRequest) GetManifest() string {
+	if x != nil {
+		return x.Manifest
+	}
+	return ""
+}
+
+type CheckServersResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// "2 games [cs2 wardogs], 3 servers [...]".
+	Summary       string `protobuf:"bytes,1,opt,name=summary,proto3" json:"summary,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CheckServersResponse) Reset() {
+	*x = CheckServersResponse{}
+	mi := &file_gravel_hub_v1_servers_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CheckServersResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CheckServersResponse) ProtoMessage() {}
+
+func (x *CheckServersResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_servers_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CheckServersResponse.ProtoReflect.Descriptor instead.
+func (*CheckServersResponse) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_servers_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *CheckServersResponse) GetSummary() string {
+	if x != nil {
+		return x.Summary
+	}
+	return ""
+}
+
 var File_gravel_hub_v1_servers_proto protoreflect.FileDescriptor
 
 const file_gravel_hub_v1_servers_proto_rawDesc = "" +
@@ -1771,13 +2049,29 @@ const file_gravel_hub_v1_servers_proto_rawDesc = "" +
 	"\x06totals\x18\x01 \x01(\v2\x1a.gravel.hub.v1.FleetTotalsR\x06totals\x121\n" +
 	"\x06alarms\x18\x02 \x03(\v2\x19.gravel.hub.v1.FleetAlarmR\x06alarms\x124\n" +
 	"\aservers\x18\x03 \x03(\v2\x1a.gravel.hub.v1.FleetServerR\aservers\x12/\n" +
-	"\x05as_of\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x04asOf2\xe1\x03\n" +
+	"\x05as_of\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x04asOf\"\x16\n" +
+	"\x14ExportServersRequest\"3\n" +
+	"\x15ExportServersResponse\x12\x1a\n" +
+	"\bmanifest\x18\x01 \x01(\tR\bmanifest\"J\n" +
+	"\x13ApplyServersRequest\x12\x1a\n" +
+	"\bmanifest\x18\x01 \x01(\tR\bmanifest\x12\x17\n" +
+	"\adry_run\x18\x02 \x01(\bR\x06dryRun\"J\n" +
+	"\x14ApplyServersResponse\x12\x18\n" +
+	"\achanges\x18\x01 \x03(\tR\achanges\x12\x18\n" +
+	"\aapplied\x18\x02 \x01(\bR\aapplied\"1\n" +
+	"\x13CheckServersRequest\x12\x1a\n" +
+	"\bmanifest\x18\x01 \x01(\tR\bmanifest\"0\n" +
+	"\x14CheckServersResponse\x12\x18\n" +
+	"\asummary\x18\x01 \x01(\tR\asummary2\xef\x05\n" +
 	"\rServerService\x12N\n" +
 	"\tListGames\x12\x1f.gravel.hub.v1.ListGamesRequest\x1a .gravel.hub.v1.ListGamesResponse\x12T\n" +
 	"\vListServers\x12!.gravel.hub.v1.ListServersRequest\x1a\".gravel.hub.v1.ListServersResponse\x12`\n" +
 	"\x0fGetServerStatus\x12%.gravel.hub.v1.GetServerStatusRequest\x1a&.gravel.hub.v1.GetServerStatusResponse\x12f\n" +
 	"\x11ListServerPlayers\x12'.gravel.hub.v1.ListServerPlayersRequest\x1a(.gravel.hub.v1.ListServerPlayersResponse\x12`\n" +
-	"\x0fGetFleetSummary\x12%.gravel.hub.v1.GetFleetSummaryRequest\x1a&.gravel.hub.v1.GetFleetSummaryResponseB:Z8github.com/gravel-project/gravel/gen/gravel/hub/v1;hubv1b\x06proto3"
+	"\x0fGetFleetSummary\x12%.gravel.hub.v1.GetFleetSummaryRequest\x1a&.gravel.hub.v1.GetFleetSummaryResponse\x12Z\n" +
+	"\rExportServers\x12#.gravel.hub.v1.ExportServersRequest\x1a$.gravel.hub.v1.ExportServersResponse\x12W\n" +
+	"\fApplyServers\x12\".gravel.hub.v1.ApplyServersRequest\x1a#.gravel.hub.v1.ApplyServersResponse\x12W\n" +
+	"\fCheckServers\x12\".gravel.hub.v1.CheckServersRequest\x1a#.gravel.hub.v1.CheckServersResponseB:Z8github.com/gravel-project/gravel/gen/gravel/hub/v1;hubv1b\x06proto3"
 
 var (
 	file_gravel_hub_v1_servers_proto_rawDescOnce sync.Once
@@ -1791,7 +2085,7 @@ func file_gravel_hub_v1_servers_proto_rawDescGZIP() []byte {
 	return file_gravel_hub_v1_servers_proto_rawDescData
 }
 
-var file_gravel_hub_v1_servers_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
+var file_gravel_hub_v1_servers_proto_msgTypes = make([]protoimpl.MessageInfo, 27)
 var file_gravel_hub_v1_servers_proto_goTypes = []any{
 	(*Band)(nil),                      // 0: gravel.hub.v1.Band
 	(*Game)(nil),                      // 1: gravel.hub.v1.Game
@@ -1814,12 +2108,18 @@ var file_gravel_hub_v1_servers_proto_goTypes = []any{
 	(*FleetAlarm)(nil),                // 18: gravel.hub.v1.FleetAlarm
 	(*FleetServer)(nil),               // 19: gravel.hub.v1.FleetServer
 	(*GetFleetSummaryResponse)(nil),   // 20: gravel.hub.v1.GetFleetSummaryResponse
-	(*timestamppb.Timestamp)(nil),     // 21: google.protobuf.Timestamp
+	(*ExportServersRequest)(nil),      // 21: gravel.hub.v1.ExportServersRequest
+	(*ExportServersResponse)(nil),     // 22: gravel.hub.v1.ExportServersResponse
+	(*ApplyServersRequest)(nil),       // 23: gravel.hub.v1.ApplyServersRequest
+	(*ApplyServersResponse)(nil),      // 24: gravel.hub.v1.ApplyServersResponse
+	(*CheckServersRequest)(nil),       // 25: gravel.hub.v1.CheckServersRequest
+	(*CheckServersResponse)(nil),      // 26: gravel.hub.v1.CheckServersResponse
+	(*timestamppb.Timestamp)(nil),     // 27: google.protobuf.Timestamp
 }
 var file_gravel_hub_v1_servers_proto_depIdxs = []int32{
 	0,  // 0: gravel.hub.v1.Game.bands:type_name -> gravel.hub.v1.Band
 	2,  // 1: gravel.hub.v1.Game.layout:type_name -> gravel.hub.v1.GameLayout
-	21, // 2: gravel.hub.v1.ServerStatus.observed_at:type_name -> google.protobuf.Timestamp
+	27, // 2: gravel.hub.v1.ServerStatus.observed_at:type_name -> google.protobuf.Timestamp
 	3,  // 3: gravel.hub.v1.ServerStatus.teams:type_name -> gravel.hub.v1.TeamScore
 	5,  // 4: gravel.hub.v1.ServerStatus.join:type_name -> gravel.hub.v1.ServerJoin
 	4,  // 5: gravel.hub.v1.Server.status:type_name -> gravel.hub.v1.ServerStatus
@@ -1827,26 +2127,32 @@ var file_gravel_hub_v1_servers_proto_depIdxs = []int32{
 	6,  // 7: gravel.hub.v1.ListServersResponse.servers:type_name -> gravel.hub.v1.Server
 	6,  // 8: gravel.hub.v1.GetServerStatusResponse.server:type_name -> gravel.hub.v1.Server
 	7,  // 9: gravel.hub.v1.ListServerPlayersResponse.players:type_name -> gravel.hub.v1.ServerPlayer
-	21, // 10: gravel.hub.v1.ListServerPlayersResponse.observed_at:type_name -> google.protobuf.Timestamp
-	21, // 11: gravel.hub.v1.FleetAlarm.since:type_name -> google.protobuf.Timestamp
-	21, // 12: gravel.hub.v1.FleetServer.health_since:type_name -> google.protobuf.Timestamp
-	21, // 13: gravel.hub.v1.FleetServer.observed_at:type_name -> google.protobuf.Timestamp
+	27, // 10: gravel.hub.v1.ListServerPlayersResponse.observed_at:type_name -> google.protobuf.Timestamp
+	27, // 11: gravel.hub.v1.FleetAlarm.since:type_name -> google.protobuf.Timestamp
+	27, // 12: gravel.hub.v1.FleetServer.health_since:type_name -> google.protobuf.Timestamp
+	27, // 13: gravel.hub.v1.FleetServer.observed_at:type_name -> google.protobuf.Timestamp
 	17, // 14: gravel.hub.v1.GetFleetSummaryResponse.totals:type_name -> gravel.hub.v1.FleetTotals
 	18, // 15: gravel.hub.v1.GetFleetSummaryResponse.alarms:type_name -> gravel.hub.v1.FleetAlarm
 	19, // 16: gravel.hub.v1.GetFleetSummaryResponse.servers:type_name -> gravel.hub.v1.FleetServer
-	21, // 17: gravel.hub.v1.GetFleetSummaryResponse.as_of:type_name -> google.protobuf.Timestamp
+	27, // 17: gravel.hub.v1.GetFleetSummaryResponse.as_of:type_name -> google.protobuf.Timestamp
 	8,  // 18: gravel.hub.v1.ServerService.ListGames:input_type -> gravel.hub.v1.ListGamesRequest
 	10, // 19: gravel.hub.v1.ServerService.ListServers:input_type -> gravel.hub.v1.ListServersRequest
 	12, // 20: gravel.hub.v1.ServerService.GetServerStatus:input_type -> gravel.hub.v1.GetServerStatusRequest
 	14, // 21: gravel.hub.v1.ServerService.ListServerPlayers:input_type -> gravel.hub.v1.ListServerPlayersRequest
 	16, // 22: gravel.hub.v1.ServerService.GetFleetSummary:input_type -> gravel.hub.v1.GetFleetSummaryRequest
-	9,  // 23: gravel.hub.v1.ServerService.ListGames:output_type -> gravel.hub.v1.ListGamesResponse
-	11, // 24: gravel.hub.v1.ServerService.ListServers:output_type -> gravel.hub.v1.ListServersResponse
-	13, // 25: gravel.hub.v1.ServerService.GetServerStatus:output_type -> gravel.hub.v1.GetServerStatusResponse
-	15, // 26: gravel.hub.v1.ServerService.ListServerPlayers:output_type -> gravel.hub.v1.ListServerPlayersResponse
-	20, // 27: gravel.hub.v1.ServerService.GetFleetSummary:output_type -> gravel.hub.v1.GetFleetSummaryResponse
-	23, // [23:28] is the sub-list for method output_type
-	18, // [18:23] is the sub-list for method input_type
+	21, // 23: gravel.hub.v1.ServerService.ExportServers:input_type -> gravel.hub.v1.ExportServersRequest
+	23, // 24: gravel.hub.v1.ServerService.ApplyServers:input_type -> gravel.hub.v1.ApplyServersRequest
+	25, // 25: gravel.hub.v1.ServerService.CheckServers:input_type -> gravel.hub.v1.CheckServersRequest
+	9,  // 26: gravel.hub.v1.ServerService.ListGames:output_type -> gravel.hub.v1.ListGamesResponse
+	11, // 27: gravel.hub.v1.ServerService.ListServers:output_type -> gravel.hub.v1.ListServersResponse
+	13, // 28: gravel.hub.v1.ServerService.GetServerStatus:output_type -> gravel.hub.v1.GetServerStatusResponse
+	15, // 29: gravel.hub.v1.ServerService.ListServerPlayers:output_type -> gravel.hub.v1.ListServerPlayersResponse
+	20, // 30: gravel.hub.v1.ServerService.GetFleetSummary:output_type -> gravel.hub.v1.GetFleetSummaryResponse
+	22, // 31: gravel.hub.v1.ServerService.ExportServers:output_type -> gravel.hub.v1.ExportServersResponse
+	24, // 32: gravel.hub.v1.ServerService.ApplyServers:output_type -> gravel.hub.v1.ApplyServersResponse
+	26, // 33: gravel.hub.v1.ServerService.CheckServers:output_type -> gravel.hub.v1.CheckServersResponse
+	26, // [26:34] is the sub-list for method output_type
+	18, // [18:26] is the sub-list for method input_type
 	18, // [18:18] is the sub-list for extension type_name
 	18, // [18:18] is the sub-list for extension extendee
 	0,  // [0:18] is the sub-list for field type_name
@@ -1865,7 +2171,7 @@ func file_gravel_hub_v1_servers_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gravel_hub_v1_servers_proto_rawDesc), len(file_gravel_hub_v1_servers_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   21,
+			NumMessages:   27,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

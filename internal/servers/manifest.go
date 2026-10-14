@@ -340,6 +340,20 @@ func (m Manifest) Normalized() Manifest {
 // Marshal writes the manifest as YAML, normalized.
 func (m Manifest) Marshal() ([]byte, error) { return yaml.Marshal(m.Normalized()) }
 
+// Summary is a manifest in one line, as apply and check print it: "2 games [cs2 wardogs], 3
+// servers [htg-cs2-1 htg-wardogs-1 htg-wardogs-2]".
+func Summary(m Manifest) string {
+	games := make([]string, 0, len(m.Games))
+	for _, g := range m.Games {
+		games = append(games, g.ID)
+	}
+	ids := make([]string, 0, len(m.Servers))
+	for _, s := range m.Servers {
+		ids = append(ids, s.ID)
+	}
+	return fmt.Sprintf("%d games [%s], %d servers [%s]", len(games), strings.Join(games, " "), len(ids), strings.Join(ids, " "))
+}
+
 // Validate reports every problem at once, each wrapping ErrInvalidManifest. specs are the
 // shipped Game specs, drivers the drivers this hub has and providers the clouds it can make VMs in.
 func (m Manifest) Validate(specs map[string]Spec, drivers, providers []string) error {

@@ -113,7 +113,7 @@ type Erasure struct {
 // token must be random (a hash of a SteamID can be reversed by trying them all); the counts stay.
 // ingest_batches is re-keyed by replacing the subject wherever it appears in a body, which is how
 // a feed writes it.
-func (s *Store) EraseIdentity(ctx context.Context, orgID uuid.UUID, key PlayerKey, token string) (Erasure, error) {
+func (s *Store) EraseIdentity(ctx context.Context, orgID uuid.UUID, key PlayerKey, token string, by Actor, at time.Time) (Erasure, error) {
 	if key.Provider == "" || key.Subject == "" || key.Provider == ErasedProvider || len(token) < 16 {
 		return Erasure{}, errors.New("store: erase identity: a provider, a subject and a random token of at least 16 characters are required")
 	}
@@ -157,6 +157,15 @@ func (s *Store) EraseIdentity(ctx context.Context, orgID uuid.UUID, key PlayerKe
 		return Erasure{}, fmt.Errorf("store: erase identity: pseudonyms: %w", err)
 	}
 	out.Pseudonym = tag.RowsAffected() > 0
+	// The event says an erasure happened and how much it touched; never whose (the subject is
+	// what was erased).
+	if err := s.appendEvent(ctx, tx, by.event(Event{OrganizationID: orgID, At: at, Kind: "stats.erased",
+		Summary: "A player's identity was erased from the stats",
+		Detail: map[string]any{"provider": key.Provider, "match_rows": out.MatchRows, "monthly_rows": out.MonthlyRows,
+			"participation_rows": out.ParticipationRows, "ingest_batches": out.IngestBatches},
+		Source: "stats.erase", SourceID: fmt.Sprintf("%s:%d", orgID, at.UnixMicro())})); err != nil {
+		return Erasure{}, err
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return Erasure{}, fmt.Errorf("store: erase identity: %w", err)
 	}

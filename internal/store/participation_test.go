@@ -307,7 +307,7 @@ func TestEraseParticipation(t *testing.T) {
 		participation(o.ID, app, "4", "attendance", victim, time.Date(2026, 10, 6, 20, 0, 0, 0, time.UTC), 0))
 
 	const token = "0123456789abcdef0123456789abcdef"
-	got, err := st.EraseIdentity(ctx, o.ID, store.PlayerKey{Provider: "steam", Subject: victim}, token)
+	got, err := st.EraseIdentity(ctx, o.ID, store.PlayerKey{Provider: "steam", Subject: victim}, token, store.Actor{Via: store.ViaCLI}, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}

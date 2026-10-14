@@ -43,6 +43,9 @@ const (
 	// IdentityServiceRevokeSessionsProcedure is the fully-qualified name of the IdentityService's
 	// RevokeSessions RPC.
 	IdentityServiceRevokeSessionsProcedure = "/gravel.hub.v1.IdentityService/RevokeSessions"
+	// IdentityServiceRevokeUserSessionsProcedure is the fully-qualified name of the IdentityService's
+	// RevokeUserSessions RPC.
+	IdentityServiceRevokeUserSessionsProcedure = "/gravel.hub.v1.IdentityService/RevokeUserSessions"
 	// IdentityServiceLookupUserProcedure is the fully-qualified name of the IdentityService's
 	// LookupUser RPC.
 	IdentityServiceLookupUserProcedure = "/gravel.hub.v1.IdentityService/LookupUser"
@@ -83,6 +86,9 @@ type IdentityServiceClient interface {
 	Logout(context.Context, *connect.Request[v1.LogoutRequest]) (*connect.Response[v1.LogoutResponse], error)
 	// RevokeSessions logs the caller out everywhere, this session included.
 	RevokeSessions(context.Context, *connect.Request[v1.RevokeSessionsRequest]) (*connect.Response[v1.RevokeSessionsResponse], error)
+	// RevokeUserSessions logs a member out everywhere, with the tokens apps hold for them:
+	// members:manage (#195). not_found for an unknown member.
+	RevokeUserSessions(context.Context, *connect.Request[v1.RevokeUserSessionsRequest]) (*connect.Response[v1.RevokeUserSessionsResponse], error)
 	// LookupUser resolves a (provider, subject) pair to its user, for role sync. Owner only until
 	// first-party apps get their own credentials (gravel#6).
 	LookupUser(context.Context, *connect.Request[v1.LookupUserRequest]) (*connect.Response[v1.LookupUserResponse], error)
@@ -150,6 +156,12 @@ func NewIdentityServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 			connect.WithSchema(identityServiceMethods.ByName("RevokeSessions")),
 			connect.WithClientOptions(opts...),
 		),
+		revokeUserSessions: connect.NewClient[v1.RevokeUserSessionsRequest, v1.RevokeUserSessionsResponse](
+			httpClient,
+			baseURL+IdentityServiceRevokeUserSessionsProcedure,
+			connect.WithSchema(identityServiceMethods.ByName("RevokeUserSessions")),
+			connect.WithClientOptions(opts...),
+		),
 		lookupUser: connect.NewClient[v1.LookupUserRequest, v1.LookupUserResponse](
 			httpClient,
 			baseURL+IdentityServiceLookupUserProcedure,
@@ -213,6 +225,7 @@ type identityServiceClient struct {
 	unlinkIdentity     *connect.Client[v1.UnlinkIdentityRequest, v1.UnlinkIdentityResponse]
 	logout             *connect.Client[v1.LogoutRequest, v1.LogoutResponse]
 	revokeSessions     *connect.Client[v1.RevokeSessionsRequest, v1.RevokeSessionsResponse]
+	revokeUserSessions *connect.Client[v1.RevokeUserSessionsRequest, v1.RevokeUserSessionsResponse]
 	lookupUser         *connect.Client[v1.LookupUserRequest, v1.LookupUserResponse]
 	listUsers          *connect.Client[v1.ListUsersRequest, v1.ListUsersResponse]
 	listIdentityEvents *connect.Client[v1.ListIdentityEventsRequest, v1.ListIdentityEventsResponse]
@@ -242,6 +255,11 @@ func (c *identityServiceClient) Logout(ctx context.Context, req *connect.Request
 // RevokeSessions calls gravel.hub.v1.IdentityService.RevokeSessions.
 func (c *identityServiceClient) RevokeSessions(ctx context.Context, req *connect.Request[v1.RevokeSessionsRequest]) (*connect.Response[v1.RevokeSessionsResponse], error) {
 	return c.revokeSessions.CallUnary(ctx, req)
+}
+
+// RevokeUserSessions calls gravel.hub.v1.IdentityService.RevokeUserSessions.
+func (c *identityServiceClient) RevokeUserSessions(ctx context.Context, req *connect.Request[v1.RevokeUserSessionsRequest]) (*connect.Response[v1.RevokeUserSessionsResponse], error) {
+	return c.revokeUserSessions.CallUnary(ctx, req)
 }
 
 // LookupUser calls gravel.hub.v1.IdentityService.LookupUser.
@@ -300,6 +318,9 @@ type IdentityServiceHandler interface {
 	Logout(context.Context, *connect.Request[v1.LogoutRequest]) (*connect.Response[v1.LogoutResponse], error)
 	// RevokeSessions logs the caller out everywhere, this session included.
 	RevokeSessions(context.Context, *connect.Request[v1.RevokeSessionsRequest]) (*connect.Response[v1.RevokeSessionsResponse], error)
+	// RevokeUserSessions logs a member out everywhere, with the tokens apps hold for them:
+	// members:manage (#195). not_found for an unknown member.
+	RevokeUserSessions(context.Context, *connect.Request[v1.RevokeUserSessionsRequest]) (*connect.Response[v1.RevokeUserSessionsResponse], error)
 	// LookupUser resolves a (provider, subject) pair to its user, for role sync. Owner only until
 	// first-party apps get their own credentials (gravel#6).
 	LookupUser(context.Context, *connect.Request[v1.LookupUserRequest]) (*connect.Response[v1.LookupUserResponse], error)
@@ -361,6 +382,12 @@ func NewIdentityServiceHandler(svc IdentityServiceHandler, opts ...connect.Handl
 		IdentityServiceRevokeSessionsProcedure,
 		svc.RevokeSessions,
 		connect.WithSchema(identityServiceMethods.ByName("RevokeSessions")),
+		connect.WithHandlerOptions(opts...),
+	)
+	identityServiceRevokeUserSessionsHandler := connect.NewUnaryHandler(
+		IdentityServiceRevokeUserSessionsProcedure,
+		svc.RevokeUserSessions,
+		connect.WithSchema(identityServiceMethods.ByName("RevokeUserSessions")),
 		connect.WithHandlerOptions(opts...),
 	)
 	identityServiceLookupUserHandler := connect.NewUnaryHandler(
@@ -427,6 +454,8 @@ func NewIdentityServiceHandler(svc IdentityServiceHandler, opts ...connect.Handl
 			identityServiceLogoutHandler.ServeHTTP(w, r)
 		case IdentityServiceRevokeSessionsProcedure:
 			identityServiceRevokeSessionsHandler.ServeHTTP(w, r)
+		case IdentityServiceRevokeUserSessionsProcedure:
+			identityServiceRevokeUserSessionsHandler.ServeHTTP(w, r)
 		case IdentityServiceLookupUserProcedure:
 			identityServiceLookupUserHandler.ServeHTTP(w, r)
 		case IdentityServiceListUsersProcedure:
@@ -468,6 +497,10 @@ func (UnimplementedIdentityServiceHandler) Logout(context.Context, *connect.Requ
 
 func (UnimplementedIdentityServiceHandler) RevokeSessions(context.Context, *connect.Request[v1.RevokeSessionsRequest]) (*connect.Response[v1.RevokeSessionsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.IdentityService.RevokeSessions is not implemented"))
+}
+
+func (UnimplementedIdentityServiceHandler) RevokeUserSessions(context.Context, *connect.Request[v1.RevokeUserSessionsRequest]) (*connect.Response[v1.RevokeUserSessionsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.IdentityService.RevokeUserSessions is not implemented"))
 }
 
 func (UnimplementedIdentityServiceHandler) LookupUser(context.Context, *connect.Request[v1.LookupUserRequest]) (*connect.Response[v1.LookupUserResponse], error) {

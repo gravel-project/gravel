@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 
 	"github.com/gravel-project/gravel/cloud"
 	"github.com/gravel-project/gravel/internal/config"
@@ -121,10 +120,10 @@ func serversApply(ctx context.Context, args []string, stdout, stderr io.Writer) 
 	if *dryRun && errors.Is(err, store.ErrNotFound) {
 		// Never served, so nothing is stored: the whole manifest would be added.
 		if len(want.Games)+len(want.Servers) == 0 {
-			fmt.Fprintf(stdout, "servers unchanged (%s)\n", summarizeServers(want))
+			fmt.Fprintf(stdout, "servers unchanged (%s)\n", servers.Summary(want))
 			return 0
 		}
-		fmt.Fprintf(stdout, "servers would change (%s)\n", summarizeServers(want))
+		fmt.Fprintf(stdout, "servers would change (%s)\n", servers.Summary(want))
 		return 3
 	}
 	if err != nil {
@@ -135,20 +134,20 @@ func serversApply(ctx context.Context, args []string, stdout, stderr io.Writer) 
 	clouds := func(_ context.Context, l servers.Location, token string) (cloud.Provider, error) {
 		return hub.NewCloudProvider(l.Provider, token, l.Project, buildVersion())
 	}
-	changes, err := svc.Apply(ctx, want, servers.ApplyOptions{DryRun: *dryRun, CheckCredentials: true, Clouds: clouds})
+	changes, err := svc.Apply(ctx, want, servers.ApplyOptions{DryRun: *dryRun, CheckCredentials: true, Clouds: clouds, By: store.Actor{Via: store.ViaCLI}})
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1
 	}
 	if len(changes) == 0 {
-		fmt.Fprintf(stdout, "servers unchanged (%s)\n", summarizeServers(want))
+		fmt.Fprintf(stdout, "servers unchanged (%s)\n", servers.Summary(want))
 		return 0
 	}
 	verb := "applied"
 	if *dryRun {
 		verb = "would change"
 	}
-	fmt.Fprintf(stdout, "servers %s (%s)\n", verb, summarizeServers(want))
+	fmt.Fprintf(stdout, "servers %s (%s)\n", verb, servers.Summary(want))
 	for _, c := range changes {
 		fmt.Fprintf(stdout, "  %s\n", c)
 	}
@@ -175,7 +174,7 @@ func serversCheck(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, err)
 		return 1
 	}
-	fmt.Fprintf(stdout, "servers valid (%s)\n", summarizeServers(m))
+	fmt.Fprintf(stdout, "servers valid (%s)\n", servers.Summary(m))
 	return 0
 }
 
@@ -194,18 +193,6 @@ func readServersManifest(path string) (servers.Manifest, error) {
 		return servers.Manifest{}, err
 	}
 	return m, nil
-}
-
-func summarizeServers(m servers.Manifest) string {
-	games := make([]string, 0, len(m.Games))
-	for _, g := range m.Games {
-		games = append(games, g.ID)
-	}
-	ids := make([]string, 0, len(m.Servers))
-	for _, s := range m.Servers {
-		ids = append(ids, s.ID)
-	}
-	return fmt.Sprintf("%d games [%s], %d servers [%s]", len(games), strings.Join(games, " "), len(ids), strings.Join(ids, " "))
 }
 
 // manifestArg takes the manifest path out of the arguments: it may come before or after the

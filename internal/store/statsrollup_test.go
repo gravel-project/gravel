@@ -136,7 +136,7 @@ func TestEraseIdentity(t *testing.T) {
 	}
 
 	const token = "0123456789abcdef0123456789abcdef"
-	got, err := st.EraseIdentity(ctx, o.ID, store.PlayerKey{Provider: "steam", Subject: victim}, token)
+	got, err := st.EraseIdentity(ctx, o.ID, store.PlayerKey{Provider: "steam", Subject: victim}, token, store.Actor{Via: store.ViaCLI}, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -169,10 +169,10 @@ func TestEraseIdentity(t *testing.T) {
 	if err != nil || len(names) != 0 {
 		t.Errorf("pseudonym = %v, %v", names, err)
 	}
-	if _, err := st.EraseIdentity(ctx, o.ID, store.PlayerKey{Provider: "steam", Subject: victim}, "short"); err == nil {
+	if _, err := st.EraseIdentity(ctx, o.ID, store.PlayerKey{Provider: "steam", Subject: victim}, "short", store.Actor{Via: store.ViaCLI}, time.Now()); err == nil {
 		t.Error("a short token was accepted")
 	}
-	if _, err := st.EraseIdentity(ctx, o.ID, store.PlayerKey{Provider: store.ErasedProvider, Subject: token}, token+"x"); err == nil {
+	if _, err := st.EraseIdentity(ctx, o.ID, store.PlayerKey{Provider: store.ErasedProvider, Subject: token}, token+"x", store.Actor{Via: store.ViaCLI}, time.Now()); err == nil {
 		t.Error("an erased identity was erased again")
 	}
 	if _, err := st.OldestRawMatch(ctx, uuid.New()); !errors.Is(err, store.ErrNotFound) {

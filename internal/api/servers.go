@@ -65,9 +65,13 @@ type ServerServer struct {
 	passwords SharedPasswords
 	fleet     FleetReader
 	alarms    AlarmReader
-	access    *Access
-	logger    *slog.Logger
-	now       func() time.Time
+	// manifests applies the servers manifest over the API (#195); nil: ExportServers and the rest
+	// answer unimplemented.
+	manifests    Manifests
+	applyOptions servers.ApplyOptions
+	access       *Access
+	logger       *slog.Logger
+	now          func() time.Time
 }
 
 // NewServerServer wires the service.

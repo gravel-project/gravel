@@ -173,6 +173,23 @@ func (s *Store) ListManagedServers(ctx context.Context, orgID uuid.UUID, include
 // transaction: each is inserted, updated where it differs, or revived if it was removed; every
 // other live one is marked removed. A row that is already as given keeps its updated_at.
 func (s *Store) ApplyServers(ctx context.Context, orgID uuid.UUID, games []Game, locations []Location, servers []ManagedServer, now time.Time) error {
+	return s.ApplyServersRecorded(ctx, orgID, games, locations, servers, now, Applied{})
+}
+
+// Applied is who applied a servers manifest and what it changed, for the events log
+// (servers.applied, #195). With no changes nothing is recorded.
+type Applied struct {
+	By Actor
+	// Changes are the changes in words, as servers.Change prints them; they name ids, never a
+	// secret.
+	Changes []string
+	// Servers are the ids of the servers the changes touch.
+	Servers []string
+}
+
+// ApplyServersRecorded is ApplyServers that also records rec in the events log, in the same
+// transaction.
+func (s *Store) ApplyServersRecorded(ctx context.Context, orgID uuid.UUID, games []Game, locations []Location, servers []ManagedServer, now time.Time, rec Applied) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("store: apply servers: %w", err)
@@ -252,6 +269,14 @@ func (s *Store) ApplyServers(ctx context.Context, orgID uuid.UUID, games []Game,
 	}
 	if _, err := tx.Exec(ctx, `UPDATE games SET removed_at = $3, updated_at = $3 WHERE organization_id = $1 AND removed_at IS NULL AND NOT (id = ANY($2))`, orgID, gameIDs, now); err != nil {
 		return fmt.Errorf("store: apply servers: remove games: %w", err)
+	}
+	if len(rec.Changes) > 0 {
+		if err := s.appendEvent(ctx, tx, rec.By.event(Event{OrganizationID: orgID, At: now, Kind: "servers.applied",
+			Summary: fmt.Sprintf("The servers manifest was applied: %d changes", len(rec.Changes)),
+			Detail:  map[string]any{"changes": rec.Changes, "servers": nonNilStrings(rec.Servers)},
+			Source:  "servers.apply", SourceID: fmt.Sprintf("%s:%d", orgID, now.UnixMicro())})); err != nil {
+			return err
+		}
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("store: apply servers: %w", err)

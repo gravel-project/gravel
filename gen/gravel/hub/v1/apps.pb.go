@@ -639,6 +639,369 @@ func (x *RevokeAppGrantResponse) GetRevokedTokens() int32 {
 	return 0
 }
 
+// App is a registered first-party app (ADR-0008, ADR-0015), as the operator sees it; never its
+// secret, which CreateApp answers once.
+type App struct {
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	ClientId     string                 `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	Name         string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Scopes       []string               `protobuf:"bytes,3,rep,name=scopes,proto3" json:"scopes,omitempty"`
+	RedirectUris []string               `protobuf:"bytes,4,rep,name=redirect_uris,json=redirectUris,proto3" json:"redirect_uris,omitempty"`
+	CreatedAt    *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// Unset while the app is live.
+	RevokedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=revoked_at,json=revokedAt,proto3" json:"revoked_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *App) Reset() {
+	*x = App{}
+	mi := &file_gravel_hub_v1_apps_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *App) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*App) ProtoMessage() {}
+
+func (x *App) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_apps_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use App.ProtoReflect.Descriptor instead.
+func (*App) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_apps_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *App) GetClientId() string {
+	if x != nil {
+		return x.ClientId
+	}
+	return ""
+}
+
+func (x *App) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *App) GetScopes() []string {
+	if x != nil {
+		return x.Scopes
+	}
+	return nil
+}
+
+func (x *App) GetRedirectUris() []string {
+	if x != nil {
+		return x.RedirectUris
+	}
+	return nil
+}
+
+func (x *App) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *App) GetRevokedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.RevokedAt
+	}
+	return nil
+}
+
+type CreateAppRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Name  string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// The scopes the app may use: capabilities an app may hold, or a host's own (host:<name>).
+	Scopes []string `protobuf:"bytes,2,rep,name=scopes,proto3" json:"scopes,omitempty"`
+	// Where the app's web pages receive a member who signed in; https, or http to the loopback.
+	RedirectUris  []string `protobuf:"bytes,3,rep,name=redirect_uris,json=redirectUris,proto3" json:"redirect_uris,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateAppRequest) Reset() {
+	*x = CreateAppRequest{}
+	mi := &file_gravel_hub_v1_apps_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateAppRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateAppRequest) ProtoMessage() {}
+
+func (x *CreateAppRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_apps_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateAppRequest.ProtoReflect.Descriptor instead.
+func (*CreateAppRequest) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_apps_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *CreateAppRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CreateAppRequest) GetScopes() []string {
+	if x != nil {
+		return x.Scopes
+	}
+	return nil
+}
+
+func (x *CreateAppRequest) GetRedirectUris() []string {
+	if x != nil {
+		return x.RedirectUris
+	}
+	return nil
+}
+
+type CreateAppResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	App   *App                   `protobuf:"bytes,1,opt,name=app,proto3" json:"app,omitempty"`
+	// Shown this once; the hub keeps only its hash. Give it to the app as a secret file.
+	ClientSecret  string `protobuf:"bytes,2,opt,name=client_secret,json=clientSecret,proto3" json:"client_secret,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateAppResponse) Reset() {
+	*x = CreateAppResponse{}
+	mi := &file_gravel_hub_v1_apps_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateAppResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateAppResponse) ProtoMessage() {}
+
+func (x *CreateAppResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_apps_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateAppResponse.ProtoReflect.Descriptor instead.
+func (*CreateAppResponse) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_apps_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *CreateAppResponse) GetApp() *App {
+	if x != nil {
+		return x.App
+	}
+	return nil
+}
+
+func (x *CreateAppResponse) GetClientSecret() string {
+	if x != nil {
+		return x.ClientSecret
+	}
+	return ""
+}
+
+type ListAppsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListAppsRequest) Reset() {
+	*x = ListAppsRequest{}
+	mi := &file_gravel_hub_v1_apps_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListAppsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListAppsRequest) ProtoMessage() {}
+
+func (x *ListAppsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_apps_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListAppsRequest.ProtoReflect.Descriptor instead.
+func (*ListAppsRequest) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_apps_proto_rawDescGZIP(), []int{14}
+}
+
+type ListAppsResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Every app, revoked ones included, oldest first.
+	Apps          []*App `protobuf:"bytes,1,rep,name=apps,proto3" json:"apps,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListAppsResponse) Reset() {
+	*x = ListAppsResponse{}
+	mi := &file_gravel_hub_v1_apps_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListAppsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListAppsResponse) ProtoMessage() {}
+
+func (x *ListAppsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_apps_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListAppsResponse.ProtoReflect.Descriptor instead.
+func (*ListAppsResponse) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_apps_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *ListAppsResponse) GetApps() []*App {
+	if x != nil {
+		return x.Apps
+	}
+	return nil
+}
+
+type RevokeAppRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ClientId      string                 `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RevokeAppRequest) Reset() {
+	*x = RevokeAppRequest{}
+	mi := &file_gravel_hub_v1_apps_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RevokeAppRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RevokeAppRequest) ProtoMessage() {}
+
+func (x *RevokeAppRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_apps_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RevokeAppRequest.ProtoReflect.Descriptor instead.
+func (*RevokeAppRequest) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_apps_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *RevokeAppRequest) GetClientId() string {
+	if x != nil {
+		return x.ClientId
+	}
+	return ""
+}
+
+type RevokeAppResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RevokeAppResponse) Reset() {
+	*x = RevokeAppResponse{}
+	mi := &file_gravel_hub_v1_apps_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RevokeAppResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RevokeAppResponse) ProtoMessage() {}
+
+func (x *RevokeAppResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_apps_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RevokeAppResponse.ProtoReflect.Descriptor instead.
+func (*RevokeAppResponse) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_apps_proto_rawDescGZIP(), []int{17}
+}
+
 var File_gravel_hub_v1_apps_proto protoreflect.FileDescriptor
 
 const file_gravel_hub_v1_apps_proto_rawDesc = "" +
@@ -680,13 +1043,38 @@ const file_gravel_hub_v1_apps_proto_rawDesc = "" +
 	"\x15RevokeAppGrantRequest\x12\x1b\n" +
 	"\tclient_id\x18\x01 \x01(\tR\bclientId\"?\n" +
 	"\x16RevokeAppGrantResponse\x12%\n" +
-	"\x0erevoked_tokens\x18\x01 \x01(\x05R\rrevokedTokens2\x88\x03\n" +
+	"\x0erevoked_tokens\x18\x01 \x01(\x05R\rrevokedTokens\"\xe9\x01\n" +
+	"\x03App\x12\x1b\n" +
+	"\tclient_id\x18\x01 \x01(\tR\bclientId\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x16\n" +
+	"\x06scopes\x18\x03 \x03(\tR\x06scopes\x12#\n" +
+	"\rredirect_uris\x18\x04 \x03(\tR\fredirectUris\x129\n" +
+	"\n" +
+	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"revoked_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\trevokedAt\"c\n" +
+	"\x10CreateAppRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x16\n" +
+	"\x06scopes\x18\x02 \x03(\tR\x06scopes\x12#\n" +
+	"\rredirect_uris\x18\x03 \x03(\tR\fredirectUris\"^\n" +
+	"\x11CreateAppResponse\x12$\n" +
+	"\x03app\x18\x01 \x01(\v2\x12.gravel.hub.v1.AppR\x03app\x12#\n" +
+	"\rclient_secret\x18\x02 \x01(\tR\fclientSecret\"\x11\n" +
+	"\x0fListAppsRequest\":\n" +
+	"\x10ListAppsResponse\x12&\n" +
+	"\x04apps\x18\x01 \x03(\v2\x12.gravel.hub.v1.AppR\x04apps\"/\n" +
+	"\x10RevokeAppRequest\x12\x1b\n" +
+	"\tclient_id\x18\x01 \x01(\tR\bclientId\"\x13\n" +
+	"\x11RevokeAppResponse2\xf5\x04\n" +
 	"\n" +
 	"AppService\x12o\n" +
 	"\x14PrepareAuthorization\x12*.gravel.hub.v1.PrepareAuthorizationRequest\x1a+.gravel.hub.v1.PrepareAuthorizationResponse\x12N\n" +
 	"\tAuthorize\x12\x1f.gravel.hub.v1.AuthorizeRequest\x1a .gravel.hub.v1.AuthorizeResponse\x12Z\n" +
 	"\rListAppGrants\x12#.gravel.hub.v1.ListAppGrantsRequest\x1a$.gravel.hub.v1.ListAppGrantsResponse\x12]\n" +
-	"\x0eRevokeAppGrant\x12$.gravel.hub.v1.RevokeAppGrantRequest\x1a%.gravel.hub.v1.RevokeAppGrantResponseB:Z8github.com/gravel-project/gravel/gen/gravel/hub/v1;hubv1b\x06proto3"
+	"\x0eRevokeAppGrant\x12$.gravel.hub.v1.RevokeAppGrantRequest\x1a%.gravel.hub.v1.RevokeAppGrantResponse\x12N\n" +
+	"\tCreateApp\x12\x1f.gravel.hub.v1.CreateAppRequest\x1a .gravel.hub.v1.CreateAppResponse\x12K\n" +
+	"\bListApps\x12\x1e.gravel.hub.v1.ListAppsRequest\x1a\x1f.gravel.hub.v1.ListAppsResponse\x12N\n" +
+	"\tRevokeApp\x12\x1f.gravel.hub.v1.RevokeAppRequest\x1a .gravel.hub.v1.RevokeAppResponseB:Z8github.com/gravel-project/gravel/gen/gravel/hub/v1;hubv1b\x06proto3"
 
 var (
 	file_gravel_hub_v1_apps_proto_rawDescOnce sync.Once
@@ -700,7 +1088,7 @@ func file_gravel_hub_v1_apps_proto_rawDescGZIP() []byte {
 	return file_gravel_hub_v1_apps_proto_rawDescData
 }
 
-var file_gravel_hub_v1_apps_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_gravel_hub_v1_apps_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
 var file_gravel_hub_v1_apps_proto_goTypes = []any{
 	(*ScopeInfo)(nil),                    // 0: gravel.hub.v1.ScopeInfo
 	(*AuthorizationParams)(nil),          // 1: gravel.hub.v1.AuthorizationParams
@@ -713,28 +1101,45 @@ var file_gravel_hub_v1_apps_proto_goTypes = []any{
 	(*ListAppGrantsResponse)(nil),        // 8: gravel.hub.v1.ListAppGrantsResponse
 	(*RevokeAppGrantRequest)(nil),        // 9: gravel.hub.v1.RevokeAppGrantRequest
 	(*RevokeAppGrantResponse)(nil),       // 10: gravel.hub.v1.RevokeAppGrantResponse
-	(*timestamppb.Timestamp)(nil),        // 11: google.protobuf.Timestamp
+	(*App)(nil),                          // 11: gravel.hub.v1.App
+	(*CreateAppRequest)(nil),             // 12: gravel.hub.v1.CreateAppRequest
+	(*CreateAppResponse)(nil),            // 13: gravel.hub.v1.CreateAppResponse
+	(*ListAppsRequest)(nil),              // 14: gravel.hub.v1.ListAppsRequest
+	(*ListAppsResponse)(nil),             // 15: gravel.hub.v1.ListAppsResponse
+	(*RevokeAppRequest)(nil),             // 16: gravel.hub.v1.RevokeAppRequest
+	(*RevokeAppResponse)(nil),            // 17: gravel.hub.v1.RevokeAppResponse
+	(*timestamppb.Timestamp)(nil),        // 18: google.protobuf.Timestamp
 }
 var file_gravel_hub_v1_apps_proto_depIdxs = []int32{
 	1,  // 0: gravel.hub.v1.PrepareAuthorizationRequest.params:type_name -> gravel.hub.v1.AuthorizationParams
 	0,  // 1: gravel.hub.v1.PrepareAuthorizationResponse.scopes:type_name -> gravel.hub.v1.ScopeInfo
 	1,  // 2: gravel.hub.v1.AuthorizeRequest.params:type_name -> gravel.hub.v1.AuthorizationParams
 	0,  // 3: gravel.hub.v1.AppGrant.scopes:type_name -> gravel.hub.v1.ScopeInfo
-	11, // 4: gravel.hub.v1.AppGrant.granted_at:type_name -> google.protobuf.Timestamp
+	18, // 4: gravel.hub.v1.AppGrant.granted_at:type_name -> google.protobuf.Timestamp
 	6,  // 5: gravel.hub.v1.ListAppGrantsResponse.grants:type_name -> gravel.hub.v1.AppGrant
-	2,  // 6: gravel.hub.v1.AppService.PrepareAuthorization:input_type -> gravel.hub.v1.PrepareAuthorizationRequest
-	4,  // 7: gravel.hub.v1.AppService.Authorize:input_type -> gravel.hub.v1.AuthorizeRequest
-	7,  // 8: gravel.hub.v1.AppService.ListAppGrants:input_type -> gravel.hub.v1.ListAppGrantsRequest
-	9,  // 9: gravel.hub.v1.AppService.RevokeAppGrant:input_type -> gravel.hub.v1.RevokeAppGrantRequest
-	3,  // 10: gravel.hub.v1.AppService.PrepareAuthorization:output_type -> gravel.hub.v1.PrepareAuthorizationResponse
-	5,  // 11: gravel.hub.v1.AppService.Authorize:output_type -> gravel.hub.v1.AuthorizeResponse
-	8,  // 12: gravel.hub.v1.AppService.ListAppGrants:output_type -> gravel.hub.v1.ListAppGrantsResponse
-	10, // 13: gravel.hub.v1.AppService.RevokeAppGrant:output_type -> gravel.hub.v1.RevokeAppGrantResponse
-	10, // [10:14] is the sub-list for method output_type
-	6,  // [6:10] is the sub-list for method input_type
-	6,  // [6:6] is the sub-list for extension type_name
-	6,  // [6:6] is the sub-list for extension extendee
-	0,  // [0:6] is the sub-list for field type_name
+	18, // 6: gravel.hub.v1.App.created_at:type_name -> google.protobuf.Timestamp
+	18, // 7: gravel.hub.v1.App.revoked_at:type_name -> google.protobuf.Timestamp
+	11, // 8: gravel.hub.v1.CreateAppResponse.app:type_name -> gravel.hub.v1.App
+	11, // 9: gravel.hub.v1.ListAppsResponse.apps:type_name -> gravel.hub.v1.App
+	2,  // 10: gravel.hub.v1.AppService.PrepareAuthorization:input_type -> gravel.hub.v1.PrepareAuthorizationRequest
+	4,  // 11: gravel.hub.v1.AppService.Authorize:input_type -> gravel.hub.v1.AuthorizeRequest
+	7,  // 12: gravel.hub.v1.AppService.ListAppGrants:input_type -> gravel.hub.v1.ListAppGrantsRequest
+	9,  // 13: gravel.hub.v1.AppService.RevokeAppGrant:input_type -> gravel.hub.v1.RevokeAppGrantRequest
+	12, // 14: gravel.hub.v1.AppService.CreateApp:input_type -> gravel.hub.v1.CreateAppRequest
+	14, // 15: gravel.hub.v1.AppService.ListApps:input_type -> gravel.hub.v1.ListAppsRequest
+	16, // 16: gravel.hub.v1.AppService.RevokeApp:input_type -> gravel.hub.v1.RevokeAppRequest
+	3,  // 17: gravel.hub.v1.AppService.PrepareAuthorization:output_type -> gravel.hub.v1.PrepareAuthorizationResponse
+	5,  // 18: gravel.hub.v1.AppService.Authorize:output_type -> gravel.hub.v1.AuthorizeResponse
+	8,  // 19: gravel.hub.v1.AppService.ListAppGrants:output_type -> gravel.hub.v1.ListAppGrantsResponse
+	10, // 20: gravel.hub.v1.AppService.RevokeAppGrant:output_type -> gravel.hub.v1.RevokeAppGrantResponse
+	13, // 21: gravel.hub.v1.AppService.CreateApp:output_type -> gravel.hub.v1.CreateAppResponse
+	15, // 22: gravel.hub.v1.AppService.ListApps:output_type -> gravel.hub.v1.ListAppsResponse
+	17, // 23: gravel.hub.v1.AppService.RevokeApp:output_type -> gravel.hub.v1.RevokeAppResponse
+	17, // [17:24] is the sub-list for method output_type
+	10, // [10:17] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_gravel_hub_v1_apps_proto_init() }
@@ -748,7 +1153,7 @@ func file_gravel_hub_v1_apps_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gravel_hub_v1_apps_proto_rawDesc), len(file_gravel_hub_v1_apps_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   11,
+			NumMessages:   18,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

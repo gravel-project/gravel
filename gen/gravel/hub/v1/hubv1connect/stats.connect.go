@@ -65,6 +65,9 @@ const (
 	// StatsServiceGetMatchDemoProcedure is the fully-qualified name of the StatsService's GetMatchDemo
 	// RPC.
 	StatsServiceGetMatchDemoProcedure = "/gravel.hub.v1.StatsService/GetMatchDemo"
+	// StatsServiceEraseIdentityProcedure is the fully-qualified name of the StatsService's
+	// EraseIdentity RPC.
+	StatsServiceEraseIdentityProcedure = "/gravel.hub.v1.StatsService/EraseIdentity"
 )
 
 // StatsServiceClient is a client for the gravel.hub.v1.StatsService service.
@@ -102,6 +105,9 @@ type StatsServiceClient interface {
 	// GetMatchDemo is a link to download a map's demo, good for 15 minutes; not_found when the map
 	// has none. Who may GetBoard.
 	GetMatchDemo(context.Context, *connect.Request[v1.GetMatchDemoRequest]) (*connect.Response[v1.GetMatchDemoResponse], error)
+	// EraseIdentity erases a player's identity from the stats (ADR-0012 §7), for a request the
+	// operator verified: stats:erase, in person only. The numbers stay, as a deleted player's.
+	EraseIdentity(context.Context, *connect.Request[v1.EraseIdentityRequest]) (*connect.Response[v1.EraseIdentityResponse], error)
 }
 
 // NewStatsServiceClient constructs a client for the gravel.hub.v1.StatsService service. By default,
@@ -181,6 +187,12 @@ func NewStatsServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(statsServiceMethods.ByName("GetMatchDemo")),
 			connect.WithClientOptions(opts...),
 		),
+		eraseIdentity: connect.NewClient[v1.EraseIdentityRequest, v1.EraseIdentityResponse](
+			httpClient,
+			baseURL+StatsServiceEraseIdentityProcedure,
+			connect.WithSchema(statsServiceMethods.ByName("EraseIdentity")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -197,6 +209,7 @@ type statsServiceClient struct {
 	listMatchResults      *connect.Client[v1.ListMatchResultsRequest, v1.ListMatchResultsResponse]
 	getMatchResult        *connect.Client[v1.GetMatchResultRequest, v1.GetMatchResultResponse]
 	getMatchDemo          *connect.Client[v1.GetMatchDemoRequest, v1.GetMatchDemoResponse]
+	eraseIdentity         *connect.Client[v1.EraseIdentityRequest, v1.EraseIdentityResponse]
 }
 
 // GetBoard calls gravel.hub.v1.StatsService.GetBoard.
@@ -254,6 +267,11 @@ func (c *statsServiceClient) GetMatchDemo(ctx context.Context, req *connect.Requ
 	return c.getMatchDemo.CallUnary(ctx, req)
 }
 
+// EraseIdentity calls gravel.hub.v1.StatsService.EraseIdentity.
+func (c *statsServiceClient) EraseIdentity(ctx context.Context, req *connect.Request[v1.EraseIdentityRequest]) (*connect.Response[v1.EraseIdentityResponse], error) {
+	return c.eraseIdentity.CallUnary(ctx, req)
+}
+
 // StatsServiceHandler is an implementation of the gravel.hub.v1.StatsService service.
 type StatsServiceHandler interface {
 	// GetBoard ranks the players of a server, a game or the organization over a window. Public when
@@ -289,6 +307,9 @@ type StatsServiceHandler interface {
 	// GetMatchDemo is a link to download a map's demo, good for 15 minutes; not_found when the map
 	// has none. Who may GetBoard.
 	GetMatchDemo(context.Context, *connect.Request[v1.GetMatchDemoRequest]) (*connect.Response[v1.GetMatchDemoResponse], error)
+	// EraseIdentity erases a player's identity from the stats (ADR-0012 §7), for a request the
+	// operator verified: stats:erase, in person only. The numbers stay, as a deleted player's.
+	EraseIdentity(context.Context, *connect.Request[v1.EraseIdentityRequest]) (*connect.Response[v1.EraseIdentityResponse], error)
 }
 
 // NewStatsServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -364,6 +385,12 @@ func NewStatsServiceHandler(svc StatsServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(statsServiceMethods.ByName("GetMatchDemo")),
 		connect.WithHandlerOptions(opts...),
 	)
+	statsServiceEraseIdentityHandler := connect.NewUnaryHandler(
+		StatsServiceEraseIdentityProcedure,
+		svc.EraseIdentity,
+		connect.WithSchema(statsServiceMethods.ByName("EraseIdentity")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/gravel.hub.v1.StatsService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case StatsServiceGetBoardProcedure:
@@ -388,6 +415,8 @@ func NewStatsServiceHandler(svc StatsServiceHandler, opts ...connect.HandlerOpti
 			statsServiceGetMatchResultHandler.ServeHTTP(w, r)
 		case StatsServiceGetMatchDemoProcedure:
 			statsServiceGetMatchDemoHandler.ServeHTTP(w, r)
+		case StatsServiceEraseIdentityProcedure:
+			statsServiceEraseIdentityHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -439,4 +468,8 @@ func (UnimplementedStatsServiceHandler) GetMatchResult(context.Context, *connect
 
 func (UnimplementedStatsServiceHandler) GetMatchDemo(context.Context, *connect.Request[v1.GetMatchDemoRequest]) (*connect.Response[v1.GetMatchDemoResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.StatsService.GetMatchDemo is not implemented"))
+}
+
+func (UnimplementedStatsServiceHandler) EraseIdentity(context.Context, *connect.Request[v1.EraseIdentityRequest]) (*connect.Response[v1.EraseIdentityResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.StatsService.EraseIdentity is not implemented"))
 }

@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file gravel/hub/v1/servers.proto.
  */
 export const file_gravel_hub_v1_servers: GenFile = /*@__PURE__*/
-  fileDesc("ChtncmF2ZWwvaHViL3YxL3NlcnZlcnMucHJvdG8SDWdyYXZlbC5odWIudjEiowEKBEJhbmQSDwoHc2VjdGlvbhgBIAEoCRILCgNrZXkYAiABKAkSEAoDbWluGAMgASgDSACIAQESEAoDbWF4GAQgASgDSAGIAQESFwoKbWF4X2xlbmd0aBgFIAEoA0gCiAEBEg0KBWhvc3RzGAYgAygJEhIKCnVubGVzc19zZXQYByABKAlCBgoEX21pbkIGCgRfbWF4Qg0KC19tYXhfbGVuZ3RoIqEBCgRHYW1lEgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkSGQoRaWRlbnRpdHlfcHJvdmlkZXIYAyABKAkSIgoFYmFuZHMYBCADKAsyEy5ncmF2ZWwuaHViLnYxLkJhbmQSFQoNbm9fcGFpZF9wZXJrcxgFIAEoCBIpCgZsYXlvdXQYBiABKAsyGS5ncmF2ZWwuaHViLnYxLkdhbWVMYXlvdXQiGwoKR2FtZUxheW91dBINCgVib2FyZBgBIAMoCSJZCglUZWFtU2NvcmUSDAoEbmFtZRgBIAEoCRINCgVjb2xvchgCIAEoCRINCgVzY29yZRgDIAEoAxIUCgdwbGF5ZXJzGAQgASgFSACIAQFCCgoIX3BsYXllcnMirAMKDFNlcnZlclN0YXR1cxINCgVzdGF0ZRgBIAEoCRIRCglyZWFjaGFibGUYAiABKAgSLwoLb2JzZXJ2ZWRfYXQYAyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEg0KBWJ1aWxkGAQgASgJEhQKDGNhcGFiaWxpdGllcxgFIAMoCRIPCgdwbGF5ZXJzGAYgASgFEhMKC21heF9wbGF5ZXJzGAcgASgFEgsKA21hcBgIIAEoCRITCgtleHBlcmllbmNlcxgJIAMoCRIQCghsaWdodGluZxgKIAEoCRInCgV0ZWFtcxgLIAMoCzIYLmdyYXZlbC5odWIudjEuVGVhbVNjb3JlEhIKCnNjb3JlX3RpY2sYDCABKAUSFgoOcm90YXRpb25faW5kZXgYDSABKAUSGwoTbmV4dF9yb3RhdGlvbl9pbmRleBgOIAEoBRIUCgxyb3RhdGlvbl9tYXAYDyABKAkSGQoRbmV4dF9yb3RhdGlvbl9tYXAYECABKAkSJwoEam9pbhgRIAEoCzIZLmdyYXZlbC5odWIudjEuU2VydmVySm9pbiJLCgpTZXJ2ZXJKb2luEg4KBm1ldGhvZBgBIAEoCRINCgV2YWx1ZRgCIAEoCRIMCgRoaW50GAMgASgJEhAKCHBhc3N3b3JkGAQgASgJIqABCgZTZXJ2ZXISCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRIPCgdnYW1lX2lkGAMgASgJEhAKCGxvY2F0aW9uGAQgASgJEg0KBXRydXN0GAUgASgJEisKBnN0YXR1cxgHIAEoCzIbLmdyYXZlbC5odWIudjEuU2VydmVyU3RhdHVzEg4KBmRyaXZlchgIIAEoCUoECAYQB1IHc2VlZGluZyKOAQoMU2VydmVyUGxheWVyEgwKBG5hbWUYASABKAkSEAoIcHJvdmlkZXIYAiABKAkSDwoHc3ViamVjdBgDIAEoCRIMCgR0ZWFtGAQgASgJEg0KBWtpbGxzGAUgASgFEg4KBmRlYXRocxgGIAEoBRIPCgdwaW5nX21zGAcgASgFEg8KB3VzZXJfaWQYCCABKAkiEgoQTGlzdEdhbWVzUmVxdWVzdCI3ChFMaXN0R2FtZXNSZXNwb25zZRIiCgVnYW1lcxgBIAMoCzITLmdyYXZlbC5odWIudjEuR2FtZSIUChJMaXN0U2VydmVyc1JlcXVlc3QiPQoTTGlzdFNlcnZlcnNSZXNwb25zZRImCgdzZXJ2ZXJzGAEgAygLMhUuZ3JhdmVsLmh1Yi52MS5TZXJ2ZXIiKwoWR2V0U2VydmVyU3RhdHVzUmVxdWVzdBIRCglzZXJ2ZXJfaWQYASABKAkiQAoXR2V0U2VydmVyU3RhdHVzUmVzcG9uc2USJQoGc2VydmVyGAEgASgLMhUuZ3JhdmVsLmh1Yi52MS5TZXJ2ZXIiLQoYTGlzdFNlcnZlclBsYXllcnNSZXF1ZXN0EhEKCXNlcnZlcl9pZBgBIAEoCSJ6ChlMaXN0U2VydmVyUGxheWVyc1Jlc3BvbnNlEiwKB3BsYXllcnMYASADKAsyGy5ncmF2ZWwuaHViLnYxLlNlcnZlclBsYXllchIvCgtvYnNlcnZlZF9hdBgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAiGAoWR2V0RmxlZXRTdW1tYXJ5UmVxdWVzdCKMAQoLRmxlZXRUb3RhbHMSDwoHc2VydmVycxgBIAEoBRIKCgJ1cBgCIAEoBRIQCghkZWdyYWRlZBgDIAEoBRIMCgRkb3duGAQgASgFEgwKBGlkbGUYBSABKAUSDwoHdW5rbm93bhgGIAEoBRIPCgdwbGF5ZXJzGAcgASgFEhAKCGNhcGFjaXR5GAggASgFInoKCkZsZWV0QWxhcm0SDAoEa2luZBgBIAEoCRIQCghzZXZlcml0eRgCIAEoCRIRCglzZXJ2ZXJfaWQYAyABKAkSKQoFc2luY2UYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEg4KBmRldGFpbBgFIAEoCSKSAwoLRmxlZXRTZXJ2ZXISCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRIPCgdnYW1lX2lkGAMgASgJEhEKCWdhbWVfbmFtZRgEIAEoCRINCgV0cnVzdBgFIAEoCRIOCgZkcml2ZXIYBiABKAkSDgoGaGVhbHRoGAcgASgJEg4KBnJlYXNvbhgIIAEoCRIwCgxoZWFsdGhfc2luY2UYCSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEg0KBXN0YXRlGAogASgJEg8KB3BsYXllcnMYCyABKAUSEwoLbWF4X3BsYXllcnMYDCABKAUSCwoDbWFwGA0gASgJEi8KC29ic2VydmVkX2F0GA4gASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIPCgdwb2xsX21zGA8gASgFEg4KBm1pc3NlcxgQIAEoBRISCgpob3N0X3N0YXRlGBEgASgJEhcKD2hvc3RfZXJyb3JfY29kZRgSIAEoCRITCgtsZWFzZV9zdGF0ZRgTIAEoCSLIAQoXR2V0RmxlZXRTdW1tYXJ5UmVzcG9uc2USKgoGdG90YWxzGAEgASgLMhouZ3JhdmVsLmh1Yi52MS5GbGVldFRvdGFscxIpCgZhbGFybXMYAiADKAsyGS5ncmF2ZWwuaHViLnYxLkZsZWV0QWxhcm0SKwoHc2VydmVycxgDIAMoCzIaLmdyYXZlbC5odWIudjEuRmxlZXRTZXJ2ZXISKQoFYXNfb2YYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wMuEDCg1TZXJ2ZXJTZXJ2aWNlEk4KCUxpc3RHYW1lcxIfLmdyYXZlbC5odWIudjEuTGlzdEdhbWVzUmVxdWVzdBogLmdyYXZlbC5odWIudjEuTGlzdEdhbWVzUmVzcG9uc2USVAoLTGlzdFNlcnZlcnMSIS5ncmF2ZWwuaHViLnYxLkxpc3RTZXJ2ZXJzUmVxdWVzdBoiLmdyYXZlbC5odWIudjEuTGlzdFNlcnZlcnNSZXNwb25zZRJgCg9HZXRTZXJ2ZXJTdGF0dXMSJS5ncmF2ZWwuaHViLnYxLkdldFNlcnZlclN0YXR1c1JlcXVlc3QaJi5ncmF2ZWwuaHViLnYxLkdldFNlcnZlclN0YXR1c1Jlc3BvbnNlEmYKEUxpc3RTZXJ2ZXJQbGF5ZXJzEicuZ3JhdmVsLmh1Yi52MS5MaXN0U2VydmVyUGxheWVyc1JlcXVlc3QaKC5ncmF2ZWwuaHViLnYxLkxpc3RTZXJ2ZXJQbGF5ZXJzUmVzcG9uc2USYAoPR2V0RmxlZXRTdW1tYXJ5EiUuZ3JhdmVsLmh1Yi52MS5HZXRGbGVldFN1bW1hcnlSZXF1ZXN0GiYuZ3JhdmVsLmh1Yi52MS5HZXRGbGVldFN1bW1hcnlSZXNwb25zZUI6WjhnaXRodWIuY29tL2dyYXZlbC1wcm9qZWN0L2dyYXZlbC9nZW4vZ3JhdmVsL2h1Yi92MTtodWJ2MWIGcHJvdG8z", [file_google_protobuf_timestamp]);
+  fileDesc("ChtncmF2ZWwvaHViL3YxL3NlcnZlcnMucHJvdG8SDWdyYXZlbC5odWIudjEiowEKBEJhbmQSDwoHc2VjdGlvbhgBIAEoCRILCgNrZXkYAiABKAkSEAoDbWluGAMgASgDSACIAQESEAoDbWF4GAQgASgDSAGIAQESFwoKbWF4X2xlbmd0aBgFIAEoA0gCiAEBEg0KBWhvc3RzGAYgAygJEhIKCnVubGVzc19zZXQYByABKAlCBgoEX21pbkIGCgRfbWF4Qg0KC19tYXhfbGVuZ3RoIqEBCgRHYW1lEgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkSGQoRaWRlbnRpdHlfcHJvdmlkZXIYAyABKAkSIgoFYmFuZHMYBCADKAsyEy5ncmF2ZWwuaHViLnYxLkJhbmQSFQoNbm9fcGFpZF9wZXJrcxgFIAEoCBIpCgZsYXlvdXQYBiABKAsyGS5ncmF2ZWwuaHViLnYxLkdhbWVMYXlvdXQiGwoKR2FtZUxheW91dBINCgVib2FyZBgBIAMoCSJZCglUZWFtU2NvcmUSDAoEbmFtZRgBIAEoCRINCgVjb2xvchgCIAEoCRINCgVzY29yZRgDIAEoAxIUCgdwbGF5ZXJzGAQgASgFSACIAQFCCgoIX3BsYXllcnMirAMKDFNlcnZlclN0YXR1cxINCgVzdGF0ZRgBIAEoCRIRCglyZWFjaGFibGUYAiABKAgSLwoLb2JzZXJ2ZWRfYXQYAyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEg0KBWJ1aWxkGAQgASgJEhQKDGNhcGFiaWxpdGllcxgFIAMoCRIPCgdwbGF5ZXJzGAYgASgFEhMKC21heF9wbGF5ZXJzGAcgASgFEgsKA21hcBgIIAEoCRITCgtleHBlcmllbmNlcxgJIAMoCRIQCghsaWdodGluZxgKIAEoCRInCgV0ZWFtcxgLIAMoCzIYLmdyYXZlbC5odWIudjEuVGVhbVNjb3JlEhIKCnNjb3JlX3RpY2sYDCABKAUSFgoOcm90YXRpb25faW5kZXgYDSABKAUSGwoTbmV4dF9yb3RhdGlvbl9pbmRleBgOIAEoBRIUCgxyb3RhdGlvbl9tYXAYDyABKAkSGQoRbmV4dF9yb3RhdGlvbl9tYXAYECABKAkSJwoEam9pbhgRIAEoCzIZLmdyYXZlbC5odWIudjEuU2VydmVySm9pbiJLCgpTZXJ2ZXJKb2luEg4KBm1ldGhvZBgBIAEoCRINCgV2YWx1ZRgCIAEoCRIMCgRoaW50GAMgASgJEhAKCHBhc3N3b3JkGAQgASgJIqABCgZTZXJ2ZXISCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRIPCgdnYW1lX2lkGAMgASgJEhAKCGxvY2F0aW9uGAQgASgJEg0KBXRydXN0GAUgASgJEisKBnN0YXR1cxgHIAEoCzIbLmdyYXZlbC5odWIudjEuU2VydmVyU3RhdHVzEg4KBmRyaXZlchgIIAEoCUoECAYQB1IHc2VlZGluZyKOAQoMU2VydmVyUGxheWVyEgwKBG5hbWUYASABKAkSEAoIcHJvdmlkZXIYAiABKAkSDwoHc3ViamVjdBgDIAEoCRIMCgR0ZWFtGAQgASgJEg0KBWtpbGxzGAUgASgFEg4KBmRlYXRocxgGIAEoBRIPCgdwaW5nX21zGAcgASgFEg8KB3VzZXJfaWQYCCABKAkiEgoQTGlzdEdhbWVzUmVxdWVzdCI3ChFMaXN0R2FtZXNSZXNwb25zZRIiCgVnYW1lcxgBIAMoCzITLmdyYXZlbC5odWIudjEuR2FtZSIUChJMaXN0U2VydmVyc1JlcXVlc3QiPQoTTGlzdFNlcnZlcnNSZXNwb25zZRImCgdzZXJ2ZXJzGAEgAygLMhUuZ3JhdmVsLmh1Yi52MS5TZXJ2ZXIiKwoWR2V0U2VydmVyU3RhdHVzUmVxdWVzdBIRCglzZXJ2ZXJfaWQYASABKAkiQAoXR2V0U2VydmVyU3RhdHVzUmVzcG9uc2USJQoGc2VydmVyGAEgASgLMhUuZ3JhdmVsLmh1Yi52MS5TZXJ2ZXIiLQoYTGlzdFNlcnZlclBsYXllcnNSZXF1ZXN0EhEKCXNlcnZlcl9pZBgBIAEoCSJ6ChlMaXN0U2VydmVyUGxheWVyc1Jlc3BvbnNlEiwKB3BsYXllcnMYASADKAsyGy5ncmF2ZWwuaHViLnYxLlNlcnZlclBsYXllchIvCgtvYnNlcnZlZF9hdBgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAiGAoWR2V0RmxlZXRTdW1tYXJ5UmVxdWVzdCKMAQoLRmxlZXRUb3RhbHMSDwoHc2VydmVycxgBIAEoBRIKCgJ1cBgCIAEoBRIQCghkZWdyYWRlZBgDIAEoBRIMCgRkb3duGAQgASgFEgwKBGlkbGUYBSABKAUSDwoHdW5rbm93bhgGIAEoBRIPCgdwbGF5ZXJzGAcgASgFEhAKCGNhcGFjaXR5GAggASgFInoKCkZsZWV0QWxhcm0SDAoEa2luZBgBIAEoCRIQCghzZXZlcml0eRgCIAEoCRIRCglzZXJ2ZXJfaWQYAyABKAkSKQoFc2luY2UYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEg4KBmRldGFpbBgFIAEoCSKSAwoLRmxlZXRTZXJ2ZXISCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRIPCgdnYW1lX2lkGAMgASgJEhEKCWdhbWVfbmFtZRgEIAEoCRINCgV0cnVzdBgFIAEoCRIOCgZkcml2ZXIYBiABKAkSDgoGaGVhbHRoGAcgASgJEg4KBnJlYXNvbhgIIAEoCRIwCgxoZWFsdGhfc2luY2UYCSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEg0KBXN0YXRlGAogASgJEg8KB3BsYXllcnMYCyABKAUSEwoLbWF4X3BsYXllcnMYDCABKAUSCwoDbWFwGA0gASgJEi8KC29ic2VydmVkX2F0GA4gASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIPCgdwb2xsX21zGA8gASgFEg4KBm1pc3NlcxgQIAEoBRISCgpob3N0X3N0YXRlGBEgASgJEhcKD2hvc3RfZXJyb3JfY29kZRgSIAEoCRITCgtsZWFzZV9zdGF0ZRgTIAEoCSLIAQoXR2V0RmxlZXRTdW1tYXJ5UmVzcG9uc2USKgoGdG90YWxzGAEgASgLMhouZ3JhdmVsLmh1Yi52MS5GbGVldFRvdGFscxIpCgZhbGFybXMYAiADKAsyGS5ncmF2ZWwuaHViLnYxLkZsZWV0QWxhcm0SKwoHc2VydmVycxgDIAMoCzIaLmdyYXZlbC5odWIudjEuRmxlZXRTZXJ2ZXISKQoFYXNfb2YYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIhYKFEV4cG9ydFNlcnZlcnNSZXF1ZXN0IikKFUV4cG9ydFNlcnZlcnNSZXNwb25zZRIQCghtYW5pZmVzdBgBIAEoCSI4ChNBcHBseVNlcnZlcnNSZXF1ZXN0EhAKCG1hbmlmZXN0GAEgASgJEg8KB2RyeV9ydW4YAiABKAgiOAoUQXBwbHlTZXJ2ZXJzUmVzcG9uc2USDwoHY2hhbmdlcxgBIAMoCRIPCgdhcHBsaWVkGAIgASgIIicKE0NoZWNrU2VydmVyc1JlcXVlc3QSEAoIbWFuaWZlc3QYASABKAkiJwoUQ2hlY2tTZXJ2ZXJzUmVzcG9uc2USDwoHc3VtbWFyeRgBIAEoCTLvBQoNU2VydmVyU2VydmljZRJOCglMaXN0R2FtZXMSHy5ncmF2ZWwuaHViLnYxLkxpc3RHYW1lc1JlcXVlc3QaIC5ncmF2ZWwuaHViLnYxLkxpc3RHYW1lc1Jlc3BvbnNlElQKC0xpc3RTZXJ2ZXJzEiEuZ3JhdmVsLmh1Yi52MS5MaXN0U2VydmVyc1JlcXVlc3QaIi5ncmF2ZWwuaHViLnYxLkxpc3RTZXJ2ZXJzUmVzcG9uc2USYAoPR2V0U2VydmVyU3RhdHVzEiUuZ3JhdmVsLmh1Yi52MS5HZXRTZXJ2ZXJTdGF0dXNSZXF1ZXN0GiYuZ3JhdmVsLmh1Yi52MS5HZXRTZXJ2ZXJTdGF0dXNSZXNwb25zZRJmChFMaXN0U2VydmVyUGxheWVycxInLmdyYXZlbC5odWIudjEuTGlzdFNlcnZlclBsYXllcnNSZXF1ZXN0GiguZ3JhdmVsLmh1Yi52MS5MaXN0U2VydmVyUGxheWVyc1Jlc3BvbnNlEmAKD0dldEZsZWV0U3VtbWFyeRIlLmdyYXZlbC5odWIudjEuR2V0RmxlZXRTdW1tYXJ5UmVxdWVzdBomLmdyYXZlbC5odWIudjEuR2V0RmxlZXRTdW1tYXJ5UmVzcG9uc2USWgoNRXhwb3J0U2VydmVycxIjLmdyYXZlbC5odWIudjEuRXhwb3J0U2VydmVyc1JlcXVlc3QaJC5ncmF2ZWwuaHViLnYxLkV4cG9ydFNlcnZlcnNSZXNwb25zZRJXCgxBcHBseVNlcnZlcnMSIi5ncmF2ZWwuaHViLnYxLkFwcGx5U2VydmVyc1JlcXVlc3QaIy5ncmF2ZWwuaHViLnYxLkFwcGx5U2VydmVyc1Jlc3BvbnNlElcKDENoZWNrU2VydmVycxIiLmdyYXZlbC5odWIudjEuQ2hlY2tTZXJ2ZXJzUmVxdWVzdBojLmdyYXZlbC5odWIudjEuQ2hlY2tTZXJ2ZXJzUmVzcG9uc2VCOlo4Z2l0aHViLmNvbS9ncmF2ZWwtcHJvamVjdC9ncmF2ZWwvZ2VuL2dyYXZlbC9odWIvdjE7aHVidjFiBnByb3RvMw", [file_google_protobuf_timestamp]);
 
 /**
  * Band is a publisher guardrail on one of a game's configuration keys, of one kind: a range (min,
@@ -885,6 +885,126 @@ export const GetFleetSummaryResponseSchema: GenMessage<GetFleetSummaryResponse> 
   messageDesc(file_gravel_hub_v1_servers, 20);
 
 /**
+ * @generated from message gravel.hub.v1.ExportServersRequest
+ */
+export type ExportServersRequest = Message<"gravel.hub.v1.ExportServersRequest"> & {
+};
+
+/**
+ * Describes the message gravel.hub.v1.ExportServersRequest.
+ * Use `create(ExportServersRequestSchema)` to create a new message.
+ */
+export const ExportServersRequestSchema: GenMessage<ExportServersRequest> = /*@__PURE__*/
+  messageDesc(file_gravel_hub_v1_servers, 21);
+
+/**
+ * @generated from message gravel.hub.v1.ExportServersResponse
+ */
+export type ExportServersResponse = Message<"gravel.hub.v1.ExportServersResponse"> & {
+  /**
+   * The stored games, locations and servers as a servers.yaml manifest.
+   *
+   * @generated from field: string manifest = 1;
+   */
+  manifest: string;
+};
+
+/**
+ * Describes the message gravel.hub.v1.ExportServersResponse.
+ * Use `create(ExportServersResponseSchema)` to create a new message.
+ */
+export const ExportServersResponseSchema: GenMessage<ExportServersResponse> = /*@__PURE__*/
+  messageDesc(file_gravel_hub_v1_servers, 22);
+
+/**
+ * @generated from message gravel.hub.v1.ApplyServersRequest
+ */
+export type ApplyServersRequest = Message<"gravel.hub.v1.ApplyServersRequest"> & {
+  /**
+   * A servers.yaml manifest, the whole of it.
+   *
+   * @generated from field: string manifest = 1;
+   */
+  manifest: string;
+
+  /**
+   * Say what would change and change nothing.
+   *
+   * @generated from field: bool dry_run = 2;
+   */
+  dryRun: boolean;
+};
+
+/**
+ * Describes the message gravel.hub.v1.ApplyServersRequest.
+ * Use `create(ApplyServersRequestSchema)` to create a new message.
+ */
+export const ApplyServersRequestSchema: GenMessage<ApplyServersRequest> = /*@__PURE__*/
+  messageDesc(file_gravel_hub_v1_servers, 23);
+
+/**
+ * @generated from message gravel.hub.v1.ApplyServersResponse
+ */
+export type ApplyServersResponse = Message<"gravel.hub.v1.ApplyServersResponse"> & {
+  /**
+   * Each change, "server htg-wardogs-1 changed"; empty when nothing would change.
+   *
+   * @generated from field: repeated string changes = 1;
+   */
+  changes: string[];
+
+  /**
+   * Whether the changes were made (false on a dry run, and when there were none).
+   *
+   * @generated from field: bool applied = 2;
+   */
+  applied: boolean;
+};
+
+/**
+ * Describes the message gravel.hub.v1.ApplyServersResponse.
+ * Use `create(ApplyServersResponseSchema)` to create a new message.
+ */
+export const ApplyServersResponseSchema: GenMessage<ApplyServersResponse> = /*@__PURE__*/
+  messageDesc(file_gravel_hub_v1_servers, 24);
+
+/**
+ * @generated from message gravel.hub.v1.CheckServersRequest
+ */
+export type CheckServersRequest = Message<"gravel.hub.v1.CheckServersRequest"> & {
+  /**
+   * @generated from field: string manifest = 1;
+   */
+  manifest: string;
+};
+
+/**
+ * Describes the message gravel.hub.v1.CheckServersRequest.
+ * Use `create(CheckServersRequestSchema)` to create a new message.
+ */
+export const CheckServersRequestSchema: GenMessage<CheckServersRequest> = /*@__PURE__*/
+  messageDesc(file_gravel_hub_v1_servers, 25);
+
+/**
+ * @generated from message gravel.hub.v1.CheckServersResponse
+ */
+export type CheckServersResponse = Message<"gravel.hub.v1.CheckServersResponse"> & {
+  /**
+   * "2 games [cs2 wardogs], 3 servers [...]".
+   *
+   * @generated from field: string summary = 1;
+   */
+  summary: string;
+};
+
+/**
+ * Describes the message gravel.hub.v1.CheckServersResponse.
+ * Use `create(CheckServersResponseSchema)` to create a new message.
+ */
+export const CheckServersResponseSchema: GenMessage<CheckServersResponse> = /*@__PURE__*/
+  messageDesc(file_gravel_hub_v1_servers, 26);
+
+/**
  * ServerService reads the games and servers the hub controls (ADR-0010). They are applied from a
  * deployment's servers.yaml by `gravel-hub servers apply`; the hub polls each server through its
  * driver and answers from the last observation, so a caller never reaches a game server.
@@ -944,6 +1064,42 @@ export const ServerService: GenService<{
     methodKind: "unary";
     input: typeof GetFleetSummaryRequestSchema;
     output: typeof GetFleetSummaryResponseSchema;
+  },
+  /**
+   * ExportServers is the stored manifest: servers:manage.
+   *
+   * @generated from rpc gravel.hub.v1.ServerService.ExportServers
+   */
+  exportServers: {
+    methodKind: "unary";
+    input: typeof ExportServersRequestSchema;
+    output: typeof ExportServersResponseSchema;
+  },
+  /**
+   * ApplyServers makes the stored games and servers match a manifest, or with dry_run says what
+   * would change: servers:manage (#195). Over the API it may not add or change a location, add a
+   * server, or change a server's driver, location, endpoint, credential file, feed, or its VM's
+   * password, publisher token or share_password: those name files on the hub's host or where
+   * their secrets go, and are the host's (`gravel-hub servers apply`): failed_precondition names
+   * each. invalid_argument names every problem with the manifest.
+   *
+   * @generated from rpc gravel.hub.v1.ServerService.ApplyServers
+   */
+  applyServers: {
+    methodKind: "unary";
+    input: typeof ApplyServersRequestSchema;
+    output: typeof ApplyServersResponseSchema;
+  },
+  /**
+   * CheckServers validates a manifest against this hub's games, drivers and clouds and changes
+   * nothing: servers:manage.
+   *
+   * @generated from rpc gravel.hub.v1.ServerService.CheckServers
+   */
+  checkServers: {
+    methodKind: "unary";
+    input: typeof CheckServersRequestSchema;
+    output: typeof CheckServersResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_gravel_hub_v1_servers, 0);

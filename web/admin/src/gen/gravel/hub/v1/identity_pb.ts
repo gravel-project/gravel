@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file gravel/hub/v1/identity.proto.
  */
 export const file_gravel_hub_v1_identity: GenFile = /*@__PURE__*/
-  fileDesc("ChxncmF2ZWwvaHViL3YxL2lkZW50aXR5LnByb3RvEg1ncmF2ZWwuaHViLnYxIpYCCgRVc2VyEgoKAmlkGAEgASgJEhQKDGRpc3BsYXlfbmFtZRgCIAEoCRINCgVvd25lchgDIAEoCBIuCgpjcmVhdGVkX2F0GAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIxCg1sYXN0X2xvZ2luX2F0GAUgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIrCgppZGVudGl0aWVzGAYgAygLMhcuZ3JhdmVsLmh1Yi52MS5JZGVudGl0eRINCgVyb2xlcxgHIAMoCRIUCgxjYXBhYmlsaXRpZXMYCCADKAkSKAoGZ3JhbnRzGAkgAygLMhguZ3JhdmVsLmh1Yi52MS5Sb2xlR3JhbnQiogEKCVJvbGVHcmFudBIPCgd1c2VyX2lkGAEgASgJEgwKBHJvbGUYAiABKAkSDwoHZ2FtZV9pZBgDIAEoCRIuCgpncmFudGVkX2F0GAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIaChJncmFudGVkX2J5X3VzZXJfaWQYBSABKAkSGQoRZ3JhbnRlZF9ieV9hcHBfaWQYBiABKAkihwIKCElkZW50aXR5EhAKCHByb3ZpZGVyGAEgASgJEg8KB3N1YmplY3QYAiABKAkSFAoMZGlzcGxheV9uYW1lGAMgASgJEhIKCmF2YXRhcl91cmwYBCABKAkSGwoTdmVyaWZpY2F0aW9uX21ldGhvZBgFIAEoCRIvCgt2ZXJpZmllZF9hdBgGIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLQoJbGlua2VkX2F0GAcgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIxCg1sYXN0X2xvZ2luX2F0GAggASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCIOCgxHZXRNZVJlcXVlc3QiMgoNR2V0TWVSZXNwb25zZRIhCgR1c2VyGAEgASgLMhMuZ3JhdmVsLmh1Yi52MS5Vc2VyIjoKFVVubGlua0lkZW50aXR5UmVxdWVzdBIQCghwcm92aWRlchgBIAEoCRIPCgdzdWJqZWN0GAIgASgJIjsKFlVubGlua0lkZW50aXR5UmVzcG9uc2USIQoEdXNlchgBIAEoCzITLmdyYXZlbC5odWIudjEuVXNlciIPCg1Mb2dvdXRSZXF1ZXN0IhAKDkxvZ291dFJlc3BvbnNlIhcKFVJldm9rZVNlc3Npb25zUmVxdWVzdCIpChZSZXZva2VTZXNzaW9uc1Jlc3BvbnNlEg8KB3Jldm9rZWQYASABKAUiNgoRTG9va3VwVXNlclJlcXVlc3QSEAoIcHJvdmlkZXIYASABKAkSDwoHc3ViamVjdBgCIAEoCSI3ChJMb29rdXBVc2VyUmVzcG9uc2USIQoEdXNlchgBIAEoCzITLmdyYXZlbC5odWIudjEuVXNlciI5ChBMaXN0VXNlcnNSZXF1ZXN0EhEKCXBhZ2Vfc2l6ZRgBIAEoBRISCgpwYWdlX3Rva2VuGAIgASgJIlAKEUxpc3RVc2Vyc1Jlc3BvbnNlEiIKBXVzZXJzGAEgAygLMhMuZ3JhdmVsLmh1Yi52MS5Vc2VyEhcKD25leHRfcGFnZV90b2tlbhgCIAEoCSKGAQoNSWRlbnRpdHlFdmVudBIKCgJpZBgBIAEoAxIPCgd1c2VyX2lkGAIgASgJEhAKCHByb3ZpZGVyGAMgASgJEg8KB3N1YmplY3QYBCABKAkSDQoFZXZlbnQYBSABKAkSJgoCYXQYBiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIjwKGUxpc3RJZGVudGl0eUV2ZW50c1JlcXVlc3QSEAoIYWZ0ZXJfaWQYASABKAMSDQoFbGltaXQYAiABKAUicgoaTGlzdElkZW50aXR5RXZlbnRzUmVzcG9uc2USLAoGZXZlbnRzGAEgAygLMhwuZ3JhdmVsLmh1Yi52MS5JZGVudGl0eUV2ZW50EhUKDW5leHRfYWZ0ZXJfaWQYAiABKAMSDwoHaGVhZF9pZBgDIAEoAyJVChJTZXRVc2VyUm9sZVJlcXVlc3QSDwoHdXNlcl9pZBgBIAEoCRIMCgRyb2xlGAIgASgJEg8KB2dyYW50ZWQYAyABKAgSDwoHZ2FtZV9pZBgEIAEoCSIoChVMaXN0Um9sZUdyYW50c1JlcXVlc3QSDwoHdXNlcl9pZBgBIAEoCSJCChZMaXN0Um9sZUdyYW50c1Jlc3BvbnNlEigKBmdyYW50cxgBIAMoCzIYLmdyYXZlbC5odWIudjEuUm9sZUdyYW50IjgKE1NldFVzZXJSb2xlUmVzcG9uc2USIQoEdXNlchgBIAEoCzITLmdyYXZlbC5odWIudjEuVXNlciJcCgxQYXNzd29yZExpbmsSCwoDdXJsGAEgASgJEg8KB3B1cnBvc2UYAiABKAkSLgoKZXhwaXJlc19hdBgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAiPAoZQ3JlYXRlTG9jYWxBY2NvdW50UmVxdWVzdBIQCgh1c2VybmFtZRgBIAEoCRINCgVlbWFpbBgCIAEoCSJqChpDcmVhdGVMb2NhbEFjY291bnRSZXNwb25zZRIhCgR1c2VyGAEgASgLMhMuZ3JhdmVsLmh1Yi52MS5Vc2VyEikKBGxpbmsYAiABKAsyGy5ncmF2ZWwuaHViLnYxLlBhc3N3b3JkTGluayItChlJc3N1ZVBhc3N3b3JkUmVzZXRSZXF1ZXN0EhAKCHVzZXJuYW1lGAEgASgJIkcKGklzc3VlUGFzc3dvcmRSZXNldFJlc3BvbnNlEikKBGxpbmsYASABKAsyGy5ncmF2ZWwuaHViLnYxLlBhc3N3b3JkTGluayI3ChFTdGFydFByb29mUmVxdWVzdBIRCglzZXJ2ZXJfaWQYASABKAkSDwoHc3ViamVjdBgCIAEoCSKMAQoSU3RhcnRQcm9vZlJlc3BvbnNlEhAKCHByb29mX2lkGAEgASgJEgwKBGNvZGUYAiABKAkSLgoKZXhwaXJlc19hdBgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASFAoMaW5zdHJ1Y3Rpb25zGAQgASgJEhAKCHByb3ZpZGVyGAUgASgJIiMKD0dldFByb29mUmVxdWVzdBIQCghwcm9vZl9pZBgBIAEoCSKZAQoQR2V0UHJvb2ZSZXNwb25zZRIQCghwcm9vZl9pZBgBIAEoCRIRCglzZXJ2ZXJfaWQYAiABKAkSEAoIcHJvdmlkZXIYAyABKAkSLgoKZXhwaXJlc19hdBgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASDQoFc3RhdGUYBSABKAkSDwoHc3ViamVjdBgGIAEoCTKTCQoPSWRlbnRpdHlTZXJ2aWNlEkIKBUdldE1lEhsuZ3JhdmVsLmh1Yi52MS5HZXRNZVJlcXVlc3QaHC5ncmF2ZWwuaHViLnYxLkdldE1lUmVzcG9uc2USXQoOVW5saW5rSWRlbnRpdHkSJC5ncmF2ZWwuaHViLnYxLlVubGlua0lkZW50aXR5UmVxdWVzdBolLmdyYXZlbC5odWIudjEuVW5saW5rSWRlbnRpdHlSZXNwb25zZRJFCgZMb2dvdXQSHC5ncmF2ZWwuaHViLnYxLkxvZ291dFJlcXVlc3QaHS5ncmF2ZWwuaHViLnYxLkxvZ291dFJlc3BvbnNlEl0KDlJldm9rZVNlc3Npb25zEiQuZ3JhdmVsLmh1Yi52MS5SZXZva2VTZXNzaW9uc1JlcXVlc3QaJS5ncmF2ZWwuaHViLnYxLlJldm9rZVNlc3Npb25zUmVzcG9uc2USUQoKTG9va3VwVXNlchIgLmdyYXZlbC5odWIudjEuTG9va3VwVXNlclJlcXVlc3QaIS5ncmF2ZWwuaHViLnYxLkxvb2t1cFVzZXJSZXNwb25zZRJOCglMaXN0VXNlcnMSHy5ncmF2ZWwuaHViLnYxLkxpc3RVc2Vyc1JlcXVlc3QaIC5ncmF2ZWwuaHViLnYxLkxpc3RVc2Vyc1Jlc3BvbnNlEmkKEkxpc3RJZGVudGl0eUV2ZW50cxIoLmdyYXZlbC5odWIudjEuTGlzdElkZW50aXR5RXZlbnRzUmVxdWVzdBopLmdyYXZlbC5odWIudjEuTGlzdElkZW50aXR5RXZlbnRzUmVzcG9uc2USVAoLU2V0VXNlclJvbGUSIS5ncmF2ZWwuaHViLnYxLlNldFVzZXJSb2xlUmVxdWVzdBoiLmdyYXZlbC5odWIudjEuU2V0VXNlclJvbGVSZXNwb25zZRJpChJDcmVhdGVMb2NhbEFjY291bnQSKC5ncmF2ZWwuaHViLnYxLkNyZWF0ZUxvY2FsQWNjb3VudFJlcXVlc3QaKS5ncmF2ZWwuaHViLnYxLkNyZWF0ZUxvY2FsQWNjb3VudFJlc3BvbnNlEmkKEklzc3VlUGFzc3dvcmRSZXNldBIoLmdyYXZlbC5odWIudjEuSXNzdWVQYXNzd29yZFJlc2V0UmVxdWVzdBopLmdyYXZlbC5odWIudjEuSXNzdWVQYXNzd29yZFJlc2V0UmVzcG9uc2USXQoOTGlzdFJvbGVHcmFudHMSJC5ncmF2ZWwuaHViLnYxLkxpc3RSb2xlR3JhbnRzUmVxdWVzdBolLmdyYXZlbC5odWIudjEuTGlzdFJvbGVHcmFudHNSZXNwb25zZRJRCgpTdGFydFByb29mEiAuZ3JhdmVsLmh1Yi52MS5TdGFydFByb29mUmVxdWVzdBohLmdyYXZlbC5odWIudjEuU3RhcnRQcm9vZlJlc3BvbnNlEksKCEdldFByb29mEh4uZ3JhdmVsLmh1Yi52MS5HZXRQcm9vZlJlcXVlc3QaHy5ncmF2ZWwuaHViLnYxLkdldFByb29mUmVzcG9uc2VCOlo4Z2l0aHViLmNvbS9ncmF2ZWwtcHJvamVjdC9ncmF2ZWwvZ2VuL2dyYXZlbC9odWIvdjE7aHVidjFiBnByb3RvMw", [file_google_protobuf_timestamp]);
+  fileDesc("ChxncmF2ZWwvaHViL3YxL2lkZW50aXR5LnByb3RvEg1ncmF2ZWwuaHViLnYxIpYCCgRVc2VyEgoKAmlkGAEgASgJEhQKDGRpc3BsYXlfbmFtZRgCIAEoCRINCgVvd25lchgDIAEoCBIuCgpjcmVhdGVkX2F0GAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIxCg1sYXN0X2xvZ2luX2F0GAUgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIrCgppZGVudGl0aWVzGAYgAygLMhcuZ3JhdmVsLmh1Yi52MS5JZGVudGl0eRINCgVyb2xlcxgHIAMoCRIUCgxjYXBhYmlsaXRpZXMYCCADKAkSKAoGZ3JhbnRzGAkgAygLMhguZ3JhdmVsLmh1Yi52MS5Sb2xlR3JhbnQiogEKCVJvbGVHcmFudBIPCgd1c2VyX2lkGAEgASgJEgwKBHJvbGUYAiABKAkSDwoHZ2FtZV9pZBgDIAEoCRIuCgpncmFudGVkX2F0GAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIaChJncmFudGVkX2J5X3VzZXJfaWQYBSABKAkSGQoRZ3JhbnRlZF9ieV9hcHBfaWQYBiABKAkihwIKCElkZW50aXR5EhAKCHByb3ZpZGVyGAEgASgJEg8KB3N1YmplY3QYAiABKAkSFAoMZGlzcGxheV9uYW1lGAMgASgJEhIKCmF2YXRhcl91cmwYBCABKAkSGwoTdmVyaWZpY2F0aW9uX21ldGhvZBgFIAEoCRIvCgt2ZXJpZmllZF9hdBgGIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLQoJbGlua2VkX2F0GAcgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIxCg1sYXN0X2xvZ2luX2F0GAggASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCIOCgxHZXRNZVJlcXVlc3QiMgoNR2V0TWVSZXNwb25zZRIhCgR1c2VyGAEgASgLMhMuZ3JhdmVsLmh1Yi52MS5Vc2VyIjoKFVVubGlua0lkZW50aXR5UmVxdWVzdBIQCghwcm92aWRlchgBIAEoCRIPCgdzdWJqZWN0GAIgASgJIjsKFlVubGlua0lkZW50aXR5UmVzcG9uc2USIQoEdXNlchgBIAEoCzITLmdyYXZlbC5odWIudjEuVXNlciIPCg1Mb2dvdXRSZXF1ZXN0IhAKDkxvZ291dFJlc3BvbnNlIhcKFVJldm9rZVNlc3Npb25zUmVxdWVzdCIpChZSZXZva2VTZXNzaW9uc1Jlc3BvbnNlEg8KB3Jldm9rZWQYASABKAUiLAoZUmV2b2tlVXNlclNlc3Npb25zUmVxdWVzdBIPCgd1c2VyX2lkGAEgASgJIi0KGlJldm9rZVVzZXJTZXNzaW9uc1Jlc3BvbnNlEg8KB3Jldm9rZWQYASABKAUiNgoRTG9va3VwVXNlclJlcXVlc3QSEAoIcHJvdmlkZXIYASABKAkSDwoHc3ViamVjdBgCIAEoCSI3ChJMb29rdXBVc2VyUmVzcG9uc2USIQoEdXNlchgBIAEoCzITLmdyYXZlbC5odWIudjEuVXNlciI5ChBMaXN0VXNlcnNSZXF1ZXN0EhEKCXBhZ2Vfc2l6ZRgBIAEoBRISCgpwYWdlX3Rva2VuGAIgASgJIlAKEUxpc3RVc2Vyc1Jlc3BvbnNlEiIKBXVzZXJzGAEgAygLMhMuZ3JhdmVsLmh1Yi52MS5Vc2VyEhcKD25leHRfcGFnZV90b2tlbhgCIAEoCSKGAQoNSWRlbnRpdHlFdmVudBIKCgJpZBgBIAEoAxIPCgd1c2VyX2lkGAIgASgJEhAKCHByb3ZpZGVyGAMgASgJEg8KB3N1YmplY3QYBCABKAkSDQoFZXZlbnQYBSABKAkSJgoCYXQYBiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIjwKGUxpc3RJZGVudGl0eUV2ZW50c1JlcXVlc3QSEAoIYWZ0ZXJfaWQYASABKAMSDQoFbGltaXQYAiABKAUicgoaTGlzdElkZW50aXR5RXZlbnRzUmVzcG9uc2USLAoGZXZlbnRzGAEgAygLMhwuZ3JhdmVsLmh1Yi52MS5JZGVudGl0eUV2ZW50EhUKDW5leHRfYWZ0ZXJfaWQYAiABKAMSDwoHaGVhZF9pZBgDIAEoAyJVChJTZXRVc2VyUm9sZVJlcXVlc3QSDwoHdXNlcl9pZBgBIAEoCRIMCgRyb2xlGAIgASgJEg8KB2dyYW50ZWQYAyABKAgSDwoHZ2FtZV9pZBgEIAEoCSIoChVMaXN0Um9sZUdyYW50c1JlcXVlc3QSDwoHdXNlcl9pZBgBIAEoCSJCChZMaXN0Um9sZUdyYW50c1Jlc3BvbnNlEigKBmdyYW50cxgBIAMoCzIYLmdyYXZlbC5odWIudjEuUm9sZUdyYW50IjgKE1NldFVzZXJSb2xlUmVzcG9uc2USIQoEdXNlchgBIAEoCzITLmdyYXZlbC5odWIudjEuVXNlciJcCgxQYXNzd29yZExpbmsSCwoDdXJsGAEgASgJEg8KB3B1cnBvc2UYAiABKAkSLgoKZXhwaXJlc19hdBgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAiPAoZQ3JlYXRlTG9jYWxBY2NvdW50UmVxdWVzdBIQCgh1c2VybmFtZRgBIAEoCRINCgVlbWFpbBgCIAEoCSJqChpDcmVhdGVMb2NhbEFjY291bnRSZXNwb25zZRIhCgR1c2VyGAEgASgLMhMuZ3JhdmVsLmh1Yi52MS5Vc2VyEikKBGxpbmsYAiABKAsyGy5ncmF2ZWwuaHViLnYxLlBhc3N3b3JkTGluayItChlJc3N1ZVBhc3N3b3JkUmVzZXRSZXF1ZXN0EhAKCHVzZXJuYW1lGAEgASgJIkcKGklzc3VlUGFzc3dvcmRSZXNldFJlc3BvbnNlEikKBGxpbmsYASABKAsyGy5ncmF2ZWwuaHViLnYxLlBhc3N3b3JkTGluayI3ChFTdGFydFByb29mUmVxdWVzdBIRCglzZXJ2ZXJfaWQYASABKAkSDwoHc3ViamVjdBgCIAEoCSKMAQoSU3RhcnRQcm9vZlJlc3BvbnNlEhAKCHByb29mX2lkGAEgASgJEgwKBGNvZGUYAiABKAkSLgoKZXhwaXJlc19hdBgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASFAoMaW5zdHJ1Y3Rpb25zGAQgASgJEhAKCHByb3ZpZGVyGAUgASgJIiMKD0dldFByb29mUmVxdWVzdBIQCghwcm9vZl9pZBgBIAEoCSKZAQoQR2V0UHJvb2ZSZXNwb25zZRIQCghwcm9vZl9pZBgBIAEoCRIRCglzZXJ2ZXJfaWQYAiABKAkSEAoIcHJvdmlkZXIYAyABKAkSLgoKZXhwaXJlc19hdBgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASDQoFc3RhdGUYBSABKAkSDwoHc3ViamVjdBgGIAEoCTL+CQoPSWRlbnRpdHlTZXJ2aWNlEkIKBUdldE1lEhsuZ3JhdmVsLmh1Yi52MS5HZXRNZVJlcXVlc3QaHC5ncmF2ZWwuaHViLnYxLkdldE1lUmVzcG9uc2USXQoOVW5saW5rSWRlbnRpdHkSJC5ncmF2ZWwuaHViLnYxLlVubGlua0lkZW50aXR5UmVxdWVzdBolLmdyYXZlbC5odWIudjEuVW5saW5rSWRlbnRpdHlSZXNwb25zZRJFCgZMb2dvdXQSHC5ncmF2ZWwuaHViLnYxLkxvZ291dFJlcXVlc3QaHS5ncmF2ZWwuaHViLnYxLkxvZ291dFJlc3BvbnNlEl0KDlJldm9rZVNlc3Npb25zEiQuZ3JhdmVsLmh1Yi52MS5SZXZva2VTZXNzaW9uc1JlcXVlc3QaJS5ncmF2ZWwuaHViLnYxLlJldm9rZVNlc3Npb25zUmVzcG9uc2USaQoSUmV2b2tlVXNlclNlc3Npb25zEiguZ3JhdmVsLmh1Yi52MS5SZXZva2VVc2VyU2Vzc2lvbnNSZXF1ZXN0GikuZ3JhdmVsLmh1Yi52MS5SZXZva2VVc2VyU2Vzc2lvbnNSZXNwb25zZRJRCgpMb29rdXBVc2VyEiAuZ3JhdmVsLmh1Yi52MS5Mb29rdXBVc2VyUmVxdWVzdBohLmdyYXZlbC5odWIudjEuTG9va3VwVXNlclJlc3BvbnNlEk4KCUxpc3RVc2VycxIfLmdyYXZlbC5odWIudjEuTGlzdFVzZXJzUmVxdWVzdBogLmdyYXZlbC5odWIudjEuTGlzdFVzZXJzUmVzcG9uc2USaQoSTGlzdElkZW50aXR5RXZlbnRzEiguZ3JhdmVsLmh1Yi52MS5MaXN0SWRlbnRpdHlFdmVudHNSZXF1ZXN0GikuZ3JhdmVsLmh1Yi52MS5MaXN0SWRlbnRpdHlFdmVudHNSZXNwb25zZRJUCgtTZXRVc2VyUm9sZRIhLmdyYXZlbC5odWIudjEuU2V0VXNlclJvbGVSZXF1ZXN0GiIuZ3JhdmVsLmh1Yi52MS5TZXRVc2VyUm9sZVJlc3BvbnNlEmkKEkNyZWF0ZUxvY2FsQWNjb3VudBIoLmdyYXZlbC5odWIudjEuQ3JlYXRlTG9jYWxBY2NvdW50UmVxdWVzdBopLmdyYXZlbC5odWIudjEuQ3JlYXRlTG9jYWxBY2NvdW50UmVzcG9uc2USaQoSSXNzdWVQYXNzd29yZFJlc2V0EiguZ3JhdmVsLmh1Yi52MS5Jc3N1ZVBhc3N3b3JkUmVzZXRSZXF1ZXN0GikuZ3JhdmVsLmh1Yi52MS5Jc3N1ZVBhc3N3b3JkUmVzZXRSZXNwb25zZRJdCg5MaXN0Um9sZUdyYW50cxIkLmdyYXZlbC5odWIudjEuTGlzdFJvbGVHcmFudHNSZXF1ZXN0GiUuZ3JhdmVsLmh1Yi52MS5MaXN0Um9sZUdyYW50c1Jlc3BvbnNlElEKClN0YXJ0UHJvb2YSIC5ncmF2ZWwuaHViLnYxLlN0YXJ0UHJvb2ZSZXF1ZXN0GiEuZ3JhdmVsLmh1Yi52MS5TdGFydFByb29mUmVzcG9uc2USSwoIR2V0UHJvb2YSHi5ncmF2ZWwuaHViLnYxLkdldFByb29mUmVxdWVzdBofLmdyYXZlbC5odWIudjEuR2V0UHJvb2ZSZXNwb25zZUI6WjhnaXRodWIuY29tL2dyYXZlbC1wcm9qZWN0L2dyYXZlbC9nZW4vZ3JhdmVsL2h1Yi92MTtodWJ2MWIGcHJvdG8z", [file_google_protobuf_timestamp]);
 
 /**
  * User is a member: what their linked identities resolve to. Stats are keyed by identity, never
@@ -337,6 +337,42 @@ export const RevokeSessionsResponseSchema: GenMessage<RevokeSessionsResponse> = 
   messageDesc(file_gravel_hub_v1_identity, 10);
 
 /**
+ * @generated from message gravel.hub.v1.RevokeUserSessionsRequest
+ */
+export type RevokeUserSessionsRequest = Message<"gravel.hub.v1.RevokeUserSessionsRequest"> & {
+  /**
+   * @generated from field: string user_id = 1;
+   */
+  userId: string;
+};
+
+/**
+ * Describes the message gravel.hub.v1.RevokeUserSessionsRequest.
+ * Use `create(RevokeUserSessionsRequestSchema)` to create a new message.
+ */
+export const RevokeUserSessionsRequestSchema: GenMessage<RevokeUserSessionsRequest> = /*@__PURE__*/
+  messageDesc(file_gravel_hub_v1_identity, 11);
+
+/**
+ * @generated from message gravel.hub.v1.RevokeUserSessionsResponse
+ */
+export type RevokeUserSessionsResponse = Message<"gravel.hub.v1.RevokeUserSessionsResponse"> & {
+  /**
+   * How many sessions were ended.
+   *
+   * @generated from field: int32 revoked = 1;
+   */
+  revoked: number;
+};
+
+/**
+ * Describes the message gravel.hub.v1.RevokeUserSessionsResponse.
+ * Use `create(RevokeUserSessionsResponseSchema)` to create a new message.
+ */
+export const RevokeUserSessionsResponseSchema: GenMessage<RevokeUserSessionsResponse> = /*@__PURE__*/
+  messageDesc(file_gravel_hub_v1_identity, 12);
+
+/**
  * @generated from message gravel.hub.v1.LookupUserRequest
  */
 export type LookupUserRequest = Message<"gravel.hub.v1.LookupUserRequest"> & {
@@ -356,7 +392,7 @@ export type LookupUserRequest = Message<"gravel.hub.v1.LookupUserRequest"> & {
  * Use `create(LookupUserRequestSchema)` to create a new message.
  */
 export const LookupUserRequestSchema: GenMessage<LookupUserRequest> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_identity, 11);
+  messageDesc(file_gravel_hub_v1_identity, 13);
 
 /**
  * @generated from message gravel.hub.v1.LookupUserResponse
@@ -373,7 +409,7 @@ export type LookupUserResponse = Message<"gravel.hub.v1.LookupUserResponse"> & {
  * Use `create(LookupUserResponseSchema)` to create a new message.
  */
 export const LookupUserResponseSchema: GenMessage<LookupUserResponse> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_identity, 12);
+  messageDesc(file_gravel_hub_v1_identity, 14);
 
 /**
  * @generated from message gravel.hub.v1.ListUsersRequest
@@ -399,7 +435,7 @@ export type ListUsersRequest = Message<"gravel.hub.v1.ListUsersRequest"> & {
  * Use `create(ListUsersRequestSchema)` to create a new message.
  */
 export const ListUsersRequestSchema: GenMessage<ListUsersRequest> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_identity, 13);
+  messageDesc(file_gravel_hub_v1_identity, 15);
 
 /**
  * @generated from message gravel.hub.v1.ListUsersResponse
@@ -425,7 +461,7 @@ export type ListUsersResponse = Message<"gravel.hub.v1.ListUsersResponse"> & {
  * Use `create(ListUsersResponseSchema)` to create a new message.
  */
 export const ListUsersResponseSchema: GenMessage<ListUsersResponse> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_identity, 14);
+  messageDesc(file_gravel_hub_v1_identity, 16);
 
 /**
  * IdentityEvent is one line of the append-only identity log: a registration, a login, a link or
@@ -474,7 +510,7 @@ export type IdentityEvent = Message<"gravel.hub.v1.IdentityEvent"> & {
  * Use `create(IdentityEventSchema)` to create a new message.
  */
 export const IdentityEventSchema: GenMessage<IdentityEvent> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_identity, 15);
+  messageDesc(file_gravel_hub_v1_identity, 17);
 
 /**
  * @generated from message gravel.hub.v1.ListIdentityEventsRequest
@@ -500,7 +536,7 @@ export type ListIdentityEventsRequest = Message<"gravel.hub.v1.ListIdentityEvent
  * Use `create(ListIdentityEventsRequestSchema)` to create a new message.
  */
 export const ListIdentityEventsRequestSchema: GenMessage<ListIdentityEventsRequest> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_identity, 16);
+  messageDesc(file_gravel_hub_v1_identity, 18);
 
 /**
  * @generated from message gravel.hub.v1.ListIdentityEventsResponse
@@ -532,7 +568,7 @@ export type ListIdentityEventsResponse = Message<"gravel.hub.v1.ListIdentityEven
  * Use `create(ListIdentityEventsResponseSchema)` to create a new message.
  */
 export const ListIdentityEventsResponseSchema: GenMessage<ListIdentityEventsResponse> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_identity, 17);
+  messageDesc(file_gravel_hub_v1_identity, 19);
 
 /**
  * @generated from message gravel.hub.v1.SetUserRoleRequest
@@ -570,7 +606,7 @@ export type SetUserRoleRequest = Message<"gravel.hub.v1.SetUserRoleRequest"> & {
  * Use `create(SetUserRoleRequestSchema)` to create a new message.
  */
 export const SetUserRoleRequestSchema: GenMessage<SetUserRoleRequest> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_identity, 18);
+  messageDesc(file_gravel_hub_v1_identity, 20);
 
 /**
  * @generated from message gravel.hub.v1.ListRoleGrantsRequest
@@ -589,7 +625,7 @@ export type ListRoleGrantsRequest = Message<"gravel.hub.v1.ListRoleGrantsRequest
  * Use `create(ListRoleGrantsRequestSchema)` to create a new message.
  */
 export const ListRoleGrantsRequestSchema: GenMessage<ListRoleGrantsRequest> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_identity, 19);
+  messageDesc(file_gravel_hub_v1_identity, 21);
 
 /**
  * @generated from message gravel.hub.v1.ListRoleGrantsResponse
@@ -606,7 +642,7 @@ export type ListRoleGrantsResponse = Message<"gravel.hub.v1.ListRoleGrantsRespon
  * Use `create(ListRoleGrantsResponseSchema)` to create a new message.
  */
 export const ListRoleGrantsResponseSchema: GenMessage<ListRoleGrantsResponse> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_identity, 20);
+  messageDesc(file_gravel_hub_v1_identity, 22);
 
 /**
  * @generated from message gravel.hub.v1.SetUserRoleResponse
@@ -623,7 +659,7 @@ export type SetUserRoleResponse = Message<"gravel.hub.v1.SetUserRoleResponse"> &
  * Use `create(SetUserRoleResponseSchema)` to create a new message.
  */
 export const SetUserRoleResponseSchema: GenMessage<SetUserRoleResponse> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_identity, 21);
+  messageDesc(file_gravel_hub_v1_identity, 23);
 
 /**
  * PasswordLink is a one-time link that sets a local account's password (ADR-0026, gravel#187).
@@ -660,7 +696,7 @@ export type PasswordLink = Message<"gravel.hub.v1.PasswordLink"> & {
  * Use `create(PasswordLinkSchema)` to create a new message.
  */
 export const PasswordLinkSchema: GenMessage<PasswordLink> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_identity, 22);
+  messageDesc(file_gravel_hub_v1_identity, 24);
 
 /**
  * @generated from message gravel.hub.v1.CreateLocalAccountRequest
@@ -686,7 +722,7 @@ export type CreateLocalAccountRequest = Message<"gravel.hub.v1.CreateLocalAccoun
  * Use `create(CreateLocalAccountRequestSchema)` to create a new message.
  */
 export const CreateLocalAccountRequestSchema: GenMessage<CreateLocalAccountRequest> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_identity, 23);
+  messageDesc(file_gravel_hub_v1_identity, 25);
 
 /**
  * @generated from message gravel.hub.v1.CreateLocalAccountResponse
@@ -708,7 +744,7 @@ export type CreateLocalAccountResponse = Message<"gravel.hub.v1.CreateLocalAccou
  * Use `create(CreateLocalAccountResponseSchema)` to create a new message.
  */
 export const CreateLocalAccountResponseSchema: GenMessage<CreateLocalAccountResponse> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_identity, 24);
+  messageDesc(file_gravel_hub_v1_identity, 26);
 
 /**
  * @generated from message gravel.hub.v1.IssuePasswordResetRequest
@@ -727,7 +763,7 @@ export type IssuePasswordResetRequest = Message<"gravel.hub.v1.IssuePasswordRese
  * Use `create(IssuePasswordResetRequestSchema)` to create a new message.
  */
 export const IssuePasswordResetRequestSchema: GenMessage<IssuePasswordResetRequest> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_identity, 25);
+  messageDesc(file_gravel_hub_v1_identity, 27);
 
 /**
  * @generated from message gravel.hub.v1.IssuePasswordResetResponse
@@ -744,7 +780,7 @@ export type IssuePasswordResetResponse = Message<"gravel.hub.v1.IssuePasswordRes
  * Use `create(IssuePasswordResetResponseSchema)` to create a new message.
  */
 export const IssuePasswordResetResponseSchema: GenMessage<IssuePasswordResetResponse> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_identity, 26);
+  messageDesc(file_gravel_hub_v1_identity, 28);
 
 /**
  * @generated from message gravel.hub.v1.StartProofRequest
@@ -771,7 +807,7 @@ export type StartProofRequest = Message<"gravel.hub.v1.StartProofRequest"> & {
  * Use `create(StartProofRequestSchema)` to create a new message.
  */
 export const StartProofRequestSchema: GenMessage<StartProofRequest> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_identity, 27);
+  messageDesc(file_gravel_hub_v1_identity, 29);
 
 /**
  * @generated from message gravel.hub.v1.StartProofResponse
@@ -814,7 +850,7 @@ export type StartProofResponse = Message<"gravel.hub.v1.StartProofResponse"> & {
  * Use `create(StartProofResponseSchema)` to create a new message.
  */
 export const StartProofResponseSchema: GenMessage<StartProofResponse> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_identity, 28);
+  messageDesc(file_gravel_hub_v1_identity, 30);
 
 /**
  * @generated from message gravel.hub.v1.GetProofRequest
@@ -831,7 +867,7 @@ export type GetProofRequest = Message<"gravel.hub.v1.GetProofRequest"> & {
  * Use `create(GetProofRequestSchema)` to create a new message.
  */
 export const GetProofRequestSchema: GenMessage<GetProofRequest> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_identity, 29);
+  messageDesc(file_gravel_hub_v1_identity, 31);
 
 /**
  * @generated from message gravel.hub.v1.GetProofResponse
@@ -878,7 +914,7 @@ export type GetProofResponse = Message<"gravel.hub.v1.GetProofResponse"> & {
  * Use `create(GetProofResponseSchema)` to create a new message.
  */
 export const GetProofResponseSchema: GenMessage<GetProofResponse> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_identity, 30);
+  messageDesc(file_gravel_hub_v1_identity, 32);
 
 /**
  * IdentityService is the logged-in member's account and the lookups role sync needs. Every
@@ -927,6 +963,17 @@ export const IdentityService: GenService<{
     methodKind: "unary";
     input: typeof RevokeSessionsRequestSchema;
     output: typeof RevokeSessionsResponseSchema;
+  },
+  /**
+   * RevokeUserSessions logs a member out everywhere, with the tokens apps hold for them:
+   * members:manage (#195). not_found for an unknown member.
+   *
+   * @generated from rpc gravel.hub.v1.IdentityService.RevokeUserSessions
+   */
+  revokeUserSessions: {
+    methodKind: "unary";
+    input: typeof RevokeUserSessionsRequestSchema;
+    output: typeof RevokeUserSessionsResponseSchema;
   },
   /**
    * LookupUser resolves a (provider, subject) pair to its user, for role sync. Owner only until
