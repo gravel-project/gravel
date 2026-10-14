@@ -50,8 +50,11 @@ describe("the fleet", () => {
     expect(strip.getAllByRole("definition").map((d) => d.textContent)).toEqual(["1 of 4", "1 down · 1 degraded · 1 unknown · 1 idle", "31 of 190", "2"]);
 
     const alarms = within(screen.getByRole("heading", { name: "2 alarms" }).closest("section") as HTMLElement).getAllByRole("listitem");
-    expect(nth(alarms, 0).textContent).toBe("Criticalserver.downhtg-wardogs-2not answeringsince 3 min ago");
-    expect(within(nth(alarms, 0)).getByRole("link").getAttribute("href")).toBe("/servers/htg-wardogs-2");
+    expect(nth(alarms, 0).textContent).toBe("Criticalserver.downhtg-wardogs-2not answeringsince 3 min agoEvents");
+    expect(within(nth(alarms, 0)).getByRole("link", { name: "htg-wardogs-2" }).getAttribute("href")).toBe("/servers/htg-wardogs-2");
+    // Each alarm opens the events feed on what it is about (gravel#193).
+    expect(within(nth(alarms, 0)).getByRole("link", { name: "Events" }).getAttribute("href")).toBe("/admin/events?server=htg-wardogs-2");
+    expect(within(nth(alarms, 1)).getByRole("link", { name: "Events" }).getAttribute("href")).toBe("/admin/events?kind=backup");
     expect(nth(alarms, 1).textContent).toContain("Warningbackup.stale");
     expect(nth(alarms, 1).textContent).toContain("since 1 d ago");
 

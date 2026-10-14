@@ -17,6 +17,7 @@ import (
 
 	hubv1 "github.com/gravel-project/gravel/gen/gravel/hub/v1"
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
+	"github.com/gravel-project/gravel/internal/events"
 	"github.com/gravel-project/gravel/internal/web"
 	"github.com/gravel-project/gravel/internal/web/admin"
 	"github.com/gravel-project/gravel/internal/web/templates"
@@ -40,6 +41,37 @@ type a11yOrg struct {
 
 func (a11yOrg) GetOrganization(context.Context, *connect.Request[hubv1.GetOrganizationRequest]) (*connect.Response[hubv1.GetOrganizationResponse], error) {
 	return connect.NewResponse(&hubv1.GetOrganizationResponse{Organization: &hubv1.Organization{Id: "o1", Name: "Hidden Token Gaming", Owned: true, Demo: true}}), nil
+}
+
+// a11yEvents is an events log with every severity, a server's, a member's and an app's events and
+// a detail, so the feed (gravel#193) is scanned with everything a row can show.
+func (a11yOrg) ListEvents(context.Context, *connect.Request[hubv1.ListEventsRequest]) (*connect.Response[hubv1.ListEventsResponse], error) {
+	now := time.Now()
+	ago := func(d time.Duration) *timestamppb.Timestamp { return timestamppb.New(now.Add(-d)) }
+	return connect.NewResponse(&hubv1.ListEventsResponse{HeadId: 4, NextAfterId: 4, NextBeforeId: 1, Events: []*hubv1.Event{
+		{Id: 4, At: ago(time.Minute), Kind: "server.down", Severity: "critical", ServerId: "htg-wardogs-2", GameId: "wardogs",
+			Summary: "HTG WARDOGS | NA WEST | #2 is down", Detail: map[string]string{"misses": "6"}},
+		{Id: 3, At: ago(5 * time.Minute), Kind: "server.unreachable", Severity: "warning", ServerId: "htg-wardogs-2", GameId: "wardogs", Summary: "HTG WARDOGS | NA WEST | #2 stopped answering its polls"},
+		{Id: 2, At: ago(time.Hour), Kind: "moderation.kick", Severity: "notice", ServerId: "htg-cs2-1", GameId: "cs2", ActorUserId: "u1", ActorName: "Jo", Summary: "kick on htg-cs2-1: ok"},
+		{Id: 1, At: ago(2 * time.Hour), Kind: "lease.ready", Severity: "info", ServerId: "htg-cs2-1", GameId: "cs2", ActorAppId: "a1", ActorName: "HTG Bot", Summary: "a lease on htg-cs2-1 is ready"},
+	}}), nil
+}
+
+func (a11yOrg) ListEventKinds(context.Context, *connect.Request[hubv1.ListEventKindsRequest]) (*connect.Response[hubv1.ListEventKindsResponse], error) {
+	out := &hubv1.ListEventKindsResponse{}
+	for _, k := range events.Kinds() {
+		out.Kinds = append(out.Kinds, &hubv1.EventKind{Name: k.Name, Group: events.Group(k.Name), Severity: string(k.Severity), About: k.About})
+	}
+	return connect.NewResponse(out), nil
+}
+
+func (a11yFleet) ListServers(context.Context, *connect.Request[hubv1.ListServersRequest]) (*connect.Response[hubv1.ListServersResponse], error) {
+	return connect.NewResponse(&hubv1.ListServersResponse{Servers: []*hubv1.Server{
+		{Id: "htg-wardogs-2", Name: "HTG WARDOGS | NA WEST | #2", GameId: "wardogs"}, {Id: "htg-cs2-1", Name: "HTG CS2 #1", GameId: "cs2"}}}), nil
+}
+
+func (a11yFleet) ListGames(context.Context, *connect.Request[hubv1.ListGamesRequest]) (*connect.Response[hubv1.ListGamesResponse], error) {
+	return connect.NewResponse(&hubv1.ListGamesResponse{Games: []*hubv1.Game{{Id: "wardogs", Name: "War Dogs"}, {Id: "cs2", Name: "Counter-Strike 2"}}}), nil
 }
 
 // a11yFleet is a fleet with every health and both alarm severities, so the fleet page (gravel#192)
@@ -430,11 +462,11 @@ func TestAccessibility(t *testing.T) {
 		"/fixture/server-moderator", "/fixture/server-host", "/fixture/server-host-parked", "/fixture/host-confirm", "/fixture/confirm", "/fixture/log", "/fixture/account-apps", "/fixture/consent",
 		"/fixture/account-proof", "/fixture/proof", "/fixture/proof-proven", "/fixture/host-expect", "/fixture/result",
 		"/fixture/login-local", "/fixture/register", "/fixture/account-local", "/fixture/reset",
-		"/admin", "/admin/access", "/admin/nowhere"}
+		"/admin", "/admin/events", "/admin/access", "/admin/nowhere"}
 	// What each dashboard route shows once rendered in the browser.
-	adminRenders := map[string]string{"/admin": ">HTG WARDOGS | NA WEST | #1</a>", "/admin/access": ">Your access</h1>", "/admin/nowhere": ">Not found</h1>"}
+	adminRenders := map[string]string{"/admin": ">HTG WARDOGS | NA WEST | #1</a>", "/admin/events": ">HTG WARDOGS | NA WEST | #2 is down</p>", "/admin/access": ">Your access</h1>", "/admin/nowhere": ">Not found</h1>"}
 	// The same, as text on the page, for the viewport script.
-	adminRenderText := map[string]string{"/admin": "HTG WARDOGS | NA WEST | #1", "/admin/access": "Your access"}
+	adminRenderText := map[string]string{"/admin": "HTG WARDOGS | NA WEST | #1", "/admin/events": "HTG WARDOGS | NA WEST | #2 is down", "/admin/access": "Your access"}
 	// A fixture left out of the list would never be scanned and the run would still pass.
 	for path := range fixtures {
 		if !slices.Contains(paths, path) {
@@ -476,7 +508,8 @@ func TestAccessibility(t *testing.T) {
 		}
 		// The script resolves puppeteer-core and axe-core from web/admin's node_modules (make admin).
 		cmd := exec.CommandContext(ctx, "node", "../../web/admin/scripts/viewport.mjs", chrome,
-			srv.URL+"/admin", adminRenderText["/admin"], srv.URL+"/admin/access", adminRenderText["/admin/access"])
+			srv.URL+"/admin", adminRenderText["/admin"], srv.URL+"/admin/events", adminRenderText["/admin/events"],
+			srv.URL+"/admin/access", adminRenderText["/admin/access"])
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			t.Fatalf("the dashboard at phone and iPad sizes:\n%s", out)

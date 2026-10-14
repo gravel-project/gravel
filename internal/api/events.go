@@ -45,7 +45,20 @@ func (s *OrganizationServer) ListEvents(ctx context.Context, req *connect.Reques
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("min_severity %q is not info, notice, warning or critical", sev))
 	}
 	q := store.EventQuery{AfterID: m.GetAfterId(), BeforeID: m.GetBeforeId(), Limit: int(m.GetLimit()), Kinds: m.GetKinds(),
-		MinSeverity: events.Severity(m.GetMinSeverity()), ServerID: strings.TrimSpace(m.GetServerId())}
+		MinSeverity: events.Severity(m.GetMinSeverity()), ServerID: strings.TrimSpace(m.GetServerId()), GameID: strings.TrimSpace(m.GetGameId())}
+	for _, a := range []struct {
+		field, value string
+		into         **uuid.UUID
+	}{{"actor_user_id", m.GetActorUserId(), &q.ActorUserID}, {"actor_app_id", m.GetActorAppId(), &q.ActorAppID}} {
+		if a.value == "" {
+			continue
+		}
+		id, err := uuid.Parse(a.value)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("%s %q is not an id", a.field, a.value))
+		}
+		*a.into = &id
+	}
 	if all, games := p.Scope(authz.EventsRead); !all {
 		q.Games = append([]string{}, games...) // not nil: only these games' events
 	}
@@ -76,7 +89,8 @@ func (s *OrganizationServer) ListEvents(ctx context.Context, req *connect.Reques
 
 func eventMessage(e store.Event) *hubv1.Event {
 	p := &hubv1.Event{Id: e.ID, At: timestamppb.New(e.At), Kind: e.Kind, Severity: e.Severity, OnBehalfProvider: e.OnBehalfProvider,
-		OnBehalfSubject: e.OnBehalfSubject, ServerId: e.ServerID, GameId: e.GameID, Summary: e.Summary, RequestId: e.RequestID}
+		OnBehalfSubject: e.OnBehalfSubject, ServerId: e.ServerID, GameId: e.GameID, Summary: e.Summary, RequestId: e.RequestID,
+		ActorName: actorName(e.ActorUserName, e.ActorAppName)}
 	if e.ActorUserID != nil {
 		p.ActorUserId = e.ActorUserID.String()
 	}
@@ -93,4 +107,27 @@ func eventMessage(e store.Event) *hubv1.Event {
 		}
 	}
 	return p
+}
+
+// actorName is who acted, as a person reads it: the member, the app, or the member through the app.
+func actorName(member, app string) string {
+	switch {
+	case member != "" && app != "":
+		return member + " through " + app
+	case member != "":
+		return member
+	}
+	return app
+}
+
+// ListEventKinds is the registry, for a filter: events:read anywhere, as ListEvents.
+func (s *OrganizationServer) ListEventKinds(ctx context.Context, _ *connect.Request[hubv1.ListEventKindsRequest]) (*connect.Response[hubv1.ListEventKindsResponse], error) {
+	if _, err := s.access.RequireAny(ctx, authz.EventsRead); err != nil {
+		return nil, err
+	}
+	out := &hubv1.ListEventKindsResponse{}
+	for _, k := range events.Kinds() {
+		out.Kinds = append(out.Kinds, &hubv1.EventKind{Name: k.Name, Group: events.Group(k.Name), Severity: string(k.Severity), About: k.About})
+	}
+	return connect.NewResponse(out), nil
 }

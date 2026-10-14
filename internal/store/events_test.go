@@ -174,6 +174,24 @@ func TestEventsLog(t *testing.T) {
 	if got, h2, _ := st.ListEvents(ctx, o.ID, store.EventQuery{AfterID: head}); len(got) != 0 || h2 != head {
 		t.Errorf("at the head: %v %d", got, h2)
 	}
+	// The feed's filters (#193): one game, intersected with a reader's games; one actor; names.
+	if got := eventKinds(t, st, o.ID, store.EventQuery{GameID: "cs2", Kinds: []string{"role", "moderation"}}); strings.Join(got, " ") != "moderation.kick role.granted" {
+		t.Errorf("game cs2: %v", got)
+	}
+	if got := eventKinds(t, st, o.ID, store.EventQuery{GameID: "cs2", Games: []string{"wardogs"}}); len(got) != 0 {
+		t.Errorf("game cs2 for a War Dogs reader: %v", got)
+	}
+	byOwner, _, err := st.ListEvents(ctx, o.ID, store.EventQuery{ActorUserID: &owner.ID})
+	if err != nil || len(byOwner) != 2 || byOwner[0].Kind != "moderation.kick" || byOwner[0].ActorUserName != "Owner" || byOwner[0].ActorAppName != "" {
+		t.Errorf("the owner's events: %+v %v", byOwner, err)
+	}
+	nobody := uuid.New()
+	if got := eventKinds(t, st, o.ID, store.EventQuery{ActorAppID: &nobody}); len(got) != 0 {
+		t.Errorf("an app that did nothing: %v", got)
+	}
+	if reg, _, _ := st.ListEvents(ctx, o.ID, store.EventQuery{Kinds: []string{"identity.registered"}}); len(reg) != 2 || reg[0].ActorUserName != "" {
+		t.Errorf("an event nobody acted in has no actor name: %+v", reg)
+	}
 
 	// An unknown kind fails and writes nothing; a source row already in the log is skipped.
 	if err := st.AppendEvent(ctx, store.Event{OrganizationID: o.ID, At: t0, Kind: "made.up", Summary: "x", Source: "test"}); err == nil {

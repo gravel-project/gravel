@@ -106,6 +106,10 @@ func (f *fakeEvents) ListEvents(_ context.Context, _ uuid.UUID, q store.EventQue
 		if q.AfterID > 0 && e.ID <= q.AfterID {
 			continue
 		}
+		if (q.GameID != "" && e.GameID != q.GameID) || (q.ActorUserID != nil && (e.ActorUserID == nil || *e.ActorUserID != *q.ActorUserID)) ||
+			(q.ActorAppID != nil && (e.ActorAppID == nil || *e.ActorAppID != *q.ActorAppID)) {
+			continue
+		}
 		out = append(out, e)
 	}
 	return out, head, nil

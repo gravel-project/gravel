@@ -388,6 +388,9 @@ message Event {
   // A few words more, by name; never a secret, an address or a SteamID.
   map<string, string> detail = 13;
   string request_id = 14;
+  // Who acted, by name as the hub has them now (a member's display name, an app's name), read
+  // with the event; empty when nobody did (the hub itself) or they are gone.
+  string actor_name = 15;
 }
 
 message ListEventsRequest {
@@ -403,6 +406,12 @@ message ListEventsRequest {
   string min_severity = 5;
   // One server's events.
   string server_id = 6;
+  // One game's events (#193). A caller holding events:read for some games gets the intersection.
+  string game_id = 7;
+  // The events one member (a user id) or one app (an app id) did; a member acting through an app
+  // matches both.
+  string actor_user_id = 8;
+  string actor_app_id = 9;
 }
 
 message ListEventsResponse {
@@ -413,6 +422,25 @@ message ListEventsResponse {
   int64 head_id = 3;
   // Pass as before_id to page further back; 0 when there is nothing older.
   int64 next_before_id = 4;
+}
+
+message ListEventKindsRequest {}
+
+// EventKind is one kind of event the hub records.
+message EventKind {
+  // "server.down".
+  string name = 1;
+  // Its family, the part before the dot: "server". ListEventsRequest.kinds takes either.
+  string group = 2;
+  // "info", "notice", "warning" or "critical": fixed per kind.
+  string severity = 3;
+  // What it means, in a line.
+  string about = 4;
+}
+
+message ListEventKindsResponse {
+  // In the registry's order: grouped, a family's kinds together.
+  repeated EventKind kinds = 1;
 }
 
 message NominateOwnerRequest {
@@ -490,6 +518,8 @@ service OrganizationService {
   // ListEvents reads the events log by cursor (ADR-0028): events:read, and a caller holding it
   // for some games sees those games' events only.
   rpc ListEvents(ListEventsRequest) returns (ListEventsResponse);
+  // ListEventKinds is the registry of event kinds (ADR-0028), for a filter: events:read anywhere.
+  rpc ListEventKinds(ListEventKindsRequest) returns (ListEventKindsResponse);
   // TestNotifier sends a test event (kind notifier.test, never in the log) to a notifier and says
   // whether it was delivered: settings:write. not_found for a name the settings don't have.
   rpc TestNotifier(TestNotifierRequest) returns (TestNotifierResponse);
