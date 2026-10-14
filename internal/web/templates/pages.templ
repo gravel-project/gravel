@@ -256,6 +256,37 @@ templ AccountContent(p AccountPage) {
 			<button type="submit">Log out everywhere</button>
 		</form>
 	</section>
+	if n := p.Org.Pending; n != nil && p.User != nil && n.UserID == p.User.ID {
+		<section aria-labelledby="nominated-heading">
+			<h2 id="nominated-heading">You were nominated to own this hub</h2>
+			if n.Expired {
+				<p>The owner asked you to take { p.Org.Name } over, but the nomination expired on { n.ExpiresAt.UTC().Format("2006-01-02 15:04 UTC") }. Ask them to nominate you again.</p>
+			} else {
+				<p>The owner asked you to take { p.Org.Name } over. Accept before { n.ExpiresAt.UTC().Format("2006-01-02 15:04 UTC") } and you become its owner, with every permission, handing it on included; the owner stays on as an admin. Decline and nothing changes.</p>
+				<form method="post" action="/account/ownership/accept" class="inline" hx-post="/account/ownership/accept" hx-target="#page" hx-swap="innerHTML">
+					<input type="hidden" name="_csrf" value={ p.CSRF }/>
+					<button type="submit">Accept: own this hub</button>
+				</form>
+			}
+			<form method="post" action="/account/ownership/decline" class="inline" hx-post="/account/ownership/decline" hx-target="#page" hx-swap="innerHTML">
+				<input type="hidden" name="_csrf" value={ p.CSRF }/>
+				<button type="submit" class="link">Decline</button>
+			</form>
+		</section>
+	} else if n != nil && p.User != nil && p.User.Owner {
+		<section aria-labelledby="transfer-heading">
+			<h2 id="transfer-heading">Handing the hub over</h2>
+			if n.Expired {
+				<p>Your nomination of { n.Name } expired on { n.ExpiresAt.UTC().Format("2006-01-02 15:04 UTC") } without an answer. Nominate them again from <a href="/members">Members</a>, or cancel it.</p>
+			} else {
+				<p>You nominated { n.Name } to own this hub; they have until { n.ExpiresAt.UTC().Format("2006-01-02 15:04 UTC") } to accept. Until then you own it, and when they accept you stay on as an admin.</p>
+			}
+			<form method="post" action="/account/ownership/cancel" class="inline" hx-post="/account/ownership/cancel" hx-target="#page" hx-swap="innerHTML">
+				<input type="hidden" name="_csrf" value={ p.CSRF }/>
+				<button type="submit" class="link">Cancel the nomination</button>
+			</form>
+		</section>
+	}
 	if !p.Org.Owned {
 		<section aria-labelledby="claim-heading">
 			<h2 id="claim-heading">Claim this hub</h2>

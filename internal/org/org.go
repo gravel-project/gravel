@@ -30,7 +30,17 @@ import (
 var (
 	ErrAlreadyOwned = errors.New("the organization is already owned")
 	ErrInvalidToken = errors.New("the owner-claim token is invalid or has expired")
+
+	// The ownership transfer's (#197).
+	ErrNotOwner          = errors.New("only the owner hands the hub over")
+	ErrSelfNomination    = errors.New("you already own the hub: nominate another member")
+	ErrNotMember         = errors.New("the nominee is not a member of this hub")
+	ErrNoNomination      = errors.New("nobody nominated you to take the hub over")
+	ErrNominationExpired = errors.New("the nomination expired: the owner can nominate you again")
 )
+
+// NominationTTL is how long a nominee has to accept the hub (ADR-0027 §6).
+const NominationTTL = 7 * 24 * time.Hour
 
 // Store is what the service needs from the database.
 type Store interface {
@@ -40,6 +50,9 @@ type Store interface {
 	SetClaimToken(ctx context.Context, id uuid.UUID, hash []byte, expiresAt time.Time) error
 	ClaimOrganization(ctx context.Context, id uuid.UUID, hash []byte, by store.Actor, now time.Time) (store.Organization, error)
 	UpdateOrganizationSettings(ctx context.Context, id uuid.UUID, settings json.RawMessage, at time.Time, by store.Actor, sections []string) (store.Organization, error)
+	NominateOwner(ctx context.Context, id, nominee uuid.UUID, by store.Actor, at, expires time.Time) (store.Organization, error)
+	CancelOwnershipTransfer(ctx context.Context, id uuid.UUID, by store.Actor, at time.Time) (store.Organization, error)
+	AcceptOwnership(ctx context.Context, id uuid.UUID, by store.Actor, at time.Time) (store.Organization, uuid.UUID, error)
 }
 
 // Service is the organization domain.
@@ -172,6 +185,67 @@ func (s *Service) Claim(ctx context.Context, token string, by store.Actor) (stor
 	}
 	s.logger.Info("ownership claimed", "organization_id", claimed.ID, "owner_user_id", *by.UserID)
 	return claimed, nil
+}
+
+// NominateOwner makes nominee the hub's pending owner for NominationTTL, replacing any earlier
+// nomination; by must be the owner (ADR-0027 §6). The caller checks that by acts in person.
+func (s *Service) NominateOwner(ctx context.Context, nominee uuid.UUID, by store.Actor) (store.Organization, error) {
+	o, err := s.st.GetBuiltinOrganization(ctx)
+	if err != nil {
+		return store.Organization{}, err
+	}
+	now := s.now()
+	n, err := s.st.NominateOwner(ctx, o.ID, nominee, by, now, now.Add(NominationTTL))
+	if err != nil {
+		return store.Organization{}, transferError(err)
+	}
+	s.logger.Info("ownership nominated", "organization_id", o.ID, "nominee_user_id", nominee, "expires_at", n.Pending.ExpiresAt)
+	return n, nil
+}
+
+// CancelOwnershipTransfer ends the nomination: the owner cancels it, the nominee declines it.
+func (s *Service) CancelOwnershipTransfer(ctx context.Context, by store.Actor) (store.Organization, error) {
+	o, err := s.st.GetBuiltinOrganization(ctx)
+	if err != nil {
+		return store.Organization{}, err
+	}
+	c, err := s.st.CancelOwnershipTransfer(ctx, o.ID, by, s.now())
+	if err != nil {
+		return store.Organization{}, transferError(err)
+	}
+	s.logger.Info("ownership nomination ended", "organization_id", o.ID)
+	return c, nil
+}
+
+// AcceptOwnership makes by, the unexpired nominee, the owner, and the old owner an admin.
+func (s *Service) AcceptOwnership(ctx context.Context, by store.Actor) (store.Organization, error) {
+	o, err := s.st.GetBuiltinOrganization(ctx)
+	if err != nil {
+		return store.Organization{}, err
+	}
+	a, old, err := s.st.AcceptOwnership(ctx, o.ID, by, s.now())
+	if err != nil {
+		return store.Organization{}, transferError(err)
+	}
+	s.logger.Info("ownership transferred", "organization_id", o.ID, "owner_user_id", *by.UserID, "old_owner_user_id", old)
+	return a, nil
+}
+
+// transferError turns the store's transfer errors into the service's.
+func transferError(err error) error {
+	switch {
+	case errors.Is(err, store.ErrNotOwner):
+		return ErrNotOwner
+	case errors.Is(err, store.ErrSelfNomination):
+		return ErrSelfNomination
+	case errors.Is(err, store.ErrNotFound):
+		return ErrNotMember
+	case errors.Is(err, store.ErrNoNomination):
+		return ErrNoNomination
+	case errors.Is(err, store.ErrNominationExpired):
+		return ErrNominationExpired
+	}
+	return err
 }
 
 func (s *Service) newToken() (token string, hash []byte, err error) {

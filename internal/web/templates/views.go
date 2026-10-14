@@ -79,6 +79,18 @@ type Org struct {
 	Owned bool
 	// Demo is a demo hub's (gravel#112): every page says its data is made up.
 	Demo bool
+	// Pending is the nomination to take the hub over (#197), shown to the owner and the nominee
+	// only; nil for anyone else, and when there is none.
+	Pending *PendingOwner
+}
+
+// PendingOwner is the member the owner nominated, and until when they may accept.
+type PendingOwner struct {
+	UserID    string
+	Name      string
+	ExpiresAt time.Time
+	// Expired says the 7 days are over: the nominee can only decline, the owner nominate again.
+	Expired bool
 }
 
 // DemoNotice is what every page of a demo hub says, above everything else.

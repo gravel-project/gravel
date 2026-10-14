@@ -41,6 +41,19 @@ func (s *Store) SetRoleGrant(ctx context.Context, userID uuid.UUID, role, gameID
 		return false, fmt.Errorf("store: set role grant: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+	changed, err := s.setRoleGrant(ctx, tx, userID, role, gameID, granted, ch)
+	if err != nil || !changed {
+		return false, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return false, fmt.Errorf("store: set role grant: %w", err)
+	}
+	return true, nil
+}
+
+// setRoleGrant is SetRoleGrant in the caller's transaction (an ownership transfer's admin grant
+// is part of the transfer).
+func (s *Store) setRoleGrant(ctx context.Context, tx pgx.Tx, userID uuid.UUID, role, gameID string, granted bool, ch RoleChange) (bool, error) {
 	var orgID uuid.UUID
 	if err := tx.QueryRow(ctx, `SELECT organization_id FROM users WHERE id = $1 FOR UPDATE`, userID).Scan(&orgID); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -87,9 +100,6 @@ func (s *Store) SetRoleGrant(ctx context.Context, userID uuid.UUID, role, gameID
 		SubjectUserID: &userID, GameID: gameID, Summary: "{user}" + verb + role + scope, Detail: map[string]any{"role": role, "game_id": gameID},
 		Source: "role_changes", SourceID: fmt.Sprint(changeID)}); err != nil {
 		return false, err
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return false, fmt.Errorf("store: set role grant: %w", err)
 	}
 	return true, nil
 }

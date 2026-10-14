@@ -65,6 +65,7 @@ var memberProcedures = map[string]string{
 	// StartProof and GetProof (gravel#5) are the member's, in person: an app never proves an account for them.
 	// CreateLocalAccount and IssuePasswordReset (gravel#187) are staff's, in person: a link is a password for an hour.
 	// TestNotifier (gravel#196) is the owner's, in person, like the settings it tests.
+	// NominateOwner, AcceptOwnership and CancelOwnershipTransfer (gravel#197) are the owner's and the nominee's, in person: a token never hands a hub over.
 	// ServerLeaseService (#20) is an app's (servers:lease) or a moderator's in person; a member's token never leases.
 	hubv1connect.ServerConfigServiceGetServerConfigProcedure:   apps.ScopeServersConfigure,
 	hubv1connect.ServerConfigServicePlanServerConfigProcedure:  apps.ScopeServersConfigure,
@@ -378,6 +379,14 @@ func mapError(ctx context.Context, logger *slog.Logger, err error) error {
 		return connect.NewError(connect.CodePermissionDenied, err)
 	case errors.Is(err, org.ErrInvalidSettings):
 		return connect.NewError(connect.CodeInvalidArgument, err)
+	case errors.Is(err, org.ErrNotOwner):
+		return connect.NewError(connect.CodePermissionDenied, err)
+	case errors.Is(err, org.ErrSelfNomination):
+		return connect.NewError(connect.CodeInvalidArgument, err)
+	case errors.Is(err, org.ErrNotMember):
+		return connect.NewError(connect.CodeNotFound, err)
+	case errors.Is(err, org.ErrNoNomination), errors.Is(err, org.ErrNominationExpired):
+		return connect.NewError(connect.CodeFailedPrecondition, err)
 	case errors.Is(err, identity.ErrLastIdentity):
 		return connect.NewError(connect.CodeFailedPrecondition, err)
 	case errors.Is(err, identity.ErrNotLinked):

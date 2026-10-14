@@ -27,18 +27,37 @@ type Organization struct {
 	// Settings is the Organization settings document (org.Settings), "{}" until one is written.
 	Settings          json.RawMessage
 	SettingsUpdatedAt *time.Time
+	// Pending is the member the owner nominated to take the hub over (#197), nil when none.
+	Pending *PendingOwner
+}
+
+// PendingOwner is a nomination: who, their name, since when and until when they may accept.
+type PendingOwner struct {
+	UserID      uuid.UUID
+	Name        string
+	NominatedAt time.Time
+	ExpiresAt   time.Time
 }
 
 // Owned reports whether ownership has been claimed.
 func (o Organization) Owned() bool { return o.ClaimedAt != nil }
 
-const organizationColumns = `id, name, builtin, created_at, claimed_at, owner_user_id, claim_token_hash, claim_token_expires_at, settings, settings_updated_at`
+const organizationColumns = `id, name, builtin, created_at, claimed_at, owner_user_id, claim_token_hash, claim_token_expires_at, settings, settings_updated_at,
+	pending_owner_user_id, coalesce((SELECT display_name FROM users WHERE users.id = organizations.pending_owner_user_id), ''),
+	pending_owner_nominated_at, pending_owner_expires_at`
 
 func scanOrganization(row pgx.Row) (Organization, error) {
 	var o Organization
-	err := row.Scan(&o.ID, &o.Name, &o.Builtin, &o.CreatedAt, &o.ClaimedAt, &o.OwnerUserID, &o.ClaimTokenHash, &o.ClaimTokenExpiresAt, &o.Settings, &o.SettingsUpdatedAt)
+	var pending *uuid.UUID
+	var pendingName string
+	var nominated, expires *time.Time
+	err := row.Scan(&o.ID, &o.Name, &o.Builtin, &o.CreatedAt, &o.ClaimedAt, &o.OwnerUserID, &o.ClaimTokenHash, &o.ClaimTokenExpiresAt, &o.Settings, &o.SettingsUpdatedAt,
+		&pending, &pendingName, &nominated, &expires)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Organization{}, ErrNotFound
+	}
+	if err == nil && pending != nil && nominated != nil && expires != nil {
+		o.Pending = &PendingOwner{UserID: *pending, Name: pendingName, NominatedAt: *nominated, ExpiresAt: *expires}
 	}
 	return o, err
 }

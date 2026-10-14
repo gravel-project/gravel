@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	hubv1 "github.com/gravel-project/gravel/gen/gravel/hub/v1"
@@ -54,7 +55,74 @@ func (s *OrganizationServer) GetOrganization(ctx context.Context, _ *connect.Req
 	if err != nil {
 		return nil, mapError(ctx, s.logger, err)
 	}
-	return connect.NewResponse(&hubv1.GetOrganizationResponse{Organization: toProto(o, s.org.Demo())}), nil
+	return connect.NewResponse(&hubv1.GetOrganizationResponse{Organization: s.withPending(ctx, o)}), nil
+}
+
+// withPending is the organization for the caller: the nomination (#197) only for the owner and
+// the nominee, since who may take the hub over is theirs to know.
+func (s *OrganizationServer) withPending(ctx context.Context, o store.Organization) *hubv1.Organization {
+	p := toProto(o, s.org.Demo())
+	if o.Pending == nil {
+		return p
+	}
+	who, err := s.access.Principal(ctx)
+	if err != nil || who.UserID == uuid.Nil || (who.UserID != o.Pending.UserID && (o.OwnerUserID == nil || who.UserID != *o.OwnerUserID)) {
+		return p
+	}
+	p.PendingOwnerUserId, p.PendingOwnerName = o.Pending.UserID.String(), o.Pending.Name
+	p.PendingOwnerExpiresAt = timestamppb.New(o.Pending.ExpiresAt)
+	return p
+}
+
+// NominateOwner names the member who may take the hub over: org:transfer, the owner in person.
+func (s *OrganizationServer) NominateOwner(ctx context.Context, req *connect.Request[hubv1.NominateOwnerRequest]) (*connect.Response[hubv1.NominateOwnerResponse], error) {
+	if _, err := s.access.Require(ctx, authz.OrgTransfer, authz.Target{}); err != nil {
+		return nil, err
+	}
+	uid, err := sessionCaller(ctx)
+	if err != nil {
+		return nil, err
+	}
+	nominee, err := uuid.Parse(strings.TrimSpace(req.Msg.GetUserId()))
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("user_id must be a member's id"))
+	}
+	o, err := s.org.NominateOwner(ctx, nominee, s.inPerson(ctx, uid))
+	if err != nil {
+		return nil, mapError(ctx, s.logger, err)
+	}
+	return connect.NewResponse(&hubv1.NominateOwnerResponse{Organization: s.withPending(ctx, o)}), nil
+}
+
+// AcceptOwnership makes the nominee, in person, the owner.
+func (s *OrganizationServer) AcceptOwnership(ctx context.Context, _ *connect.Request[hubv1.AcceptOwnershipRequest]) (*connect.Response[hubv1.AcceptOwnershipResponse], error) {
+	uid, err := sessionCaller(ctx)
+	if err != nil {
+		return nil, err
+	}
+	o, err := s.org.AcceptOwnership(ctx, s.inPerson(ctx, uid))
+	if err != nil {
+		return nil, mapError(ctx, s.logger, err)
+	}
+	return connect.NewResponse(&hubv1.AcceptOwnershipResponse{Organization: s.withPending(ctx, o)}), nil
+}
+
+// CancelOwnershipTransfer ends the nomination, by the owner or the nominee in person.
+func (s *OrganizationServer) CancelOwnershipTransfer(ctx context.Context, _ *connect.Request[hubv1.CancelOwnershipTransferRequest]) (*connect.Response[hubv1.CancelOwnershipTransferResponse], error) {
+	uid, err := sessionCaller(ctx)
+	if err != nil {
+		return nil, err
+	}
+	o, err := s.org.CancelOwnershipTransfer(ctx, s.inPerson(ctx, uid))
+	if err != nil {
+		return nil, mapError(ctx, s.logger, err)
+	}
+	return connect.NewResponse(&hubv1.CancelOwnershipTransferResponse{Organization: s.withPending(ctx, o)}), nil
+}
+
+// inPerson is a member acting through their session, as the events log records them.
+func (s *OrganizationServer) inPerson(ctx context.Context, uid uuid.UUID) store.Actor {
+	return store.Actor{UserID: &uid, Via: store.ViaAPI, RequestID: httpx.RequestIDFromContext(ctx)}
 }
 
 // ClaimOwnership consumes the one-time owner-claim token and makes the caller the owner.

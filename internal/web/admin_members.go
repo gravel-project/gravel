@@ -139,3 +139,39 @@ func (h *Handler) setRole(w http.ResponseWriter, r *http.Request) {
 	b.relay(w)
 	h.render(w, r, http.StatusOK, b2, templates.Members(mp), templates.MembersContent(mp))
 }
+
+// nominateOwner nominates a member to take the hub over, from the Members page (#197); the API
+// admits the owner in person only.
+func (h *Handler) nominateOwner(w http.ResponseWriter, r *http.Request) {
+	if !h.authorized(w, r) {
+		return
+	}
+	ctx, b := withBrowser(r)
+	resp, err := h.orgAPI.NominateOwner(ctx, connect.NewRequest(&hubv1.NominateOwnerRequest{UserId: r.PostFormValue("user_id")}))
+	var flash templates.Flash
+	switch connect.CodeOf(err) {
+	case connect.CodePermissionDenied, connect.CodeInvalidArgument, connect.CodeNotFound:
+		flash = templates.Flash{Kind: "err", Text: "You can't nominate that member: " + connectMessage(err) + "."}
+	default:
+		if err != nil {
+			h.apiError(w, r, b, err)
+			return
+		}
+		o := resp.Msg.GetOrganization()
+		flash = templates.Flash{Kind: "ok", Text: o.GetPendingOwnerName() + " has until " + o.GetPendingOwnerExpiresAt().AsTime().UTC().Format("2006-01-02 15:04 UTC") +
+			" to accept the hub on their account page. Until then you own it."}
+	}
+	if !isHX(r) {
+		b.relay(w)
+		h.setFlash(w, flash.Kind, flash.Text)
+		http.Redirect(w, r, "/members", http.StatusSeeOther)
+		return
+	}
+	mp, b2, _, err := h.membersPage(r, "", &flash)
+	if err != nil {
+		h.serverError(w, r, err)
+		return
+	}
+	b.relay(w)
+	h.render(w, r, http.StatusOK, b2, templates.Members(mp), templates.MembersContent(mp))
+}
