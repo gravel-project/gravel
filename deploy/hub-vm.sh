@@ -101,6 +101,9 @@ wait_ready() {
   set -e
   if (( rc != 0 )); then
     vm_ssh admin sudo cat /var/log/cloud-init-output.log | tail -60 >&2 || true
+    # cloud-init's "systemd unit failure" names no unit: say which failed, and why.
+    vm_ssh admin 'sudo systemctl --failed --no-pager; for u in $(systemctl --failed --no-legend --plain | cut -d" " -f1); do echo "== $u"; sudo journalctl -b -u "$u" --no-pager | tail -40; done' >&2 || true
+    vm_ssh admin 'sudo cloud-init status --format json' >&2 || true
     die "cloud-init reported errors (exit $rc)"
   fi
   log "ready: ssh -p $port gravel@127.0.0.1 (or admin@)"

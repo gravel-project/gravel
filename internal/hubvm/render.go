@@ -199,7 +199,8 @@ func dropIn(s *StockParams) string {
 	var b strings.Builder
 	b.WriteString("# Written by gravel hub create --profile stock (ADR-0020).\n[Container]\nSecret=gravel-stats-pseudonym-key\n")
 	if s.HubImage != "" {
-		b.WriteString("Image=" + s.HubImage + "\n")
+		// GRAVEL_IMAGE follows Image=, so /healthz names what runs (gravel#214).
+		b.WriteString("Image=" + s.HubImage + "\nEnvironment=GRAVEL_IMAGE=" + s.HubImage + "\n")
 	}
 	return b.String()
 }

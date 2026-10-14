@@ -1,4 +1,5 @@
 -- +goose Up
+-- gravel:cost instant
 -- Inbound ingestion (ADR-0011). A server that pushes events (War Dogs' [WDServerFeed]) has a feed:
 -- the origin it posts to and the file its token is read from, never the token. Every batch the
 -- ingest route authenticates is kept here, as received, before the route answers: the sources do

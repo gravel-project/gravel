@@ -178,7 +178,8 @@ write_files:
     content: |
       # The gravel hub, pinned by digest to a release of ghcr.io/gravel-project/gravel-hub (0.8.1; the
       # index digest covers amd64 and arm64). docs/releasing.md says how to verify a release and move
-      # the pin. For a local build use `make image` and Image=localhost/gravel-hub:dev.
+      # the pin, here and in GRAVEL_IMAGE below. For a local build use `make image` and
+      # Image=localhost/gravel-hub:dev.
       # Config: ~/.config/gravel/hub.yaml (docs/hub.md). Secret: gravel-db-url
       # (`podman secret create gravel-db-url <file>`, the file holding the postgres:// URL). With login
       # enabled, also gravel-discord-client-secret and, optionally, gravel-steam-api-key.
@@ -189,6 +190,8 @@ write_files:
 
       [Container]
       Image=ghcr.io/gravel-project/gravel-hub@sha256:440148d47a9731b5526bbcea1db96eebc4b356e295ab8c8a9bb490856042b2a2
+      # What /healthz reports as the hub's image and digest (gravel#214): keep it equal to Image=.
+      Environment=GRAVEL_IMAGE=ghcr.io/gravel-project/gravel-hub@sha256:440148d47a9731b5526bbcea1db96eebc4b356e295ab8c8a9bb490856042b2a2
       ContainerName=gravel-hub
       Network=gravel.network
       PublishPort=127.0.0.1:8080:8080
@@ -298,6 +301,7 @@ write_files:
       [Container]
       Secret=gravel-stats-pseudonym-key
       Image=ghcr.io/gravel-project/gravel-hub@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      Environment=GRAVEL_IMAGE=ghcr.io/gravel-project/gravel-hub@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
 
 runcmd:
   - [ hostnamectl, set-hostname, hub-1 ]

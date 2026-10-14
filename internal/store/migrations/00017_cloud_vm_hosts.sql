@@ -1,4 +1,5 @@
 -- +goose Up
+-- gravel:cost instant
 -- Cloud-VM servers (ADR-0003, gravel#36). A location is a cloud account and region a deployment
 -- declares in servers.yaml (its token and SSH key are files the hub reads, never stored here). A
 -- cloud-VM server's machine and settings are the manifest's vm and settings sections. A

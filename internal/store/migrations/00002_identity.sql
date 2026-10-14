@@ -1,4 +1,5 @@
 -- +goose Up
+-- gravel:cost instant
 -- Users and their linked identities (gravel#13, gravel#5). A user is what (provider, subject)
 -- pairs resolve to; stats are keyed by the pair, never by the user id (README principle 3).
 -- Users are never deleted: erasure anonymizes (principle 8), so every reference below is a

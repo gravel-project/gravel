@@ -1,4 +1,5 @@
 -- +goose Up
+-- gravel:cost scan app_tokens
 -- Members sign in to first-party apps with the authorization-code flow (ADR-0015, gravel#6).
 --
 -- An app registration gains its redirect URIs: exact strings, compared as strings, never as

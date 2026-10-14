@@ -1,4 +1,5 @@
 -- +goose Up
+-- gravel:cost instant
 -- Registered first-party apps and their bearer tokens (ADR-0008, the client-credentials slice of
 -- gravel#6): a service such as a host's bot authenticates with a client id and a secret, holds a
 -- short-lived opaque token and acts within its scopes. The secret and the tokens are stored as

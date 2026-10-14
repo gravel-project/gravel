@@ -1,4 +1,5 @@
 -- +goose Up
+-- gravel:cost instant
 -- Server leases (gravel#20, ADR-0023): an app (a PUG bot, Muster) or a moderator takes a server
 -- for a match with its own password, settings, plugins and match config, and it is parked and given
 -- back after. A lease is a request against a server or a pool; the hub picks the server, starts it,

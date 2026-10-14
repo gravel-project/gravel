@@ -78,6 +78,8 @@ services:
     depends_on:
       - postgres # the hub itself waits for the database (database.connect_timeout)
     command: ["serve", "--config", "/etc/gravel/hub.yaml"]
+    environment:
+      GRAVEL_IMAGE: localhost/gravel-hub:dev # /healthz reports it; a local build has no digest
     secrets:
       - gravel-db-url
       # With login enabled in hub.yaml (deploy/README.md):

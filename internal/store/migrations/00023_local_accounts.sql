@@ -1,4 +1,5 @@
 -- +goose Up
+-- gravel:cost instant
 -- Local accounts (gravel#186, ADR-0026): a username and a password are one more provider. The
 -- identity is ('local', <canonical username>) in identities, with the same uniqueness, events
 -- and unlink rules as any other; its credential is a row here, removed with the identity.

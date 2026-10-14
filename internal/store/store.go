@@ -3,6 +3,7 @@
 package store
 
 import (
+	"cmp"
 	"context"
 	"database/sql"
 	"embed"
@@ -10,6 +11,10 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
+	"regexp"
+	"slices"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -120,11 +125,71 @@ func (s *Store) MigrateDownTo(ctx context.Context, version int64) error {
 	return nil
 }
 
-// MigrationStatus is what `gravel-hub migrate --status` and /readyz report.
+// MigrationStatus is what `gravel-hub migrate --check` and /readyz report.
 type MigrationStatus struct {
 	Current int64
 	Latest  int64
 	Pending int
+	// PendingMigrations are the migrations an upgrade would apply, oldest first.
+	PendingMigrations []Migration
+}
+
+// Migration is one embedded migration and what applying it costs (gravel#214).
+type Migration struct {
+	Version int64
+	// Name is the file's name without its version and extension: "ownership_transfer".
+	Name string
+	// Cost is the migration's `-- gravel:cost` line: "instant" (catalog changes only, milliseconds
+	// whatever the data), "scan <tables>" (reads every row of those tables under a lock that blocks
+	// writes to them: a constraint or foreign key validated, an index built, a backfill), or
+	// "rewrite <tables>" (rewrites every row: time and disk grow with the tables, reads block too).
+	Cost string
+}
+
+// costRE is a valid `-- gravel:cost` value.
+var costRE = regexp.MustCompile(`^(instant|(scan|rewrite) [a-z_][a-z0-9_]*(, [a-z_][a-z0-9_]*)*)$`)
+
+// Migrations lists the embedded migrations, oldest first, each with its cost. A migration
+// without a valid `-- gravel:cost` line among its leading comments is an error: an upgrade must
+// be able to say what it will do before it does it.
+func Migrations() ([]Migration, error) {
+	entries, err := fs.ReadDir(migrationFiles, "migrations")
+	if err != nil {
+		return nil, fmt.Errorf("store: migrations: %w", err)
+	}
+	var out []Migration
+	for _, e := range entries {
+		name := e.Name()
+		if e.IsDir() || !strings.HasSuffix(name, ".sql") {
+			continue
+		}
+		num, rest, ok := strings.Cut(strings.TrimSuffix(name, ".sql"), "_")
+		v, err := strconv.ParseInt(num, 10, 64)
+		if !ok || err != nil {
+			return nil, fmt.Errorf("store: migration %s: not <version>_<name>.sql", name)
+		}
+		b, err := migrationFiles.ReadFile("migrations/" + name)
+		if err != nil {
+			return nil, fmt.Errorf("store: migration %s: %w", name, err)
+		}
+		m := Migration{Version: v, Name: rest}
+		for line := range strings.SplitSeq(string(b), "\n") {
+			line = strings.TrimSpace(line)
+			if !strings.HasPrefix(line, "--") {
+				break
+			}
+			if c, ok := strings.CutPrefix(line, "-- gravel:cost "); ok {
+				m.Cost = strings.TrimSpace(c)
+				break
+			}
+		}
+		if !costRE.MatchString(m.Cost) {
+			return nil, fmt.Errorf("store: migration %s: its leading comments need a line \"-- gravel:cost instant\", \"-- gravel:cost scan <table>, …\" or \"-- gravel:cost rewrite <table>, …\" (docs/hub.md, Migrations); got %q", name, m.Cost)
+		}
+		out = append(out, m)
+	}
+	slices.SortFunc(out, func(a, b Migration) int { return cmp.Compare(a.Version, b.Version) })
+	return out, nil
 }
 
 // Status reports the applied and latest migration versions.
@@ -144,13 +209,18 @@ func (s *Store) Status(ctx context.Context) (MigrationStatus, error) {
 			latest = src.Version
 		}
 	}
-	pending := 0
-	for _, src := range p.ListSources() {
-		if src.Version > current {
-			pending++
+	all, err := Migrations()
+	if err != nil {
+		return MigrationStatus{}, err
+	}
+	st := MigrationStatus{Current: current, Latest: latest}
+	for _, m := range all {
+		if m.Version > current {
+			st.PendingMigrations = append(st.PendingMigrations, m)
 		}
 	}
-	return MigrationStatus{Current: current, Latest: latest, Pending: pending}, nil
+	st.Pending = len(st.PendingMigrations)
+	return st, nil
 }
 
 // Ready is the readiness check: the database answers and no migration is pending.

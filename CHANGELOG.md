@@ -34,6 +34,10 @@ patch release is everything else.
 
 ### Added
 
+- **What a hub runs, and what an upgrade will do** (#214; H1, #182; for GRVL's waved upgrades).
+  - **`/healthz`** gains `binary_sha256` (the running executable's SHA-256, true however the hub was deployed) and, from `GRAVEL_IMAGE`, `image` with the `digest` it is pinned to. The stock quadlet, `deploy/compose.yaml` and `gravel hub create`'s drop-in set `GRAVEL_IMAGE` beside `Image=`; `TestHubImageIsReportedAsPinned` fails when the stock unit's two drift, so moving the pin is a two-line change (`docs/releasing.md`).
+  - **`gravel-hub migrate --check`** lists each pending migration with its cost and exits 3 while any are pending (`--status`, its old name, does the same). Every migration's second line is `-- gravel:cost instant | scan <tables> | rewrite <tables>` (`docs/hub.md`, Migrations), backfilled for the 29 there are: 22 instant, 7 scans of small tables, no rewrite. `TestEveryMigrationHasACost` refuses a migration without one.
+
 - **The `gravel` CLI runs a hub after bootstrap** (#201, [ADR-0031](docs/adr/0031-the-cli-is-an-api-client-with-a-credential-on-this-machine.md); H1, #182): the operator's commands over the API, so nobody needs a shell on the hub's host for day-to-day work (`docs/cli.md`, Operating a hub; `docs/hub.md`, Commands, now says which `gravel-hub` commands are host-only).
   - **Commands:** `gravel members list|grant|revoke|logout` (a member by id or as `provider:subject`; `--game` for a game-scoped role), `owner status|nominate|accept|cancel`, `users create-local|reset-password`, `apps create|list|revoke`, `settings export|check|apply`, `servers export|check|apply` (all but what only the host changes), `stats erase`, `notifiers test`. Where `gravel-hub` has the command they take its flags and print its lines. A manifest is a file or `-` for stdin; the hub's refusal lists every problem.
   - **The API:** `OrganizationService.ExportSettings`, `CheckSettings` and `ApplySettings` with `dry_run` (`settings:write`, in person; members' tokens refused) take the settings as the YAML manifest, as the servers procedures do: the hub parses and checks it against its own games and names the top-level sections that differ. A manifest that matches the stored settings writes nothing and records no `settings.updated`. The access matrix has the three; `org.Settings.Summary` is the line `gravel-hub settings` and the API both print.
@@ -246,6 +250,9 @@ patch release is everything else.
   - **Docs:** docs/hub.md (Demo hub), CLAUDE.md.
 
 ### Fixed
+
+- A 52 MB `gravel-hub` binary was committed at the repository's root with #235; it is removed, and `.gitignore` keeps out the binaries `go build ./cmd/<name>` drops there. The blob stays in the history.
+- `make hub-vm` names the failed systemd units and their journals when cloud-init reports "systemd unit failure", which said nothing about which unit.
 
 - A VM's first boot waits for the runtime user's systemd instance to answer, not only for its bus socket to exist. The socket appears before the manager is ready, and Fedora 44's systemd 259 widened that gap: the first `systemctl --user` was refused ("Failed to connect to user scope bus"), `first-boot` failed, the boot marker was never written and the host waited out its boot timeout (HTG's `htg-cs2-1` on 2026-10-12, and the `hub-vm` drill on main twice the same day). `first-boot` now polls `systemctl --user show-environment` for up to two minutes and says which unit to look at if it never answers. The hub's own host has the same document, so `gravel hub create` was exposed too.
 - A cloud-VM host's environment file is checked on the host, not only against the hub's record (#169). HTG's first live run edited the file on the host by hand (`CS2_IP=10.48.0.6`); it lives on the data volume, so it outlived a park, and the next instance started CS2 bound to the wrong address with RCON refused, stuck in `starting` until the file was put back by hand. The hub pushed only when what it renders changed.
