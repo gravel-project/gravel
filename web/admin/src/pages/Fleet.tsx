@@ -6,7 +6,9 @@ import { timestampDate } from "@bufbuild/protobuf/wkt";
 import { Code, ConnectError } from "@connectrpc/connect";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { Link } from "wouter";
 
+import { noFilters, search } from "../events";
 import { ago, clock, duration, health, healthStyle, stale, trouble } from "../fleet";
 import { type FleetAlarm, type FleetServer, type GetFleetSummaryResponse, ServerService } from "../gen/gravel/hub/v1/servers_pb";
 import { useClient } from "../transport";
@@ -146,6 +148,11 @@ function Alarms({ alarms, now }: { alarms: FleetAlarm[]; now: Date }) {
             {a.serverId && <a href={`/servers/${encodeURIComponent(a.serverId)}`}>{a.serverId}</a>}
             <span className="basis-full sm:basis-auto">{a.detail}</span>
             {a.since && <span className="text-sm text-muted">since {ago(timestampDate(a.since), now)}</span>}
+            {alarmEvents(a) !== "" && (
+              <Link href={alarmEvents(a)} className="text-sm">
+                Events
+              </Link>
+            )}
           </li>
         ))}
       </ul>
@@ -200,4 +207,13 @@ function Row({ server: s, now }: { server: FleetServer; now: Date }) {
       </div>
     </li>
   );
+}
+
+// alarmEvents is the feed filtered to what an alarm is about: its server's events, or the backups';
+// "" for an alarm no event family matches (the hub unowned, WAL archiving).
+function alarmEvents(a: FleetAlarm): string {
+  if (a.serverId !== "") {
+    return "/events" + search({ ...noFilters, server: a.serverId });
+  }
+  return a.kind.startsWith("backup.") ? "/events" + search({ ...noFilters, kind: "backup" }) : "";
 }

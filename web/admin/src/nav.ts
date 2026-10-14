@@ -15,6 +15,7 @@ export interface NavItem {
 
 export const pages: readonly NavItem[] = [
   { to: "/", label: "Fleet", capability: "servers:read", roles: ["admin", "operator", "moderator"] },
+  { to: "/events", label: "Events", capability: "events:read", roles: ["admin", "operator", "moderator"] },
   { to: "/access", label: "Your access", capability: "" },
 ];
 
