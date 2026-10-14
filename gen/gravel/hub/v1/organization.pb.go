@@ -39,9 +39,14 @@ type Organization struct {
 	OwnerUserId string `protobuf:"bytes,6,opt,name=owner_user_id,json=ownerUserId,proto3" json:"owner_user_id,omitempty"`
 	// Whether this hub is a demo (hub.yaml demo: true): its members, matches and stats are made up,
 	// and a client says so wherever it shows them.
-	Demo          bool `protobuf:"varint,7,opt,name=demo,proto3" json:"demo,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Demo bool `protobuf:"varint,7,opt,name=demo,proto3" json:"demo,omitempty"`
+	// The member the owner nominated to take the hub over (#197), their name, and until when they
+	// may accept; set only for the owner and the nominee, unset when there is no nomination.
+	PendingOwnerUserId    string                 `protobuf:"bytes,8,opt,name=pending_owner_user_id,json=pendingOwnerUserId,proto3" json:"pending_owner_user_id,omitempty"`
+	PendingOwnerName      string                 `protobuf:"bytes,9,opt,name=pending_owner_name,json=pendingOwnerName,proto3" json:"pending_owner_name,omitempty"`
+	PendingOwnerExpiresAt *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=pending_owner_expires_at,json=pendingOwnerExpiresAt,proto3" json:"pending_owner_expires_at,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
 func (x *Organization) Reset() {
@@ -121,6 +126,27 @@ func (x *Organization) GetDemo() bool {
 		return x.Demo
 	}
 	return false
+}
+
+func (x *Organization) GetPendingOwnerUserId() string {
+	if x != nil {
+		return x.PendingOwnerUserId
+	}
+	return ""
+}
+
+func (x *Organization) GetPendingOwnerName() string {
+	if x != nil {
+		return x.PendingOwnerName
+	}
+	return ""
+}
+
+func (x *Organization) GetPendingOwnerExpiresAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.PendingOwnerExpiresAt
+	}
+	return nil
 }
 
 type GetOrganizationRequest struct {
@@ -2599,6 +2625,255 @@ func (x *ListEventsResponse) GetNextBeforeId() int64 {
 	return 0
 }
 
+type NominateOwnerRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The member to hand the hub to: a member of this hub, not the owner.
+	UserId        string `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NominateOwnerRequest) Reset() {
+	*x = NominateOwnerRequest{}
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NominateOwnerRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NominateOwnerRequest) ProtoMessage() {}
+
+func (x *NominateOwnerRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NominateOwnerRequest.ProtoReflect.Descriptor instead.
+func (*NominateOwnerRequest) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *NominateOwnerRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+type NominateOwnerResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Organization  *Organization          `protobuf:"bytes,1,opt,name=organization,proto3" json:"organization,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NominateOwnerResponse) Reset() {
+	*x = NominateOwnerResponse{}
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NominateOwnerResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NominateOwnerResponse) ProtoMessage() {}
+
+func (x *NominateOwnerResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NominateOwnerResponse.ProtoReflect.Descriptor instead.
+func (*NominateOwnerResponse) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *NominateOwnerResponse) GetOrganization() *Organization {
+	if x != nil {
+		return x.Organization
+	}
+	return nil
+}
+
+type AcceptOwnershipRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AcceptOwnershipRequest) Reset() {
+	*x = AcceptOwnershipRequest{}
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AcceptOwnershipRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AcceptOwnershipRequest) ProtoMessage() {}
+
+func (x *AcceptOwnershipRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AcceptOwnershipRequest.ProtoReflect.Descriptor instead.
+func (*AcceptOwnershipRequest) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{36}
+}
+
+type AcceptOwnershipResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Organization  *Organization          `protobuf:"bytes,1,opt,name=organization,proto3" json:"organization,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AcceptOwnershipResponse) Reset() {
+	*x = AcceptOwnershipResponse{}
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AcceptOwnershipResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AcceptOwnershipResponse) ProtoMessage() {}
+
+func (x *AcceptOwnershipResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AcceptOwnershipResponse.ProtoReflect.Descriptor instead.
+func (*AcceptOwnershipResponse) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{37}
+}
+
+func (x *AcceptOwnershipResponse) GetOrganization() *Organization {
+	if x != nil {
+		return x.Organization
+	}
+	return nil
+}
+
+type CancelOwnershipTransferRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CancelOwnershipTransferRequest) Reset() {
+	*x = CancelOwnershipTransferRequest{}
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CancelOwnershipTransferRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CancelOwnershipTransferRequest) ProtoMessage() {}
+
+func (x *CancelOwnershipTransferRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CancelOwnershipTransferRequest.ProtoReflect.Descriptor instead.
+func (*CancelOwnershipTransferRequest) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{38}
+}
+
+type CancelOwnershipTransferResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Organization  *Organization          `protobuf:"bytes,1,opt,name=organization,proto3" json:"organization,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CancelOwnershipTransferResponse) Reset() {
+	*x = CancelOwnershipTransferResponse{}
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CancelOwnershipTransferResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CancelOwnershipTransferResponse) ProtoMessage() {}
+
+func (x *CancelOwnershipTransferResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CancelOwnershipTransferResponse.ProtoReflect.Descriptor instead.
+func (*CancelOwnershipTransferResponse) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *CancelOwnershipTransferResponse) GetOrganization() *Organization {
+	if x != nil {
+		return x.Organization
+	}
+	return nil
+}
+
 type GetOrganizationSettingsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -2607,7 +2882,7 @@ type GetOrganizationSettingsRequest struct {
 
 func (x *GetOrganizationSettingsRequest) Reset() {
 	*x = GetOrganizationSettingsRequest{}
-	mi := &file_gravel_hub_v1_organization_proto_msgTypes[34]
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2619,7 +2894,7 @@ func (x *GetOrganizationSettingsRequest) String() string {
 func (*GetOrganizationSettingsRequest) ProtoMessage() {}
 
 func (x *GetOrganizationSettingsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_organization_proto_msgTypes[34]
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2632,7 +2907,7 @@ func (x *GetOrganizationSettingsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetOrganizationSettingsRequest.ProtoReflect.Descriptor instead.
 func (*GetOrganizationSettingsRequest) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{34}
+	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{40}
 }
 
 type GetOrganizationSettingsResponse struct {
@@ -2644,7 +2919,7 @@ type GetOrganizationSettingsResponse struct {
 
 func (x *GetOrganizationSettingsResponse) Reset() {
 	*x = GetOrganizationSettingsResponse{}
-	mi := &file_gravel_hub_v1_organization_proto_msgTypes[35]
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2656,7 +2931,7 @@ func (x *GetOrganizationSettingsResponse) String() string {
 func (*GetOrganizationSettingsResponse) ProtoMessage() {}
 
 func (x *GetOrganizationSettingsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_organization_proto_msgTypes[35]
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2669,7 +2944,7 @@ func (x *GetOrganizationSettingsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetOrganizationSettingsResponse.ProtoReflect.Descriptor instead.
 func (*GetOrganizationSettingsResponse) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{35}
+	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *GetOrganizationSettingsResponse) GetSettings() *OrganizationSettings {
@@ -2689,7 +2964,7 @@ type UpdateOrganizationSettingsRequest struct {
 
 func (x *UpdateOrganizationSettingsRequest) Reset() {
 	*x = UpdateOrganizationSettingsRequest{}
-	mi := &file_gravel_hub_v1_organization_proto_msgTypes[36]
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2701,7 +2976,7 @@ func (x *UpdateOrganizationSettingsRequest) String() string {
 func (*UpdateOrganizationSettingsRequest) ProtoMessage() {}
 
 func (x *UpdateOrganizationSettingsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_organization_proto_msgTypes[36]
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2714,7 +2989,7 @@ func (x *UpdateOrganizationSettingsRequest) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use UpdateOrganizationSettingsRequest.ProtoReflect.Descriptor instead.
 func (*UpdateOrganizationSettingsRequest) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{36}
+	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *UpdateOrganizationSettingsRequest) GetSettings() *OrganizationSettings {
@@ -2733,7 +3008,7 @@ type UpdateOrganizationSettingsResponse struct {
 
 func (x *UpdateOrganizationSettingsResponse) Reset() {
 	*x = UpdateOrganizationSettingsResponse{}
-	mi := &file_gravel_hub_v1_organization_proto_msgTypes[37]
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2745,7 +3020,7 @@ func (x *UpdateOrganizationSettingsResponse) String() string {
 func (*UpdateOrganizationSettingsResponse) ProtoMessage() {}
 
 func (x *UpdateOrganizationSettingsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_organization_proto_msgTypes[37]
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2758,7 +3033,7 @@ func (x *UpdateOrganizationSettingsResponse) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use UpdateOrganizationSettingsResponse.ProtoReflect.Descriptor instead.
 func (*UpdateOrganizationSettingsResponse) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{37}
+	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *UpdateOrganizationSettingsResponse) GetSettings() *OrganizationSettings {
@@ -2778,7 +3053,7 @@ type TestNotifierRequest struct {
 
 func (x *TestNotifierRequest) Reset() {
 	*x = TestNotifierRequest{}
-	mi := &file_gravel_hub_v1_organization_proto_msgTypes[38]
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2790,7 +3065,7 @@ func (x *TestNotifierRequest) String() string {
 func (*TestNotifierRequest) ProtoMessage() {}
 
 func (x *TestNotifierRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_organization_proto_msgTypes[38]
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2803,7 +3078,7 @@ func (x *TestNotifierRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TestNotifierRequest.ProtoReflect.Descriptor instead.
 func (*TestNotifierRequest) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{38}
+	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *TestNotifierRequest) GetName() string {
@@ -2825,7 +3100,7 @@ type TestNotifierResponse struct {
 
 func (x *TestNotifierResponse) Reset() {
 	*x = TestNotifierResponse{}
-	mi := &file_gravel_hub_v1_organization_proto_msgTypes[39]
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2837,7 +3112,7 @@ func (x *TestNotifierResponse) String() string {
 func (*TestNotifierResponse) ProtoMessage() {}
 
 func (x *TestNotifierResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_organization_proto_msgTypes[39]
+	mi := &file_gravel_hub_v1_organization_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2850,7 +3125,7 @@ func (x *TestNotifierResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TestNotifierResponse.ProtoReflect.Descriptor instead.
 func (*TestNotifierResponse) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{39}
+	return file_gravel_hub_v1_organization_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *TestNotifierResponse) GetDelivered() bool {
@@ -2871,7 +3146,7 @@ var File_gravel_hub_v1_organization_proto protoreflect.FileDescriptor
 
 const file_gravel_hub_v1_organization_proto_rawDesc = "" +
 	"\n" +
-	" gravel/hub/v1/organization.proto\x12\rgravel.hub.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xf6\x01\n" +
+	" gravel/hub/v1/organization.proto\x12\rgravel.hub.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xac\x03\n" +
 	"\fOrganization\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
@@ -2881,7 +3156,11 @@ const file_gravel_hub_v1_organization_proto_rawDesc = "" +
 	"\n" +
 	"claimed_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tclaimedAt\x12\"\n" +
 	"\rowner_user_id\x18\x06 \x01(\tR\vownerUserId\x12\x12\n" +
-	"\x04demo\x18\a \x01(\bR\x04demo\"\x18\n" +
+	"\x04demo\x18\a \x01(\bR\x04demo\x121\n" +
+	"\x15pending_owner_user_id\x18\b \x01(\tR\x12pendingOwnerUserId\x12,\n" +
+	"\x12pending_owner_name\x18\t \x01(\tR\x10pendingOwnerName\x12S\n" +
+	"\x18pending_owner_expires_at\x18\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\x15pendingOwnerExpiresAt\"\x18\n" +
 	"\x16GetOrganizationRequest\"Z\n" +
 	"\x17GetOrganizationResponse\x12?\n" +
 	"\forganization\x18\x01 \x01(\v2\x1b.gravel.hub.v1.OrganizationR\forganization\"-\n" +
@@ -3086,7 +3365,17 @@ const file_gravel_hub_v1_organization_proto_rawDesc = "" +
 	"\x06events\x18\x01 \x03(\v2\x14.gravel.hub.v1.EventR\x06events\x12\"\n" +
 	"\rnext_after_id\x18\x02 \x01(\x03R\vnextAfterId\x12\x17\n" +
 	"\ahead_id\x18\x03 \x01(\x03R\x06headId\x12$\n" +
-	"\x0enext_before_id\x18\x04 \x01(\x03R\fnextBeforeId\" \n" +
+	"\x0enext_before_id\x18\x04 \x01(\x03R\fnextBeforeId\"/\n" +
+	"\x14NominateOwnerRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\"X\n" +
+	"\x15NominateOwnerResponse\x12?\n" +
+	"\forganization\x18\x01 \x01(\v2\x1b.gravel.hub.v1.OrganizationR\forganization\"\x18\n" +
+	"\x16AcceptOwnershipRequest\"Z\n" +
+	"\x17AcceptOwnershipResponse\x12?\n" +
+	"\forganization\x18\x01 \x01(\v2\x1b.gravel.hub.v1.OrganizationR\forganization\" \n" +
+	"\x1eCancelOwnershipTransferRequest\"b\n" +
+	"\x1fCancelOwnershipTransferResponse\x12?\n" +
+	"\forganization\x18\x01 \x01(\v2\x1b.gravel.hub.v1.OrganizationR\forganization\" \n" +
 	"\x1eGetOrganizationSettingsRequest\"b\n" +
 	"\x1fGetOrganizationSettingsResponse\x12?\n" +
 	"\bsettings\x18\x01 \x01(\v2#.gravel.hub.v1.OrganizationSettingsR\bsettings\"d\n" +
@@ -3098,10 +3387,13 @@ const file_gravel_hub_v1_organization_proto_rawDesc = "" +
 	"\x04name\x18\x01 \x01(\tR\x04name\"J\n" +
 	"\x14TestNotifierResponse\x12\x1c\n" +
 	"\tdelivered\x18\x01 \x01(\bR\tdelivered\x12\x14\n" +
-	"\x05error\x18\x02 \x01(\tR\x05error2\x80\x05\n" +
+	"\x05error\x18\x02 \x01(\tR\x05error2\xb8\a\n" +
 	"\x13OrganizationService\x12`\n" +
 	"\x0fGetOrganization\x12%.gravel.hub.v1.GetOrganizationRequest\x1a&.gravel.hub.v1.GetOrganizationResponse\x12]\n" +
-	"\x0eClaimOwnership\x12$.gravel.hub.v1.ClaimOwnershipRequest\x1a%.gravel.hub.v1.ClaimOwnershipResponse\x12x\n" +
+	"\x0eClaimOwnership\x12$.gravel.hub.v1.ClaimOwnershipRequest\x1a%.gravel.hub.v1.ClaimOwnershipResponse\x12Z\n" +
+	"\rNominateOwner\x12#.gravel.hub.v1.NominateOwnerRequest\x1a$.gravel.hub.v1.NominateOwnerResponse\x12`\n" +
+	"\x0fAcceptOwnership\x12%.gravel.hub.v1.AcceptOwnershipRequest\x1a&.gravel.hub.v1.AcceptOwnershipResponse\x12x\n" +
+	"\x17CancelOwnershipTransfer\x12-.gravel.hub.v1.CancelOwnershipTransferRequest\x1a..gravel.hub.v1.CancelOwnershipTransferResponse\x12x\n" +
 	"\x17GetOrganizationSettings\x12-.gravel.hub.v1.GetOrganizationSettingsRequest\x1a..gravel.hub.v1.GetOrganizationSettingsResponse\x12\x81\x01\n" +
 	"\x1aUpdateOrganizationSettings\x120.gravel.hub.v1.UpdateOrganizationSettingsRequest\x1a1.gravel.hub.v1.UpdateOrganizationSettingsResponse\x12Q\n" +
 	"\n" +
@@ -3120,7 +3412,7 @@ func file_gravel_hub_v1_organization_proto_rawDescGZIP() []byte {
 	return file_gravel_hub_v1_organization_proto_rawDescData
 }
 
-var file_gravel_hub_v1_organization_proto_msgTypes = make([]protoimpl.MessageInfo, 44)
+var file_gravel_hub_v1_organization_proto_msgTypes = make([]protoimpl.MessageInfo, 50)
 var file_gravel_hub_v1_organization_proto_goTypes = []any{
 	(*Organization)(nil),                       // 0: gravel.hub.v1.Organization
 	(*GetOrganizationRequest)(nil),             // 1: gravel.hub.v1.GetOrganizationRequest
@@ -3156,80 +3448,96 @@ var file_gravel_hub_v1_organization_proto_goTypes = []any{
 	(*Event)(nil),                              // 31: gravel.hub.v1.Event
 	(*ListEventsRequest)(nil),                  // 32: gravel.hub.v1.ListEventsRequest
 	(*ListEventsResponse)(nil),                 // 33: gravel.hub.v1.ListEventsResponse
-	(*GetOrganizationSettingsRequest)(nil),     // 34: gravel.hub.v1.GetOrganizationSettingsRequest
-	(*GetOrganizationSettingsResponse)(nil),    // 35: gravel.hub.v1.GetOrganizationSettingsResponse
-	(*UpdateOrganizationSettingsRequest)(nil),  // 36: gravel.hub.v1.UpdateOrganizationSettingsRequest
-	(*UpdateOrganizationSettingsResponse)(nil), // 37: gravel.hub.v1.UpdateOrganizationSettingsResponse
-	(*TestNotifierRequest)(nil),                // 38: gravel.hub.v1.TestNotifierRequest
-	(*TestNotifierResponse)(nil),               // 39: gravel.hub.v1.TestNotifierResponse
-	nil,                                        // 40: gravel.hub.v1.GameSettings.MapsEntry
-	nil,                                        // 41: gravel.hub.v1.DiscordRoles.ProvidersEntry
-	nil,                                        // 42: gravel.hub.v1.OrganizationSettings.GamesEntry
-	nil,                                        // 43: gravel.hub.v1.Event.DetailEntry
-	(*timestamppb.Timestamp)(nil),              // 44: google.protobuf.Timestamp
+	(*NominateOwnerRequest)(nil),               // 34: gravel.hub.v1.NominateOwnerRequest
+	(*NominateOwnerResponse)(nil),              // 35: gravel.hub.v1.NominateOwnerResponse
+	(*AcceptOwnershipRequest)(nil),             // 36: gravel.hub.v1.AcceptOwnershipRequest
+	(*AcceptOwnershipResponse)(nil),            // 37: gravel.hub.v1.AcceptOwnershipResponse
+	(*CancelOwnershipTransferRequest)(nil),     // 38: gravel.hub.v1.CancelOwnershipTransferRequest
+	(*CancelOwnershipTransferResponse)(nil),    // 39: gravel.hub.v1.CancelOwnershipTransferResponse
+	(*GetOrganizationSettingsRequest)(nil),     // 40: gravel.hub.v1.GetOrganizationSettingsRequest
+	(*GetOrganizationSettingsResponse)(nil),    // 41: gravel.hub.v1.GetOrganizationSettingsResponse
+	(*UpdateOrganizationSettingsRequest)(nil),  // 42: gravel.hub.v1.UpdateOrganizationSettingsRequest
+	(*UpdateOrganizationSettingsResponse)(nil), // 43: gravel.hub.v1.UpdateOrganizationSettingsResponse
+	(*TestNotifierRequest)(nil),                // 44: gravel.hub.v1.TestNotifierRequest
+	(*TestNotifierResponse)(nil),               // 45: gravel.hub.v1.TestNotifierResponse
+	nil,                                        // 46: gravel.hub.v1.GameSettings.MapsEntry
+	nil,                                        // 47: gravel.hub.v1.DiscordRoles.ProvidersEntry
+	nil,                                        // 48: gravel.hub.v1.OrganizationSettings.GamesEntry
+	nil,                                        // 49: gravel.hub.v1.Event.DetailEntry
+	(*timestamppb.Timestamp)(nil),              // 50: google.protobuf.Timestamp
 }
 var file_gravel_hub_v1_organization_proto_depIdxs = []int32{
-	44, // 0: gravel.hub.v1.Organization.created_at:type_name -> google.protobuf.Timestamp
-	44, // 1: gravel.hub.v1.Organization.claimed_at:type_name -> google.protobuf.Timestamp
-	0,  // 2: gravel.hub.v1.GetOrganizationResponse.organization:type_name -> gravel.hub.v1.Organization
-	0,  // 3: gravel.hub.v1.ClaimOwnershipResponse.organization:type_name -> gravel.hub.v1.Organization
-	5,  // 4: gravel.hub.v1.Theme.light:type_name -> gravel.hub.v1.ThemeTokens
-	5,  // 5: gravel.hub.v1.Theme.dark:type_name -> gravel.hub.v1.ThemeTokens
-	9,  // 6: gravel.hub.v1.GameSettings.theme:type_name -> gravel.hub.v1.GameTheme
-	7,  // 7: gravel.hub.v1.GameSettings.nav:type_name -> gravel.hub.v1.NavLink
-	40, // 8: gravel.hub.v1.GameSettings.maps:type_name -> gravel.hub.v1.GameSettings.MapsEntry
-	5,  // 9: gravel.hub.v1.GameTheme.light:type_name -> gravel.hub.v1.ThemeTokens
-	5,  // 10: gravel.hub.v1.GameTheme.dark:type_name -> gravel.hub.v1.ThemeTokens
-	41, // 11: gravel.hub.v1.DiscordRoles.providers:type_name -> gravel.hub.v1.DiscordRoles.ProvidersEntry
-	13, // 12: gravel.hub.v1.DiscordSeeding.hours:type_name -> gravel.hub.v1.DiscordSeedingHours
-	10, // 13: gravel.hub.v1.DiscordSettings.roles:type_name -> gravel.hub.v1.DiscordRoles
-	11, // 14: gravel.hub.v1.DiscordSettings.recognition:type_name -> gravel.hub.v1.DiscordRecognition
-	12, // 15: gravel.hub.v1.DiscordSettings.server_cards:type_name -> gravel.hub.v1.DiscordServerCard
-	14, // 16: gravel.hub.v1.DiscordSettings.seeding:type_name -> gravel.hub.v1.DiscordSeeding
-	23, // 17: gravel.hub.v1.DiscordSettings.presence:type_name -> gravel.hub.v1.DiscordPresence
-	21, // 18: gravel.hub.v1.DiscordSettings.recaps:type_name -> gravel.hub.v1.DiscordRecap
-	20, // 19: gravel.hub.v1.DiscordSettings.streams:type_name -> gravel.hub.v1.DiscordStreams
-	18, // 20: gravel.hub.v1.DiscordSettings.news:type_name -> gravel.hub.v1.DiscordNews
-	16, // 21: gravel.hub.v1.DiscordSettings.match_results:type_name -> gravel.hub.v1.DiscordMatchResults
-	17, // 22: gravel.hub.v1.DiscordNews.feeds:type_name -> gravel.hub.v1.DiscordNewsFeed
-	19, // 23: gravel.hub.v1.DiscordStreams.streamers:type_name -> gravel.hub.v1.DiscordStreamer
-	13, // 24: gravel.hub.v1.DiscordRecap.hours:type_name -> gravel.hub.v1.DiscordSeedingHours
-	22, // 25: gravel.hub.v1.DiscordPresence.games:type_name -> gravel.hub.v1.DiscordPresenceGame
-	24, // 26: gravel.hub.v1.StatsSettings.seasons:type_name -> gravel.hub.v1.StatsSeason
-	6,  // 27: gravel.hub.v1.OrganizationSettings.theme:type_name -> gravel.hub.v1.Theme
-	7,  // 28: gravel.hub.v1.OrganizationSettings.nav:type_name -> gravel.hub.v1.NavLink
-	44, // 29: gravel.hub.v1.OrganizationSettings.updated_at:type_name -> google.protobuf.Timestamp
-	15, // 30: gravel.hub.v1.OrganizationSettings.discord:type_name -> gravel.hub.v1.DiscordSettings
-	25, // 31: gravel.hub.v1.OrganizationSettings.stats:type_name -> gravel.hub.v1.StatsSettings
-	42, // 32: gravel.hub.v1.OrganizationSettings.games:type_name -> gravel.hub.v1.OrganizationSettings.GamesEntry
-	26, // 33: gravel.hub.v1.OrganizationSettings.local_accounts:type_name -> gravel.hub.v1.LocalAccountsSettings
-	30, // 34: gravel.hub.v1.OrganizationSettings.events:type_name -> gravel.hub.v1.EventsSettings
-	28, // 35: gravel.hub.v1.OrganizationSettings.notifiers:type_name -> gravel.hub.v1.Notifier
-	29, // 36: gravel.hub.v1.Notifier.events:type_name -> gravel.hub.v1.NotifierEvents
-	44, // 37: gravel.hub.v1.Event.at:type_name -> google.protobuf.Timestamp
-	43, // 38: gravel.hub.v1.Event.detail:type_name -> gravel.hub.v1.Event.DetailEntry
-	31, // 39: gravel.hub.v1.ListEventsResponse.events:type_name -> gravel.hub.v1.Event
-	27, // 40: gravel.hub.v1.GetOrganizationSettingsResponse.settings:type_name -> gravel.hub.v1.OrganizationSettings
-	27, // 41: gravel.hub.v1.UpdateOrganizationSettingsRequest.settings:type_name -> gravel.hub.v1.OrganizationSettings
-	27, // 42: gravel.hub.v1.UpdateOrganizationSettingsResponse.settings:type_name -> gravel.hub.v1.OrganizationSettings
-	8,  // 43: gravel.hub.v1.OrganizationSettings.GamesEntry.value:type_name -> gravel.hub.v1.GameSettings
-	1,  // 44: gravel.hub.v1.OrganizationService.GetOrganization:input_type -> gravel.hub.v1.GetOrganizationRequest
-	3,  // 45: gravel.hub.v1.OrganizationService.ClaimOwnership:input_type -> gravel.hub.v1.ClaimOwnershipRequest
-	34, // 46: gravel.hub.v1.OrganizationService.GetOrganizationSettings:input_type -> gravel.hub.v1.GetOrganizationSettingsRequest
-	36, // 47: gravel.hub.v1.OrganizationService.UpdateOrganizationSettings:input_type -> gravel.hub.v1.UpdateOrganizationSettingsRequest
-	32, // 48: gravel.hub.v1.OrganizationService.ListEvents:input_type -> gravel.hub.v1.ListEventsRequest
-	38, // 49: gravel.hub.v1.OrganizationService.TestNotifier:input_type -> gravel.hub.v1.TestNotifierRequest
-	2,  // 50: gravel.hub.v1.OrganizationService.GetOrganization:output_type -> gravel.hub.v1.GetOrganizationResponse
-	4,  // 51: gravel.hub.v1.OrganizationService.ClaimOwnership:output_type -> gravel.hub.v1.ClaimOwnershipResponse
-	35, // 52: gravel.hub.v1.OrganizationService.GetOrganizationSettings:output_type -> gravel.hub.v1.GetOrganizationSettingsResponse
-	37, // 53: gravel.hub.v1.OrganizationService.UpdateOrganizationSettings:output_type -> gravel.hub.v1.UpdateOrganizationSettingsResponse
-	33, // 54: gravel.hub.v1.OrganizationService.ListEvents:output_type -> gravel.hub.v1.ListEventsResponse
-	39, // 55: gravel.hub.v1.OrganizationService.TestNotifier:output_type -> gravel.hub.v1.TestNotifierResponse
-	50, // [50:56] is the sub-list for method output_type
-	44, // [44:50] is the sub-list for method input_type
-	44, // [44:44] is the sub-list for extension type_name
-	44, // [44:44] is the sub-list for extension extendee
-	0,  // [0:44] is the sub-list for field type_name
+	50, // 0: gravel.hub.v1.Organization.created_at:type_name -> google.protobuf.Timestamp
+	50, // 1: gravel.hub.v1.Organization.claimed_at:type_name -> google.protobuf.Timestamp
+	50, // 2: gravel.hub.v1.Organization.pending_owner_expires_at:type_name -> google.protobuf.Timestamp
+	0,  // 3: gravel.hub.v1.GetOrganizationResponse.organization:type_name -> gravel.hub.v1.Organization
+	0,  // 4: gravel.hub.v1.ClaimOwnershipResponse.organization:type_name -> gravel.hub.v1.Organization
+	5,  // 5: gravel.hub.v1.Theme.light:type_name -> gravel.hub.v1.ThemeTokens
+	5,  // 6: gravel.hub.v1.Theme.dark:type_name -> gravel.hub.v1.ThemeTokens
+	9,  // 7: gravel.hub.v1.GameSettings.theme:type_name -> gravel.hub.v1.GameTheme
+	7,  // 8: gravel.hub.v1.GameSettings.nav:type_name -> gravel.hub.v1.NavLink
+	46, // 9: gravel.hub.v1.GameSettings.maps:type_name -> gravel.hub.v1.GameSettings.MapsEntry
+	5,  // 10: gravel.hub.v1.GameTheme.light:type_name -> gravel.hub.v1.ThemeTokens
+	5,  // 11: gravel.hub.v1.GameTheme.dark:type_name -> gravel.hub.v1.ThemeTokens
+	47, // 12: gravel.hub.v1.DiscordRoles.providers:type_name -> gravel.hub.v1.DiscordRoles.ProvidersEntry
+	13, // 13: gravel.hub.v1.DiscordSeeding.hours:type_name -> gravel.hub.v1.DiscordSeedingHours
+	10, // 14: gravel.hub.v1.DiscordSettings.roles:type_name -> gravel.hub.v1.DiscordRoles
+	11, // 15: gravel.hub.v1.DiscordSettings.recognition:type_name -> gravel.hub.v1.DiscordRecognition
+	12, // 16: gravel.hub.v1.DiscordSettings.server_cards:type_name -> gravel.hub.v1.DiscordServerCard
+	14, // 17: gravel.hub.v1.DiscordSettings.seeding:type_name -> gravel.hub.v1.DiscordSeeding
+	23, // 18: gravel.hub.v1.DiscordSettings.presence:type_name -> gravel.hub.v1.DiscordPresence
+	21, // 19: gravel.hub.v1.DiscordSettings.recaps:type_name -> gravel.hub.v1.DiscordRecap
+	20, // 20: gravel.hub.v1.DiscordSettings.streams:type_name -> gravel.hub.v1.DiscordStreams
+	18, // 21: gravel.hub.v1.DiscordSettings.news:type_name -> gravel.hub.v1.DiscordNews
+	16, // 22: gravel.hub.v1.DiscordSettings.match_results:type_name -> gravel.hub.v1.DiscordMatchResults
+	17, // 23: gravel.hub.v1.DiscordNews.feeds:type_name -> gravel.hub.v1.DiscordNewsFeed
+	19, // 24: gravel.hub.v1.DiscordStreams.streamers:type_name -> gravel.hub.v1.DiscordStreamer
+	13, // 25: gravel.hub.v1.DiscordRecap.hours:type_name -> gravel.hub.v1.DiscordSeedingHours
+	22, // 26: gravel.hub.v1.DiscordPresence.games:type_name -> gravel.hub.v1.DiscordPresenceGame
+	24, // 27: gravel.hub.v1.StatsSettings.seasons:type_name -> gravel.hub.v1.StatsSeason
+	6,  // 28: gravel.hub.v1.OrganizationSettings.theme:type_name -> gravel.hub.v1.Theme
+	7,  // 29: gravel.hub.v1.OrganizationSettings.nav:type_name -> gravel.hub.v1.NavLink
+	50, // 30: gravel.hub.v1.OrganizationSettings.updated_at:type_name -> google.protobuf.Timestamp
+	15, // 31: gravel.hub.v1.OrganizationSettings.discord:type_name -> gravel.hub.v1.DiscordSettings
+	25, // 32: gravel.hub.v1.OrganizationSettings.stats:type_name -> gravel.hub.v1.StatsSettings
+	48, // 33: gravel.hub.v1.OrganizationSettings.games:type_name -> gravel.hub.v1.OrganizationSettings.GamesEntry
+	26, // 34: gravel.hub.v1.OrganizationSettings.local_accounts:type_name -> gravel.hub.v1.LocalAccountsSettings
+	30, // 35: gravel.hub.v1.OrganizationSettings.events:type_name -> gravel.hub.v1.EventsSettings
+	28, // 36: gravel.hub.v1.OrganizationSettings.notifiers:type_name -> gravel.hub.v1.Notifier
+	29, // 37: gravel.hub.v1.Notifier.events:type_name -> gravel.hub.v1.NotifierEvents
+	50, // 38: gravel.hub.v1.Event.at:type_name -> google.protobuf.Timestamp
+	49, // 39: gravel.hub.v1.Event.detail:type_name -> gravel.hub.v1.Event.DetailEntry
+	31, // 40: gravel.hub.v1.ListEventsResponse.events:type_name -> gravel.hub.v1.Event
+	0,  // 41: gravel.hub.v1.NominateOwnerResponse.organization:type_name -> gravel.hub.v1.Organization
+	0,  // 42: gravel.hub.v1.AcceptOwnershipResponse.organization:type_name -> gravel.hub.v1.Organization
+	0,  // 43: gravel.hub.v1.CancelOwnershipTransferResponse.organization:type_name -> gravel.hub.v1.Organization
+	27, // 44: gravel.hub.v1.GetOrganizationSettingsResponse.settings:type_name -> gravel.hub.v1.OrganizationSettings
+	27, // 45: gravel.hub.v1.UpdateOrganizationSettingsRequest.settings:type_name -> gravel.hub.v1.OrganizationSettings
+	27, // 46: gravel.hub.v1.UpdateOrganizationSettingsResponse.settings:type_name -> gravel.hub.v1.OrganizationSettings
+	8,  // 47: gravel.hub.v1.OrganizationSettings.GamesEntry.value:type_name -> gravel.hub.v1.GameSettings
+	1,  // 48: gravel.hub.v1.OrganizationService.GetOrganization:input_type -> gravel.hub.v1.GetOrganizationRequest
+	3,  // 49: gravel.hub.v1.OrganizationService.ClaimOwnership:input_type -> gravel.hub.v1.ClaimOwnershipRequest
+	34, // 50: gravel.hub.v1.OrganizationService.NominateOwner:input_type -> gravel.hub.v1.NominateOwnerRequest
+	36, // 51: gravel.hub.v1.OrganizationService.AcceptOwnership:input_type -> gravel.hub.v1.AcceptOwnershipRequest
+	38, // 52: gravel.hub.v1.OrganizationService.CancelOwnershipTransfer:input_type -> gravel.hub.v1.CancelOwnershipTransferRequest
+	40, // 53: gravel.hub.v1.OrganizationService.GetOrganizationSettings:input_type -> gravel.hub.v1.GetOrganizationSettingsRequest
+	42, // 54: gravel.hub.v1.OrganizationService.UpdateOrganizationSettings:input_type -> gravel.hub.v1.UpdateOrganizationSettingsRequest
+	32, // 55: gravel.hub.v1.OrganizationService.ListEvents:input_type -> gravel.hub.v1.ListEventsRequest
+	44, // 56: gravel.hub.v1.OrganizationService.TestNotifier:input_type -> gravel.hub.v1.TestNotifierRequest
+	2,  // 57: gravel.hub.v1.OrganizationService.GetOrganization:output_type -> gravel.hub.v1.GetOrganizationResponse
+	4,  // 58: gravel.hub.v1.OrganizationService.ClaimOwnership:output_type -> gravel.hub.v1.ClaimOwnershipResponse
+	35, // 59: gravel.hub.v1.OrganizationService.NominateOwner:output_type -> gravel.hub.v1.NominateOwnerResponse
+	37, // 60: gravel.hub.v1.OrganizationService.AcceptOwnership:output_type -> gravel.hub.v1.AcceptOwnershipResponse
+	39, // 61: gravel.hub.v1.OrganizationService.CancelOwnershipTransfer:output_type -> gravel.hub.v1.CancelOwnershipTransferResponse
+	41, // 62: gravel.hub.v1.OrganizationService.GetOrganizationSettings:output_type -> gravel.hub.v1.GetOrganizationSettingsResponse
+	43, // 63: gravel.hub.v1.OrganizationService.UpdateOrganizationSettings:output_type -> gravel.hub.v1.UpdateOrganizationSettingsResponse
+	33, // 64: gravel.hub.v1.OrganizationService.ListEvents:output_type -> gravel.hub.v1.ListEventsResponse
+	45, // 65: gravel.hub.v1.OrganizationService.TestNotifier:output_type -> gravel.hub.v1.TestNotifierResponse
+	57, // [57:66] is the sub-list for method output_type
+	48, // [48:57] is the sub-list for method input_type
+	48, // [48:48] is the sub-list for extension type_name
+	48, // [48:48] is the sub-list for extension extendee
+	0,  // [0:48] is the sub-list for field type_name
 }
 
 func init() { file_gravel_hub_v1_organization_proto_init() }
@@ -3243,7 +3551,7 @@ func file_gravel_hub_v1_organization_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gravel_hub_v1_organization_proto_rawDesc), len(file_gravel_hub_v1_organization_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   44,
+			NumMessages:   50,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

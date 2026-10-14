@@ -13,6 +13,9 @@ templ MembersContent(p MembersPage) {
 	@FlashView(p.Flash)
 	<h1>Members</h1>
 	<p class="muted">Moderators look after players: kick, ban, message, the moderation log. Operators look after servers at their size: park, start, configure. Admins can do everything but hand the hub over, including what costs money. A grant can be for one game. Every change is recorded.</p>
+	if p.User != nil && p.User.Owner {
+		<p class="muted">To hand the hub to another member, nominate them: they have 7 days to accept on their account page, and you stay on as an admin. Until then you own it, and you can cancel on your account page.</p>
+	}
 	<table>
 		<thead>
 			<tr>
@@ -31,6 +34,8 @@ templ MembersContent(p MembersPage) {
 					<td>
 						if m.Owner {
 							<span class="badge">owner</span>
+						} else if p.Org.Pending != nil && p.Org.Pending.UserID == m.ID {
+							<span class="badge">nominated to own</span>
 						} else if len(m.Grants) == 0 {
 							<span class="muted">member</span>
 						}
@@ -65,6 +70,13 @@ templ MembersContent(p MembersPage) {
 									}
 								</select>
 								<button type="submit" class="link">Grant to { m.DisplayName }</button>
+							</form>
+						}
+						if p.User.Owner && !m.Owner && (p.Org.Pending == nil || p.Org.Pending.UserID != m.ID || p.Org.Pending.Expired) {
+							<form method="post" action="/members/nominate" class="inline" hx-post="/members/nominate" hx-target="#page" hx-swap="innerHTML">
+								<input type="hidden" name="_csrf" value={ p.CSRF }/>
+								<input type="hidden" name="user_id" value={ m.ID }/>
+								<button type="submit" class="link">Hand the hub to { m.DisplayName }</button>
 							</form>
 						}
 					</td>

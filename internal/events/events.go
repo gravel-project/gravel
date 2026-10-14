@@ -54,6 +54,10 @@ var kinds = []Kind{
 	{"identity.password_reset_issued", Notice, "staff or the host issued a password link"},
 	// The hub itself: who owns it and how it is set up.
 	{"ownership.claimed", Notice, "a member claimed the hub with the one-time token and became its owner"},
+	{"ownership.nominated", Notice, "the owner nominated a member to take the hub over"},
+	{"ownership.transfer_cancelled", Notice, "the owner cancelled a nomination to take the hub over"},
+	{"ownership.declined", Notice, "a member declined to take the hub over"},
+	{"ownership.transferred", Warning, "a member accepted the hub and is its owner; the old owner is an admin"},
 	{"settings.updated", Notice, "the Organization settings were replaced"},
 	// Apps (ADR-0008, ADR-0015): registered, revoked, and the access members give them.
 	{"app.created", Notice, "an app was registered"},

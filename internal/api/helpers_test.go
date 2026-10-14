@@ -134,6 +134,17 @@ func newRig(t *testing.T, idOpts ...rigIdentity) *rig {
 		t.Fatal(err)
 	}
 	r.token = token
+	// A nomination names a member the identity store has, by their name.
+	r.orgSt.Member = func(id uuid.UUID) (string, bool) {
+		u, err := r.idSt.GetUser(context.Background(), id)
+		return u.DisplayName, err == nil
+	}
+	// An accepted transfer makes the old owner an admin, as the real store does in its transaction.
+	r.orgSt.OnTransfer = func(old, now uuid.UUID, at time.Time) {
+		if _, err := r.idSt.SetRoleGrant(context.Background(), old, store.RoleAdmin, "", true, store.RoleChange{By: &now, At: at}); err != nil {
+			t.Error(err)
+		}
+	}
 	var opts []identity.Option
 	for _, o := range idOpts {
 		opts = append(opts, o(r))

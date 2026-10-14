@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"github.com/google/uuid"
 
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
 	"github.com/gravel-project/gravel/internal/api"
@@ -118,7 +119,18 @@ func newRigWith(t *testing.T, theme templates.Theme, login bool, opts ...rigOpti
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	r := &rig{idSt: identitytest.NewFakeStore(), servers: newFakeServers(), stats: &fakeStats{}, mod: &fakeMod{}, hosts: newFakeHosts()}
-	orgSvc := org.New(&orgtest.FakeStore{}, 15*time.Minute, logger)
+	// An accepted transfer makes the old owner an admin, as the real store does in its transaction.
+	orgSt := &orgtest.FakeStore{OnTransfer: func(old, now uuid.UUID, at time.Time) {
+		if _, err := r.idSt.SetRoleGrant(context.Background(), old, store.RoleAdmin, "", true, store.RoleChange{By: &now, At: at}); err != nil {
+			t.Error(err)
+		}
+	}}
+	orgSvc := org.New(orgSt, 15*time.Minute, logger)
+	// A nomination names a member the identity store has, by their name.
+	orgSt.Member = func(id uuid.UUID) (string, bool) {
+		u, err := r.idSt.GetUser(context.Background(), id)
+		return u.DisplayName, err == nil
+	}
 	o, token, err := orgSvc.EnsureBuiltin(context.Background(), "Hidden Token Gaming")
 	if err != nil {
 		t.Fatal(err)

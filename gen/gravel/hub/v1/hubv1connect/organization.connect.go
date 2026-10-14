@@ -39,6 +39,15 @@ const (
 	// OrganizationServiceClaimOwnershipProcedure is the fully-qualified name of the
 	// OrganizationService's ClaimOwnership RPC.
 	OrganizationServiceClaimOwnershipProcedure = "/gravel.hub.v1.OrganizationService/ClaimOwnership"
+	// OrganizationServiceNominateOwnerProcedure is the fully-qualified name of the
+	// OrganizationService's NominateOwner RPC.
+	OrganizationServiceNominateOwnerProcedure = "/gravel.hub.v1.OrganizationService/NominateOwner"
+	// OrganizationServiceAcceptOwnershipProcedure is the fully-qualified name of the
+	// OrganizationService's AcceptOwnership RPC.
+	OrganizationServiceAcceptOwnershipProcedure = "/gravel.hub.v1.OrganizationService/AcceptOwnership"
+	// OrganizationServiceCancelOwnershipTransferProcedure is the fully-qualified name of the
+	// OrganizationService's CancelOwnershipTransfer RPC.
+	OrganizationServiceCancelOwnershipTransferProcedure = "/gravel.hub.v1.OrganizationService/CancelOwnershipTransfer"
 	// OrganizationServiceGetOrganizationSettingsProcedure is the fully-qualified name of the
 	// OrganizationService's GetOrganizationSettings RPC.
 	OrganizationServiceGetOrganizationSettingsProcedure = "/gravel.hub.v1.OrganizationService/GetOrganizationSettings"
@@ -60,6 +69,16 @@ type OrganizationServiceClient interface {
 	// needs a session (unauthenticated otherwise) and succeeds once per hub: the token is
 	// single-use, expires, and no token exists once the hub is owned.
 	ClaimOwnership(context.Context, *connect.Request[v1.ClaimOwnershipRequest]) (*connect.Response[v1.ClaimOwnershipResponse], error)
+	// NominateOwner names the member who may take the hub over, for 7 days, replacing any earlier
+	// nomination (ADR-0027 §6): org:transfer, the owner in person. invalid_argument for the owner
+	// themselves, not_found for someone who isn't a member.
+	NominateOwner(context.Context, *connect.Request[v1.NominateOwnerRequest]) (*connect.Response[v1.NominateOwnerResponse], error)
+	// AcceptOwnership makes the nominee the owner, and the old owner an admin, in one transaction:
+	// the nominee in person. failed_precondition when there is no unexpired nomination for them.
+	AcceptOwnership(context.Context, *connect.Request[v1.AcceptOwnershipRequest]) (*connect.Response[v1.AcceptOwnershipResponse], error)
+	// CancelOwnershipTransfer ends the nomination: the owner cancels it, or the nominee declines
+	// it, in person. failed_precondition when there is none.
+	CancelOwnershipTransfer(context.Context, *connect.Request[v1.CancelOwnershipTransferRequest]) (*connect.Response[v1.CancelOwnershipTransferResponse], error)
 	// GetOrganizationSettings returns the settings; public, because the pages render the theme
 	// before anyone logs in, and the document holds no credential. The notifiers are left out
 	// unless the caller holds settings:write.
@@ -98,6 +117,24 @@ func NewOrganizationServiceClient(httpClient connect.HTTPClient, baseURL string,
 			connect.WithSchema(organizationServiceMethods.ByName("ClaimOwnership")),
 			connect.WithClientOptions(opts...),
 		),
+		nominateOwner: connect.NewClient[v1.NominateOwnerRequest, v1.NominateOwnerResponse](
+			httpClient,
+			baseURL+OrganizationServiceNominateOwnerProcedure,
+			connect.WithSchema(organizationServiceMethods.ByName("NominateOwner")),
+			connect.WithClientOptions(opts...),
+		),
+		acceptOwnership: connect.NewClient[v1.AcceptOwnershipRequest, v1.AcceptOwnershipResponse](
+			httpClient,
+			baseURL+OrganizationServiceAcceptOwnershipProcedure,
+			connect.WithSchema(organizationServiceMethods.ByName("AcceptOwnership")),
+			connect.WithClientOptions(opts...),
+		),
+		cancelOwnershipTransfer: connect.NewClient[v1.CancelOwnershipTransferRequest, v1.CancelOwnershipTransferResponse](
+			httpClient,
+			baseURL+OrganizationServiceCancelOwnershipTransferProcedure,
+			connect.WithSchema(organizationServiceMethods.ByName("CancelOwnershipTransfer")),
+			connect.WithClientOptions(opts...),
+		),
 		getOrganizationSettings: connect.NewClient[v1.GetOrganizationSettingsRequest, v1.GetOrganizationSettingsResponse](
 			httpClient,
 			baseURL+OrganizationServiceGetOrganizationSettingsProcedure,
@@ -129,6 +166,9 @@ func NewOrganizationServiceClient(httpClient connect.HTTPClient, baseURL string,
 type organizationServiceClient struct {
 	getOrganization            *connect.Client[v1.GetOrganizationRequest, v1.GetOrganizationResponse]
 	claimOwnership             *connect.Client[v1.ClaimOwnershipRequest, v1.ClaimOwnershipResponse]
+	nominateOwner              *connect.Client[v1.NominateOwnerRequest, v1.NominateOwnerResponse]
+	acceptOwnership            *connect.Client[v1.AcceptOwnershipRequest, v1.AcceptOwnershipResponse]
+	cancelOwnershipTransfer    *connect.Client[v1.CancelOwnershipTransferRequest, v1.CancelOwnershipTransferResponse]
 	getOrganizationSettings    *connect.Client[v1.GetOrganizationSettingsRequest, v1.GetOrganizationSettingsResponse]
 	updateOrganizationSettings *connect.Client[v1.UpdateOrganizationSettingsRequest, v1.UpdateOrganizationSettingsResponse]
 	listEvents                 *connect.Client[v1.ListEventsRequest, v1.ListEventsResponse]
@@ -143,6 +183,21 @@ func (c *organizationServiceClient) GetOrganization(ctx context.Context, req *co
 // ClaimOwnership calls gravel.hub.v1.OrganizationService.ClaimOwnership.
 func (c *organizationServiceClient) ClaimOwnership(ctx context.Context, req *connect.Request[v1.ClaimOwnershipRequest]) (*connect.Response[v1.ClaimOwnershipResponse], error) {
 	return c.claimOwnership.CallUnary(ctx, req)
+}
+
+// NominateOwner calls gravel.hub.v1.OrganizationService.NominateOwner.
+func (c *organizationServiceClient) NominateOwner(ctx context.Context, req *connect.Request[v1.NominateOwnerRequest]) (*connect.Response[v1.NominateOwnerResponse], error) {
+	return c.nominateOwner.CallUnary(ctx, req)
+}
+
+// AcceptOwnership calls gravel.hub.v1.OrganizationService.AcceptOwnership.
+func (c *organizationServiceClient) AcceptOwnership(ctx context.Context, req *connect.Request[v1.AcceptOwnershipRequest]) (*connect.Response[v1.AcceptOwnershipResponse], error) {
+	return c.acceptOwnership.CallUnary(ctx, req)
+}
+
+// CancelOwnershipTransfer calls gravel.hub.v1.OrganizationService.CancelOwnershipTransfer.
+func (c *organizationServiceClient) CancelOwnershipTransfer(ctx context.Context, req *connect.Request[v1.CancelOwnershipTransferRequest]) (*connect.Response[v1.CancelOwnershipTransferResponse], error) {
+	return c.cancelOwnershipTransfer.CallUnary(ctx, req)
 }
 
 // GetOrganizationSettings calls gravel.hub.v1.OrganizationService.GetOrganizationSettings.
@@ -172,6 +227,16 @@ type OrganizationServiceHandler interface {
 	// needs a session (unauthenticated otherwise) and succeeds once per hub: the token is
 	// single-use, expires, and no token exists once the hub is owned.
 	ClaimOwnership(context.Context, *connect.Request[v1.ClaimOwnershipRequest]) (*connect.Response[v1.ClaimOwnershipResponse], error)
+	// NominateOwner names the member who may take the hub over, for 7 days, replacing any earlier
+	// nomination (ADR-0027 §6): org:transfer, the owner in person. invalid_argument for the owner
+	// themselves, not_found for someone who isn't a member.
+	NominateOwner(context.Context, *connect.Request[v1.NominateOwnerRequest]) (*connect.Response[v1.NominateOwnerResponse], error)
+	// AcceptOwnership makes the nominee the owner, and the old owner an admin, in one transaction:
+	// the nominee in person. failed_precondition when there is no unexpired nomination for them.
+	AcceptOwnership(context.Context, *connect.Request[v1.AcceptOwnershipRequest]) (*connect.Response[v1.AcceptOwnershipResponse], error)
+	// CancelOwnershipTransfer ends the nomination: the owner cancels it, or the nominee declines
+	// it, in person. failed_precondition when there is none.
+	CancelOwnershipTransfer(context.Context, *connect.Request[v1.CancelOwnershipTransferRequest]) (*connect.Response[v1.CancelOwnershipTransferResponse], error)
 	// GetOrganizationSettings returns the settings; public, because the pages render the theme
 	// before anyone logs in, and the document holds no credential. The notifiers are left out
 	// unless the caller holds settings:write.
@@ -206,6 +271,24 @@ func NewOrganizationServiceHandler(svc OrganizationServiceHandler, opts ...conne
 		connect.WithSchema(organizationServiceMethods.ByName("ClaimOwnership")),
 		connect.WithHandlerOptions(opts...),
 	)
+	organizationServiceNominateOwnerHandler := connect.NewUnaryHandler(
+		OrganizationServiceNominateOwnerProcedure,
+		svc.NominateOwner,
+		connect.WithSchema(organizationServiceMethods.ByName("NominateOwner")),
+		connect.WithHandlerOptions(opts...),
+	)
+	organizationServiceAcceptOwnershipHandler := connect.NewUnaryHandler(
+		OrganizationServiceAcceptOwnershipProcedure,
+		svc.AcceptOwnership,
+		connect.WithSchema(organizationServiceMethods.ByName("AcceptOwnership")),
+		connect.WithHandlerOptions(opts...),
+	)
+	organizationServiceCancelOwnershipTransferHandler := connect.NewUnaryHandler(
+		OrganizationServiceCancelOwnershipTransferProcedure,
+		svc.CancelOwnershipTransfer,
+		connect.WithSchema(organizationServiceMethods.ByName("CancelOwnershipTransfer")),
+		connect.WithHandlerOptions(opts...),
+	)
 	organizationServiceGetOrganizationSettingsHandler := connect.NewUnaryHandler(
 		OrganizationServiceGetOrganizationSettingsProcedure,
 		svc.GetOrganizationSettings,
@@ -236,6 +319,12 @@ func NewOrganizationServiceHandler(svc OrganizationServiceHandler, opts ...conne
 			organizationServiceGetOrganizationHandler.ServeHTTP(w, r)
 		case OrganizationServiceClaimOwnershipProcedure:
 			organizationServiceClaimOwnershipHandler.ServeHTTP(w, r)
+		case OrganizationServiceNominateOwnerProcedure:
+			organizationServiceNominateOwnerHandler.ServeHTTP(w, r)
+		case OrganizationServiceAcceptOwnershipProcedure:
+			organizationServiceAcceptOwnershipHandler.ServeHTTP(w, r)
+		case OrganizationServiceCancelOwnershipTransferProcedure:
+			organizationServiceCancelOwnershipTransferHandler.ServeHTTP(w, r)
 		case OrganizationServiceGetOrganizationSettingsProcedure:
 			organizationServiceGetOrganizationSettingsHandler.ServeHTTP(w, r)
 		case OrganizationServiceUpdateOrganizationSettingsProcedure:
@@ -259,6 +348,18 @@ func (UnimplementedOrganizationServiceHandler) GetOrganization(context.Context, 
 
 func (UnimplementedOrganizationServiceHandler) ClaimOwnership(context.Context, *connect.Request[v1.ClaimOwnershipRequest]) (*connect.Response[v1.ClaimOwnershipResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.OrganizationService.ClaimOwnership is not implemented"))
+}
+
+func (UnimplementedOrganizationServiceHandler) NominateOwner(context.Context, *connect.Request[v1.NominateOwnerRequest]) (*connect.Response[v1.NominateOwnerResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.OrganizationService.NominateOwner is not implemented"))
+}
+
+func (UnimplementedOrganizationServiceHandler) AcceptOwnership(context.Context, *connect.Request[v1.AcceptOwnershipRequest]) (*connect.Response[v1.AcceptOwnershipResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.OrganizationService.AcceptOwnership is not implemented"))
+}
+
+func (UnimplementedOrganizationServiceHandler) CancelOwnershipTransfer(context.Context, *connect.Request[v1.CancelOwnershipTransferRequest]) (*connect.Response[v1.CancelOwnershipTransferResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.OrganizationService.CancelOwnershipTransfer is not implemented"))
 }
 
 func (UnimplementedOrganizationServiceHandler) GetOrganizationSettings(context.Context, *connect.Request[v1.GetOrganizationSettingsRequest]) (*connect.Response[v1.GetOrganizationSettingsResponse], error) {

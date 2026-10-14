@@ -23,6 +23,11 @@ message Organization {
   // Whether this hub is a demo (hub.yaml demo: true): its members, matches and stats are made up,
   // and a client says so wherever it shows them.
   bool demo = 7;
+  // The member the owner nominated to take the hub over (#197), their name, and until when they
+  // may accept; set only for the owner and the nominee, unset when there is no nomination.
+  string pending_owner_user_id = 8;
+  string pending_owner_name = 9;
+  google.protobuf.Timestamp pending_owner_expires_at = 10;
 }
 
 message GetOrganizationRequest {}
@@ -410,6 +415,27 @@ message ListEventsResponse {
   int64 next_before_id = 4;
 }
 
+message NominateOwnerRequest {
+  // The member to hand the hub to: a member of this hub, not the owner.
+  string user_id = 1;
+}
+
+message NominateOwnerResponse {
+  Organization organization = 1;
+}
+
+message AcceptOwnershipRequest {}
+
+message AcceptOwnershipResponse {
+  Organization organization = 1;
+}
+
+message CancelOwnershipTransferRequest {}
+
+message CancelOwnershipTransferResponse {
+  Organization organization = 1;
+}
+
 message GetOrganizationSettingsRequest {}
 
 message GetOrganizationSettingsResponse {
@@ -444,6 +470,16 @@ service OrganizationService {
   // needs a session (unauthenticated otherwise) and succeeds once per hub: the token is
   // single-use, expires, and no token exists once the hub is owned.
   rpc ClaimOwnership(ClaimOwnershipRequest) returns (ClaimOwnershipResponse);
+  // NominateOwner names the member who may take the hub over, for 7 days, replacing any earlier
+  // nomination (ADR-0027 §6): org:transfer, the owner in person. invalid_argument for the owner
+  // themselves, not_found for someone who isn't a member.
+  rpc NominateOwner(NominateOwnerRequest) returns (NominateOwnerResponse);
+  // AcceptOwnership makes the nominee the owner, and the old owner an admin, in one transaction:
+  // the nominee in person. failed_precondition when there is no unexpired nomination for them.
+  rpc AcceptOwnership(AcceptOwnershipRequest) returns (AcceptOwnershipResponse);
+  // CancelOwnershipTransfer ends the nomination: the owner cancels it, or the nominee declines
+  // it, in person. failed_precondition when there is none.
+  rpc CancelOwnershipTransfer(CancelOwnershipTransferRequest) returns (CancelOwnershipTransferResponse);
   // GetOrganizationSettings returns the settings; public, because the pages render the theme
   // before anyone logs in, and the document holds no credential. The notifiers are left out
   // unless the caller holds settings:write.
