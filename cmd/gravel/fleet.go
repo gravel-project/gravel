@@ -82,12 +82,18 @@ func fleetCmd(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 func serversUsage(w io.Writer) {
 	fmt.Fprint(w, `usage: gravel servers <command> [--hub URL]
 
-  list            every server: its game, where it runs, its state and players
-  status SERVER   one server's last observation
+  list                          every server: its game, where it runs, its state and players
+  status SERVER                 one server's last observation
+  export                        print the games and servers as a servers.yaml manifest
+  check MANIFEST                validate a manifest against the hub; change nothing
+  apply MANIFEST [--dry-run]    apply a manifest; --dry-run says what would change (exit 3 when something would)
+
+  MANIFEST is a file, or - for stdin. What names a file on the hub's host, or where a secret goes,
+  only gravel-hub servers apply changes there.
 `)
 }
 
-func serversCmd(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func serversCmd(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		serversUsage(stderr)
 		return exitUsage
@@ -97,6 +103,12 @@ func serversCmd(ctx context.Context, args []string, stdout, stderr io.Writer) in
 		return serversList(ctx, args[1:], stdout, stderr)
 	case "status":
 		return serversStatus(ctx, args[1:], stdout, stderr)
+	case "export":
+		return serversExport(ctx, args[1:], stdout, stderr)
+	case "check":
+		return serversCheck(ctx, args[1:], stdin, stdout, stderr)
+	case "apply":
+		return serversApply(ctx, args[1:], stdin, stdout, stderr)
 	case "help", "-h", "--help":
 		serversUsage(stdout)
 		return exitOK

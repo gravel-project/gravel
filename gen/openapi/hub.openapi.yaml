@@ -1219,6 +1219,48 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.AcceptOwnershipResponse'
+  /gravel.hub.v1.OrganizationService/ApplySettings:
+    post:
+      tags:
+        - gravel.hub.v1.OrganizationService
+      summary: ApplySettings
+      description: |-
+        ApplySettings stores a manifest, or with dry_run says which sections would change:
+         settings:write, in person. A manifest that matches the stored settings changes nothing and
+         records no event.
+      operationId: gravel.hub.v1.OrganizationService.ApplySettings
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.ApplySettingsRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.ApplySettingsResponse'
   /gravel.hub.v1.OrganizationService/CancelOwnershipTransfer:
     post:
       tags:
@@ -1260,6 +1302,47 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.CancelOwnershipTransferResponse'
+  /gravel.hub.v1.OrganizationService/CheckSettings:
+    post:
+      tags:
+        - gravel.hub.v1.OrganizationService
+      summary: CheckSettings
+      description: |-
+        CheckSettings validates a manifest against this hub and changes nothing: settings:write, in
+         person. invalid_argument names every problem.
+      operationId: gravel.hub.v1.OrganizationService.CheckSettings
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.CheckSettingsRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.CheckSettingsResponse'
   /gravel.hub.v1.OrganizationService/ClaimOwnership:
     post:
       tags:
@@ -1302,6 +1385,45 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.ClaimOwnershipResponse'
+  /gravel.hub.v1.OrganizationService/ExportSettings:
+    post:
+      tags:
+        - gravel.hub.v1.OrganizationService
+      summary: ExportSettings
+      description: 'ExportSettings is the stored settings as a manifest: settings:write, in person.'
+      operationId: gravel.hub.v1.OrganizationService.ExportSettings
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.ExportSettingsRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.ExportSettingsResponse'
   /gravel.hub.v1.OrganizationService/GetOrganization:
     post:
       tags:
@@ -3225,6 +3347,40 @@ components:
           description: Whether the changes were made (false on a dry run, and when there were none).
       title: ApplyServersResponse
       additionalProperties: false
+    gravel.hub.v1.ApplySettingsRequest:
+      type: object
+      properties:
+        manifest:
+          type: string
+          title: manifest
+          description: A settings manifest, the whole of it.
+        dryRun:
+          type: boolean
+          title: dry_run
+          description: Say what would change and change nothing.
+      title: ApplySettingsRequest
+      additionalProperties: false
+    gravel.hub.v1.ApplySettingsResponse:
+      type: object
+      properties:
+        changes:
+          type: array
+          items:
+            type: string
+          title: changes
+          description: |-
+            The top-level sections that differ from the stored settings, sorted ("discord", "nav");
+             empty when nothing would change.
+        applied:
+          type: boolean
+          title: applied
+          description: Whether the changes were made (false on a dry run, and when there were none).
+        summary:
+          type: string
+          title: summary
+          description: The manifest in one line, as CheckSettings has it.
+      title: ApplySettingsResponse
+      additionalProperties: false
     gravel.hub.v1.AuditEntry:
       type: object
       properties:
@@ -3570,6 +3726,24 @@ components:
           title: summary
           description: '"2 games [cs2 wardogs], 3 servers [...]".'
       title: CheckServersResponse
+      additionalProperties: false
+    gravel.hub.v1.CheckSettingsRequest:
+      type: object
+      properties:
+        manifest:
+          type: string
+          title: manifest
+          description: A settings manifest, the whole of it.
+      title: CheckSettingsRequest
+      additionalProperties: false
+    gravel.hub.v1.CheckSettingsResponse:
+      type: object
+      properties:
+        summary:
+          type: string
+          title: summary
+          description: '"3 nav links, theme default, discord unmapped, …".'
+      title: CheckSettingsResponse
       additionalProperties: false
     gravel.hub.v1.ClaimOwnershipRequest:
       type: object
@@ -4362,6 +4536,23 @@ components:
           title: manifest
           description: The stored games, locations and servers as a servers.yaml manifest.
       title: ExportServersResponse
+      additionalProperties: false
+    gravel.hub.v1.ExportSettingsRequest:
+      type: object
+      title: ExportSettingsRequest
+      additionalProperties: false
+      description: |-
+        The settings as a YAML manifest over the API (gravel#201): what `gravel-hub settings` does on
+         the host, for an operator's `gravel settings`. The hub parses, validates and compares the
+         manifest with its own rules, so a client carries none of them.
+    gravel.hub.v1.ExportSettingsResponse:
+      type: object
+      properties:
+        manifest:
+          type: string
+          title: manifest
+          description: The stored settings as a manifest, notifiers included.
+      title: ExportSettingsResponse
       additionalProperties: false
     gravel.hub.v1.FleetAlarm:
       type: object

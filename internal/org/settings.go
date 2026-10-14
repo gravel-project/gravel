@@ -9,6 +9,7 @@ import (
 	"maps"
 	"math"
 	"net/url"
+	"reflect"
 	"regexp"
 	"slices"
 	"strconv"
@@ -1348,24 +1349,7 @@ func (s *Service) Settings(ctx context.Context) (Settings, time.Time, error) {
 // top-level sections that changed (settings.updated); the caller checks who may. A document that
 // fails validation stores and records nothing.
 func (s *Service) UpdateSettings(ctx context.Context, set Settings, by store.Actor) (Settings, error) {
-	set = set.Normalized()
-	if err := set.Validate(); err != nil {
-		return Settings{}, err
-	}
-	if s.games != nil {
-		if err := set.CheckGames(s.games); err != nil {
-			return Settings{}, err
-		}
-	}
-	o, err := s.st.GetBuiltinOrganization(ctx)
-	if err != nil {
-		return Settings{}, err
-	}
-	raw, err := json.Marshal(set)
-	if err != nil {
-		return Settings{}, fmt.Errorf("org: settings: %w", err)
-	}
-	sections, err := changedSections(o.Settings, raw)
+	set, o, raw, sections, err := s.plan(ctx, set)
 	if err != nil {
 		return Settings{}, err
 	}
@@ -1376,9 +1360,51 @@ func (s *Service) UpdateSettings(ctx context.Context, set Settings, by store.Act
 	return set, nil
 }
 
+// CheckSettings normalizes a document and validates it against this hub, its games included,
+// reading and storing nothing: what UpdateSettings checks first.
+func (s *Service) CheckSettings(set Settings) (Settings, error) {
+	set = set.Normalized()
+	err := set.Validate()
+	if s.games != nil {
+		err = errors.Join(err, set.CheckGames(s.games))
+	}
+	if err != nil {
+		return Settings{}, err
+	}
+	return set, nil
+}
+
+// PlanSettings checks a document and names the top-level sections storing it would change, sorted,
+// storing nothing: empty when it matches the stored document.
+func (s *Service) PlanSettings(ctx context.Context, set Settings) ([]string, error) {
+	_, _, _, sections, err := s.plan(ctx, set)
+	return sections, err
+}
+
+func (s *Service) plan(ctx context.Context, set Settings) (Settings, store.Organization, json.RawMessage, []string, error) {
+	set, err := s.CheckSettings(set)
+	if err != nil {
+		return Settings{}, store.Organization{}, nil, nil, err
+	}
+	o, err := s.st.GetBuiltinOrganization(ctx)
+	if err != nil {
+		return Settings{}, store.Organization{}, nil, nil, err
+	}
+	raw, err := json.Marshal(set)
+	if err != nil {
+		return Settings{}, store.Organization{}, nil, nil, fmt.Errorf("org: settings: %w", err)
+	}
+	sections, err := changedSections(o.Settings, raw)
+	if err != nil {
+		return Settings{}, store.Organization{}, nil, nil, err
+	}
+	return set, o, raw, sections, nil
+}
+
 // changedSections are the top-level keys of the settings document whose value differs between the
 // stored document and the new one, sorted: what a settings.updated event names. A stored document
-// that is empty or not an object counts as having no sections.
+// that is empty or not an object counts as having no sections. Values compare as JSON values, not
+// bytes: Postgres keeps the document as jsonb, which reorders an object's keys.
 func changedSections(stored, next json.RawMessage) ([]string, error) {
 	var before, after map[string]json.RawMessage
 	if len(bytes.TrimSpace(stored)) > 0 {
@@ -1388,11 +1414,11 @@ func changedSections(stored, next json.RawMessage) ([]string, error) {
 		return nil, fmt.Errorf("org: settings: %w", err)
 	}
 	same := func(a, b json.RawMessage) bool {
-		var ca, cb bytes.Buffer
-		if json.Compact(&ca, a) != nil || json.Compact(&cb, b) != nil {
+		var va, vb any
+		if json.Unmarshal(a, &va) != nil || json.Unmarshal(b, &vb) != nil {
 			return bytes.Equal(a, b)
 		}
-		return bytes.Equal(ca.Bytes(), cb.Bytes())
+		return reflect.DeepEqual(va, vb)
 	}
 	changed := []string{}
 	for k, v := range after {

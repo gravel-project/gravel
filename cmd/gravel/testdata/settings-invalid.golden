@@ -1,0 +1,3 @@
+gravel settings check: the hub refused the manifest:
+  invalid settings: bad: unknown field
+  invalid settings: theme.dark.accent: not a colour

@@ -195,6 +195,73 @@ func (s *OrganizationServer) TestNotifier(ctx context.Context, req *connect.Requ
 	return connect.NewResponse(&hubv1.TestNotifierResponse{Delivered: true}), nil
 }
 
+// ExportSettings is the stored settings as a manifest (gravel#201): settings:write.
+func (s *OrganizationServer) ExportSettings(ctx context.Context, _ *connect.Request[hubv1.ExportSettingsRequest]) (*connect.Response[hubv1.ExportSettingsResponse], error) {
+	if _, err := s.access.Require(ctx, authz.SettingsWrite, authz.Target{}); err != nil {
+		return nil, err
+	}
+	set, _, err := s.org.Settings(ctx)
+	if err != nil {
+		return nil, mapError(ctx, s.logger, err)
+	}
+	b, err := set.Manifest()
+	if err != nil {
+		return nil, mapError(ctx, s.logger, err)
+	}
+	return connect.NewResponse(&hubv1.ExportSettingsResponse{Manifest: string(b)}), nil
+}
+
+// parseSettings reads and checks a manifest from a request: invalid_argument names every problem.
+func (s *OrganizationServer) parseSettings(ctx context.Context, text string) (org.Settings, error) {
+	set, err := org.ParseManifest([]byte(text))
+	if err != nil {
+		return org.Settings{}, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	if set, err = s.org.CheckSettings(set); err != nil {
+		return org.Settings{}, mapError(ctx, s.logger, err)
+	}
+	return set, nil
+}
+
+// CheckSettings validates a manifest against this hub and changes nothing: settings:write.
+func (s *OrganizationServer) CheckSettings(ctx context.Context, req *connect.Request[hubv1.CheckSettingsRequest]) (*connect.Response[hubv1.CheckSettingsResponse], error) {
+	if _, err := s.access.Require(ctx, authz.SettingsWrite, authz.Target{}); err != nil {
+		return nil, err
+	}
+	set, err := s.parseSettings(ctx, req.Msg.GetManifest())
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&hubv1.CheckSettingsResponse{Summary: set.Summary()}), nil
+}
+
+// ApplySettings stores a manifest, or with dry_run names the sections it would change:
+// settings:write. A manifest that matches the stored settings writes nothing, so applying the
+// same one again records no settings.updated.
+func (s *OrganizationServer) ApplySettings(ctx context.Context, req *connect.Request[hubv1.ApplySettingsRequest]) (*connect.Response[hubv1.ApplySettingsResponse], error) {
+	p, err := s.access.Require(ctx, authz.SettingsWrite, authz.Target{})
+	if err != nil {
+		return nil, err
+	}
+	set, err := s.parseSettings(ctx, req.Msg.GetManifest())
+	if err != nil {
+		return nil, err
+	}
+	sections, err := s.org.PlanSettings(ctx, set)
+	if err != nil {
+		return nil, mapError(ctx, s.logger, err)
+	}
+	out := &hubv1.ApplySettingsResponse{Changes: sections, Summary: set.Summary()}
+	if req.Msg.GetDryRun() || len(sections) == 0 {
+		return connect.NewResponse(out), nil
+	}
+	if _, err := s.org.UpdateSettings(ctx, set, changedBy(ctx, p)); err != nil {
+		return nil, mapError(ctx, s.logger, err)
+	}
+	out.Applied = true
+	return connect.NewResponse(out), nil
+}
+
 func settingsToProto(set org.Settings, at time.Time) *hubv1.OrganizationSettings {
 	tokens := func(t org.Tokens) *hubv1.ThemeTokens {
 		return &hubv1.ThemeTokens{Accent: t.Accent, Background: t.Background, Foreground: t.Foreground, Muted: t.Muted, Line: t.Line, Ok: t.OK, Err: t.Err}
