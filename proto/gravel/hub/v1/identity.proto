@@ -89,6 +89,15 @@ message RevokeSessionsResponse {
   int32 revoked = 1;
 }
 
+message RevokeUserSessionsRequest {
+  string user_id = 1;
+}
+
+message RevokeUserSessionsResponse {
+  // How many sessions were ended.
+  int32 revoked = 1;
+}
+
 message LookupUserRequest {
   string provider = 1;
   string subject = 2;
@@ -244,6 +253,9 @@ service IdentityService {
   rpc Logout(LogoutRequest) returns (LogoutResponse);
   // RevokeSessions logs the caller out everywhere, this session included.
   rpc RevokeSessions(RevokeSessionsRequest) returns (RevokeSessionsResponse);
+  // RevokeUserSessions logs a member out everywhere, with the tokens apps hold for them:
+  // members:manage (#195). not_found for an unknown member.
+  rpc RevokeUserSessions(RevokeUserSessionsRequest) returns (RevokeUserSessionsResponse);
   // LookupUser resolves a (provider, subject) pair to its user, for role sync. Owner only until
   // first-party apps get their own credentials (gravel#6).
   rpc LookupUser(LookupUserRequest) returns (LookupUserResponse);

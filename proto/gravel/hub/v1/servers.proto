@@ -242,6 +242,36 @@ message GetFleetSummaryResponse {
   google.protobuf.Timestamp as_of = 4;
 }
 
+message ExportServersRequest {}
+
+message ExportServersResponse {
+  // The stored games, locations and servers as a servers.yaml manifest.
+  string manifest = 1;
+}
+
+message ApplyServersRequest {
+  // A servers.yaml manifest, the whole of it.
+  string manifest = 1;
+  // Say what would change and change nothing.
+  bool dry_run = 2;
+}
+
+message ApplyServersResponse {
+  // Each change, "server htg-wardogs-1 changed"; empty when nothing would change.
+  repeated string changes = 1;
+  // Whether the changes were made (false on a dry run, and when there were none).
+  bool applied = 2;
+}
+
+message CheckServersRequest {
+  string manifest = 1;
+}
+
+message CheckServersResponse {
+  // "2 games [cs2 wardogs], 3 servers [...]".
+  string summary = 1;
+}
+
 // ServerService reads the games and servers the hub controls (ADR-0010). They are applied from a
 // deployment's servers.yaml by `gravel-hub servers apply`; the hub polls each server through its
 // driver and answers from the last observation, so a caller never reaches a game server.
@@ -259,4 +289,16 @@ service ServerService {
   // servers:read. A caller holding it for some games sees those games' servers and their alarms;
   // the hub's own alarms (backups, WAL, the claim) need events:read everywhere.
   rpc GetFleetSummary(GetFleetSummaryRequest) returns (GetFleetSummaryResponse);
+  // ExportServers is the stored manifest: servers:manage.
+  rpc ExportServers(ExportServersRequest) returns (ExportServersResponse);
+  // ApplyServers makes the stored games and servers match a manifest, or with dry_run says what
+  // would change: servers:manage (#195). Over the API it may not add or change a location, add a
+  // server, or change a server's driver, location, endpoint, credential file, feed, or its VM's
+  // password, publisher token or share_password: those name files on the hub's host or where
+  // their secrets go, and are the host's (`gravel-hub servers apply`): failed_precondition names
+  // each. invalid_argument names every problem with the manifest.
+  rpc ApplyServers(ApplyServersRequest) returns (ApplyServersResponse);
+  // CheckServers validates a manifest against this hub's games, drivers and clouds and changes
+  // nothing: servers:manage.
+  rpc CheckServers(CheckServersRequest) returns (CheckServersResponse);
 }

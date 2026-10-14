@@ -84,10 +84,50 @@ message RevokeAppGrantResponse {
   int32 revoked_tokens = 1;
 }
 
-// AppService is a member's side of first-party apps (ADR-0015): the authorization endpoint's
-// checks and consent, which the hub's /oauth/authorize page calls, and the apps the member
-// allowed. Every procedure but PrepareAuthorization needs a session cookie; no bearer token, an
-// app's or a member's, may call any of them.
+// App is a registered first-party app (ADR-0008, ADR-0015), as the operator sees it; never its
+// secret, which CreateApp answers once.
+message App {
+  string client_id = 1;
+  string name = 2;
+  repeated string scopes = 3;
+  repeated string redirect_uris = 4;
+  google.protobuf.Timestamp created_at = 5;
+  // Unset while the app is live.
+  google.protobuf.Timestamp revoked_at = 6;
+}
+
+message CreateAppRequest {
+  string name = 1;
+  // The scopes the app may use: capabilities an app may hold, or a host's own (host:<name>).
+  repeated string scopes = 2;
+  // Where the app's web pages receive a member who signed in; https, or http to the loopback.
+  repeated string redirect_uris = 3;
+}
+
+message CreateAppResponse {
+  App app = 1;
+  // Shown this once; the hub keeps only its hash. Give it to the app as a secret file.
+  string client_secret = 2;
+}
+
+message ListAppsRequest {}
+
+message ListAppsResponse {
+  // Every app, revoked ones included, oldest first.
+  repeated App apps = 1;
+}
+
+message RevokeAppRequest {
+  string client_id = 1;
+}
+
+message RevokeAppResponse {}
+
+// AppService is first-party apps (ADR-0008, ADR-0015): a member's side (the authorization
+// endpoint's checks and consent, which the hub's /oauth/authorize page calls, and the apps the
+// member allowed) and the operator's (registering and revoking apps, #195). Every procedure but
+// PrepareAuthorization needs a session cookie; no bearer token, an app's or a member's, may call
+// any of them.
 service AppService {
   // PrepareAuthorization checks an authorization request. An unknown or revoked client, or a
   // redirect URI the app did not register, is not_found: the page shows an error and never
@@ -104,4 +144,12 @@ service AppService {
   // RevokeAppGrant withdraws the member's grant to an app and revokes the member's tokens for it;
   // not_found when the member had not allowed it.
   rpc RevokeAppGrant(RevokeAppGrantRequest) returns (RevokeAppGrantResponse);
+  // CreateApp registers an app and answers its secret once: apps:manage. invalid_argument names a
+  // bad name, scope or redirect URI.
+  rpc CreateApp(CreateAppRequest) returns (CreateAppResponse);
+  // ListApps lists every app: apps:manage.
+  rpc ListApps(ListAppsRequest) returns (ListAppsResponse);
+  // RevokeApp revokes an app with its tokens and members' grants: apps:manage. not_found for an
+  // unknown or already revoked app.
+  rpc RevokeApp(RevokeAppRequest) returns (RevokeAppResponse);
 }

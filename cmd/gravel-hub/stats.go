@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/gravel-project/gravel/internal/org"
 	"github.com/gravel-project/gravel/internal/stats"
@@ -49,7 +50,7 @@ func statsCmd(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 		fmt.Fprintln(stderr, err)
 		return 1
 	}
-	got, err := stats.Erase(ctx, st, organization.ID, store.PlayerKey{Provider: *provider, Subject: *subject})
+	got, err := stats.Erase(ctx, st, organization.ID, store.PlayerKey{Provider: *provider, Subject: *subject}, store.Actor{Via: store.ViaCLI}, time.Now().UTC())
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1

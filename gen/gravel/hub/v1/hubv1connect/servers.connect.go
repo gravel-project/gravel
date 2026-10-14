@@ -47,6 +47,15 @@ const (
 	// ServerServiceGetFleetSummaryProcedure is the fully-qualified name of the ServerService's
 	// GetFleetSummary RPC.
 	ServerServiceGetFleetSummaryProcedure = "/gravel.hub.v1.ServerService/GetFleetSummary"
+	// ServerServiceExportServersProcedure is the fully-qualified name of the ServerService's
+	// ExportServers RPC.
+	ServerServiceExportServersProcedure = "/gravel.hub.v1.ServerService/ExportServers"
+	// ServerServiceApplyServersProcedure is the fully-qualified name of the ServerService's
+	// ApplyServers RPC.
+	ServerServiceApplyServersProcedure = "/gravel.hub.v1.ServerService/ApplyServers"
+	// ServerServiceCheckServersProcedure is the fully-qualified name of the ServerService's
+	// CheckServers RPC.
+	ServerServiceCheckServersProcedure = "/gravel.hub.v1.ServerService/CheckServers"
 )
 
 // ServerServiceClient is a client for the gravel.hub.v1.ServerService service.
@@ -64,6 +73,18 @@ type ServerServiceClient interface {
 	// servers:read. A caller holding it for some games sees those games' servers and their alarms;
 	// the hub's own alarms (backups, WAL, the claim) need events:read everywhere.
 	GetFleetSummary(context.Context, *connect.Request[v1.GetFleetSummaryRequest]) (*connect.Response[v1.GetFleetSummaryResponse], error)
+	// ExportServers is the stored manifest: servers:manage.
+	ExportServers(context.Context, *connect.Request[v1.ExportServersRequest]) (*connect.Response[v1.ExportServersResponse], error)
+	// ApplyServers makes the stored games and servers match a manifest, or with dry_run says what
+	// would change: servers:manage (#195). Over the API it may not add or change a location, add a
+	// server, or change a server's driver, location, endpoint, credential file, feed, or its VM's
+	// password, publisher token or share_password: those name files on the hub's host or where
+	// their secrets go, and are the host's (`gravel-hub servers apply`): failed_precondition names
+	// each. invalid_argument names every problem with the manifest.
+	ApplyServers(context.Context, *connect.Request[v1.ApplyServersRequest]) (*connect.Response[v1.ApplyServersResponse], error)
+	// CheckServers validates a manifest against this hub's games, drivers and clouds and changes
+	// nothing: servers:manage.
+	CheckServers(context.Context, *connect.Request[v1.CheckServersRequest]) (*connect.Response[v1.CheckServersResponse], error)
 }
 
 // NewServerServiceClient constructs a client for the gravel.hub.v1.ServerService service. By
@@ -107,6 +128,24 @@ func NewServerServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 			connect.WithSchema(serverServiceMethods.ByName("GetFleetSummary")),
 			connect.WithClientOptions(opts...),
 		),
+		exportServers: connect.NewClient[v1.ExportServersRequest, v1.ExportServersResponse](
+			httpClient,
+			baseURL+ServerServiceExportServersProcedure,
+			connect.WithSchema(serverServiceMethods.ByName("ExportServers")),
+			connect.WithClientOptions(opts...),
+		),
+		applyServers: connect.NewClient[v1.ApplyServersRequest, v1.ApplyServersResponse](
+			httpClient,
+			baseURL+ServerServiceApplyServersProcedure,
+			connect.WithSchema(serverServiceMethods.ByName("ApplyServers")),
+			connect.WithClientOptions(opts...),
+		),
+		checkServers: connect.NewClient[v1.CheckServersRequest, v1.CheckServersResponse](
+			httpClient,
+			baseURL+ServerServiceCheckServersProcedure,
+			connect.WithSchema(serverServiceMethods.ByName("CheckServers")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -117,6 +156,9 @@ type serverServiceClient struct {
 	getServerStatus   *connect.Client[v1.GetServerStatusRequest, v1.GetServerStatusResponse]
 	listServerPlayers *connect.Client[v1.ListServerPlayersRequest, v1.ListServerPlayersResponse]
 	getFleetSummary   *connect.Client[v1.GetFleetSummaryRequest, v1.GetFleetSummaryResponse]
+	exportServers     *connect.Client[v1.ExportServersRequest, v1.ExportServersResponse]
+	applyServers      *connect.Client[v1.ApplyServersRequest, v1.ApplyServersResponse]
+	checkServers      *connect.Client[v1.CheckServersRequest, v1.CheckServersResponse]
 }
 
 // ListGames calls gravel.hub.v1.ServerService.ListGames.
@@ -144,6 +186,21 @@ func (c *serverServiceClient) GetFleetSummary(ctx context.Context, req *connect.
 	return c.getFleetSummary.CallUnary(ctx, req)
 }
 
+// ExportServers calls gravel.hub.v1.ServerService.ExportServers.
+func (c *serverServiceClient) ExportServers(ctx context.Context, req *connect.Request[v1.ExportServersRequest]) (*connect.Response[v1.ExportServersResponse], error) {
+	return c.exportServers.CallUnary(ctx, req)
+}
+
+// ApplyServers calls gravel.hub.v1.ServerService.ApplyServers.
+func (c *serverServiceClient) ApplyServers(ctx context.Context, req *connect.Request[v1.ApplyServersRequest]) (*connect.Response[v1.ApplyServersResponse], error) {
+	return c.applyServers.CallUnary(ctx, req)
+}
+
+// CheckServers calls gravel.hub.v1.ServerService.CheckServers.
+func (c *serverServiceClient) CheckServers(ctx context.Context, req *connect.Request[v1.CheckServersRequest]) (*connect.Response[v1.CheckServersResponse], error) {
+	return c.checkServers.CallUnary(ctx, req)
+}
+
 // ServerServiceHandler is an implementation of the gravel.hub.v1.ServerService service.
 type ServerServiceHandler interface {
 	// ListGames is the enabled games; public.
@@ -159,6 +216,18 @@ type ServerServiceHandler interface {
 	// servers:read. A caller holding it for some games sees those games' servers and their alarms;
 	// the hub's own alarms (backups, WAL, the claim) need events:read everywhere.
 	GetFleetSummary(context.Context, *connect.Request[v1.GetFleetSummaryRequest]) (*connect.Response[v1.GetFleetSummaryResponse], error)
+	// ExportServers is the stored manifest: servers:manage.
+	ExportServers(context.Context, *connect.Request[v1.ExportServersRequest]) (*connect.Response[v1.ExportServersResponse], error)
+	// ApplyServers makes the stored games and servers match a manifest, or with dry_run says what
+	// would change: servers:manage (#195). Over the API it may not add or change a location, add a
+	// server, or change a server's driver, location, endpoint, credential file, feed, or its VM's
+	// password, publisher token or share_password: those name files on the hub's host or where
+	// their secrets go, and are the host's (`gravel-hub servers apply`): failed_precondition names
+	// each. invalid_argument names every problem with the manifest.
+	ApplyServers(context.Context, *connect.Request[v1.ApplyServersRequest]) (*connect.Response[v1.ApplyServersResponse], error)
+	// CheckServers validates a manifest against this hub's games, drivers and clouds and changes
+	// nothing: servers:manage.
+	CheckServers(context.Context, *connect.Request[v1.CheckServersRequest]) (*connect.Response[v1.CheckServersResponse], error)
 }
 
 // NewServerServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -198,6 +267,24 @@ func NewServerServiceHandler(svc ServerServiceHandler, opts ...connect.HandlerOp
 		connect.WithSchema(serverServiceMethods.ByName("GetFleetSummary")),
 		connect.WithHandlerOptions(opts...),
 	)
+	serverServiceExportServersHandler := connect.NewUnaryHandler(
+		ServerServiceExportServersProcedure,
+		svc.ExportServers,
+		connect.WithSchema(serverServiceMethods.ByName("ExportServers")),
+		connect.WithHandlerOptions(opts...),
+	)
+	serverServiceApplyServersHandler := connect.NewUnaryHandler(
+		ServerServiceApplyServersProcedure,
+		svc.ApplyServers,
+		connect.WithSchema(serverServiceMethods.ByName("ApplyServers")),
+		connect.WithHandlerOptions(opts...),
+	)
+	serverServiceCheckServersHandler := connect.NewUnaryHandler(
+		ServerServiceCheckServersProcedure,
+		svc.CheckServers,
+		connect.WithSchema(serverServiceMethods.ByName("CheckServers")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/gravel.hub.v1.ServerService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ServerServiceListGamesProcedure:
@@ -210,6 +297,12 @@ func NewServerServiceHandler(svc ServerServiceHandler, opts ...connect.HandlerOp
 			serverServiceListServerPlayersHandler.ServeHTTP(w, r)
 		case ServerServiceGetFleetSummaryProcedure:
 			serverServiceGetFleetSummaryHandler.ServeHTTP(w, r)
+		case ServerServiceExportServersProcedure:
+			serverServiceExportServersHandler.ServeHTTP(w, r)
+		case ServerServiceApplyServersProcedure:
+			serverServiceApplyServersHandler.ServeHTTP(w, r)
+		case ServerServiceCheckServersProcedure:
+			serverServiceCheckServersHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -237,4 +330,16 @@ func (UnimplementedServerServiceHandler) ListServerPlayers(context.Context, *con
 
 func (UnimplementedServerServiceHandler) GetFleetSummary(context.Context, *connect.Request[v1.GetFleetSummaryRequest]) (*connect.Response[v1.GetFleetSummaryResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.ServerService.GetFleetSummary is not implemented"))
+}
+
+func (UnimplementedServerServiceHandler) ExportServers(context.Context, *connect.Request[v1.ExportServersRequest]) (*connect.Response[v1.ExportServersResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.ServerService.ExportServers is not implemented"))
+}
+
+func (UnimplementedServerServiceHandler) ApplyServers(context.Context, *connect.Request[v1.ApplyServersRequest]) (*connect.Response[v1.ApplyServersResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.ServerService.ApplyServers is not implemented"))
+}
+
+func (UnimplementedServerServiceHandler) CheckServers(context.Context, *connect.Request[v1.CheckServersRequest]) (*connect.Response[v1.CheckServersResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.ServerService.CheckServers is not implemented"))
 }

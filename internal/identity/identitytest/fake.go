@@ -407,6 +407,15 @@ func (f *FakeStore) DeleteUserSessions(_ context.Context, userID uuid.UUID) (int
 	return n, nil
 }
 
+// RevokeUserSessions is DeleteUserSessions done by staff; the real store also records it
+// (sessions.revoked). ErrNotFound for a member the store doesn't have.
+func (f *FakeStore) RevokeUserSessions(ctx context.Context, userID uuid.UUID, _ store.Actor, _ time.Time) (int64, error) {
+	if _, err := f.GetUser(ctx, userID); err != nil {
+		return 0, err
+	}
+	return f.DeleteUserSessions(ctx, userID)
+}
+
 func (f *FakeStore) DeleteExpiredSessions(_ context.Context, now time.Time) (int64, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

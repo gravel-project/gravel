@@ -44,6 +44,12 @@ const (
 	// AppServiceRevokeAppGrantProcedure is the fully-qualified name of the AppService's RevokeAppGrant
 	// RPC.
 	AppServiceRevokeAppGrantProcedure = "/gravel.hub.v1.AppService/RevokeAppGrant"
+	// AppServiceCreateAppProcedure is the fully-qualified name of the AppService's CreateApp RPC.
+	AppServiceCreateAppProcedure = "/gravel.hub.v1.AppService/CreateApp"
+	// AppServiceListAppsProcedure is the fully-qualified name of the AppService's ListApps RPC.
+	AppServiceListAppsProcedure = "/gravel.hub.v1.AppService/ListApps"
+	// AppServiceRevokeAppProcedure is the fully-qualified name of the AppService's RevokeApp RPC.
+	AppServiceRevokeAppProcedure = "/gravel.hub.v1.AppService/RevokeApp"
 )
 
 // AppServiceClient is a client for the gravel.hub.v1.AppService service.
@@ -63,6 +69,14 @@ type AppServiceClient interface {
 	// RevokeAppGrant withdraws the member's grant to an app and revokes the member's tokens for it;
 	// not_found when the member had not allowed it.
 	RevokeAppGrant(context.Context, *connect.Request[v1.RevokeAppGrantRequest]) (*connect.Response[v1.RevokeAppGrantResponse], error)
+	// CreateApp registers an app and answers its secret once: apps:manage. invalid_argument names a
+	// bad name, scope or redirect URI.
+	CreateApp(context.Context, *connect.Request[v1.CreateAppRequest]) (*connect.Response[v1.CreateAppResponse], error)
+	// ListApps lists every app: apps:manage.
+	ListApps(context.Context, *connect.Request[v1.ListAppsRequest]) (*connect.Response[v1.ListAppsResponse], error)
+	// RevokeApp revokes an app with its tokens and members' grants: apps:manage. not_found for an
+	// unknown or already revoked app.
+	RevokeApp(context.Context, *connect.Request[v1.RevokeAppRequest]) (*connect.Response[v1.RevokeAppResponse], error)
 }
 
 // NewAppServiceClient constructs a client for the gravel.hub.v1.AppService service. By default, it
@@ -100,6 +114,24 @@ func NewAppServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			connect.WithSchema(appServiceMethods.ByName("RevokeAppGrant")),
 			connect.WithClientOptions(opts...),
 		),
+		createApp: connect.NewClient[v1.CreateAppRequest, v1.CreateAppResponse](
+			httpClient,
+			baseURL+AppServiceCreateAppProcedure,
+			connect.WithSchema(appServiceMethods.ByName("CreateApp")),
+			connect.WithClientOptions(opts...),
+		),
+		listApps: connect.NewClient[v1.ListAppsRequest, v1.ListAppsResponse](
+			httpClient,
+			baseURL+AppServiceListAppsProcedure,
+			connect.WithSchema(appServiceMethods.ByName("ListApps")),
+			connect.WithClientOptions(opts...),
+		),
+		revokeApp: connect.NewClient[v1.RevokeAppRequest, v1.RevokeAppResponse](
+			httpClient,
+			baseURL+AppServiceRevokeAppProcedure,
+			connect.WithSchema(appServiceMethods.ByName("RevokeApp")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -109,6 +141,9 @@ type appServiceClient struct {
 	authorize            *connect.Client[v1.AuthorizeRequest, v1.AuthorizeResponse]
 	listAppGrants        *connect.Client[v1.ListAppGrantsRequest, v1.ListAppGrantsResponse]
 	revokeAppGrant       *connect.Client[v1.RevokeAppGrantRequest, v1.RevokeAppGrantResponse]
+	createApp            *connect.Client[v1.CreateAppRequest, v1.CreateAppResponse]
+	listApps             *connect.Client[v1.ListAppsRequest, v1.ListAppsResponse]
+	revokeApp            *connect.Client[v1.RevokeAppRequest, v1.RevokeAppResponse]
 }
 
 // PrepareAuthorization calls gravel.hub.v1.AppService.PrepareAuthorization.
@@ -131,6 +166,21 @@ func (c *appServiceClient) RevokeAppGrant(ctx context.Context, req *connect.Requ
 	return c.revokeAppGrant.CallUnary(ctx, req)
 }
 
+// CreateApp calls gravel.hub.v1.AppService.CreateApp.
+func (c *appServiceClient) CreateApp(ctx context.Context, req *connect.Request[v1.CreateAppRequest]) (*connect.Response[v1.CreateAppResponse], error) {
+	return c.createApp.CallUnary(ctx, req)
+}
+
+// ListApps calls gravel.hub.v1.AppService.ListApps.
+func (c *appServiceClient) ListApps(ctx context.Context, req *connect.Request[v1.ListAppsRequest]) (*connect.Response[v1.ListAppsResponse], error) {
+	return c.listApps.CallUnary(ctx, req)
+}
+
+// RevokeApp calls gravel.hub.v1.AppService.RevokeApp.
+func (c *appServiceClient) RevokeApp(ctx context.Context, req *connect.Request[v1.RevokeAppRequest]) (*connect.Response[v1.RevokeAppResponse], error) {
+	return c.revokeApp.CallUnary(ctx, req)
+}
+
 // AppServiceHandler is an implementation of the gravel.hub.v1.AppService service.
 type AppServiceHandler interface {
 	// PrepareAuthorization checks an authorization request. An unknown or revoked client, or a
@@ -148,6 +198,14 @@ type AppServiceHandler interface {
 	// RevokeAppGrant withdraws the member's grant to an app and revokes the member's tokens for it;
 	// not_found when the member had not allowed it.
 	RevokeAppGrant(context.Context, *connect.Request[v1.RevokeAppGrantRequest]) (*connect.Response[v1.RevokeAppGrantResponse], error)
+	// CreateApp registers an app and answers its secret once: apps:manage. invalid_argument names a
+	// bad name, scope or redirect URI.
+	CreateApp(context.Context, *connect.Request[v1.CreateAppRequest]) (*connect.Response[v1.CreateAppResponse], error)
+	// ListApps lists every app: apps:manage.
+	ListApps(context.Context, *connect.Request[v1.ListAppsRequest]) (*connect.Response[v1.ListAppsResponse], error)
+	// RevokeApp revokes an app with its tokens and members' grants: apps:manage. not_found for an
+	// unknown or already revoked app.
+	RevokeApp(context.Context, *connect.Request[v1.RevokeAppRequest]) (*connect.Response[v1.RevokeAppResponse], error)
 }
 
 // NewAppServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -181,6 +239,24 @@ func NewAppServiceHandler(svc AppServiceHandler, opts ...connect.HandlerOption) 
 		connect.WithSchema(appServiceMethods.ByName("RevokeAppGrant")),
 		connect.WithHandlerOptions(opts...),
 	)
+	appServiceCreateAppHandler := connect.NewUnaryHandler(
+		AppServiceCreateAppProcedure,
+		svc.CreateApp,
+		connect.WithSchema(appServiceMethods.ByName("CreateApp")),
+		connect.WithHandlerOptions(opts...),
+	)
+	appServiceListAppsHandler := connect.NewUnaryHandler(
+		AppServiceListAppsProcedure,
+		svc.ListApps,
+		connect.WithSchema(appServiceMethods.ByName("ListApps")),
+		connect.WithHandlerOptions(opts...),
+	)
+	appServiceRevokeAppHandler := connect.NewUnaryHandler(
+		AppServiceRevokeAppProcedure,
+		svc.RevokeApp,
+		connect.WithSchema(appServiceMethods.ByName("RevokeApp")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/gravel.hub.v1.AppService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case AppServicePrepareAuthorizationProcedure:
@@ -191,6 +267,12 @@ func NewAppServiceHandler(svc AppServiceHandler, opts ...connect.HandlerOption) 
 			appServiceListAppGrantsHandler.ServeHTTP(w, r)
 		case AppServiceRevokeAppGrantProcedure:
 			appServiceRevokeAppGrantHandler.ServeHTTP(w, r)
+		case AppServiceCreateAppProcedure:
+			appServiceCreateAppHandler.ServeHTTP(w, r)
+		case AppServiceListAppsProcedure:
+			appServiceListAppsHandler.ServeHTTP(w, r)
+		case AppServiceRevokeAppProcedure:
+			appServiceRevokeAppHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -214,4 +296,16 @@ func (UnimplementedAppServiceHandler) ListAppGrants(context.Context, *connect.Re
 
 func (UnimplementedAppServiceHandler) RevokeAppGrant(context.Context, *connect.Request[v1.RevokeAppGrantRequest]) (*connect.Response[v1.RevokeAppGrantResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.AppService.RevokeAppGrant is not implemented"))
+}
+
+func (UnimplementedAppServiceHandler) CreateApp(context.Context, *connect.Request[v1.CreateAppRequest]) (*connect.Response[v1.CreateAppResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.AppService.CreateApp is not implemented"))
+}
+
+func (UnimplementedAppServiceHandler) ListApps(context.Context, *connect.Request[v1.ListAppsRequest]) (*connect.Response[v1.ListAppsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.AppService.ListApps is not implemented"))
+}
+
+func (UnimplementedAppServiceHandler) RevokeApp(context.Context, *connect.Request[v1.RevokeAppRequest]) (*connect.Response[v1.RevokeAppResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.AppService.RevokeApp is not implemented"))
 }

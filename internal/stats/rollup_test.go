@@ -108,7 +108,7 @@ func (r *rollupStore) RollUp(_ context.Context, _ uuid.UUID, tz string, periods 
 	return r.rolled, nil
 }
 
-func (r *rollupStore) EraseIdentity(_ context.Context, _ uuid.UUID, key store.PlayerKey, token string) (store.Erasure, error) {
+func (r *rollupStore) EraseIdentity(_ context.Context, _ uuid.UUID, key store.PlayerKey, token string, _ store.Actor, _ time.Time) (store.Erasure, error) {
 	r.erased, r.token = key, token
 	return store.Erasure{MatchRows: 1}, nil
 }
@@ -184,7 +184,7 @@ func TestRetentionRun(t *testing.T) {
 
 func TestErase(t *testing.T) {
 	st := &rollupStore{}
-	got, err := Erase(context.Background(), st, uuid.New(), store.PlayerKey{Provider: " steam ", Subject: "76561190000000001"})
+	got, err := Erase(context.Background(), st, uuid.New(), store.PlayerKey{Provider: " steam ", Subject: "76561190000000001"}, store.Actor{}, time.Now())
 	if err != nil || got.MatchRows != 1 {
 		t.Fatalf("erase = %+v, %v", got, err)
 	}
@@ -192,11 +192,11 @@ func TestErase(t *testing.T) {
 		t.Errorf("erased %+v with token %q", st.erased, st.token)
 	}
 	first := st.token
-	if _, err := Erase(context.Background(), st, uuid.New(), store.PlayerKey{Provider: "steam", Subject: "76561190000000001"}); err != nil || st.token == first {
+	if _, err := Erase(context.Background(), st, uuid.New(), store.PlayerKey{Provider: "steam", Subject: "76561190000000001"}, store.Actor{}, time.Now()); err != nil || st.token == first {
 		t.Errorf("a second erasure reused the token: %v", err)
 	}
 	for _, k := range []store.PlayerKey{{Provider: "steam"}, {Subject: "1"}, {Provider: store.ErasedProvider, Subject: first}} {
-		if _, err := Erase(context.Background(), st, uuid.New(), k); !errors.Is(err, ErrInvalidErasure) {
+		if _, err := Erase(context.Background(), st, uuid.New(), k, store.Actor{}, time.Now()); !errors.Is(err, ErrInvalidErasure) {
 			t.Errorf("%+v: %v", k, err)
 		}
 	}

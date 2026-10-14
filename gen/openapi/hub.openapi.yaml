@@ -50,6 +50,47 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.AuthorizeResponse'
+  /gravel.hub.v1.AppService/CreateApp:
+    post:
+      tags:
+        - gravel.hub.v1.AppService
+      summary: CreateApp
+      description: |-
+        CreateApp registers an app and answers its secret once: apps:manage. invalid_argument names a
+         bad name, scope or redirect URI.
+      operationId: gravel.hub.v1.AppService.CreateApp
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.CreateAppRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.CreateAppResponse'
   /gravel.hub.v1.AppService/ListAppGrants:
     post:
       tags:
@@ -89,6 +130,45 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.ListAppGrantsResponse'
+  /gravel.hub.v1.AppService/ListApps:
+    post:
+      tags:
+        - gravel.hub.v1.AppService
+      summary: ListApps
+      description: 'ListApps lists every app: apps:manage.'
+      operationId: gravel.hub.v1.AppService.ListApps
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.ListAppsRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.ListAppsResponse'
   /gravel.hub.v1.AppService/PrepareAuthorization:
     post:
       tags:
@@ -132,6 +212,47 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.PrepareAuthorizationResponse'
+  /gravel.hub.v1.AppService/RevokeApp:
+    post:
+      tags:
+        - gravel.hub.v1.AppService
+      summary: RevokeApp
+      description: |-
+        RevokeApp revokes an app with its tokens and members' grants: apps:manage. not_found for an
+         unknown or already revoked app.
+      operationId: gravel.hub.v1.AppService.RevokeApp
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.RevokeAppRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.RevokeAppResponse'
   /gravel.hub.v1.AppService/RevokeAppGrant:
     post:
       tags:
@@ -574,6 +695,47 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.RevokeSessionsResponse'
+  /gravel.hub.v1.IdentityService/RevokeUserSessions:
+    post:
+      tags:
+        - gravel.hub.v1.IdentityService
+      summary: RevokeUserSessions
+      description: |-
+        RevokeUserSessions logs a member out everywhere, with the tokens apps hold for them:
+         members:manage (#195). not_found for an unknown member.
+      operationId: gravel.hub.v1.IdentityService.RevokeUserSessions
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.RevokeUserSessionsRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.RevokeUserSessionsResponse'
   /gravel.hub.v1.IdentityService/SetUserRole:
     post:
       tags:
@@ -1989,6 +2151,131 @@ paths:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.RequestServerLeaseResponse'
   /gravel.hub.v1.ServerLeaseService/WatchServerLease: {}
+  /gravel.hub.v1.ServerService/ApplyServers:
+    post:
+      tags:
+        - gravel.hub.v1.ServerService
+      summary: ApplyServers
+      description: |-
+        ApplyServers makes the stored games and servers match a manifest, or with dry_run says what
+         would change: servers:manage (#195). Over the API it may not add or change a location, add a
+         server, or change a server's driver, location, endpoint, credential file, feed, or its VM's
+         password, publisher token or share_password: those name files on the hub's host or where
+         their secrets go, and are the host's (`gravel-hub servers apply`): failed_precondition names
+         each. invalid_argument names every problem with the manifest.
+      operationId: gravel.hub.v1.ServerService.ApplyServers
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.ApplyServersRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.ApplyServersResponse'
+  /gravel.hub.v1.ServerService/CheckServers:
+    post:
+      tags:
+        - gravel.hub.v1.ServerService
+      summary: CheckServers
+      description: |-
+        CheckServers validates a manifest against this hub's games, drivers and clouds and changes
+         nothing: servers:manage.
+      operationId: gravel.hub.v1.ServerService.CheckServers
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.CheckServersRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.CheckServersResponse'
+  /gravel.hub.v1.ServerService/ExportServers:
+    post:
+      tags:
+        - gravel.hub.v1.ServerService
+      summary: ExportServers
+      description: 'ExportServers is the stored manifest: servers:manage.'
+      operationId: gravel.hub.v1.ServerService.ExportServers
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.ExportServersRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.ExportServersResponse'
   /gravel.hub.v1.ServerService/GetFleetSummary:
     post:
       tags:
@@ -2189,6 +2476,47 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.ListServersResponse'
+  /gravel.hub.v1.StatsService/EraseIdentity:
+    post:
+      tags:
+        - gravel.hub.v1.StatsService
+      summary: EraseIdentity
+      description: |-
+        EraseIdentity erases a player's identity from the stats (ADR-0012 §7), for a request the
+         operator verified: stats:erase, in person only. The numbers stay, as a deleted player's.
+      operationId: gravel.hub.v1.StatsService.EraseIdentity
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.EraseIdentityRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.EraseIdentityResponse'
   /gravel.hub.v1.StatsService/GetBoard:
     post:
       tags:
@@ -2740,6 +3068,39 @@ components:
       description: |-
         Actor is the person an app says it acts for: a Discord moderator behind a bot command. The
          hub records it as the app asserted it; a logged-in user acts as themselves and sends none.
+    gravel.hub.v1.App:
+      type: object
+      properties:
+        clientId:
+          type: string
+          title: client_id
+        name:
+          type: string
+          title: name
+        scopes:
+          type: array
+          items:
+            type: string
+          title: scopes
+        redirectUris:
+          type: array
+          items:
+            type: string
+          title: redirect_uris
+        createdAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: created_at
+        revokedAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: revoked_at
+          description: Unset while the app is live.
+      title: App
+      additionalProperties: false
+      description: |-
+        App is a registered first-party app (ADR-0008, ADR-0015), as the operator sees it; never its
+         secret, which CreateApp answers once.
     gravel.hub.v1.AppGrant:
       type: object
       properties:
@@ -2796,6 +3157,34 @@ components:
             - $ref: '#/components/schemas/gravel.hub.v1.ConfigResult'
           title: result
       title: ApplyServerConfigResponse
+      additionalProperties: false
+    gravel.hub.v1.ApplyServersRequest:
+      type: object
+      properties:
+        manifest:
+          type: string
+          title: manifest
+          description: A servers.yaml manifest, the whole of it.
+        dryRun:
+          type: boolean
+          title: dry_run
+          description: Say what would change and change nothing.
+      title: ApplyServersRequest
+      additionalProperties: false
+    gravel.hub.v1.ApplyServersResponse:
+      type: object
+      properties:
+        changes:
+          type: array
+          items:
+            type: string
+          title: changes
+          description: Each change, "server htg-wardogs-1 changed"; empty when nothing would change.
+        applied:
+          type: boolean
+          title: applied
+          description: Whether the changes were made (false on a dry run, and when there were none).
+      title: ApplyServersResponse
       additionalProperties: false
     gravel.hub.v1.AuditEntry:
       type: object
@@ -3126,6 +3515,23 @@ components:
           title: organization
       title: CancelOwnershipTransferResponse
       additionalProperties: false
+    gravel.hub.v1.CheckServersRequest:
+      type: object
+      properties:
+        manifest:
+          type: string
+          title: manifest
+      title: CheckServersRequest
+      additionalProperties: false
+    gravel.hub.v1.CheckServersResponse:
+      type: object
+      properties:
+        summary:
+          type: string
+          title: summary
+          description: '"2 games [cs2 wardogs], 3 servers [...]".'
+      title: CheckServersResponse
+      additionalProperties: false
     gravel.hub.v1.ClaimOwnershipRequest:
       type: object
       properties:
@@ -3308,6 +3714,39 @@ components:
       title: ConfigStripped
       additionalProperties: false
       description: ConfigStripped is a key, or a whole section with no key, the server drops.
+    gravel.hub.v1.CreateAppRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          title: name
+        scopes:
+          type: array
+          items:
+            type: string
+          title: scopes
+          description: 'The scopes the app may use: capabilities an app may hold, or a host''s own (host:<name>).'
+        redirectUris:
+          type: array
+          items:
+            type: string
+          title: redirect_uris
+          description: Where the app's web pages receive a member who signed in; https, or http to the loopback.
+      title: CreateAppRequest
+      additionalProperties: false
+    gravel.hub.v1.CreateAppResponse:
+      type: object
+      properties:
+        app:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.App'
+          title: app
+        clientSecret:
+          type: string
+          title: client_secret
+          description: Shown this once; the hub keeps only its hash. Give it to the app as a secret file.
+      title: CreateAppResponse
+      additionalProperties: false
     gravel.hub.v1.CreateLocalAccountRequest:
       type: object
       properties:
@@ -3730,6 +4169,50 @@ components:
       description: |-
         Go-live posts: one message per stream in the channel, edited when the stream ends. Stream
          metadata only; nothing about viewers is read.
+    gravel.hub.v1.EraseIdentityRequest:
+      type: object
+      properties:
+        provider:
+          type: string
+          title: provider
+          description: 'The identity to erase: "steam" and a SteamID64.'
+        subject:
+          type: string
+          title: subject
+      title: EraseIdentityRequest
+      additionalProperties: false
+      description: |-
+        StatsService is the stats boards (ADR-0012): counts from the hub's own polls of each server,
+         keyed by provider identity, unlinked players under pseudonyms; and participation from
+    gravel.hub.v1.EraseIdentityResponse:
+      type: object
+      properties:
+        matchRows:
+          type: integer
+          title: match_rows
+          format: int32
+        monthlyRows:
+          type: integer
+          title: monthly_rows
+          format: int32
+        participationRows:
+          type: integer
+          title: participation_rows
+          format: int32
+        participationMonthlyRows:
+          type: integer
+          title: participation_monthly_rows
+          format: int32
+        ingestBatches:
+          type: integer
+          title: ingest_batches
+          format: int32
+        pseudonymDeleted:
+          type: boolean
+          title: pseudonym_deleted
+      title: EraseIdentityResponse
+      additionalProperties: false
+      description: EraseIdentityResponse counts what the erasure re-keyed; it never repeats the identity.
     gravel.hub.v1.Event:
       type: object
       properties:
@@ -3800,6 +4283,19 @@ components:
       title: EventsSettings
       additionalProperties: false
       description: EventsSettings is how long the events log keeps what it holds (ADR-0028).
+    gravel.hub.v1.ExportServersRequest:
+      type: object
+      title: ExportServersRequest
+      additionalProperties: false
+    gravel.hub.v1.ExportServersResponse:
+      type: object
+      properties:
+        manifest:
+          type: string
+          title: manifest
+          description: The stored games, locations and servers as a servers.yaml manifest.
+      title: ExportServersResponse
+      additionalProperties: false
     gravel.hub.v1.FleetAlarm:
       type: object
       properties:
@@ -4767,6 +5263,21 @@ components:
           title: grants
           description: Oldest first.
       title: ListAppGrantsResponse
+      additionalProperties: false
+    gravel.hub.v1.ListAppsRequest:
+      type: object
+      title: ListAppsRequest
+      additionalProperties: false
+    gravel.hub.v1.ListAppsResponse:
+      type: object
+      properties:
+        apps:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.App'
+          title: apps
+          description: Every app, revoked ones included, oldest first.
+      title: ListAppsResponse
       additionalProperties: false
     gravel.hub.v1.ListAuditLogRequest:
       type: object
@@ -6165,6 +6676,18 @@ components:
           description: How many of the member's tokens for the app were revoked.
       title: RevokeAppGrantResponse
       additionalProperties: false
+    gravel.hub.v1.RevokeAppRequest:
+      type: object
+      properties:
+        clientId:
+          type: string
+          title: client_id
+      title: RevokeAppRequest
+      additionalProperties: false
+    gravel.hub.v1.RevokeAppResponse:
+      type: object
+      title: RevokeAppResponse
+      additionalProperties: false
     gravel.hub.v1.RevokeSessionsRequest:
       type: object
       title: RevokeSessionsRequest
@@ -6178,6 +6701,24 @@ components:
           format: int32
           description: How many sessions were ended, the caller's included.
       title: RevokeSessionsResponse
+      additionalProperties: false
+    gravel.hub.v1.RevokeUserSessionsRequest:
+      type: object
+      properties:
+        userId:
+          type: string
+          title: user_id
+      title: RevokeUserSessionsRequest
+      additionalProperties: false
+    gravel.hub.v1.RevokeUserSessionsResponse:
+      type: object
+      properties:
+        revoked:
+          type: integer
+          title: revoked
+          format: int32
+          description: How many sessions were ended.
+      title: RevokeUserSessionsResponse
       additionalProperties: false
     gravel.hub.v1.RoleGrant:
       type: object
@@ -7205,10 +7746,11 @@ security: []
 tags:
   - name: gravel.hub.v1.AppService
     description: |-
-      AppService is a member's side of first-party apps (ADR-0015): the authorization endpoint's
-       checks and consent, which the hub's /oauth/authorize page calls, and the apps the member
-       allowed. Every procedure but PrepareAuthorization needs a session cookie; no bearer token, an
-       app's or a member's, may call any of them.
+      AppService is first-party apps (ADR-0008, ADR-0015): a member's side (the authorization
+       endpoint's checks and consent, which the hub's /oauth/authorize page calls, and the apps the
+       member allowed) and the operator's (registering and revoking apps, #195). Every procedure but
+       PrepareAuthorization needs a session cookie; no bearer token, an app's or a member's, may call
+       any of them.
   - name: gravel.hub.v1.ModerationService
     description: |-
       ModerationService acts on the players of a server the hub controls (ADR-0010 §5): the owner, a
@@ -7254,7 +7796,4 @@ tags:
        deployment's servers.yaml by `gravel-hub servers apply`; the hub polls each server through its
        driver and answers from the last observation, so a caller never reaches a game server.
   - name: gravel.hub.v1.StatsService
-    description: |-
-      StatsService is the stats boards (ADR-0012): counts from the hub's own polls of each server,
-       keyed by provider identity, unlinked players under pseudonyms; and participation from
-       first-party apps, on boards of its own (ADR-0014).
+    description: first-party apps, on boards of its own (ADR-0014).

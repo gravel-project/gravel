@@ -28,7 +28,7 @@ type RollupStore interface {
 	RollUp(ctx context.Context, orgID uuid.UUID, timezone string, periods []store.Period) (store.Rollup, error)
 	OldestRawParticipation(ctx context.Context, orgID uuid.UUID) (time.Time, error)
 	RollUpParticipation(ctx context.Context, orgID uuid.UUID, timezone string, periods []store.Period) (int, error)
-	EraseIdentity(ctx context.Context, orgID uuid.UUID, key store.PlayerKey, token string) (store.Erasure, error)
+	EraseIdentity(ctx context.Context, orgID uuid.UUID, key store.PlayerKey, token string, by store.Actor, at time.Time) (store.Erasure, error)
 }
 
 // Retention rolls a player's per-match rows, and participation events (ADR-0014), into monthly
@@ -160,8 +160,9 @@ var ErrInvalidErasure = errors.New("stats: an erasure needs a provider and a sub
 // Erase replaces a player's identity in the stats tables, participation included (ADR-0014), and
 // the stored ingest batches with a random token, and deletes their pseudonym (ADR-0012 §7). The numbers stay, shown as a deleted
 // player; nothing maps the token back to the identity. A player still on a server is recorded
-// under their identity again from the next poll.
-func Erase(ctx context.Context, st RollupStore, orgID uuid.UUID, key store.PlayerKey) (store.Erasure, error) {
+// under their identity again from the next poll. The events log records that by erased someone
+// (stats.erased), never whom.
+func Erase(ctx context.Context, st RollupStore, orgID uuid.UUID, key store.PlayerKey, by store.Actor, at time.Time) (store.Erasure, error) {
 	key.Provider, key.Subject = strings.TrimSpace(key.Provider), strings.TrimSpace(key.Subject)
 	if key.Provider == "" || key.Subject == "" || key.Provider == store.ErasedProvider {
 		return store.Erasure{}, ErrInvalidErasure
@@ -170,5 +171,5 @@ func Erase(ctx context.Context, st RollupStore, orgID uuid.UUID, key store.Playe
 	if _, err := rand.Read(b); err != nil {
 		return store.Erasure{}, fmt.Errorf("stats: erase: %w", err)
 	}
-	return st.EraseIdentity(ctx, orgID, key, hex.EncodeToString(b))
+	return st.EraseIdentity(ctx, orgID, key, hex.EncodeToString(b), by, at)
 }

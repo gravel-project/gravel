@@ -64,6 +64,10 @@ var kinds = []Kind{
 	{"app.revoked", Notice, "an app was revoked: its tokens and members' grants are gone"},
 	{"app.granted", Info, "a member let an app act for them, or widened what it may do"},
 	{"app.grant_revoked", Info, "a member took back an app's access"},
+	// The operator's admin actions through the API or the host's command line (#195).
+	{"servers.applied", Notice, "the servers manifest was applied and changed something"},
+	{"stats.erased", Notice, "a player's identity was erased from the stats"},
+	{"sessions.revoked", Notice, "staff logged a member out everywhere"},
 	// Roles.
 	{"role.granted", Notice, "a member was granted a role, everywhere or for a game"},
 	{"role.revoked", Notice, "a member lost a role"},
