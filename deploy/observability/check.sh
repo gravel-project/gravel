@@ -48,7 +48,7 @@ sed -e 's/scrape_interval: 15s/scrape_interval: 2s/' \
 chmod 0644 "$work"/*
 
 podman pod create --name "$pod" -p "127.0.0.1:$grafana_port:3000" -p "127.0.0.1:$hub_port:8080" >/dev/null
-podman run -d --pod "$pod" --name "$pod-postgres" -e POSTGRES_USER=gravel -e POSTGRES_PASSWORD=check -e POSTGRES_DB=gravel public.ecr.aws/docker/library/postgres:17 >/dev/null
+podman run -d --pod "$pod" --name "$pod-postgres" -e POSTGRES_USER=gravel -e POSTGRES_PASSWORD=check -e POSTGRES_DB=gravel ghcr.io/gravel-project/mirror/postgres:17@sha256:2d2b8998d31037bf721cfdf764d76ba74171b4fab3431b7f72c27c56ddbdf9e3 >/dev/null
 podman run -d --pod "$pod" --name "$pod-prometheus" -v "$work/prometheus.yml:/etc/prometheus/prometheus.yml:ro,Z" \
   "$prometheus_image" --config.file=/etc/prometheus/prometheus.yml --web.listen-address=127.0.0.1:9092 >/dev/null
 podman run -d --pod "$pod" --name "$pod-grafana" \

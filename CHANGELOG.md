@@ -10,6 +10,8 @@ patch release is everything else.
 
 ### Changed
 
+- **Postgres 17 comes from gravel's mirror on ghcr.io** (#233): `ghcr.io/gravel-project/mirror/postgres:17`, copied weekly from ECR Public by `mirror.yml` with its digest kept, because ECR Public caps the data anonymous pulls may take and GitHub's shared runners kept hitting it (red `backup`, `integration` and `observability` jobs on four PRs in two days). `deploy/postgres/Containerfile`, the stock `gravel-postgres.container` (and so the hub host's stock profile), `ci.yml`'s integration service and `observability/check.sh` pin the same digest as before (`sha256:2d2b…f9e3`), so nothing a host runs changes; `TestPostgresPinsAgree` fails when they drift or one goes back to `public.ecr.aws`, so a Dependabot bump of the Containerfile stays red until the other three follow.
+
 - **Breaking:** five roles with a game scope (#185, ADR-0027 §3 to §5). Grants replace the moderator role: a member holds admin, operator or moderator, everywhere or for one game.
   - **Bundles:** admin is everything but `org:transfer`; operator is `servers:read|operate|configure|lease`, `events:read`, `stats:read`, `metrics:read`; moderator is `servers:read|moderate|lease`, `identity:read`, `events:read`, `stats:read`; a member keeps `servers:read`. A game-scoped grant gives only the scopable capabilities (`servers:*`, `roles:grant`, `events:read`) for that game's servers, those added later included.
   - **Moved:** park, unpark and the expectation (`SetServerHostDesired`, `SetServerHostExpectation`) need `servers:operate`, not `servers:moderate`. An app holding only `servers:moderate` loses them; give it `servers:operate` (a new app scope). Members' tokens need `servers:operate` for them too.
