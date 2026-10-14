@@ -11,6 +11,7 @@ import type { Organization } from "./gen/gravel/hub/v1/organization_pb";
 import { type NavItem, visible } from "./nav";
 import { NotFound } from "./pages/NotFound";
 import { Access } from "./pages/Access";
+import { Events } from "./pages/Events";
 import { Fleet } from "./pages/Fleet";
 import { type Browser, BrowserProvider, useMe, useOrganization, windowBrowser } from "./session";
 import { TransportProvider } from "./transport";
@@ -65,6 +66,9 @@ function Shell() {
           <Switch>
             <Route path="/">
               <Fleet />
+            </Route>
+            <Route path="/events">
+              <Events />
             </Route>
             <Route path="/access">
               <Access me={me.me} org={org} />

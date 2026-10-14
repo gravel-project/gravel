@@ -57,6 +57,9 @@ const (
 	// OrganizationServiceListEventsProcedure is the fully-qualified name of the OrganizationService's
 	// ListEvents RPC.
 	OrganizationServiceListEventsProcedure = "/gravel.hub.v1.OrganizationService/ListEvents"
+	// OrganizationServiceListEventKindsProcedure is the fully-qualified name of the
+	// OrganizationService's ListEventKinds RPC.
+	OrganizationServiceListEventKindsProcedure = "/gravel.hub.v1.OrganizationService/ListEventKinds"
 	// OrganizationServiceTestNotifierProcedure is the fully-qualified name of the OrganizationService's
 	// TestNotifier RPC.
 	OrganizationServiceTestNotifierProcedure = "/gravel.hub.v1.OrganizationService/TestNotifier"
@@ -89,6 +92,8 @@ type OrganizationServiceClient interface {
 	// ListEvents reads the events log by cursor (ADR-0028): events:read, and a caller holding it
 	// for some games sees those games' events only.
 	ListEvents(context.Context, *connect.Request[v1.ListEventsRequest]) (*connect.Response[v1.ListEventsResponse], error)
+	// ListEventKinds is the registry of event kinds (ADR-0028), for a filter: events:read anywhere.
+	ListEventKinds(context.Context, *connect.Request[v1.ListEventKindsRequest]) (*connect.Response[v1.ListEventKindsResponse], error)
 	// TestNotifier sends a test event (kind notifier.test, never in the log) to a notifier and says
 	// whether it was delivered: settings:write. not_found for a name the settings don't have.
 	TestNotifier(context.Context, *connect.Request[v1.TestNotifierRequest]) (*connect.Response[v1.TestNotifierResponse], error)
@@ -153,6 +158,12 @@ func NewOrganizationServiceClient(httpClient connect.HTTPClient, baseURL string,
 			connect.WithSchema(organizationServiceMethods.ByName("ListEvents")),
 			connect.WithClientOptions(opts...),
 		),
+		listEventKinds: connect.NewClient[v1.ListEventKindsRequest, v1.ListEventKindsResponse](
+			httpClient,
+			baseURL+OrganizationServiceListEventKindsProcedure,
+			connect.WithSchema(organizationServiceMethods.ByName("ListEventKinds")),
+			connect.WithClientOptions(opts...),
+		),
 		testNotifier: connect.NewClient[v1.TestNotifierRequest, v1.TestNotifierResponse](
 			httpClient,
 			baseURL+OrganizationServiceTestNotifierProcedure,
@@ -172,6 +183,7 @@ type organizationServiceClient struct {
 	getOrganizationSettings    *connect.Client[v1.GetOrganizationSettingsRequest, v1.GetOrganizationSettingsResponse]
 	updateOrganizationSettings *connect.Client[v1.UpdateOrganizationSettingsRequest, v1.UpdateOrganizationSettingsResponse]
 	listEvents                 *connect.Client[v1.ListEventsRequest, v1.ListEventsResponse]
+	listEventKinds             *connect.Client[v1.ListEventKindsRequest, v1.ListEventKindsResponse]
 	testNotifier               *connect.Client[v1.TestNotifierRequest, v1.TestNotifierResponse]
 }
 
@@ -215,6 +227,11 @@ func (c *organizationServiceClient) ListEvents(ctx context.Context, req *connect
 	return c.listEvents.CallUnary(ctx, req)
 }
 
+// ListEventKinds calls gravel.hub.v1.OrganizationService.ListEventKinds.
+func (c *organizationServiceClient) ListEventKinds(ctx context.Context, req *connect.Request[v1.ListEventKindsRequest]) (*connect.Response[v1.ListEventKindsResponse], error) {
+	return c.listEventKinds.CallUnary(ctx, req)
+}
+
 // TestNotifier calls gravel.hub.v1.OrganizationService.TestNotifier.
 func (c *organizationServiceClient) TestNotifier(ctx context.Context, req *connect.Request[v1.TestNotifierRequest]) (*connect.Response[v1.TestNotifierResponse], error) {
 	return c.testNotifier.CallUnary(ctx, req)
@@ -247,6 +264,8 @@ type OrganizationServiceHandler interface {
 	// ListEvents reads the events log by cursor (ADR-0028): events:read, and a caller holding it
 	// for some games sees those games' events only.
 	ListEvents(context.Context, *connect.Request[v1.ListEventsRequest]) (*connect.Response[v1.ListEventsResponse], error)
+	// ListEventKinds is the registry of event kinds (ADR-0028), for a filter: events:read anywhere.
+	ListEventKinds(context.Context, *connect.Request[v1.ListEventKindsRequest]) (*connect.Response[v1.ListEventKindsResponse], error)
 	// TestNotifier sends a test event (kind notifier.test, never in the log) to a notifier and says
 	// whether it was delivered: settings:write. not_found for a name the settings don't have.
 	TestNotifier(context.Context, *connect.Request[v1.TestNotifierRequest]) (*connect.Response[v1.TestNotifierResponse], error)
@@ -307,6 +326,12 @@ func NewOrganizationServiceHandler(svc OrganizationServiceHandler, opts ...conne
 		connect.WithSchema(organizationServiceMethods.ByName("ListEvents")),
 		connect.WithHandlerOptions(opts...),
 	)
+	organizationServiceListEventKindsHandler := connect.NewUnaryHandler(
+		OrganizationServiceListEventKindsProcedure,
+		svc.ListEventKinds,
+		connect.WithSchema(organizationServiceMethods.ByName("ListEventKinds")),
+		connect.WithHandlerOptions(opts...),
+	)
 	organizationServiceTestNotifierHandler := connect.NewUnaryHandler(
 		OrganizationServiceTestNotifierProcedure,
 		svc.TestNotifier,
@@ -331,6 +356,8 @@ func NewOrganizationServiceHandler(svc OrganizationServiceHandler, opts ...conne
 			organizationServiceUpdateOrganizationSettingsHandler.ServeHTTP(w, r)
 		case OrganizationServiceListEventsProcedure:
 			organizationServiceListEventsHandler.ServeHTTP(w, r)
+		case OrganizationServiceListEventKindsProcedure:
+			organizationServiceListEventKindsHandler.ServeHTTP(w, r)
 		case OrganizationServiceTestNotifierProcedure:
 			organizationServiceTestNotifierHandler.ServeHTTP(w, r)
 		default:
@@ -372,6 +399,10 @@ func (UnimplementedOrganizationServiceHandler) UpdateOrganizationSettings(contex
 
 func (UnimplementedOrganizationServiceHandler) ListEvents(context.Context, *connect.Request[v1.ListEventsRequest]) (*connect.Response[v1.ListEventsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.OrganizationService.ListEvents is not implemented"))
+}
+
+func (UnimplementedOrganizationServiceHandler) ListEventKinds(context.Context, *connect.Request[v1.ListEventKindsRequest]) (*connect.Response[v1.ListEventKindsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.OrganizationService.ListEventKinds is not implemented"))
 }
 
 func (UnimplementedOrganizationServiceHandler) TestNotifier(context.Context, *connect.Request[v1.TestNotifierRequest]) (*connect.Response[v1.TestNotifierResponse], error) {

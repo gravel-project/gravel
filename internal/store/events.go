@@ -34,6 +34,9 @@ type Event struct {
 	Source    string
 	SourceID  string
 	RequestID string
+	// ActorUserName and ActorAppName are who acted, as the hub names them when the log is read
+	// (ListEvents); never written.
+	ActorUserName, ActorAppName string
 }
 
 // Actor is who made a change whose own row doesn't say: a member in person, an app, a member's
@@ -141,10 +144,15 @@ type EventQuery struct {
 	// Follow reads oldest first after AfterID even when it is 0 (a notifier's cursor on a log that
 	// was empty when it began).
 	Follow bool
+	// GameID, when set, is one game's events; with Games, both apply.
+	GameID string
+	// ActorUserID and ActorAppID, when set, are the events one member or one app did.
+	ActorUserID, ActorAppID *uuid.UUID
 }
 
-const eventColumns = `id, organization_id, at, kind, severity, actor_user_id, actor_app_id, on_behalf_provider, on_behalf_subject,
-	server_id, game_id, subject_user_id, summary, detail, source, source_id, request_id`
+const eventColumns = `e.id, e.organization_id, e.at, e.kind, e.severity, e.actor_user_id, e.actor_app_id, e.on_behalf_provider,
+	e.on_behalf_subject, e.server_id, e.game_id, e.subject_user_id, e.summary, e.detail, e.source, e.source_id, e.request_id,
+	coalesce(u.display_name, ''), coalesce(a.name, '')`
 
 // ListEvents reads the log and its head, the newest id (0 for an empty log).
 func (s *Store) ListEvents(ctx context.Context, orgID uuid.UUID, q EventQuery) ([]Event, int64, error) {
@@ -152,41 +160,53 @@ func (s *Store) ListEvents(ctx context.Context, orgID uuid.UUID, q EventQuery) (
 	if err := s.pool.QueryRow(ctx, `SELECT coalesce(max(id), 0) FROM events WHERE organization_id = $1`, orgID).Scan(&head); err != nil {
 		return nil, 0, fmt.Errorf("store: events head: %w", err)
 	}
-	where := []string{"organization_id = $1"}
+	where := []string{"e.organization_id = $1"}
 	args := []any{orgID}
 	arg := func(v any) string { args = append(args, v); return fmt.Sprintf("$%d", len(args)) }
-	order := "id DESC"
+	order := "e.id DESC"
 	switch {
 	case q.AfterID > 0 || q.Follow:
-		where = append(where, "id > "+arg(q.AfterID))
-		order = "id ASC"
+		where = append(where, "e.id > "+arg(q.AfterID))
+		order = "e.id ASC"
 	case q.BeforeID > 0:
-		where = append(where, "id < "+arg(q.BeforeID))
+		where = append(where, "e.id < "+arg(q.BeforeID))
 	}
 	if len(q.Kinds) > 0 {
-		where = append(where, "(kind = ANY("+arg(q.Kinds)+") OR split_part(kind, '.', 1) = ANY("+arg(q.Kinds)+"))")
+		where = append(where, "(e.kind = ANY("+arg(q.Kinds)+") OR split_part(e.kind, '.', 1) = ANY("+arg(q.Kinds)+"))")
 	}
 	if q.MinSeverity != "" {
 		sev := []string{}
 		for _, v := range events.AtLeast(q.MinSeverity) {
 			sev = append(sev, string(v))
 		}
-		where = append(where, "severity = ANY("+arg(sev)+")")
+		where = append(where, "e.severity = ANY("+arg(sev)+")")
 	}
 	if q.ServerID != "" {
-		where = append(where, "server_id = "+arg(q.ServerID))
+		where = append(where, "e.server_id = "+arg(q.ServerID))
 	}
 	if len(q.Servers) > 0 {
-		where = append(where, "server_id = ANY("+arg(q.Servers)+")")
+		where = append(where, "e.server_id = ANY("+arg(q.Servers)+")")
 	}
 	if q.Games != nil {
-		where = append(where, "game_id = ANY("+arg(q.Games)+")")
+		where = append(where, "e.game_id = ANY("+arg(q.Games)+")")
+	}
+	if q.GameID != "" {
+		where = append(where, "e.game_id = "+arg(q.GameID))
+	}
+	if q.ActorUserID != nil {
+		where = append(where, "e.actor_user_id = "+arg(*q.ActorUserID))
+	}
+	if q.ActorAppID != nil {
+		where = append(where, "e.actor_app_id = "+arg(*q.ActorAppID))
 	}
 	limit := q.Limit
 	if limit <= 0 || limit > 500 {
 		limit = 100
 	}
-	rows, err := s.pool.Query(ctx, `SELECT `+eventColumns+` FROM events WHERE `+strings.Join(where, " AND ")+` ORDER BY `+order+` LIMIT `+arg(limit), args...)
+	rows, err := s.pool.Query(ctx, `SELECT `+eventColumns+` FROM events e
+		LEFT JOIN users u ON u.id = e.actor_user_id
+		LEFT JOIN apps a ON a.id = e.actor_app_id
+		WHERE `+strings.Join(where, " AND ")+` ORDER BY `+order+` LIMIT `+arg(limit), args...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("store: list events: %w", err)
 	}
@@ -196,7 +216,8 @@ func (s *Store) ListEvents(ctx context.Context, orgID uuid.UUID, q EventQuery) (
 		var e Event
 		var detail []byte
 		if err := rows.Scan(&e.ID, &e.OrganizationID, &e.At, &e.Kind, &e.Severity, &e.ActorUserID, &e.ActorAppID, &e.OnBehalfProvider,
-			&e.OnBehalfSubject, &e.ServerID, &e.GameID, &e.SubjectUserID, &e.Summary, &detail, &e.Source, &e.SourceID, &e.RequestID); err != nil {
+			&e.OnBehalfSubject, &e.ServerID, &e.GameID, &e.SubjectUserID, &e.Summary, &detail, &e.Source, &e.SourceID, &e.RequestID,
+			&e.ActorUserName, &e.ActorAppName); err != nil {
 			return nil, 0, fmt.Errorf("store: list events: %w", err)
 		}
 		if err := json.Unmarshal(detail, &e.Detail); err != nil {

@@ -1382,6 +1382,45 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.GetOrganizationSettingsResponse'
+  /gravel.hub.v1.OrganizationService/ListEventKinds:
+    post:
+      tags:
+        - gravel.hub.v1.OrganizationService
+      summary: ListEventKinds
+      description: 'ListEventKinds is the registry of event kinds (ADR-0028), for a filter: events:read anywhere.'
+      operationId: gravel.hub.v1.OrganizationService.ListEventKinds
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.ListEventKindsRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.ListEventKindsResponse'
   /gravel.hub.v1.OrganizationService/ListEvents:
     post:
       tags:
@@ -4269,9 +4308,37 @@ components:
         requestId:
           type: string
           title: request_id
+        actorName:
+          type: string
+          title: actor_name
+          description: |-
+            Who acted, by name as the hub has them now (a member's display name, an app's name), read
+             with the event; empty when nobody did (the hub itself) or they are gone.
       title: Event
       additionalProperties: false
       description: 'Event is one entry of the events log (ADR-0028): what the hub did, who did it, to what.'
+    gravel.hub.v1.EventKind:
+      type: object
+      properties:
+        name:
+          type: string
+          title: name
+          description: '"server.down".'
+        group:
+          type: string
+          title: group
+          description: 'Its family, the part before the dot: "server". ListEventsRequest.kinds takes either.'
+        severity:
+          type: string
+          title: severity
+          description: '"info", "notice", "warning" or "critical": fixed per kind.'
+        about:
+          type: string
+          title: about
+          description: What it means, in a line.
+      title: EventKind
+      additionalProperties: false
+      description: EventKind is one kind of event the hub records.
     gravel.hub.v1.EventsSettings:
       type: object
       properties:
@@ -5312,6 +5379,21 @@ components:
           description: Empty on the last page.
       title: ListAuditLogResponse
       additionalProperties: false
+    gravel.hub.v1.ListEventKindsRequest:
+      type: object
+      title: ListEventKindsRequest
+      additionalProperties: false
+    gravel.hub.v1.ListEventKindsResponse:
+      type: object
+      properties:
+        kinds:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.EventKind'
+          title: kinds
+          description: 'In the registry''s order: grouped, a family''s kinds together.'
+      title: ListEventKindsResponse
+      additionalProperties: false
     gravel.hub.v1.ListEventsRequest:
       type: object
       properties:
@@ -5344,6 +5426,19 @@ components:
           type: string
           title: server_id
           description: One server's events.
+        gameId:
+          type: string
+          title: game_id
+          description: One game's events (#193). A caller holding events:read for some games gets the intersection.
+        actorUserId:
+          type: string
+          title: actor_user_id
+          description: |-
+            The events one member (a user id) or one app (an app id) did; a member acting through an app
+             matches both.
+        actorAppId:
+          type: string
+          title: actor_app_id
       title: ListEventsRequest
       additionalProperties: false
     gravel.hub.v1.ListEventsResponse:

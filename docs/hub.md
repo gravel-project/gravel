@@ -158,7 +158,8 @@ Public listener (`server.listen`), HTTP/1.1 and unencrypted HTTP/2 so gRPC works
 | `/gravel.hub.v1.IdentityService/ListUsers` | `{"page_size": 100, "page_token": "…"}` → members with their identities, oldest first, and the next page's token; role sync's full pass; `identity:read` or the owner |
 | `/gravel.hub.v1.IdentityService/SetUserRole` | `{"user_id": "…", "role": "operator", "game_id": "cs2", "granted": true}` → the member with their roles, grants and capabilities ([Roles](#roles)); `roles:grant` for the grant's scope, admin grants by the owner only, an app moderator only, never one's own; every change recorded |
 | `/gravel.hub.v1.OrganizationService/TestNotifier` | `{"name": "john-phone"}` → whether the notifier delivered a test event (kind `notifier.test`, never in the log), and why not ([Notifiers](#notifiers-adr-0028-5)); `settings:write`; `not_found` for a name the settings don't have |
-| `/gravel.hub.v1.OrganizationService/ListEvents` | `{"after_id": 0, "kinds": ["host"], "min_severity": "warning"}` → the events log by cursor ([Events](#events-adr-0028)); `events:read`, a game-scoped holder that game's events |
+| `/gravel.hub.v1.OrganizationService/ListEvents` | `{"after_id": 0, "kinds": ["host"], "min_severity": "warning", "game_id": "cs2"}` → the events log by cursor ([Events](#events-adr-0028)); `events:read`, a game-scoped holder that game's events |
+| `/gravel.hub.v1.OrganizationService/ListEventKinds` | `{}` → every kind of event, its group, severity and meaning, for a filter; `events:read` anywhere |
 | `/gravel.hub.v1.AppService/CreateApp`, `ListApps`, `RevokeApp` | register an app (`{"name", "scopes", "redirect_uris"}` → the app and its secret, once), list them, revoke one; `apps:manage` ([Admin procedures](#admin-procedures-adr-0031)) |
 | `/gravel.hub.v1.ServerService/ExportServers`, `CheckServers`, `ApplyServers` | the servers manifest as YAML; `{"manifest": "…", "dry_run": true}` → the changes; `servers:manage`, never a file or where a secret goes |
 | `/gravel.hub.v1.StatsService/EraseIdentity` | `{"provider": "steam", "subject": "…"}` → what was re-keyed; `stats:erase`, in person |
@@ -1463,8 +1464,11 @@ app with `events:read`.
 - **Reading:** `OrganizationService.ListEvents` with `after_id` follows the log, oldest first
   (pass `next_after_id` back to keep following); without it, the newest come first, and
   `next_before_id` pages back. `head_id` is the newest id at the time of the read. Filter by kinds
-  or groups (`"host"`), `min_severity` and `server_id`. A caller holding `events:read` for some
-  games sees those games' events only.
+  or groups (`"host"`), `min_severity`, `server_id`, `game_id` and who acted (`actor_user_id`, a
+  member; `actor_app_id`, an app); the filters compose. A caller holding `events:read` for some
+  games sees those games' events only, and a `game_id` outside them answers nothing. Each event
+  carries `actor_name`, who acted as the hub names them when the log is read ("Jo", "HTG Bot", "Jo
+  through HTG Bot"). `ListEventKinds` lists the registry, for a filter.
 - **Kinds and severities** are fixed (`internal/events`): `info` (it happened), `notice` (a person
   did something worth seeing), `warning` (something may need a person soon), `critical`
   (something needs a person now). Logins are not events: they are every visit.
@@ -1624,8 +1628,8 @@ limit applies in front of all of it.
 
 `/admin` is the operators' dashboard: a React client of the same API as the pages, embedded in the
 binary ([ADR-0029](adr/0029-the-admin-dashboard-is-a-static-client-in-the-binary.md); the source is
-`web/admin/`). It is H1's in-progress surface: this version has the **Fleet** and **Your access**;
-the events feed (#193), servers, people, settings and the rest arrive page by page.
+`web/admin/`). It is H1's in-progress surface: this version has the **Fleet**, **Events** and
+**Your access**; servers, people, settings and the rest arrive page by page.
 
 - **Fleet** (`/admin`, `servers:read`, which every member holds): what is up, who is playing, what
   is wrong, trouble first, from `GetFleetSummary` ([Servers](#servers-adr-0010), Fleet health). A
@@ -1638,7 +1642,17 @@ the events feed (#193), servers, people, settings and the rest arrive page by pa
   counted on the hub's clock (`as_of`), so a viewer's wrong clock can't make a server look stale.
   The page says **Stale** when the last poll failed or none has answered for 15 s. An empty fleet
   says how to add servers (`gravel-hub servers apply`). It is laid out for a phone and an iPad as
-  well as a desktop.
+  well as a desktop. Each alarm links to the events about it (its server's, or the backups').
+- **Events** (`/admin/events`, `events:read`: admins, operators and moderators, a game's staff for
+  their games' events): the events log, newest first ([Events](#events-adr-0028)). The first read
+  takes the log's newest page and its head; every 5 s the page asks for what came after it and puts
+  it on top, once each; **Older events** pages back until the start of the log. Each row has its
+  severity (critical, warning and notice in colour, info outlined), the summary, the kind, the
+  server (its member page), the game and who acted, each a link that narrows the feed to it, the
+  detail, and the time in the viewer's zone. Filters for the kind or its group, the lowest
+  severity, the server and the game sit above it; all of them live in the address
+  (`/admin/events?server=htg-wardogs-1&severity=warning`), so a link opens the feed filtered. The
+  page says **Stale** when its last poll failed or none has answered for 15 s.
 - **Your access** (`/admin/access`): who you are here, your roles (everywhere and per game) and your
   capabilities.
 
