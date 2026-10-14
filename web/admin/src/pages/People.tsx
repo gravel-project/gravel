@@ -16,7 +16,9 @@ import { useClient } from "../transport";
 
 const field = "block w-full rounded border border-line bg-surface px-2 py-1";
 const button = "rounded border border-line bg-surface px-3 py-1 disabled:opacity-60";
-const primary = "rounded bg-accent px-3 py-1 font-bold text-on-accent disabled:opacity-60";
+// primary is the main action: outlined in the accent, as the member pages draw .button, never filled
+// with it (a host theme's light accent leaves no contrast for text on it).
+const primary = "rounded border-2 border-accent bg-surface px-3 py-1 font-bold disabled:opacity-60";
 
 // pageSize is how many members one ListUsers page brings.
 export const pageSize = 100;
