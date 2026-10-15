@@ -3,6 +3,7 @@ package wardogs
 import (
 	"cmp"
 	"embed"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"path"
@@ -65,4 +66,34 @@ func NewestRecording() (string, fs.FS, error) {
 	build := builds[len(builds)-1]
 	files, err := Recording(build)
 	return build, files, err
+}
+
+// TokenlessShapes are the route shapes a recorded build answered without a token: the
+// recording's "tokenless" list (recording.json). A recording made before the list existed
+// (CL-509546) has none, and those builds served GET /v1/capabilities and GET /v1/health that
+// way; Season 02 (CL-516586) serves only the health without one.
+func TokenlessShapes(files fs.FS) (map[string]bool, error) {
+	raw, err := fs.ReadFile(files, "recording.json")
+	if err != nil {
+		return nil, fmt.Errorf("wardogs: %w", err)
+	}
+	var man struct {
+		Tokenless *[]string `json:"tokenless"`
+	}
+	if err := json.Unmarshal(raw, &man); err != nil {
+		return nil, fmt.Errorf("wardogs: recording.json: %w", err)
+	}
+	routes := []string{"GET /v1/capabilities", "GET /v1/health"}
+	if man.Tokenless != nil {
+		routes = *man.Tokenless
+	}
+	out := make(map[string]bool, len(routes))
+	for _, s := range routes {
+		r, err := ParseRoute(s)
+		if err != nil {
+			return nil, fmt.Errorf("wardogs: recording.json: tokenless: %w", err)
+		}
+		out[r.Shape()] = true
+	}
+	return out, nil
 }

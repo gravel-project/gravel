@@ -70,6 +70,7 @@ type Server struct {
 	build     string
 	caps      []byte
 	routes    map[string]bool // advertised shapes
+	tokenless map[string]bool // shapes the build answers without a token
 	sections  []wardogs.Section
 	rawSchema json.RawMessage
 	factions  []wardogs.FactionScore
@@ -208,6 +209,9 @@ func (s *Server) load(build string) error {
 		return fmt.Errorf("wardogsim: %w", err)
 	}
 	if s.caps, err = fs.ReadFile(s.files, "v1/capabilities.json"); err != nil {
+		return fmt.Errorf("wardogsim: %w", err)
+	}
+	if s.tokenless, err = wardogs.TokenlessShapes(s.files); err != nil {
 		return fmt.Errorf("wardogsim: %w", err)
 	}
 	var caps wardogs.Capabilities

@@ -64,8 +64,11 @@ type Manifest struct {
 	RecordedAt string `json:"recordedAt"`
 	Recorder   string `json:"recorder,omitempty"`
 	Files      []File `json:"files"`
-	Skipped    []Skip `json:"skipped,omitempty"`
-	Scrubbed   Counts `json:"scrubbed"`
+	// Tokenless are the routes fetched without the token (wardogs.SentWithoutToken), so a fake
+	// serving the recording answers them the same way. Never empty: GET /v1/health always is.
+	Tokenless []string `json:"tokenless"`
+	Skipped   []Skip   `json:"skipped,omitempty"`
+	Scrubbed  Counts   `json:"scrubbed"`
 }
 
 // ManifestName is the recording's own file in a build's directory.
@@ -174,7 +177,7 @@ func Record(ctx context.Context, c *wardogs.Client, opt Options) (Report, error)
 		if r.Method != "GET" || r.Shape() == capsRoute.Shape() {
 			continue // only reads are recorded, and the capabilities already are
 		}
-		if !c.HasToken() && !isPublic(r) {
+		if !c.HasToken() && !wardogs.SentWithoutToken(r, false) {
 			skipped = append(skipped, Skip{Route: s, Reason: "needs the token"})
 			continue
 		}
@@ -228,6 +231,11 @@ func Record(ctx context.Context, c *wardogs.Client, opt Options) (Report, error)
 		Recorder:   opt.Recorder,
 		Skipped:    skipped,
 	}
+	for _, s := range []string{capsRoute.String(), "GET /v1/health"} {
+		if r, _ := wardogs.ParseRoute(s); wardogs.SentWithoutToken(r, c.HasToken()) {
+			man.Tokenless = append(man.Tokenless, s)
+		}
+	}
 	for i, a := range answers {
 		out, err := encode(sc.scrub(decoded[i]))
 		if err != nil {
@@ -251,11 +259,6 @@ func Record(ctx context.Context, c *wardogs.Client, opt Options) (Report, error)
 		rep.Previous, rep.Diff = prev, wardogs.DiffRoutes(prevCaps, caps)
 	}
 	return rep, nil
-}
-
-func isPublic(r wardogs.Route) bool {
-	s := r.Shape()
-	return s == "GET /v1/health" || s == "GET /v1/capabilities"
 }
 
 // fillsFor is every set of parameters to fetch a route with, or why it is skipped. A {map}

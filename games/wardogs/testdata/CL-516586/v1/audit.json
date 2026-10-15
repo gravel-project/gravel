@@ -1,0 +1,146 @@
+{
+  "count": 20,
+  "entries": [
+    {
+      "detail": null,
+      "event": "AUTH_OK",
+      "peer": "192.0.2.1:50152",
+      "sessionId": "aFL0clJxSMKwymKByl8_TQ",
+      "timestampUtc": "2026-10-15T15:32:19.676Z"
+    },
+    {
+      "detail": "GET /v1/status -> 200",
+      "event": "HTTP",
+      "peer": "192.0.2.1:50152",
+      "sessionId": "aFL0clJxSMKwymKByl8_TQ",
+      "timestampUtc": "2026-10-15T15:32:19.694Z"
+    },
+    {
+      "detail": null,
+      "event": "AUTH_OK",
+      "peer": "192.0.2.2:35222",
+      "sessionId": "sDvxmtOYS26QIjjmuP3aXA",
+      "timestampUtc": "2026-10-15T15:32:22.427Z"
+    },
+    {
+      "detail": "GET /v1/status -> 200",
+      "event": "HTTP",
+      "peer": "192.0.2.2:35222",
+      "sessionId": "sDvxmtOYS26QIjjmuP3aXA",
+      "timestampUtc": "2026-10-15T15:32:22.433Z"
+    },
+    {
+      "detail": null,
+      "event": "AUTH_OK",
+      "peer": "192.0.2.2:35222",
+      "sessionId": "sDvxmtOYS26QIjjmuP3aXA",
+      "timestampUtc": "2026-10-15T15:32:22.488Z"
+    },
+    {
+      "detail": "GET /v1/players -> 200",
+      "event": "HTTP",
+      "peer": "192.0.2.2:35222",
+      "sessionId": "sDvxmtOYS26QIjjmuP3aXA",
+      "timestampUtc": "2026-10-15T15:32:22.500Z"
+    },
+    {
+      "detail": null,
+      "event": "ACCEPT",
+      "peer": "192.0.2.1:39754",
+      "sessionId": "jplH6l-DSZyyjdacZQ2TeQ",
+      "timestampUtc": "2026-10-15T15:32:32.973Z"
+    },
+    {
+      "detail": null,
+      "event": "AUTH_OK",
+      "peer": "192.0.2.1:39754",
+      "sessionId": "jplH6l-DSZyyjdacZQ2TeQ",
+      "timestampUtc": "2026-10-15T15:32:32.990Z"
+    },
+    {
+      "detail": "GET /v1/capabilities -> 200",
+      "event": "HTTP",
+      "peer": "192.0.2.1:39754",
+      "sessionId": "jplH6l-DSZyyjdacZQ2TeQ",
+      "timestampUtc": "2026-10-15T15:32:32.990Z"
+    },
+    {
+      "detail": null,
+      "event": "ACCEPT",
+      "peer": "192.0.2.1:39766",
+      "sessionId": "NDkMox_fSeiqiHpqamC6QA",
+      "timestampUtc": "2026-10-15T15:32:33.047Z"
+    },
+    {
+      "detail": null,
+      "event": "ACCEPT",
+      "peer": "192.0.2.3:36150",
+      "sessionId": "ndhHfCHeRcyAuxyS9lm9xQ",
+      "timestampUtc": "2026-10-15T15:32:33.047Z"
+    },
+    {
+      "detail": null,
+      "event": "AUTH_OK",
+      "peer": "192.0.2.1:39766",
+      "sessionId": "NDkMox_fSeiqiHpqamC6QA",
+      "timestampUtc": "2026-10-15T15:32:33.051Z"
+    },
+    {
+      "detail": "GET /v1/status -> 200",
+      "event": "HTTP",
+      "peer": "192.0.2.1:39766",
+      "sessionId": "NDkMox_fSeiqiHpqamC6QA",
+      "timestampUtc": "2026-10-15T15:32:33.058Z"
+    },
+    {
+      "detail": null,
+      "event": "AUTH_OK",
+      "peer": "192.0.2.3:36150",
+      "sessionId": "ndhHfCHeRcyAuxyS9lm9xQ",
+      "timestampUtc": "2026-10-15T15:32:33.072Z"
+    },
+    {
+      "detail": "GET /v1/capabilities -> 200",
+      "event": "HTTP",
+      "peer": "192.0.2.3:36150",
+      "sessionId": "ndhHfCHeRcyAuxyS9lm9xQ",
+      "timestampUtc": "2026-10-15T15:32:33.072Z"
+    },
+    {
+      "detail": null,
+      "event": "AUTH_OK",
+      "peer": "192.0.2.3:36150",
+      "sessionId": "ndhHfCHeRcyAuxyS9lm9xQ",
+      "timestampUtc": "2026-10-15T15:32:33.132Z"
+    },
+    {
+      "detail": "GET /v1/capabilities -> 200",
+      "event": "HTTP",
+      "peer": "192.0.2.3:36150",
+      "sessionId": "ndhHfCHeRcyAuxyS9lm9xQ",
+      "timestampUtc": "2026-10-15T15:32:33.132Z"
+    },
+    {
+      "detail": null,
+      "event": "AUTH_OK",
+      "peer": "192.0.2.3:36150",
+      "sessionId": "ndhHfCHeRcyAuxyS9lm9xQ",
+      "timestampUtc": "2026-10-15T15:32:33.193Z"
+    },
+    {
+      "detail": "GET /v1/catalog/maps -> 200",
+      "event": "HTTP",
+      "peer": "192.0.2.3:36150",
+      "sessionId": "ndhHfCHeRcyAuxyS9lm9xQ",
+      "timestampUtc": "2026-10-15T15:32:33.225Z"
+    },
+    {
+      "detail": null,
+      "event": "AUTH_OK",
+      "peer": "192.0.2.3:36150",
+      "sessionId": "ndhHfCHeRcyAuxyS9lm9xQ",
+      "timestampUtc": "2026-10-15T15:32:33.293Z"
+    }
+  ],
+  "limit": 20
+}

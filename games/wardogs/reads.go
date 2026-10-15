@@ -180,6 +180,37 @@ type Audit struct {
 	Count   int          `json:"count"`
 }
 
+// Version is GET /v1/version (CL-516586): the build and the engine it runs on.
+type Version struct {
+	Build  string `json:"build"`
+	Engine struct {
+		Major                int    `json:"major"`
+		Minor                int    `json:"minor"`
+		Patch                int    `json:"patch"`
+		Changelist           int64  `json:"changelist"`
+		CompatibleChangelist int64  `json:"compatibleChangelist"`
+		Branch               string `json:"branch"`
+	} `json:"engine"`
+	Project struct {
+		Name    string `json:"name"`
+		Version string `json:"version"` // "v0.2.0" on Season 02
+	} `json:"project"`
+}
+
+// Feed is GET /v1/feed (CL-516586): whether the server's event feed is on, and its endpoints.
+// From Season 02 the feed is set in the server's own config file (EventFeedEndpoints and
+// bEventFeedEnabled in the RCON section, file only), so this is how the hub sees it.
+type Feed struct {
+	Enabled       bool           `json:"enabled"`
+	EndpointCount int            `json:"endpointCount"`
+	AnyUnhealthy  bool           `json:"anyUnhealthy"`
+	Endpoints     []FeedEndpoint `json:"endpoints"`
+}
+
+// FeedEndpoint is one place the feed posts to. Season 02's server lists none until one is set,
+// so its fields are not yet seen; the raw answer keeps whatever it carries.
+type FeedEndpoint = json.RawMessage
+
 // AuditEntry is one admin-log line.
 type AuditEntry struct {
 	TimestampUTC string `json:"timestampUtc"`
@@ -200,10 +231,11 @@ func parseTime(s string) (time.Time, bool) {
 	return t, true
 }
 
-// Health is the server's health (public; no token needed).
+// Health is the server's health (public; no token needed). Every build serves it, so it does not
+// wait on the capabilities, which from Season 02 need the token.
 func (c *Client) Health(ctx context.Context) (Health, error) {
 	var out Health
-	return out, c.call(ctx, CapHealth, nil, &out)
+	return out, c.getJSON(ctx, routeHealth, nil, &out)
 }
 
 // Status is the match in progress.
@@ -246,6 +278,18 @@ func (c *Client) ServerID(ctx context.Context) (ServerID, error) {
 func (c *Client) Sponsor(ctx context.Context) (Sponsor, error) {
 	var out Sponsor
 	return out, c.call(ctx, CapSponsor, nil, &out)
+}
+
+// Version is the build and engine the server runs.
+func (c *Client) Version(ctx context.Context) (Version, error) {
+	var out Version
+	return out, c.call(ctx, CapVersion, nil, &out)
+}
+
+// Feed is the server's event feed as it reports it.
+func (c *Client) Feed(ctx context.Context) (Feed, error) {
+	var out Feed
+	return out, c.call(ctx, CapFeed, nil, &out)
 }
 
 // Audit is the newest limit entries of the admin log (the server allows 1–500; 0 asks for its

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -75,9 +76,6 @@ func TestConcurrentCallersSpendOneStrike(t *testing.T) {
 	srv := wardogstest.New(t, latest(t), wardogstest.Options{})
 	c := newClient(t, srv.URL, "wrong")
 	ctx := context.Background()
-	if _, err := c.Capabilities(ctx); err != nil {
-		t.Fatal(err)
-	}
 	var wg sync.WaitGroup
 	for range 16 {
 		wg.Go(func() { _, _ = c.Players(ctx) })
@@ -102,27 +100,64 @@ func TestConcurrentCallersSpendOneStrike(t *testing.T) {
 	}
 }
 
+// Without a token the client sends only the health and, once, the capabilities: CL-509546
+// answers them, and Season 02 (CL-516586) refuses them, which costs that one strike and no more.
 func TestNoTokenSendsNothingProtected(t *testing.T) {
-	srv := wardogstest.New(t, latest(t), wardogstest.Options{})
-	c := newClient(t, srv.URL, "")
-	ctx := context.Background()
-	if _, err := c.Status(ctx); !errors.Is(err, wardogs.ErrNoToken) {
-		t.Errorf("status without a token = %v", err)
-	}
-	if _, err := c.Health(ctx); err != nil {
-		t.Errorf("health without a token = %v", err)
-	}
-	if srv.Strikes() != 0 {
-		t.Errorf("strikes = %d", srv.Strikes())
-	}
-	for _, r := range srv.Requests() {
-		if r.Path != "/v1/capabilities" && r.Path != "/v1/health" {
-			t.Errorf("sent %s %s without a token", r.Method, r.Path)
-		}
+	for _, build := range wardogstest.Builds(t, "testdata") {
+		t.Run(filepath.Base(build), func(t *testing.T) {
+			srv := wardogstest.New(t, build, wardogstest.Options{})
+			c := newClient(t, srv.URL, "")
+			ctx := context.Background()
+			caps, capsErr := c.Capabilities(ctx)
+			for range 3 {
+				if _, err := c.Status(ctx); !errors.Is(err, wardogs.ErrNoToken) {
+					t.Errorf("status without a token = %v", err)
+				}
+			}
+			if _, err := c.Health(ctx); err != nil {
+				t.Errorf("health without a token = %v", err)
+			}
+			strikes := 0
+			if capsErr != nil {
+				strikes = 1
+				if !errors.Is(capsErr, wardogs.ErrNoToken) {
+					t.Errorf("capabilities without a token = %v", capsErr)
+				}
+			} else if caps.Build == "" {
+				t.Error("capabilities without a build")
+			}
+			if srv.Strikes() != strikes {
+				t.Errorf("strikes = %d, want %d", srv.Strikes(), strikes)
+			}
+			for _, r := range srv.Requests() {
+				if r.Path != "/v1/capabilities" && r.Path != "/v1/health" {
+					t.Errorf("sent %s %s without a token", r.Method, r.Path)
+				}
+			}
+		})
 	}
 }
 
-func TestPublicRoutesCarryNoToken(t *testing.T) {
+// Season 02 guards the capabilities; a client with the token reads them on every build.
+func TestCapabilitiesCarryTheToken(t *testing.T) {
+	for _, build := range wardogstest.Builds(t, "testdata") {
+		t.Run(filepath.Base(build), func(t *testing.T) {
+			srv := wardogstest.New(t, build, wardogstest.Options{})
+			c := newClient(t, srv.URL, wardogstest.Token)
+			if _, err := c.Capabilities(context.Background()); err != nil {
+				t.Fatal(err)
+			}
+			for _, r := range srv.Requests() {
+				if r.Path == "/v1/capabilities" && !r.Authorized {
+					t.Error("the capabilities were read without the token")
+				}
+			}
+		})
+	}
+}
+
+// A client with a token sends it everywhere but the health, the capabilities included.
+func TestOnlyHealthGoesWithoutTheToken(t *testing.T) {
 	srv := wardogstest.New(t, latest(t), wardogstest.Options{})
 	c := newClient(t, srv.URL, wardogstest.Token)
 	ctx := context.Background()
@@ -133,8 +168,7 @@ func TestPublicRoutesCarryNoToken(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, r := range srv.Requests() {
-		public := r.Path == "/v1/capabilities" || r.Path == "/v1/health"
-		if public == r.HadToken {
+		if public := r.Path == "/v1/health"; public == r.HadToken {
 			t.Errorf("%s %s: token sent = %v", r.Method, r.Path, r.HadToken)
 		}
 	}

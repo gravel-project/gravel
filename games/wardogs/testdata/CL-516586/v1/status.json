@@ -1,0 +1,39 @@
+{
+  "alternator": "ZoneAlternator.Bakurani.Default.Circle",
+  "experiences": [
+    "Bakurani_KOTH_02"
+  ],
+  "factionScores": [
+    {
+      "colorHex": "#4CB1EF",
+      "name": "Lonestar",
+      "score": 0
+    },
+    {
+      "colorHex": "#FA503E",
+      "name": "Valkyra",
+      "score": 0
+    },
+    {
+      "colorHex": "#1DD65C",
+      "name": "Manticore",
+      "score": 0
+    }
+  ],
+  "lighting": "DayEarlyFog",
+  "map": "Bakurani",
+  "players": {
+    "current": 0,
+    "max": 100
+  },
+  "rotation": {
+    "nextIndex": 0,
+    "nowIndex": null
+  },
+  "scoreTick": {
+    "current": 24,
+    "max": 30,
+    "min": 18
+  },
+  "serverName": "HTG WARDOGS | NA WEST | #1"
+}

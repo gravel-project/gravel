@@ -80,6 +80,8 @@ var handlers = map[string]handler{
 	"GET /v1/bans":                        (*Server).bans,
 	"GET /v1/reserved-slots":              (*Server).reservedSlots,
 	"GET /v1/server-id":                   file("v1/server-id.json"),
+	"GET /v1/version":                     file("v1/version.json"),
+	"GET /v1/feed":                        (*Server).feedStatus,
 	"GET /v1/sponsor":                     (*Server).sponsor,
 	"GET /v1/audit":                       (*Server).auditLog,
 	"GET /v1/catalog/maps":                file("v1/catalog/maps.json"),
@@ -111,7 +113,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 	now := s.now()
 	addr := peerAddr(r.RemoteAddr)
 	shape, params := s.route(r.Method, r.URL.EscapedPath())
-	public := shape == shapeHealth || shape == shapeCaps
+	public := s.tokenless[shape]
 
 	s.mu.Lock()
 	s.inFlight++
@@ -409,6 +411,17 @@ func (s *Server) reservedSlots(_ request) reply {
 		ids = []string{}
 	}
 	return ok(map[string]any{"count": len(ids), "reservedSlots": ids})
+}
+
+// feedStatus is GET /v1/feed (CL-516586): on or off as the feed the simulation runs. Season 02's
+// server listed no endpoint when it was recorded, so their fields are unknown and the list stays
+// empty.
+func (s *Server) feedStatus(_ request) reply {
+	n := 0
+	if s.live.feedURL != "" {
+		n = 1
+	}
+	return ok(map[string]any{"enabled": n > 0, "endpointCount": n, "anyUnhealthy": false, "endpoints": []any{}})
 }
 
 func (s *Server) sponsor(_ request) reply {

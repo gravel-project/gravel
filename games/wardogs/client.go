@@ -20,7 +20,9 @@ var (
 	// ErrNotSupported is a capability the server does not advertise; no request was sent.
 	ErrNotSupported = errors.New("wardogs: the server does not offer this")
 	// ErrNoToken is a protected route on a client without a token; no request was sent, because
-	// a request without one counts toward the server's three-strike throttle.
+	// a request without one counts toward the server's three-strike throttle. The one exception
+	// is the first read of the capabilities on a build that guards them (Season 02): that 401
+	// spends one strike and the client sends no tokenless read of them again.
 	ErrNoToken = errors.New("wardogs: this route needs a token and the client has none")
 	// ErrTokenRefused is the server answering 401 to the client's token. The client sends nothing
 	// protected again until SetToken gives it another: a second and third try would lock every
@@ -63,8 +65,9 @@ func IsCode(err error, code string) bool {
 
 // Options configure a client.
 type Options struct {
-	// Token is the RCON password, sent as a bearer token on the protected routes. Empty means
-	// only GET /v1/health and GET /v1/capabilities can be called.
+	// Token is the RCON password, sent as a bearer token on every route but GET /v1/health.
+	// Empty means only that one can be called, and GET /v1/capabilities on builds up to
+	// CL-509546, which served it without a token.
 	Token string
 	// HTTPClient carries the requests; nil means one with a 15-second timeout.
 	HTTPClient *http.Client
@@ -106,6 +109,9 @@ type Client struct {
 	refused   bool // the token was answered 401
 	notBefore time.Time
 	caps      *Capabilities
+	// capsNeedToken is a server that answered the capabilities 401 without a token (Season 02):
+	// asking again without one would only spend strikes.
+	capsNeedToken bool
 }
 
 // New builds a client for a server's base URL ("http://203.0.113.10:7789"). Nothing is sent
@@ -154,8 +160,9 @@ func (c *Client) HasToken() bool {
 	return c.token != "" && !c.refused
 }
 
-// Capabilities fetches GET /v1/capabilities (public) and keeps it: later calls check their route
-// against it. Call it again on a build change.
+// Capabilities fetches GET /v1/capabilities and keeps it: later calls check their route against
+// it. Call it again on a build change. It carries the token when the client has one (Season 02
+// refuses it without), and goes without only when the client has none.
 func (c *Client) Capabilities(ctx context.Context) (Capabilities, error) {
 	var caps Capabilities
 	if err := c.getJSON(ctx, routeCapabilities, nil, &caps); err != nil {
@@ -325,9 +332,14 @@ type request struct {
 // anything else is an error.
 func (c *Client) send(ctx context.Context, q request) (*Response, error) {
 	r, body := q.route, q.body
-	public := publicShapes[r.Shape()]
 
 	c.mu.Lock()
+	public := SentWithoutToken(r, c.token != "")
+	tokenlessCaps := public && r.Shape() == routeCapabilities.Shape()
+	if tokenlessCaps && c.capsNeedToken {
+		c.mu.Unlock()
+		return nil, fmt.Errorf("%w: this build answers %s only with one", ErrNoToken, r)
+	}
 	if wait := c.notBefore.Sub(c.now()); wait > 0 {
 		c.mu.Unlock()
 		return nil, &RateLimitedError{RetryAfter: wait, Until: c.notBefore}
@@ -395,6 +407,11 @@ func (c *Client) send(ctx context.Context, q request) (*Response, error) {
 	}
 
 	switch {
+	case resp.StatusCode == http.StatusUnauthorized && tokenlessCaps:
+		c.mu.Lock()
+		c.capsNeedToken = true
+		c.mu.Unlock()
+		return nil, fmt.Errorf("%w: this build answers %s only with one", ErrNoToken, r)
 	case resp.StatusCode == http.StatusUnauthorized && !public:
 		c.mu.Lock()
 		if c.token == token {

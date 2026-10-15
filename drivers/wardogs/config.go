@@ -17,6 +17,11 @@ import (
 // hub authenticates with and AllowedHosts, which can lock the hub out), writes the feed section
 // from the hub's servers.yaml when the server has a feed (ADR-0011; copied too when it has none),
 // and writes the ban list from the hub's (John, 2026-10-10: the hub owns DefaultBannedPlayerIds).
+//
+// Season 02 (CL-516586) dropped the feed section from the schema: the feed is set in the server's
+// own config file (bEventFeedEnabled, EventFeedEndpoints and EventFeedServerName in the RCON
+// section, file only). On such a build the driver writes no feed and says so in the plan; a feed
+// section the server still holds is copied as before, so the plan shows no change for it.
 const (
 	sectionGameSession = "/Script/WDGame.WDGameSession"
 	keyBannedIDs       = "DefaultBannedPlayerIds"
@@ -50,8 +55,11 @@ func (d *Driver) Config(ctx context.Context) (drivers.ConfigDocument, error) {
 		for _, o := range s.KeyOverrides {
 			if o.Writable != nil && !*o.Writable {
 				lock := o.Key
-				if o.LockedBy != "" {
+				switch {
+				case o.LockedBy != "":
 					lock += ": " + o.LockedBy
+				case o.FileOnly:
+					lock += ": the server's config file only"
 				}
 				cs.Locked = append(cs.Locked, lock)
 			}
@@ -67,7 +75,7 @@ func (d *Driver) PlanConfig(ctx context.Context, draft drivers.ConfigDraft) (dri
 	if err != nil {
 		return drivers.ConfigPlan{}, mapConfigError(err)
 	}
-	merged, err := merge(draft, cur.Text)
+	merged, notes, err := merge(draft, cur)
 	if err != nil {
 		return drivers.ConfigPlan{}, err
 	}
@@ -75,11 +83,13 @@ func (d *Driver) PlanConfig(ctx context.Context, draft drivers.ConfigDraft) (dri
 	if err != nil && !errors.Is(err, wardogs.ErrConfigRejected) {
 		return drivers.ConfigPlan{}, mapConfigError(err)
 	}
-	return drivers.ConfigPlan{
+	plan := drivers.ConfigPlan{
 		Revision: cur.Revision,
 		Changes:  changes(cur.Text, merged.String()),
 		Result:   result(res),
-	}, nil
+	}
+	plan.Result.Warnings = append(plan.Result.Warnings, notes...)
+	return plan, nil
 }
 
 // ApplyConfig writes the merged draft against revision.
@@ -91,12 +101,14 @@ func (d *Driver) ApplyConfig(ctx context.Context, draft drivers.ConfigDraft, rev
 	if strings.Trim(cur.Revision, `"`) != strings.Trim(revision, `"`) {
 		return drivers.ConfigResult{}, fmt.Errorf("%w: planned against %s, the server is at %s", drivers.ErrConfigConflict, revision, cur.Revision)
 	}
-	merged, err := merge(draft, cur.Text)
+	merged, notes, err := merge(draft, cur)
 	if err != nil {
 		return drivers.ConfigResult{}, err
 	}
 	res, err := d.c.PutConfig(ctx, merged.String(), cur.Revision, wardogs.ApplyOptions{})
-	return result(res), mapConfigError(err)
+	out := result(res)
+	out.Warnings = append(out.Warnings, notes...)
+	return out, mapConfigError(err)
 }
 
 // SetConfigBans rewrites the ban list alone; a document that moved in between is read again
@@ -129,10 +141,11 @@ func (d *Driver) SetConfigBans(ctx context.Context, bans []drivers.Identity) (dr
 
 // merge builds the document to send: the draft's sections, the owned sections from the server's
 // current document, secrets the draft left redacted taken from there too, and the hub's ban list.
-// It refuses a draft that sets what the hub owns or leaves a band.
-func merge(draft drivers.ConfigDraft, current string) (wardogs.Doc, error) {
+// It refuses a draft that sets what the hub owns or leaves a band. notes are what the plan should
+// say of something the hub wanted and this build cannot take (the feed on Season 02).
+func merge(draft drivers.ConfigDraft, server wardogs.ConfigDocument) (_ wardogs.Doc, notes []string, _ error) {
 	want := wardogs.ParseDoc(draft.Text)
-	cur := wardogs.ParseDoc(current)
+	cur := wardogs.ParseDoc(server.Text)
 	var problems []drivers.ConfigProblem
 	for _, s := range want.Sections {
 		if owned(s.Name) {
@@ -145,7 +158,7 @@ func merge(draft drivers.ConfigDraft, current string) (wardogs.Doc, error) {
 		}
 	}
 	if len(problems) > 0 {
-		return wardogs.Doc{}, &drivers.InvalidConfigError{Problems: problems}
+		return wardogs.Doc{}, nil, &drivers.InvalidConfigError{Problems: problems}
 	}
 	// Secrets the draft redacted keep the server's value.
 	for i := range want.Sections {
@@ -167,7 +180,12 @@ func merge(draft drivers.ConfigDraft, current string) (wardogs.Doc, error) {
 			want.SetSection(*cs)
 		}
 	}
-	if f := draft.Feed; f != nil {
+	_, feedSettable := server.Schema(sectionFeed)
+	if f := draft.Feed; f != nil && !feedSettable {
+		notes = append(notes, "this build takes its event feed only from the server's own config file "+
+			"(bEventFeedEnabled and EventFeedEndpoints, file only), so the hub's feed was not written; "+
+			"the host sets it there")
+	} else if f != nil {
 		// The game appends /api/ingest/events to Url.
 		want.SetSection(wardogs.DocSection{Name: sectionFeed, Lines: []wardogs.DocLine{
 			{Key: "Url", Value: strings.TrimRight(f.URL, "/")},
@@ -180,7 +198,7 @@ func merge(draft drivers.ConfigDraft, current string) (wardogs.Doc, error) {
 		// saves, so writing it to a server with none would show as a change on every plan.
 		ids, err := steamIDs(draft.Bans)
 		if err != nil {
-			return wardogs.Doc{}, err
+			return wardogs.Doc{}, nil, err
 		}
 		s := want.Section(sectionGameSession)
 		if s == nil {
@@ -197,9 +215,9 @@ func merge(draft drivers.ConfigDraft, current string) (wardogs.Doc, error) {
 		s.SetArray(keyBannedIDs, cs.Array(keyBannedIDs))
 	}
 	if problems := checkBands(want, draft.Bands); len(problems) > 0 {
-		return wardogs.Doc{}, &drivers.InvalidConfigError{Problems: problems}
+		return wardogs.Doc{}, nil, &drivers.InvalidConfigError{Problems: problems}
 	}
-	return want, nil
+	return want, notes, nil
 }
 
 func checkBands(doc wardogs.Doc, bands []drivers.Band) []drivers.ConfigProblem {

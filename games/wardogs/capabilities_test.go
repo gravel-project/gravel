@@ -120,9 +120,9 @@ func TestDiffRoutes(t *testing.T) {
 	newer := older
 	newer.Routes = replace(older.Routes, "DELETE /v1/bans/{steamId}", "DELETE /v1/bans/{id}")
 	newer.Routes = replace(newer.Routes, "PUT /v1/world/lighting", "")
-	newer.Routes = append(newer.Routes, "GET /v1/feed")
+	newer.Routes = append(newer.Routes, "GET /v1/made-up")
 	d := wardogs.DiffRoutes(older, newer)
-	if !slices.Equal(d.Added, []string{"GET /v1/feed"}) ||
+	if !slices.Equal(d.Added, []string{"GET /v1/made-up"}) ||
 		!slices.Equal(d.Removed, []string{"PUT /v1/world/lighting"}) ||
 		!slices.Equal(d.Renamed, []string{"DELETE /v1/bans/{steamId} -> DELETE /v1/bans/{id}"}) {
 		t.Errorf("diff = %+v", d)

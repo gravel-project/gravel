@@ -128,6 +128,9 @@ func TestRecordScrubsPeopleAddressesAndSecrets(t *testing.T) {
 	if rep.Build != "++Wardogs+Live-CL-509546" || rep.Dir != filepath.Join(out, "CL-509546") || len(rep.Skipped) != 0 {
 		t.Errorf("report = %+v", rep)
 	}
+	if !slices.Equal(rep.Tokenless, []string{"GET /v1/health"}) {
+		t.Errorf("with the token only the health goes without it: %v", rep.Tokenless)
+	}
 	files := readTree(t, rep.Dir)
 	for _, want := range []string{"recording.json", "v1/capabilities.json", "v1/health.json", "v1/config.json",
 		"v1/players.json", "v1/catalog/maps/Kavkazi/alternators.json", "v1/catalog/maps/Europe/experiences.json"} {
@@ -198,6 +201,9 @@ func TestRecordWithoutATokenRecordsThePublicRoutes(t *testing.T) {
 	}
 	if len(rep.Skipped) != 14 || rep.Skipped[0].Reason != "needs the token" {
 		t.Errorf("skipped = %+v", rep.Skipped)
+	}
+	if !slices.Equal(rep.Tokenless, []string{"GET /v1/capabilities", "GET /v1/health"}) {
+		t.Errorf("tokenless = %v", rep.Tokenless)
 	}
 	if srv.Strikes() != 0 {
 		t.Errorf("strikes = %d", srv.Strikes())

@@ -68,9 +68,12 @@ const (
 	CapCatalogExperiences Capability = "catalog.experiences"
 	CapMapExperiences     Capability = "catalog.map-experiences"
 	CapMapAlternators     Capability = "catalog.map-alternators"
+	CapVersion            Capability = "version"
+	CapFeed               Capability = "feed"
 )
 
-// routeFor is the route each capability needs, as CL-509546 spells it; matching is by shape, so
+// routeFor is the route each capability needs, as CL-509546 spells it (the two it lacks as
+// CL-516586 does); matching is by shape, so
 // the parameter names here are documentation.
 var routeFor = map[Capability]Route{
 	CapHealth:             mustRoute("GET /v1/health"),
@@ -101,13 +104,29 @@ var routeFor = map[Capability]Route{
 	CapCatalogExperiences: mustRoute("GET /v1/catalog/experiences"),
 	CapMapExperiences:     mustRoute("GET /v1/catalog/maps/{map}/experiences"),
 	CapMapAlternators:     mustRoute("GET /v1/catalog/maps/{map}/alternators"),
+	CapVersion:            mustRoute("GET /v1/version"), // CL-516586
+	CapFeed:               mustRoute("GET /v1/feed"),    // CL-516586
 }
 
-// The two routes the server answers without a token.
+// GET /v1/health is the one route every build answers without a token. The capabilities were
+// public too up to CL-509546; Season 02 (CL-516586) answers them only with the token, so the
+// client sends it there whenever it has one and goes without only when it has none.
 var (
 	routeCapabilities = mustRoute("GET /v1/capabilities")
-	publicShapes      = map[string]bool{routeCapabilities.Shape(): true, routeFor[CapHealth].Shape(): true}
+	routeHealth       = routeFor[CapHealth]
 )
+
+// SentWithoutToken reports whether the client sends a route without its token: GET /v1/health
+// always, GET /v1/capabilities only when the client has none (hasToken false).
+func SentWithoutToken(r Route, hasToken bool) bool {
+	switch r.Shape() {
+	case routeHealth.Shape():
+		return true
+	case routeCapabilities.Shape():
+		return !hasToken
+	}
+	return false
+}
 
 // Known are every capability this client knows, sorted.
 func Known() []Capability {
