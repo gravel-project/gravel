@@ -84,7 +84,19 @@ func (f *FakeStore) ClaimOrganization(_ context.Context, _ uuid.UUID, hash []byt
 	return *f.Org, nil
 }
 
-func (f *FakeStore) UpdateOrganizationSettings(_ context.Context, _ uuid.UUID, settings json.RawMessage, at time.Time, by store.Actor, sections []string) (store.Organization, error) {
+func (f *FakeStore) UpdateOrganizationSettings(ctx context.Context, id uuid.UUID, settings json.RawMessage, at time.Time, by store.Actor, sections []string) (store.Organization, error) {
+	return f.UpdateOrganizationSettingsIf(ctx, id, settings, at, by, sections, nil)
+}
+
+// UpdateOrganizationSettingsIf refuses a write whose caller read another updated_at, as the real
+// store does in its UPDATE.
+func (f *FakeStore) UpdateOrganizationSettingsIf(_ context.Context, _ uuid.UUID, settings json.RawMessage, at time.Time, by store.Actor, sections []string, ifUpdatedAt *time.Time) (store.Organization, error) {
+	if ifUpdatedAt != nil {
+		cur := f.Org.SettingsUpdatedAt
+		if cur == nil || !cur.Equal(*ifUpdatedAt) {
+			return store.Organization{}, store.ErrSettingsConflict
+		}
+	}
 	f.Writes = append(f.Writes, "settings")
 	if f.ErrOn == "settings" {
 		return store.Organization{}, errors.New("db down")

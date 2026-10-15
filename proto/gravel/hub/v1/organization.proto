@@ -473,6 +473,17 @@ message GetOrganizationSettingsResponse {
 message UpdateOrganizationSettingsRequest {
   // The whole document; omitted tokens mean the default, an omitted nav means no links.
   OrganizationSettings settings = 1;
+  // The updated_at the caller read (gravel#205): when set, a document changed since is refused with
+  // aborted, so two editors don't overwrite each other. Unset writes regardless (ADR-0007 §2).
+  google.protobuf.Timestamp if_updated_at = 2;
+}
+
+// FieldViolation is one field of a settings document the hub refused (gravel#205), attached to an
+// invalid_argument error as a detail, one per problem: the field's path as the manifest names it
+// ("notifiers[0].url") and what is wrong with it. The error's message lists the same problems.
+message FieldViolation {
+  string path = 1;
+  string message = 2;
 }
 
 message UpdateOrganizationSettingsResponse {
@@ -499,6 +510,8 @@ message ExportSettingsRequest {}
 message ExportSettingsResponse {
   // The stored settings as a manifest, notifiers included.
   string manifest = 1;
+  // When they were last written: ApplySettings' if_updated_at.
+  google.protobuf.Timestamp updated_at = 2;
 }
 
 message CheckSettingsRequest {
@@ -516,6 +529,8 @@ message ApplySettingsRequest {
   string manifest = 1;
   // Say what would change and change nothing.
   bool dry_run = 2;
+  // As UpdateOrganizationSettings': the updated_at the caller read; aborted when they changed since.
+  google.protobuf.Timestamp if_updated_at = 3;
 }
 
 message ApplySettingsResponse {

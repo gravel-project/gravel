@@ -69,6 +69,33 @@ func (a11yOrg) ListEvents(context.Context, *connect.Request[hubv1.ListEventsRequ
 	}}), nil
 }
 
+// GetOrganizationSettings is Settings' form (gravel#205): a notifier of each kind and Discord
+// connected with rules only the YAML tab edits, so every section's fields are scanned.
+func (a11yOrg) GetOrganizationSettings(context.Context, *connect.Request[hubv1.GetOrganizationSettingsRequest]) (*connect.Response[hubv1.GetOrganizationSettingsResponse], error) {
+	return connect.NewResponse(&hubv1.GetOrganizationSettingsResponse{Settings: &hubv1.OrganizationSettings{Version: 1, UpdatedAt: timestamppb.Now(),
+		Notifiers: []*hubv1.Notifier{
+			{Name: "john-phone", Kind: "ntfy", Url: "https://ntfy.sh", Topic: "htg-john", Events: &hubv1.NotifierEvents{MinSeverity: "warning"}},
+			{Name: "ops-hook", Kind: "webhook", Url: "https://ops.example.org/gravel", Events: &hubv1.NotifierEvents{Kinds: []string{"server", "backup"}}},
+			{Name: "ops-mail", Kind: "email", To: []string{"ops@example.org"}, Disabled: true},
+		},
+		Discord:       &hubv1.DiscordSettings{GuildId: "1150000000000000000", ModLog: "1150000000000000001", Roles: &hubv1.DiscordRoles{Linked: "1150000000000000002"}, Recognition: []*hubv1.DiscordRecognition{{}}},
+		Stats:         &hubv1.StatsSettings{Public: true},
+		LocalAccounts: &hubv1.LocalAccountsSettings{Registration: "closed"},
+	}}), nil
+}
+
+type a11yApps struct {
+	hubv1connect.UnimplementedAppServiceHandler
+}
+
+// ListApps is Apps (gravel#205): one app live, one revoked.
+func (a11yApps) ListApps(context.Context, *connect.Request[hubv1.ListAppsRequest]) (*connect.Response[hubv1.ListAppsResponse], error) {
+	return connect.NewResponse(&hubv1.ListAppsResponse{Apps: []*hubv1.App{
+		{ClientId: "gravel_47ca0000", Name: "HTG Bot", Scopes: []string{"identity:read", "roles:grant"}, CreatedAt: timestamppb.Now()},
+		{ClientId: "gravel_91b30000", Name: "Muster", Scopes: []string{"stats:read"}, RedirectUris: []string{"https://muster.example/cb"}, CreatedAt: timestamppb.Now(), RevokedAt: timestamppb.Now()},
+	}}), nil
+}
+
 func (a11yOrg) ListEventKinds(context.Context, *connect.Request[hubv1.ListEventKindsRequest]) (*connect.Response[hubv1.ListEventKindsResponse], error) {
 	out := &hubv1.ListEventKindsResponse{}
 	for _, k := range events.Kinds() {
@@ -450,6 +477,7 @@ func TestAccessibility(t *testing.T) {
 	mux.Handle(hubv1connect.NewOrganizationServiceHandler(a11yOrg{}))
 	mux.Handle(hubv1connect.NewServerServiceHandler(a11yFleet{}))
 	mux.Handle(hubv1connect.NewServerHostServiceHandler(a11yHosts{}))
+	mux.Handle(hubv1connect.NewAppServiceHandler(a11yApps{}))
 	mux.Handle(hubv1connect.NewServerLeaseServiceHandler(a11yLeases{}))
 	for path, build := range fixtures {
 		mux.HandleFunc("GET "+path, func(w http.ResponseWriter, r *http.Request) {
@@ -490,11 +518,11 @@ func TestAccessibility(t *testing.T) {
 		"/fixture/server-moderator", "/fixture/server-host", "/fixture/server-host-parked", "/fixture/host-confirm", "/fixture/confirm", "/fixture/log", "/fixture/account-apps", "/fixture/consent",
 		"/fixture/account-proof", "/fixture/proof", "/fixture/proof-proven", "/fixture/host-expect", "/fixture/result",
 		"/fixture/login-local", "/fixture/register", "/fixture/account-local", "/fixture/reset",
-		"/admin", "/admin/events", "/admin/people", "/admin/servers/htg-cs2-1", "/admin/access", "/admin/nowhere"}
+		"/admin", "/admin/events", "/admin/people", "/admin/servers/htg-cs2-1", "/admin/settings", "/admin/apps", "/admin/access", "/admin/nowhere"}
 	// What each dashboard route shows once rendered in the browser.
-	adminRenders := map[string]string{"/admin": ">HTG WARDOGS | NA WEST | #1</a>", "/admin/events": ">HTG WARDOGS | NA WEST | #2 is down</p>", "/admin/people": ">Sam</a>", "/admin/servers/htg-cs2-1": ">Release the lease</button>", "/admin/access": ">Your access</h1>", "/admin/nowhere": ">Not found</h1>"}
+	adminRenders := map[string]string{"/admin": ">HTG WARDOGS | NA WEST | #1</a>", "/admin/events": ">HTG WARDOGS | NA WEST | #2 is down</p>", "/admin/people": ">Sam</a>", "/admin/servers/htg-cs2-1": ">Release the lease</button>", "/admin/settings": ">Save the settings</button>", "/admin/apps": ">HTG Bot</p>", "/admin/access": ">Your access</h1>", "/admin/nowhere": ">Not found</h1>"}
 	// The same, as text on the page, for the viewport script.
-	adminRenderText := map[string]string{"/admin": "HTG WARDOGS | NA WEST | #1", "/admin/events": "HTG WARDOGS | NA WEST | #2 is down", "/admin/people": "Add a local account", "/admin/servers/htg-cs2-1": "Release the lease", "/admin/access": "Your access"}
+	adminRenderText := map[string]string{"/admin": "HTG WARDOGS | NA WEST | #1", "/admin/events": "HTG WARDOGS | NA WEST | #2 is down", "/admin/people": "Add a local account", "/admin/servers/htg-cs2-1": "Release the lease", "/admin/settings": "Save the settings", "/admin/apps": "Register an app", "/admin/access": "Your access"}
 	// A fixture left out of the list would never be scanned and the run would still pass.
 	for path := range fixtures {
 		if !slices.Contains(paths, path) {
@@ -537,7 +565,8 @@ func TestAccessibility(t *testing.T) {
 		// The script resolves puppeteer-core and axe-core from web/admin's node_modules (make admin).
 		cmd := exec.CommandContext(ctx, "node", "../../web/admin/scripts/viewport.mjs", chrome,
 			srv.URL+"/admin", adminRenderText["/admin"], srv.URL+"/admin/events", adminRenderText["/admin/events"],
-			srv.URL+"/admin/people", adminRenderText["/admin/people"], srv.URL+"/admin/servers/htg-cs2-1", adminRenderText["/admin/servers/htg-cs2-1"], srv.URL+"/admin/access", adminRenderText["/admin/access"])
+			srv.URL+"/admin/people", adminRenderText["/admin/people"], srv.URL+"/admin/servers/htg-cs2-1", adminRenderText["/admin/servers/htg-cs2-1"], srv.URL+"/admin/settings", adminRenderText["/admin/settings"],
+			srv.URL+"/admin/apps", adminRenderText["/admin/apps"], srv.URL+"/admin/access", adminRenderText["/admin/access"])
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			t.Fatalf("the dashboard at phone and iPad sizes:\n%s", out)

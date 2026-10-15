@@ -150,4 +150,20 @@ func TestOrganizationSettings(t *testing.T) {
 	if again, _ := st.GetBuiltinOrganization(ctx); string(again.Settings) != string(u.Settings) {
 		t.Errorf("get after update: %s", again.Settings)
 	}
+	// A write naming the document it replaces (gravel#205): the current one goes through, a stale or
+	// never-written one is refused and stores nothing, and an unknown organization is still not found.
+	later := now.Add(time.Minute)
+	if _, err := st.UpdateOrganizationSettingsIf(ctx, o.ID, doc, later, store.Actor{}, nil, &now); err != nil {
+		t.Errorf("naming the current document: %v", err)
+	}
+	stale := json.RawMessage(`{"version": 1}`)
+	if _, err := st.UpdateOrganizationSettingsIf(ctx, o.ID, stale, later.Add(time.Minute), store.Actor{}, nil, &now); !errors.Is(err, store.ErrSettingsConflict) {
+		t.Errorf("naming an older document: %v", err)
+	}
+	if again, _ := st.GetBuiltinOrganization(ctx); !again.SettingsUpdatedAt.Equal(later) || string(again.Settings) == string(stale) {
+		t.Errorf("a stale write was stored: %s at %v", again.Settings, again.SettingsUpdatedAt)
+	}
+	if _, err := st.UpdateOrganizationSettingsIf(ctx, uuid.New(), doc, later, store.Actor{}, nil, &later); !errors.Is(err, store.ErrNotFound) {
+		t.Errorf("unknown organization with a check: %v", err)
+	}
 }

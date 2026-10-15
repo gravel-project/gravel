@@ -2,7 +2,9 @@ package api_test
 
 import (
 	"context"
+	"errors"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 
@@ -227,5 +229,72 @@ func TestAdminSettingsManifest(t *testing.T) {
 	}
 	if exp, err := c.ExportSettings(ctx, connect.NewRequest(&hubv1.ExportSettingsRequest{})); err != nil || !strings.Contains(exp.Msg.GetManifest(), "https://discord.gg/x") {
 		t.Errorf("export after apply: %v %v", exp, err)
+	}
+}
+
+// A settings write names the document it replaces (gravel#205): a stale one is refused with aborted
+// and nothing changes; an invalid one carries a FieldViolation per problem.
+func TestSettingsConflictAndFieldViolations(t *testing.T) {
+	r := newRig(t)
+	ctx := context.Background()
+	jo := r.user(t, "Jo", "1")
+	if _, err := r.org.Claim(ctx, r.token, store.Actor{UserID: &jo.ID}); err != nil {
+		t.Fatal(err)
+	}
+	c := hubv1connect.NewOrganizationServiceClient(cookieClient(http.DefaultClient, r.login(t, jo.ID)), r.srv.URL)
+	got, err := c.GetOrganizationSettings(ctx, connect.NewRequest(&hubv1.GetOrganizationSettingsRequest{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	set := got.Msg.GetSettings()
+	set.Nav = []*hubv1.NavLink{{Label: "Rules", Url: "/rules"}}
+	// Never written: no updated_at to send, so the first write goes through.
+	first, err := c.UpdateOrganizationSettings(ctx, connect.NewRequest(&hubv1.UpdateOrganizationSettingsRequest{Settings: set}))
+	if err != nil || first.Msg.GetSettings().GetUpdatedAt() == nil {
+		t.Fatalf("first write: %v %v", first, err)
+	}
+	read := first.Msg.GetSettings().GetUpdatedAt()
+	set.Nav = []*hubv1.NavLink{{Label: "Discord", Url: "https://discord.gg/x"}}
+	second, err := c.UpdateOrganizationSettings(ctx, connect.NewRequest(&hubv1.UpdateOrganizationSettingsRequest{Settings: set, IfUpdatedAt: read}))
+	if err != nil {
+		t.Fatalf("a write naming the current document: %v", err)
+	}
+	// Another editor still holding the first read is refused, and the second write stands.
+	writes := len(r.orgSt.Writes)
+	set.Nav = nil
+	if _, err := c.UpdateOrganizationSettings(ctx, connect.NewRequest(&hubv1.UpdateOrganizationSettingsRequest{Settings: set, IfUpdatedAt: read})); connect.CodeOf(err) != connect.CodeAborted {
+		t.Errorf("a stale write: %v", err)
+	}
+	if len(r.orgSt.Writes) != writes {
+		t.Errorf("a stale write was stored: %v", r.orgSt.Writes[writes:])
+	}
+	if now, _ := c.GetOrganizationSettings(ctx, connect.NewRequest(&hubv1.GetOrganizationSettingsRequest{})); len(now.Msg.GetSettings().GetNav()) != 1 ||
+		!now.Msg.GetSettings().GetUpdatedAt().AsTime().Equal(second.Msg.GetSettings().GetUpdatedAt().AsTime()) {
+		t.Errorf("after the refusal: %v", now.Msg.GetSettings())
+	}
+	// The YAML tab's write is checked alike.
+	exp, err := c.ExportSettings(ctx, connect.NewRequest(&hubv1.ExportSettingsRequest{}))
+	if err != nil || exp.Msg.GetUpdatedAt() == nil {
+		t.Fatalf("export: %v %v", exp, err)
+	}
+	if _, err := c.ApplySettings(ctx, connect.NewRequest(&hubv1.ApplySettingsRequest{Manifest: "version: 1\n", IfUpdatedAt: read})); connect.CodeOf(err) != connect.CodeAborted {
+		t.Errorf("a stale apply: %v", err)
+	}
+
+	set.Nav = []*hubv1.NavLink{{Label: "x", Url: "javascript:alert(1)"}}
+	_, err = c.UpdateOrganizationSettings(ctx, connect.NewRequest(&hubv1.UpdateOrganizationSettingsRequest{Settings: set}))
+	var ce *connect.Error
+	if !errors.As(err, &ce) || ce.Code() != connect.CodeInvalidArgument {
+		t.Fatalf("an invalid document: %v", err)
+	}
+	var paths []string
+	for _, d := range ce.Details() {
+		v, derr := d.Value()
+		if fv, ok := v.(*hubv1.FieldViolation); derr == nil && ok {
+			paths = append(paths, fv.GetPath())
+		}
+	}
+	if !slices.Contains(paths, "nav[0].url") {
+		t.Errorf("field violations %v for %v", paths, err)
 	}
 }

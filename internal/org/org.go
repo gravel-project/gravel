@@ -49,7 +49,7 @@ type Store interface {
 	UpdateOrganizationName(ctx context.Context, id uuid.UUID, name string) error
 	SetClaimToken(ctx context.Context, id uuid.UUID, hash []byte, expiresAt time.Time) error
 	ClaimOrganization(ctx context.Context, id uuid.UUID, hash []byte, by store.Actor, now time.Time) (store.Organization, error)
-	UpdateOrganizationSettings(ctx context.Context, id uuid.UUID, settings json.RawMessage, at time.Time, by store.Actor, sections []string) (store.Organization, error)
+	UpdateOrganizationSettingsIf(ctx context.Context, id uuid.UUID, settings json.RawMessage, at time.Time, by store.Actor, sections []string, ifUpdatedAt *time.Time) (store.Organization, error)
 	NominateOwner(ctx context.Context, id, nominee uuid.UUID, by store.Actor, at, expires time.Time) (store.Organization, error)
 	CancelOwnershipTransfer(ctx context.Context, id uuid.UUID, by store.Actor, at time.Time) (store.Organization, error)
 	AcceptOwnership(ctx context.Context, id uuid.UUID, by store.Actor, at time.Time) (store.Organization, uuid.UUID, error)

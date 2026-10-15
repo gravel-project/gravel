@@ -161,7 +161,7 @@ func (s *OrganizationServer) UpdateOrganizationSettings(ctx context.Context, req
 	if err != nil {
 		return nil, err
 	}
-	set, err := s.org.UpdateSettings(ctx, settingsFromProto(req.Msg.GetSettings()), changedBy(ctx, p))
+	set, err := s.org.UpdateSettingsIf(ctx, settingsFromProto(req.Msg.GetSettings()), changedBy(ctx, p), ifUpdatedAt(req.Msg.GetIfUpdatedAt()))
 	if err != nil {
 		return nil, mapError(ctx, s.logger, err)
 	}
@@ -200,7 +200,7 @@ func (s *OrganizationServer) ExportSettings(ctx context.Context, _ *connect.Requ
 	if _, err := s.access.Require(ctx, authz.SettingsWrite, authz.Target{}); err != nil {
 		return nil, err
 	}
-	set, _, err := s.org.Settings(ctx)
+	set, at, err := s.org.Settings(ctx)
 	if err != nil {
 		return nil, mapError(ctx, s.logger, err)
 	}
@@ -208,7 +208,20 @@ func (s *OrganizationServer) ExportSettings(ctx context.Context, _ *connect.Requ
 	if err != nil {
 		return nil, mapError(ctx, s.logger, err)
 	}
-	return connect.NewResponse(&hubv1.ExportSettingsResponse{Manifest: string(b)}), nil
+	out := &hubv1.ExportSettingsResponse{Manifest: string(b)}
+	if !at.IsZero() {
+		out.UpdatedAt = timestamppb.New(at)
+	}
+	return connect.NewResponse(out), nil
+}
+
+// ifUpdatedAt is a request's if_updated_at: nil when the caller sent none.
+func ifUpdatedAt(t *timestamppb.Timestamp) *time.Time {
+	if t == nil {
+		return nil
+	}
+	at := t.AsTime()
+	return &at
 }
 
 // parseSettings reads and checks a manifest from a request: invalid_argument names every problem.
@@ -255,7 +268,7 @@ func (s *OrganizationServer) ApplySettings(ctx context.Context, req *connect.Req
 	if req.Msg.GetDryRun() || len(sections) == 0 {
 		return connect.NewResponse(out), nil
 	}
-	if _, err := s.org.UpdateSettings(ctx, set, changedBy(ctx, p)); err != nil {
+	if _, err := s.org.UpdateSettingsIf(ctx, set, changedBy(ctx, p), ifUpdatedAt(req.Msg.GetIfUpdatedAt())); err != nil {
 		return nil, mapError(ctx, s.logger, err)
 	}
 	out.Applied = true

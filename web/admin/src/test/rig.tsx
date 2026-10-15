@@ -14,10 +14,13 @@ import {
   type Event,
   EventKindSchema,
   EventSchema,
+  FieldViolationSchema,
   type ListEventsRequest,
   OrganizationSchema,
   OrganizationService,
+  OrganizationSettingsSchema,
 } from "../gen/gravel/hub/v1/organization_pb";
+import { AppSchema, AppService } from "../gen/gravel/hub/v1/apps_pb";
 import { GameSchema, GetFleetSummaryResponseSchema, ServerSchema, ServerService } from "../gen/gravel/hub/v1/servers_pb";
 import { ServerHostSchema, ServerHostService } from "../gen/gravel/hub/v1/hosts_pb";
 import { ServerLeaseSchema, ServerLeaseService } from "../gen/gravel/hub/v1/leases_pb";
@@ -51,6 +54,11 @@ export interface RigOptions {
   hosts?: Record<string, MessageInitShape<typeof ServerHostSchema>>;
   // leases are the live leases by server id.
   leases?: Record<string, MessageInitShape<typeof ServerLeaseSchema>>;
+  // settings is the stored Organization settings document; apps the registered apps.
+  settings?: MessageInitShape<typeof OrganizationSettingsSchema>;
+  apps?: MessageInitShape<typeof AppSchema>[];
+  // notifierErrors are TestNotifier's answers by name: "" delivered, else why not.
+  notifierErrors?: Record<string, string>;
 }
 
 // Call is one of the people actions as the page sent it.
@@ -67,7 +75,7 @@ export function member(fields: Member = {}): Member {
 }
 
 export function renderShell({ me, demo = false, path = "/", fleet = { totals: {} }, log = [], kinds = [], servers = [], games = [], poll = 0,
-  users = [], pageSize = 100, org = {}, refuse = [], hosts = {}, leases = {} }: RigOptions = {}) {
+  users = [], pageSize = 100, org = {}, refuse = [], hosts = {}, leases = {}, settings = { version: 1 }, apps = [], notifierErrors = {} }: RigOptions = {}) {
   // calls are the ListEvents requests, in order, for a test to check the cursors.
   const calls: ListEventsRequest[] = [];
   // actions are the people actions, in order; people and the organization are what they changed.
@@ -95,6 +103,36 @@ export function renderShell({ me, demo = false, path = "/", fleet = { totals: {}
     nextEvent += 1n;
     return { host: h, auditId: nextEvent - 90n, eventId: nextEvent };
   };
+  // The settings store: a write naming another updated_at is refused (aborted), and the fake's
+  // two rules answer as the hub does, a FieldViolation per problem.
+  const store = { settings: create(OrganizationSettingsSchema, settings), at: 1_000 };
+  if (settings.updatedAt === undefined) {
+    store.settings.updatedAt = timestampFromDate(new Date(store.at * 1000));
+  }
+  const checkSettings = (s: ReturnType<typeof create<typeof OrganizationSettingsSchema>>) => {
+    const bad: { path: string; message: string }[] = [];
+    s.notifiers.forEach((n, i) => {
+      if (!/^[a-z0-9-]+$/.test(n.name)) {
+        bad.push({ path: `notifiers[${i}].name`, message: `${JSON.stringify(n.name)} is not a name: lower-case letters, digits and hyphens` });
+      }
+    });
+    if (s.discord && s.discord.guildId !== "" && !/^\d+$/.test(s.discord.guildId)) {
+      bad.push({ path: "discord.guild_id", message: `${JSON.stringify(s.discord.guildId)} is not a Discord id` });
+    }
+    if (bad.length > 0) {
+      throw new ConnectError(bad.map((b) => `invalid settings: ${b.path}: ${b.message}`).join("\n"), Code.InvalidArgument, undefined,
+        bad.map((b) => ({ desc: FieldViolationSchema, value: b })));
+    }
+  };
+  const writeSettings = (s: ReturnType<typeof create<typeof OrganizationSettingsSchema>>, ifAt: { seconds: bigint } | undefined) => {
+    if (ifAt !== undefined && ifAt.seconds !== store.settings.updatedAt?.seconds) {
+      throw new ConnectError("the settings changed since you read them", Code.Aborted);
+    }
+    checkSettings(s);
+    store.at += 60;
+    store.settings = create(OrganizationSettingsSchema, { ...s, updatedAt: timestampFromDate(new Date(store.at * 1000)) });
+  };
+  const appRows = apps.map((a) => create(AppSchema, a));
   const find = (id: string) => {
     const u = people.find((p) => p.id === id);
     if (!u) {
@@ -146,6 +184,36 @@ export function renderShell({ me, demo = false, path = "/", fleet = { totals: {}
     });
     service(OrganizationService, {
       getOrganization: () => ({ organization: organization }),
+      getOrganizationSettings: () => ({ settings: store.settings }),
+      updateOrganizationSettings: (req) => {
+        act("updateOrganizationSettings", req);
+        writeSettings(req.settings ?? create(OrganizationSettingsSchema, {}), req.ifUpdatedAt);
+        return { settings: store.settings };
+      },
+      testNotifier: (req) => {
+        act("testNotifier", req);
+        const why = notifierErrors[req.name] ?? "";
+        return { delivered: why === "", error: why };
+      },
+      exportSettings: () => ({ manifest: `version: 1\n# ${String(store.settings.notifiers.length)} notifiers\n`, updatedAt: store.settings.updatedAt }),
+      checkSettings: (req) => {
+        if (req.manifest.includes("bad:")) {
+          throw new ConnectError("invalid settings: bad: unknown field", Code.InvalidArgument, undefined, [{ desc: FieldViolationSchema, value: { path: "bad", message: "unknown field" } }]);
+        }
+        return { summary: "0 nav links, theme default, discord unmapped" };
+      },
+      applySettings: (req) => {
+        act("applySettings", req);
+        if (req.ifUpdatedAt !== undefined && req.ifUpdatedAt.seconds !== store.settings.updatedAt?.seconds) {
+          throw new ConnectError("the settings changed since you read them", Code.Aborted);
+        }
+        const changes = req.manifest.includes("nav:") ? ["nav"] : [];
+        if (!req.dryRun && changes.length > 0) {
+          store.at += 60;
+          store.settings = create(OrganizationSettingsSchema, { ...store.settings, updatedAt: timestampFromDate(new Date(store.at * 1000)) });
+        }
+        return { changes, applied: !req.dryRun && changes.length > 0, summary: "1 nav links, theme default, discord unmapped" };
+      },
       nominateOwner: (req) => {
         act("nominateOwner", req);
         const u = find(req.userId);
@@ -228,6 +296,24 @@ export function renderShell({ me, demo = false, path = "/", fleet = { totals: {}
           h.state = "destroying";
         }),
     });
+    service(AppService, {
+      listApps: () => ({ apps: appRows }),
+      createApp: (req) => {
+        act("createApp", req);
+        const a = create(AppSchema, { clientId: "gravel_new", name: req.name, scopes: req.scopes, redirectUris: req.redirectUris, createdAt: timestampFromDate(new Date("2026-10-15T10:00:00Z")) });
+        appRows.push(a);
+        return { app: a, clientSecret: "s3cret-shown-once" };
+      },
+      revokeApp: (req) => {
+        act("revokeApp", req);
+        const a = appRows.find((x) => x.clientId === req.clientId && x.revokedAt === undefined);
+        if (!a) {
+          throw new ConnectError("no app with that client id, or it is already revoked", Code.NotFound);
+        }
+        a.revokedAt = timestampFromDate(new Date("2026-10-15T11:00:00Z"));
+        return {};
+      },
+    });
     service(ServerLeaseService, {
       listServerLeases: (req) => {
         const l = leaseRows.get(req.serverId);
@@ -253,7 +339,7 @@ export function renderShell({ me, demo = false, path = "/", fleet = { totals: {}
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, refetchInterval: poll > 0 ? poll : false } } });
   const { hook } = memoryLocation({ path: here });
   const view = render(<App transport={transport} queryClient={queryClient} browser={browser} location={hook} />);
-  return { ...view, left, calls, actions, people, organization, hostRows };
+  return { ...view, left, calls, actions, people, organization, hostRows, store };
 }
 
 // readLog answers ListEvents as the hub does (internal/api/events.go): after_id oldest first,

@@ -596,6 +596,51 @@ const (
 // ErrInvalidSettings wraps every validation failure; the message says which field and why.
 var ErrInvalidSettings = errors.New("invalid settings")
 
+// FieldError is one problem with a settings document (gravel#205): the field's path, as the
+// manifest names it ("notifiers[0].url", "theme.dark.accent"), and what is wrong with it. It wraps
+// ErrInvalidSettings and reads "invalid settings: <path>: <message>", as every check always has,
+// so the admin dashboard can put the message under its field.
+type FieldError struct {
+	Path    string
+	Message string
+}
+
+func (e *FieldError) Error() string {
+	return ErrInvalidSettings.Error() + ": " + e.Path + ": " + e.Message
+}
+
+func (e *FieldError) Unwrap() error { return ErrInvalidSettings }
+
+// fieldError is a check's "<path>: <message>" as a FieldError; a message with no path is the
+// document's (path "").
+func fieldError(text string) *FieldError {
+	path, msg, ok := strings.Cut(text, ": ")
+	if !ok || strings.Contains(path, "\"") {
+		return &FieldError{Message: text}
+	}
+	return &FieldError{Path: path, Message: msg}
+}
+
+// FieldErrors are the field problems in err (one, or an errors.Join of many), in order.
+func FieldErrors(err error) []*FieldError {
+	var out []*FieldError
+	var walk func(error)
+	walk = func(e error) {
+		if j, ok := e.(interface{ Unwrap() []error }); ok { //nolint:errorlint // a join's own children, walked one by one
+			for _, x := range j.Unwrap() {
+				walk(x)
+			}
+			return
+		}
+		var fe *FieldError
+		if errors.As(e, &fe) {
+			out = append(out, fe)
+		}
+	}
+	walk(err)
+	return out
+}
+
 var (
 	cssColor = regexp.MustCompile(`^(#[0-9a-fA-F]{3}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{8}|[a-zA-Z]{3,20}|rgba?\([0-9.,% ]+\)|hsla?\([0-9.,% deg]+\))$`)
 	cssFont  = regexp.MustCompile(`^[A-Za-z0-9 ,'"-]{1,120}$`)
@@ -608,7 +653,7 @@ var (
 func (s Settings) Validate() error {
 	var errs []error
 	bad := func(format string, a ...any) {
-		errs = append(errs, fmt.Errorf("%w: "+format, append([]any{ErrInvalidSettings}, a...)...))
+		errs = append(errs, fieldError(fmt.Sprintf(format, a...)))
 	}
 	if s.Version != SettingsVersion {
 		bad("version: got %d, this hub reads version %d", s.Version, SettingsVersion)
@@ -723,7 +768,7 @@ func validateGames(games map[string]GameSettings, bad func(string, ...any)) {
 func (s Settings) CheckGames(known []string) error {
 	var errs []error
 	unknown := func(field, id string) {
-		errs = append(errs, fmt.Errorf("%w: %s: %q is not a game this hub ships (%s)", ErrInvalidSettings, field, id, strings.Join(known, ", ")))
+		errs = append(errs, &FieldError{Path: field, Message: fmt.Sprintf("%q is not a game this hub ships (%s)", id, strings.Join(known, ", "))})
 	}
 	for _, id := range slices.Sorted(maps.Keys(s.Games)) {
 		if !slices.Contains(known, id) {
@@ -1349,11 +1394,20 @@ func (s *Service) Settings(ctx context.Context) (Settings, time.Time, error) {
 // top-level sections that changed (settings.updated); the caller checks who may. A document that
 // fails validation stores and records nothing.
 func (s *Service) UpdateSettings(ctx context.Context, set Settings, by store.Actor) (Settings, error) {
+	return s.UpdateSettingsIf(ctx, set, by, nil)
+}
+
+// ErrSettingsConflict is a write whose caller read settings that have changed since (gravel#205).
+var ErrSettingsConflict = store.ErrSettingsConflict
+
+// UpdateSettingsIf is UpdateSettings when the stored document was last written at ifUpdatedAt
+// (nil: whenever): ErrSettingsConflict otherwise, so two editors don't overwrite each other.
+func (s *Service) UpdateSettingsIf(ctx context.Context, set Settings, by store.Actor, ifUpdatedAt *time.Time) (Settings, error) {
 	set, o, raw, sections, err := s.plan(ctx, set)
 	if err != nil {
 		return Settings{}, err
 	}
-	if _, err := s.st.UpdateOrganizationSettings(ctx, o.ID, raw, s.now(), by, sections); err != nil {
+	if _, err := s.st.UpdateOrganizationSettingsIf(ctx, o.ID, raw, s.now(), by, sections, ifUpdatedAt); err != nil {
 		return Settings{}, err
 	}
 	s.logger.Info("organization settings updated", "organization_id", o.ID, "sections", sections, "nav_links", len(set.Nav), "discord_roles", len(set.Discord.RoleIDs()))
