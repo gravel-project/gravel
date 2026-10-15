@@ -1,6 +1,6 @@
 # ADR-0030: Operator dashboards in the hub, through a query proxy
 
-**Status:** proposed (2026-10-15, built in #204) · **Changes:** where an operator looks at gravel's metrics: the admin dashboard, not only Grafana; extends ADR-0009 (one set of definitions now serves both) · **Decided in:** John's design session *gravel — Design Session: Hub, Spines & Dashboard* (2026-10-10 to 12: "No Grafana", "lighter stores", the hub emits and something beside it collects), handbook D35–D36 · **Part of:** H1 (#182); closes #154's direction
+**Status:** accepted (2026-10-15, John; built in #204) · **Changes:** where an operator looks at gravel's metrics: the admin dashboard, not only Grafana; extends ADR-0009 (one set of definitions now serves both) · **Decided in:** John's design session *gravel — Design Session: Hub, Spines & Dashboard* (2026-10-10 to 12: "No Grafana", "lighter stores", the hub emits and something beside it collects), handbook D35–D36 · **Part of:** H1 (#182); closes #154's direction
 
 ## Context
 
