@@ -112,6 +112,24 @@ func (s *Store) Migrate(ctx context.Context) error {
 	return nil
 }
 
+// MigrateUpTo applies the pending migrations up to version and no further: an import (gravel#213)
+// loads an archive into the schema it was written in, then migrates the rest.
+func (s *Store) MigrateUpTo(ctx context.Context, version int64) error {
+	p, db, err := s.provider()
+	if err != nil {
+		return err
+	}
+	defer func() { _ = db.Close() }() // closes the sql wrapper, not the pool
+	results, err := p.UpTo(ctx, version)
+	if err != nil {
+		return fmt.Errorf("store: migrate up to %d: %w", version, err)
+	}
+	for _, r := range results {
+		s.logger.Info("applied migration", "version", r.Source.Version, "file", r.Source.Path, "took", r.Duration)
+	}
+	return nil
+}
+
 // MigrateDownTo rolls the schema back to version (0 = empty). Destructive; used by storetest.
 func (s *Store) MigrateDownTo(ctx context.Context, version int64) error {
 	p, db, err := s.provider()

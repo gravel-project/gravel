@@ -831,6 +831,29 @@
   app+stats:read                 unauthenticated
   app+all                        unauthenticated
 
+/gravel.hub.v1.OrganizationService/ExportHub
+  anonymous                      unauthenticated
+  member                         permission_denied
+  moderator                      permission_denied
+  owner                          unimplemented
+  member-token                   permission_denied
+  moderator-token                permission_denied
+  owner-token                    permission_denied
+  owner-token-unscoped           permission_denied
+  app                            permission_denied
+  app-host                       permission_denied
+  app+events:read                permission_denied
+  app+identity:read              permission_denied
+  app+participation:write        permission_denied
+  app+roles:grant                permission_denied
+  app+servers:configure          permission_denied
+  app+servers:lease              permission_denied
+  app+servers:moderate           permission_denied
+  app+servers:operate            permission_denied
+  app+servers:read               permission_denied
+  app+stats:read                 permission_denied
+  app+all                        permission_denied
+
 /gravel.hub.v1.OrganizationService/ExportSettings
   anonymous                      unauthenticated
   member                         permission_denied

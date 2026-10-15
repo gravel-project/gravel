@@ -72,6 +72,9 @@ const (
 	// OrganizationServiceApplySettingsProcedure is the fully-qualified name of the
 	// OrganizationService's ApplySettings RPC.
 	OrganizationServiceApplySettingsProcedure = "/gravel.hub.v1.OrganizationService/ApplySettings"
+	// OrganizationServiceExportHubProcedure is the fully-qualified name of the OrganizationService's
+	// ExportHub RPC.
+	OrganizationServiceExportHubProcedure = "/gravel.hub.v1.OrganizationService/ExportHub"
 )
 
 // OrganizationServiceClient is a client for the gravel.hub.v1.OrganizationService service.
@@ -115,6 +118,11 @@ type OrganizationServiceClient interface {
 	// settings:write, in person. A manifest that matches the stored settings changes nothing and
 	// records no event.
 	ApplySettings(context.Context, *connect.Request[v1.ApplySettingsRequest]) (*connect.Response[v1.ApplySettingsResponse], error)
+	// ExportHub is everything the hub holds as one archive (gravel#213, docs/hub.md "Export and
+	// import"), streamed in chunks: what `gravel-hub export` writes, for a host without the box's
+	// shell (`gravel export`). The owner's alone, in person (org:transfer): it holds personal data
+	// and password hashes.
+	ExportHub(context.Context, *connect.Request[v1.ExportHubRequest]) (*connect.ServerStreamForClient[v1.ExportHubResponse], error)
 }
 
 // NewOrganizationServiceClient constructs a client for the gravel.hub.v1.OrganizationService
@@ -206,6 +214,12 @@ func NewOrganizationServiceClient(httpClient connect.HTTPClient, baseURL string,
 			connect.WithSchema(organizationServiceMethods.ByName("ApplySettings")),
 			connect.WithClientOptions(opts...),
 		),
+		exportHub: connect.NewClient[v1.ExportHubRequest, v1.ExportHubResponse](
+			httpClient,
+			baseURL+OrganizationServiceExportHubProcedure,
+			connect.WithSchema(organizationServiceMethods.ByName("ExportHub")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -224,6 +238,7 @@ type organizationServiceClient struct {
 	exportSettings             *connect.Client[v1.ExportSettingsRequest, v1.ExportSettingsResponse]
 	checkSettings              *connect.Client[v1.CheckSettingsRequest, v1.CheckSettingsResponse]
 	applySettings              *connect.Client[v1.ApplySettingsRequest, v1.ApplySettingsResponse]
+	exportHub                  *connect.Client[v1.ExportHubRequest, v1.ExportHubResponse]
 }
 
 // GetOrganization calls gravel.hub.v1.OrganizationService.GetOrganization.
@@ -291,6 +306,11 @@ func (c *organizationServiceClient) ApplySettings(ctx context.Context, req *conn
 	return c.applySettings.CallUnary(ctx, req)
 }
 
+// ExportHub calls gravel.hub.v1.OrganizationService.ExportHub.
+func (c *organizationServiceClient) ExportHub(ctx context.Context, req *connect.Request[v1.ExportHubRequest]) (*connect.ServerStreamForClient[v1.ExportHubResponse], error) {
+	return c.exportHub.CallServerStream(ctx, req)
+}
+
 // OrganizationServiceHandler is an implementation of the gravel.hub.v1.OrganizationService service.
 type OrganizationServiceHandler interface {
 	GetOrganization(context.Context, *connect.Request[v1.GetOrganizationRequest]) (*connect.Response[v1.GetOrganizationResponse], error)
@@ -332,6 +352,11 @@ type OrganizationServiceHandler interface {
 	// settings:write, in person. A manifest that matches the stored settings changes nothing and
 	// records no event.
 	ApplySettings(context.Context, *connect.Request[v1.ApplySettingsRequest]) (*connect.Response[v1.ApplySettingsResponse], error)
+	// ExportHub is everything the hub holds as one archive (gravel#213, docs/hub.md "Export and
+	// import"), streamed in chunks: what `gravel-hub export` writes, for a host without the box's
+	// shell (`gravel export`). The owner's alone, in person (org:transfer): it holds personal data
+	// and password hashes.
+	ExportHub(context.Context, *connect.Request[v1.ExportHubRequest], *connect.ServerStream[v1.ExportHubResponse]) error
 }
 
 // NewOrganizationServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -419,6 +444,12 @@ func NewOrganizationServiceHandler(svc OrganizationServiceHandler, opts ...conne
 		connect.WithSchema(organizationServiceMethods.ByName("ApplySettings")),
 		connect.WithHandlerOptions(opts...),
 	)
+	organizationServiceExportHubHandler := connect.NewServerStreamHandler(
+		OrganizationServiceExportHubProcedure,
+		svc.ExportHub,
+		connect.WithSchema(organizationServiceMethods.ByName("ExportHub")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/gravel.hub.v1.OrganizationService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case OrganizationServiceGetOrganizationProcedure:
@@ -447,6 +478,8 @@ func NewOrganizationServiceHandler(svc OrganizationServiceHandler, opts ...conne
 			organizationServiceCheckSettingsHandler.ServeHTTP(w, r)
 		case OrganizationServiceApplySettingsProcedure:
 			organizationServiceApplySettingsHandler.ServeHTTP(w, r)
+		case OrganizationServiceExportHubProcedure:
+			organizationServiceExportHubHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -506,4 +539,8 @@ func (UnimplementedOrganizationServiceHandler) CheckSettings(context.Context, *c
 
 func (UnimplementedOrganizationServiceHandler) ApplySettings(context.Context, *connect.Request[v1.ApplySettingsRequest]) (*connect.Response[v1.ApplySettingsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.OrganizationService.ApplySettings is not implemented"))
+}
+
+func (UnimplementedOrganizationServiceHandler) ExportHub(context.Context, *connect.Request[v1.ExportHubRequest], *connect.ServerStream[v1.ExportHubResponse]) error {
+	return connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.OrganizationService.ExportHub is not implemented"))
 }

@@ -37,6 +37,7 @@ import (
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
 	"github.com/gravel-project/gravel/internal/api"
 	"github.com/gravel-project/gravel/internal/apps"
+	"github.com/gravel-project/gravel/internal/archive"
 	"github.com/gravel-project/gravel/internal/backup"
 	"github.com/gravel-project/gravel/internal/config"
 	"github.com/gravel-project/gravel/internal/dashboards"
@@ -192,6 +193,17 @@ func NewCloudProvider(provider, token, project, version string) (cloud.Provider,
 		return digitalocean.New(digitalocean.Config{Token: token, Project: project, UserAgent: "gravel-hub/" + version})
 	}
 	return nil, fmt.Errorf("hub: no cloud %q", provider)
+}
+
+// export writes the hub's archive (gravel#213): the tables from one snapshot, the settings and
+// servers manifests beside them.
+func (h *Hub) export(ctx context.Context, w io.Writer) error {
+	files, name, err := archive.Readable(ctx, h.org, h.servers)
+	if err != nil {
+		return err
+	}
+	_, err = archive.Write(ctx, h.st, w, h.version, name, files, time.Now())
+	return err
 }
 
 // egress is the hub's own address for the game hosts' firewalls: hub.yaml's, else asked.
@@ -619,7 +631,7 @@ func (h *Hub) buildAPI() *http.ServeMux {
 	// A member's token (ADR-0015) is held to its scopes before any procedure runs.
 	interceptors := connect.WithInterceptors(h.metrics.Interceptor(), ratelimit.Interceptor(h.scopes(), h.rejected), api.MemberTokens())
 	access := api.NewAccess(h.org, h.ids, h.logger).WithServers(h.servers) // who is calling, for every capability check (ADR-0027)
-	mux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(h.org, access, h.logger).WithEvents(h.st).WithNotifiers(h.notify), interceptors))
+	mux.Handle(hubv1connect.NewOrganizationServiceHandler(api.NewOrganizationServer(h.org, access, h.logger).WithEvents(h.st).WithNotifiers(h.notify).WithExport(h.export), interceptors))
 	identityAPI := api.NewIdentityServer(h.ids, h.sess, h.org, access, h.logger).WithBaseURL(h.cfg.Auth.BaseURL)
 	identityAPI.SetProofs(h.proofs, h.servers, h.monitor)
 	mux.Handle(hubv1connect.NewIdentityServiceHandler(identityAPI, interceptors))

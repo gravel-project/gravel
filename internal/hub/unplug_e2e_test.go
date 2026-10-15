@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"github.com/jackc/pgx/v5"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
 
@@ -302,6 +303,45 @@ servers:
 	if err != nil || dash.Msg.GetAvailable() {
 		t.Errorf("ListDashboards without a store: %v %v", dash, err)
 	}
+
+	// The exit (gravel#213): the owner pulls everything over the API with the CLI, and it loads
+	// into an empty database as the same hub, the notifier the owner added included.
+	exported := filepath.Join(dir, "unplugged.tar.gz")
+	cli("", "export", "-o", exported, "--hub", base)
+	if fi, err := os.Stat(exported); err != nil || fi.Mode().Perm() != 0o600 || fi.Size() < 1000 {
+		t.Fatalf("gravel export: %v %v", fi, err)
+	}
+	newCfg := filepath.Join(dir, "new-hub.yaml")
+	writeTestFile(t, newCfg, "version: 1\norganization:\n  name: Unplugged\ndatabase:\n  url: "+emptyTestDatabase(t, "gravel_test_unplug_import")+"\n")
+	if out := host("import", exported, "--config", newCfg); !strings.Contains(out, "imported Unplugged") {
+		t.Errorf("gravel-hub import: %s", out)
+	}
+	if out := host("settings", "export", "--config", newCfg); !strings.Contains(out, "name: ops") {
+		t.Errorf("the imported hub's settings lost the notifier:\n%s", out)
+	}
+}
+
+// emptyTestDatabase makes an empty database on the test server and returns its URL.
+func emptyTestDatabase(t *testing.T, name string) string {
+	t.Helper()
+	ctx := t.Context()
+	admin, err := pgx.Connect(ctx, storetest.DatabaseURL(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = admin.Close(ctx) }()
+	ident := pgx.Identifier{name}.Sanitize()
+	for _, q := range []string{"DROP DATABASE IF EXISTS " + ident + " WITH (FORCE)", "CREATE DATABASE " + ident} {
+		if _, err := admin.Exec(ctx, q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	u, err := url.Parse(storetest.DatabaseURL(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	u.Path = "/" + name
+	return u.String()
 }
 
 // receiver is an operator's webhook: it verifies each delivery and keeps the events' kinds.

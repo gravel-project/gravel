@@ -5,6 +5,7 @@ package api
 import (
 	"context"
 	"errors"
+	"io"
 	"log/slog"
 	"strings"
 	"time"
@@ -30,6 +31,7 @@ type OrganizationServer struct {
 	events EventReader // nil: no events log (WithEvents)
 	// notifiers tests a notifier (TestNotifier); nil: the hub sends no notifications.
 	notifiers NotifierTester
+	export    HubExporter // ExportHub (gravel#213); nil: none
 	logger    *slog.Logger
 }
 
@@ -476,4 +478,51 @@ func toProto(o store.Organization, demo bool) *hubv1.Organization {
 		p.OwnerUserId = o.OwnerUserID.String()
 	}
 	return p
+}
+
+// HubExporter writes the hub's archive (internal/archive) to w.
+type HubExporter func(ctx context.Context, w io.Writer) error
+
+// WithExport serves ExportHub from the hub's archive (gravel#213); without it ExportHub is
+// unimplemented.
+func (s *OrganizationServer) WithExport(export HubExporter) *OrganizationServer {
+	s.export = export
+	return s
+}
+
+// exportChunk is how much of the archive one message carries.
+const exportChunk = 1 << 20
+
+// ExportHub streams the hub's archive: org:transfer, the owner's alone, in person.
+func (s *OrganizationServer) ExportHub(ctx context.Context, _ *connect.Request[hubv1.ExportHubRequest], stream *connect.ServerStream[hubv1.ExportHubResponse]) error {
+	if _, err := s.access.Require(ctx, authz.OrgTransfer, authz.Target{}); err != nil {
+		return err
+	}
+	if _, err := sessionCaller(ctx); err != nil {
+		return err
+	}
+	if s.export == nil {
+		return connect.NewError(connect.CodeUnimplemented, errors.New("this hub can't export"))
+	}
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	pr, pw := io.Pipe()
+	go func() { pw.CloseWithError(s.export(ctx, pw)) }()
+	buf := make([]byte, exportChunk)
+	for {
+		n, err := io.ReadFull(pr, buf)
+		if n > 0 {
+			if serr := stream.Send(&hubv1.ExportHubResponse{Chunk: buf[:n]}); serr != nil {
+				_ = pr.CloseWithError(serr)
+				return serr
+			}
+		}
+		switch {
+		case errors.Is(err, io.EOF), errors.Is(err, io.ErrUnexpectedEOF):
+			s.logger.InfoContext(ctx, "the hub was exported over the API")
+			return nil
+		case err != nil:
+			return mapError(ctx, s.logger, err)
+		}
+	}
 }

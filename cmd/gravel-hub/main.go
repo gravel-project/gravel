@@ -85,6 +85,10 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		return wardogsCmd(ctx, args, stdout, stderr)
 	case "demo":
 		return demoCmd(ctx, args, stdout, stderr)
+	case "export":
+		return exportCmd(ctx, args, stdout, stderr)
+	case "import":
+		return importCmd(ctx, args, stdout, stderr)
 	case "version":
 		fmt.Fprintln(stdout, "gravel-hub", buildVersion())
 		return 0
@@ -119,6 +123,9 @@ func usage(w io.Writer) {
                 numbers stay (ADR-0012)
   demo          a demo hub (gravel#112): wardogs-server serves a simulated War Dogs server; seed writes
                 made-up members and matches, only into an empty database of a hub with demo: true
+  export        everything the hub holds as one archive (-o FILE, written 0600), to load into a fresh
+                hub (gravel#213); it holds personal data and password hashes
+  import        load an export into an empty database, before the new hub's first start
   version       print the version
 
 apps, servers, users and stats run against the database on this host: they are for bootstrap and

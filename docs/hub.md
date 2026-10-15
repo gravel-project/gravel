@@ -2132,6 +2132,47 @@ restored to the point into a fresh volume; the script checks that exactly the ro
 point came back and that the hub's migrations are current, and prints the restore time. CI runs
 it on every pull request (the `backup` job).
 
+## Export and import (gravel#213)
+
+A hub leaves with everything it holds, and loads into a fresh one: the exit promise. An **archive**
+is one gzipped tar gravel writes itself, from one consistent snapshot while the hub runs:
+
+| File | What |
+|---|---|
+| `tables/<table>.csv` | every table's rows, with a header (Postgres COPY), in the schema the manifest names |
+| `settings.yaml` | the Organization settings, as `settings export` prints them (re-appliable) |
+| `servers.yaml` | the games, locations and servers, as `servers export` prints them |
+| `manifest.json` | the format (1), the gravel version, the schema version, when, each table's row count |
+| `README.txt` | what the archive is and how to keep it |
+
+**Logins don't travel**: sessions and their attempts, app and authorization tokens and one-time
+password links are left out (`store.NotArchived`); members sign in again on the new hub, with the
+same passwords and linked accounts. Everything else does: members, grants, servers and their hosts'
+records, stats and results, participation, the events and audit logs, bans, cloud bills. The archive
+holds personal data and password hashes: it is written 0600, and is to be kept as a backup is.
+
+```sh
+gravel-hub export -o hub.tar.gz --config hub.yaml            # on the host (stdout without -o)
+gravel export -o hub.tar.gz --hub https://hub.example.com     # the owner, in person, over the API
+```
+
+`ExportHub` (`OrganizationService`, streamed) is the API's: `org:transfer`, the owner's alone, in
+person, so a hosted hub's owner leaves without the box's shell. To load one, on the new host and
+**before the new hub's first start** (an import goes only into a database no hub has served):
+
+```sh
+gravel-hub import hub.tar.gz --config hub.yaml
+```
+
+The database is migrated to the archive's schema version, the tables load in one transaction with
+every foreign key deferred (they are all `DEFERRABLE`, migration 34) and checked at commit, the
+sequences move past the loaded ids, and the rest of this gravel's migrations run, so an archive
+from an older gravel arrives in this one's schema. An archive from a newer gravel, a database a hub
+has served, or a table that doesn't match is refused before anything changes. The secrets
+`hub.yaml` names (the database URL, the pseudonym key, provider secrets) are not in the archive:
+carry them as you carry `hub.yaml`; keep the same `stats.pseudonym_key` so pseudonyms not yet given
+come out the same. Then start the hub.
+
 ## Migrations
 
 SQL migrations live in `internal/store/migrations/` and are embedded in the binary (goose). With
