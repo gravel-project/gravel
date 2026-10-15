@@ -107,12 +107,14 @@ func TestSnapshot(t *testing.T) {
 	st := &memStore{hosts: []store.ServerHost{{ServerID: "htg-cs2-1", InstanceID: "4101", VolumeID: "v-1"}}}
 	billed := fake.New()
 	billed.SetBill(cloud.Bill{Month: time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC), GeneratedAt: time.Date(2026, 10, 15, 6, 0, 0, 0, time.UTC), Lines: []cloud.BillLine{
-		{ResourceID: "4101", Name: "htg-cs2-1", Kind: cloud.CostCompute, USD: 12.4}, // the live instance, by id
-		{ResourceID: "3999", Name: "htg-cs2-1", Kind: cloud.CostCompute, USD: 3},    // an instance parked away, by name
-		{Name: "htg-cs2-1-data", Kind: cloud.CostStorage, USD: 6.67},                // the volume
-		{Name: "htg-cs2-1-data-cs2-2026-10-12", Kind: cloud.CostStorage, USD: 0.81}, // its snapshot
-		{ResourceID: "4000", Name: "htg-hub-1", Kind: cloud.CostCompute, USD: 11.2}, // the hub's own host: uncaused
-		{Name: "htg-cs2-10", Kind: "mystery", USD: 0.1},                             // another server's name, not this one's; an unknown kind
+		{ResourceID: "4101", Name: "htg-cs2-1", Kind: cloud.CostCompute, USD: 12.4},                   // the live instance, by id
+		{ResourceID: "3999", Name: "htg-cs2-1", Kind: cloud.CostCompute, USD: 3},                      // an instance parked away, by name
+		{Name: "htg-cs2-1-data", Kind: cloud.CostStorage, USD: 6.67},                                  // the volume
+		{Name: "htg-cs2-1-data-cs2-2026-10-12", Kind: cloud.CostStorage, USD: 0.81},                   // its snapshot
+		{ResourceID: "4000", Name: "htg-hub-1", Kind: cloud.CostCompute, USD: 11.2},                   // the hub's own host: uncaused
+		{Name: "htg-cs2-10", Kind: "mystery", USD: 0.1},                                               // another server's name, not this one's; an unknown kind
+		{Name: "htg-cs2-1-data-cs2-2026-10-01", Kind: cloud.CostStorage, USD: 2.04, Unassigned: true}, // the default project's, but the hub's snapshot: kept
+		{Name: "Texas State Sales Tax Rate", Kind: cloud.CostOther, USD: 1.2, Unassigned: true},       // in no project and nobody's: dropped
 	}})
 	forbidden := fake.New()
 	forbidden.FailNext("MonthToDate", cloud.ErrForbidden)
@@ -137,7 +139,7 @@ func TestSnapshot(t *testing.T) {
 	for _, l := range st.bills[0].Lines {
 		causes = append(causes, l.ServerID+"/"+l.Kind)
 	}
-	if strings.Join(causes, " ") != "htg-cs2-1/compute htg-cs2-1/compute htg-cs2-1/storage htg-cs2-1/storage /compute /other" {
+	if strings.Join(causes, " ") != "htg-cs2-1/compute htg-cs2-1/compute htg-cs2-1/storage htg-cs2-1/storage /compute /other htg-cs2-1/storage" {
 		t.Errorf("causes = %v", causes)
 	}
 	reasons := map[string]string{}

@@ -16,13 +16,20 @@ import (
 var _ cloud.Coster = (*Provider)(nil)
 
 // MonthToDate is the team's invoice preview (generated daily) for the provider's project: each
-// item whose project_name is the project's (ADR-0034). A token without billing:read (and one
-// without project:read, which names the project) is cloud.ErrForbidden. The preview is the whole
-// team's: the other projects' items are read and dropped, never returned.
+// item whose project_name is the project's (ADR-0034), and, marked Unassigned, each item in no
+// project or in the team's default one, where DigitalOcean bills volume snapshots and a
+// Droplet's public IPv4 whatever project the resource is in (seen on HTG's preview, 2026-10-15).
+// A token without billing:read (and one without project:read, which names the project) is
+// cloud.ErrForbidden. The preview is the whole team's: another named project's items are read
+// and dropped, never returned.
 func (p *Provider) MonthToDate(ctx context.Context) (cloud.Bill, error) {
 	project, err := p.projectName(ctx)
 	if err != nil {
 		return cloud.Bill{}, forbidden(err)
+	}
+	def, _, err := p.c.Projects.GetDefault(ctx)
+	if err != nil {
+		return cloud.Bill{}, forbidden(apiErr("read the default project", err))
 	}
 	var bill cloud.Bill
 	if list, _, err := p.c.Invoices.List(ctx, &godo.ListOptions{Page: 1, PerPage: 1}); err == nil {
@@ -47,19 +54,29 @@ func (p *Provider) MonthToDate(ctx context.Context) (cloud.Bill, error) {
 		return cloud.Bill{}, forbidden(err)
 	}
 	for _, it := range items {
-		if it.ProjectName != project {
-			continue
+		unassigned := it.ProjectName == "" || (it.ProjectName == def.Name && project != def.Name)
+		if it.ProjectName != project && !unassigned {
+			continue // another project's
 		}
 		usd, err := strconv.ParseFloat(strings.TrimSpace(it.Amount), 64)
 		if err != nil {
 			return cloud.Bill{}, fmt.Errorf("digitalocean: invoice preview: %q's amount %q: %w", it.Description, it.Amount, err)
 		}
-		id := it.ResourceID
-		if id == "" {
-			id = it.ResourceUUID
+		bill.Lines = append(bill.Lines, cloud.BillLine{ResourceID: itemID(it), Name: itemName(it.Description), Product: it.Product,
+			Kind: costKind(it.Product, it.Category), Description: it.Description, USD: usd, Unassigned: unassigned})
+	}
+	// A line in no project whose resource is one of the project's own lines (a Droplet's public
+	// IPv4, by the Droplet's id) is the project's.
+	own := map[string]bool{}
+	for _, l := range bill.Lines {
+		if !l.Unassigned && l.ResourceID != "" {
+			own[l.ResourceID] = true
 		}
-		bill.Lines = append(bill.Lines, cloud.BillLine{ResourceID: id, Name: itemName(it.Description), Product: it.Product,
-			Kind: costKind(it.Product, it.Category), Description: it.Description, USD: usd})
+	}
+	for i := range bill.Lines {
+		if l := &bill.Lines[i]; l.Unassigned && own[l.ResourceID] {
+			l.Unassigned = false
+		}
 	}
 	return bill, nil
 }
@@ -109,16 +126,33 @@ func costKind(product, category string) string {
 	return cloud.CostOther
 }
 
+// itemID is the resource's id as gravel spells it: a Droplet's number, a volume's or snapshot's
+// uuid, or the id at the end of a URN ("do:droplet:608172308" on a Droplet's public IPv4).
+func itemID(it godo.InvoiceItem) string {
+	if it.ResourceID != "" {
+		return it.ResourceID
+	}
+	id := it.ResourceUUID
+	if strings.HasPrefix(id, "do:") {
+		id = id[strings.LastIndex(id, ":")+1:]
+	}
+	return id
+}
+
 // itemName is a resource's name from an item's description, which DigitalOcean writes as
-// "name (size)" (a Droplet "htg-cs2-1 (c-2-4GiB)"): what is before the bracket, without a
-// "Kind:" prefix. A description that isn't one name is returned as it is.
+// "name (detail) …" (a Droplet "htg-cs2-1 (c-2-4GiB)", a volume "htg-cs2-1-data (sfo3) -
+// 100.00GB Volume", a snapshot "htg-cs2-1-data-cs2-… (sfo3) 77.35GB Volume Snapshot", an address
+// "Public IPv4 - htg-spike-mem1 (1 instance)"): what is before the first bracket, after any
+// "Kind - " or "Kind: " prefix. A description that isn't one name is returned as it is.
 func itemName(description string) string {
 	s := strings.TrimSpace(description)
 	if i := strings.Index(s, " ("); i > 0 {
 		s = s[:i]
 	}
-	if i := strings.LastIndex(s, ": "); i >= 0 {
-		s = s[i+2:]
+	for _, sep := range []string{" - ", ": "} {
+		if i := strings.LastIndex(s, sep); i >= 0 {
+			s = s[i+len(sep):]
+		}
 	}
 	return strings.TrimSpace(s)
 }
