@@ -2,7 +2,7 @@
 // out of the dashboard (the account, the member pages) are plain links to the hub's own pages.
 import type { Transport } from "@connectrpc/connect";
 import { type QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { ReactNode } from "react";
+import { lazy, type ReactNode, Suspense } from "react";
 import { Link, Route, Router, Switch, useRoute } from "wouter";
 import type { BaseLocationHook } from "wouter";
 
@@ -14,12 +14,14 @@ import { Access } from "./pages/Access";
 import { Events } from "./pages/Events";
 import { Fleet } from "./pages/Fleet";
 import { Apps } from "./pages/Apps";
-import { Metrics } from "./pages/Metrics";
 import { People } from "./pages/People";
 import { Settings } from "./pages/Settings";
 import { Server } from "./pages/Server";
 import { type Browser, BrowserProvider, useMe, useOrganization, windowBrowser } from "./session";
 import { TransportProvider } from "./transport";
+
+// Metrics carries the charting library: it loads when it's opened, not with every page (gravel#204).
+const Metrics = lazy(() => import("./pages/Metrics").then((m) => ({ default: m.Metrics })));
 
 // The member pages say the same (internal/web/templates DemoNotice).
 export const demoNotice = "Demo data: these members, matches and stats are made up";
@@ -80,7 +82,15 @@ function Shell() {
               <People me={me.me} org={org} />
             </Route>
             <Route path="/metrics">
-              <Metrics />
+              <Suspense
+                fallback={
+                  <p role="status" className="text-muted">
+                    Loading the dashboards…
+                  </p>
+                }
+              >
+                <Metrics />
+              </Suspense>
             </Route>
             <Route path="/settings">
               <Settings />
