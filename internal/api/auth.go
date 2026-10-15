@@ -381,7 +381,17 @@ func mapError(ctx context.Context, logger *slog.Logger, err error) error {
 	case errors.Is(err, org.ErrInvalidToken):
 		return connect.NewError(connect.CodePermissionDenied, err)
 	case errors.Is(err, org.ErrInvalidSettings):
-		return connect.NewError(connect.CodeInvalidArgument, err)
+		// Each problem also travels as a FieldViolation, so a client puts it under its field
+		// (gravel#205); the message lists them all for everyone else.
+		ce := connect.NewError(connect.CodeInvalidArgument, err)
+		for _, fe := range org.FieldErrors(err) {
+			if d, derr := connect.NewErrorDetail(&hubv1.FieldViolation{Path: fe.Path, Message: fe.Message}); derr == nil {
+				ce.AddDetail(d)
+			}
+		}
+		return ce
+	case errors.Is(err, org.ErrSettingsConflict):
+		return connect.NewError(connect.CodeAborted, errors.New("the settings changed since you read them: read them again and reapply your change"))
 	case errors.Is(err, org.ErrNotOwner):
 		return connect.NewError(connect.CodePermissionDenied, err)
 	case errors.Is(err, org.ErrSelfNomination):

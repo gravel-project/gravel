@@ -34,6 +34,12 @@ patch release is everything else.
 
 ### Added
 
+- **Settings and Apps in the admin dashboard** (#205, ADR-0007, ADR-0028; H1, #182): a notifier can be added and tested from the browser.
+  - **`/admin/settings`:** forms for the notifiers (with **Send a test**), Discord's server, linked role and mod-log channel (with how to connect Discord when it isn't), public leaderboards and local accounts; a YAML tab for the whole document (check, what would change, save). The rest of Discord stays in the YAML tab for now.
+  - **`/admin/apps`:** register an app (scopes in words, `host:` scopes, redirect addresses), its secret shown once; list; revoke.
+  - **No lost edits:** `UpdateOrganizationSettings` and `ApplySettings` take `if_updated_at`, and a document changed since is refused with `aborted` (checked in the same `UPDATE` that writes, `store.UpdateOrganizationSettingsIf`); `ExportSettings` answers `updated_at`.
+  - **Errors by field:** a refused settings document carries a `FieldViolation` detail (`path`, `message`) per problem (`org.FieldError`), so the page shows each under its field; the message text is unchanged for the CLI and `gravel-hub`.
+
 - **A server's controls in the admin dashboard** (#202, ADR-0027; H1, #182): `/admin/servers/{id}`, opened from a Fleet row's **Manage**.
   - **Actions by capability × host state:** start, park, reboot and the expectation (`servers:operate`); resize and pin, unpin, snapshot and destroy (`servers:provision`), each after typing the server's id; release a live lease (`servers:lease`). A host between states offers nothing; a moderator sees no buttons; a server outside the cloud-VM driver says so. Rules in `web/admin/src/servers.ts`, mirroring the role bundles per game.
   - **Outcome:** what happened, linked to its event in the feed; a refusal in the hub's words.

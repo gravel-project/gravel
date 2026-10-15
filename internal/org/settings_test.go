@@ -752,3 +752,40 @@ func TestChangedSections(t *testing.T) {
 		}
 	}
 }
+
+// Every problem a check finds names its field (gravel#205), and still reads as it always did.
+func TestFieldErrors(t *testing.T) {
+	set, err := ParseManifest([]byte(`
+theme:
+  dark: {accent: "red; x"}
+nav:
+  - {label: Rules, url: "javascript:alert(1)"}
+notifiers:
+  - {name: "John Phone", kind: ntfy, topic: ""}
+games:
+  wardog: {nav: [{label: x, url: /x}]}
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = errors.Join(set.Validate(), set.CheckGames([]string{"cs2", "wardogs"}))
+	fes := FieldErrors(err)
+	if len(fes) < 4 {
+		t.Fatalf("%d field errors from %v", len(fes), err)
+	}
+	paths := map[string]bool{}
+	for _, fe := range fes {
+		if fe.Path == "" || fe.Message == "" || !errors.Is(fe, ErrInvalidSettings) || !strings.HasPrefix(fe.Error(), "invalid settings: "+fe.Path+": ") {
+			t.Errorf("%+v reads %q", fe, fe.Error())
+		}
+		paths[fe.Path] = true
+	}
+	for _, want := range []string{"theme.dark.accent", "nav[0].url", "games"} {
+		if !paths[want] {
+			t.Errorf("no error for %s in %v", want, paths)
+		}
+	}
+	if !strings.Contains(err.Error(), "invalid settings: nav[0].url: ") {
+		t.Errorf("the text changed: %v", err)
+	}
+}

@@ -163,18 +163,42 @@ func (s *Store) ClaimOrganization(ctx context.Context, id uuid.UUID, hash []byte
 	return Organization{}, ErrClaimRejected
 }
 
+// ErrSettingsConflict is a settings write whose caller read an older document (gravel#205).
+var ErrSettingsConflict = errors.New("the settings changed since they were read")
+
 // UpdateOrganizationSettings replaces the settings document and records it (settings.updated, by
 // by, naming the top-level sections that changed) in one transaction. ErrNotFound for an unknown
 // id.
 func (s *Store) UpdateOrganizationSettings(ctx context.Context, id uuid.UUID, settings json.RawMessage, at time.Time, by Actor, sections []string) (Organization, error) {
+	return s.UpdateOrganizationSettingsIf(ctx, id, settings, at, by, sections, nil)
+}
+
+// UpdateOrganizationSettingsIf is UpdateOrganizationSettings when the stored document was last
+// written at ifUpdatedAt (nil: whenever, or never), checked in the same statement that writes, so
+// two editors can't overwrite each other: ErrSettingsConflict otherwise.
+func (s *Store) UpdateOrganizationSettingsIf(ctx context.Context, id uuid.UUID, settings json.RawMessage, at time.Time, by Actor, sections []string, ifUpdatedAt *time.Time) (Organization, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return Organization{}, fmt.Errorf("store: update organization settings: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+	check := ifUpdatedAt != nil
+	var want *time.Time
+	if check {
+		w := ifUpdatedAt.UTC()
+		want = &w
+	}
 	o, err := scanOrganization(tx.QueryRow(ctx,
-		`UPDATE organizations SET settings = $2, settings_updated_at = $3 WHERE id = $1 RETURNING `+organizationColumns, id, settings, at))
+		`UPDATE organizations SET settings = $2, settings_updated_at = $3
+		  WHERE id = $1 AND (NOT $4 OR settings_updated_at IS NOT DISTINCT FROM $5::timestamptz) RETURNING `+organizationColumns,
+		id, settings, at, check, want))
 	if errors.Is(err, ErrNotFound) {
+		if check {
+			var exists bool
+			if qerr := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM organizations WHERE id = $1)`, id).Scan(&exists); qerr == nil && exists {
+				return Organization{}, ErrSettingsConflict
+			}
+		}
 		return Organization{}, err
 	}
 	if err != nil {

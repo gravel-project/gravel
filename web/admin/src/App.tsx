@@ -13,7 +13,9 @@ import { NotFound } from "./pages/NotFound";
 import { Access } from "./pages/Access";
 import { Events } from "./pages/Events";
 import { Fleet } from "./pages/Fleet";
+import { Apps } from "./pages/Apps";
 import { People } from "./pages/People";
+import { Settings } from "./pages/Settings";
 import { Server } from "./pages/Server";
 import { type Browser, BrowserProvider, useMe, useOrganization, windowBrowser } from "./session";
 import { TransportProvider } from "./transport";
@@ -75,6 +77,12 @@ function Shell() {
             </Route>
             <Route path="/people">
               <People me={me.me} org={org} />
+            </Route>
+            <Route path="/settings">
+              <Settings />
+            </Route>
+            <Route path="/apps">
+              <Apps />
             </Route>
             <Route path="/access">
               <Access me={me.me} org={org} />

@@ -3400,6 +3400,11 @@ components:
           type: boolean
           title: dry_run
           description: Say what would change and change nothing.
+        ifUpdatedAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: if_updated_at
+          description: 'As UpdateOrganizationSettings'': the updated_at the caller read; aborted when they changed since.'
       title: ApplySettingsRequest
       additionalProperties: false
     gravel.hub.v1.ApplySettingsResponse:
@@ -4601,8 +4606,28 @@ components:
           type: string
           title: manifest
           description: The stored settings as a manifest, notifiers included.
+        updatedAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: updated_at
+          description: 'When they were last written: ApplySettings'' if_updated_at.'
       title: ExportSettingsResponse
       additionalProperties: false
+    gravel.hub.v1.FieldViolation:
+      type: object
+      properties:
+        path:
+          type: string
+          title: path
+        message:
+          type: string
+          title: message
+      title: FieldViolation
+      additionalProperties: false
+      description: |-
+        FieldViolation is one field of a settings document the hub refused (gravel#205), attached to an
+         invalid_argument error as a detail, one per problem: the field's path as the manifest names it
+         ("notifiers[0].url") and what is wrong with it. The error's message lists the same problems.
     gravel.hub.v1.FleetAlarm:
       type: object
       properties:
@@ -8041,6 +8066,13 @@ components:
             - $ref: '#/components/schemas/gravel.hub.v1.OrganizationSettings'
           title: settings
           description: The whole document; omitted tokens mean the default, an omitted nav means no links.
+        ifUpdatedAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: if_updated_at
+          description: |-
+            The updated_at the caller read (gravel#205): when set, a document changed since is refused with
+             aborted, so two editors don't overwrite each other. Unset writes regardless (ADR-0007 §2).
       title: UpdateOrganizationSettingsRequest
       additionalProperties: false
     gravel.hub.v1.UpdateOrganizationSettingsResponse:

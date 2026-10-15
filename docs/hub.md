@@ -152,7 +152,7 @@ Public listener (`server.listen`), HTTP/1.1 and unencrypted HTTP/2 so gRPC works
 | `/gravel.hub.v1.OrganizationService/ClaimOwnership` | Connect procedure; `{"token": "…"}`; needs a session, binds the caller as owner |
 | `/gravel.hub.v1.OrganizationService/NominateOwner`, `AcceptOwnership`, `CancelOwnershipTransfer` | hand the hub over in two steps ([Ownership transfer](#ownership-transfer-adr-0027-6)): the owner nominates (`{"user_id": "…"}`, `org:transfer`), the nominee accepts within 7 days, either ends it; in person only |
 | `/gravel.hub.v1.OrganizationService/GetOrganizationSettings` | the Organization settings (theme, navigation, the Discord mapping, stats, the games' overlays); public, but the notifiers only to a caller holding `settings:write` |
-| `/gravel.hub.v1.OrganizationService/UpdateOrganizationSettings` | replace them; the owner only; `invalid_argument` names every invalid field |
+| `/gravel.hub.v1.OrganizationService/UpdateOrganizationSettings` | replace them; `settings:write`; `invalid_argument` names every invalid field, in the message and as a `FieldViolation` detail per problem (`path`, `message`; gravel#205); with `if_updated_at` (the `updated_at` the caller read) a document changed since is refused with `aborted`, so two editors don't overwrite each other; `ApplySettings` takes it too, and `ExportSettings` answers `updated_at` |
 | `/gravel.hub.v1.IdentityService/GetMe` | the caller and their linked identities; needs a session, or a member's token from an app (no scope needed: how an app learns who signed in, ADR-0015) |
 | `/gravel.hub.v1.IdentityService/UnlinkIdentity` | `{"provider": "steam", "subject": "…"}`; the last identity is refused (`failed_precondition`) |
 | `/gravel.hub.v1.IdentityService/StartProof` | `{"server_id": "…", "subject": "…"}` → a one-time code to type in that server's chat, with its id, expiry and instructions ([Proof in game](#proof-in-game-adr-0022)); `subject` (optional) is an account of the caller's to prove again; a session only, five an hour |
@@ -1651,7 +1651,8 @@ limit applies in front of all of it.
 `/admin` is the operators' dashboard: a React client of the same API as the pages, embedded in the
 binary ([ADR-0029](adr/0029-the-admin-dashboard-is-a-static-client-in-the-binary.md); the source is
 `web/admin/`). It is H1's in-progress surface: this version has the **Fleet** with each server's controls, the
-**Events**, **People** and **Your access**; settings and the rest arrive page by page.
+**Events**, **People**, **Settings**, **Apps** and **Your access**; dashboards and the rest arrive
+page by page.
 
 - **Fleet** (`/admin`, `servers:read`, which every member holds): what is up, who is playing, what
   is wrong, trouble first, from `GetFleetSummary` ([Servers](#servers-adr-0010), Fleet health). A
@@ -1687,6 +1688,18 @@ binary ([ADR-0029](adr/0029-the-admin-dashboard-is-a-static-client-in-the-binary
   outcome says what happened and links to its event (`event_id`) in the feed, and a refusal is
   shown in the hub's words. A server outside the cloud-VM driver says so; moderation stays on its
   member page.
+- **Settings** (`/admin/settings`, `settings:write`; gravel#205): the Organization settings without a
+  YAML file. A form for the **notifiers** (add, edit, pause, remove; each kind says where its secret
+  lives in hub.yaml; **Send a test** once saved), **Discord**'s server, linked role and mod-log
+  channel (and how to connect Discord when it isn't), whether the **leaderboards** are public, and
+  **local accounts** (who may register, the shortest password). Recognition, server cards, seeding,
+  presence, recaps, streamers, news and match results are edited in the **YAML** tab, which holds the
+  whole document: check it, see which sections saving would change, save. Every save writes the
+  whole document and names the one it replaces (`if_updated_at`): when someone else saved meanwhile,
+  nothing is stored and the page offers theirs. A refused field shows the hub's message under it.
+- **Apps** (`/admin/apps`, `apps:manage`): register an app (its name, the scopes it may hold, each
+  said in words, its own `host:` scopes and redirect addresses); its secret is shown once, with Copy
+  and Done; list the apps, revoked ones marked; revoke one (asked first).
 - **People** (`/admin/people`, `identity:read`: admins and moderators; and the member the owner
   nominated, whatever they hold): every member, 100 a page, with their accounts, when they joined
   and last logged in, and their roles, each grant named with its game. Every people action is here
