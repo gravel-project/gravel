@@ -82,6 +82,14 @@ type rollupStore struct {
 	oldestPart  time.Time
 	partPeriods []store.Period
 	partMoved   int
+
+	retireCutoff time.Time
+	retired      store.Retired
+}
+
+func (r *rollupStore) RetireResults(_ context.Context, _ uuid.UUID, cutoff time.Time) (store.Retired, error) {
+	r.retireCutoff = cutoff
+	return r.retired, nil
 }
 
 func (r *rollupStore) OldestRawParticipation(context.Context, uuid.UUID) (time.Time, error) {
@@ -121,6 +129,21 @@ func TestRetentionRun(t *testing.T) {
 		r := NewRetention(st, uuid.New(), func(context.Context) (org.Stats, error) { return set, nil }, &changes, reg, slog.New(slog.NewTextHandler(io.Discard, nil)))
 		r.now = func() time.Time { return time.Date(2026, 10, 10, 12, 0, 0, 0, time.UTC) }
 		return r, reg
+	}
+
+	// Match results past the window are retired on every run, whatever else is due (#216), from
+	// the same cutoff: the start of May in Chicago for six months from October.
+	st0 := &rollupStore{retired: store.Retired{Results: 2, Rows: 9}}
+	r0, _ := newRun(st0)
+	if err := r0.Run(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	chicago, _ := time.LoadLocation("America/Chicago")
+	if want := time.Date(2026, 5, 1, 0, 0, 0, 0, chicago); !st0.retireCutoff.Equal(want) {
+		t.Errorf("retired before %v, want %v", st0.retireCutoff, want)
+	}
+	if n := testutil.ToFloat64(r0.retired); n != 2 {
+		t.Errorf("retired results metric = %v", n)
 	}
 
 	// No raw rows, or none past the window: nothing is rolled.

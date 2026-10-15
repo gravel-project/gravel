@@ -1794,8 +1794,10 @@ type EraseIdentityResponse struct {
 	ParticipationMonthlyRows int32                  `protobuf:"varint,4,opt,name=participation_monthly_rows,json=participationMonthlyRows,proto3" json:"participation_monthly_rows,omitempty"`
 	IngestBatches            int32                  `protobuf:"varint,5,opt,name=ingest_batches,json=ingestBatches,proto3" json:"ingest_batches,omitempty"`
 	PseudonymDeleted         bool                   `protobuf:"varint,6,opt,name=pseudonym_deleted,json=pseudonymDeleted,proto3" json:"pseudonym_deleted,omitempty"`
-	unknownFields            protoimpl.UnknownFields
-	sizeCache                protoimpl.SizeCache
+	// Match results' player rows (ADR-0024), one per map the identity played; their names blanked.
+	ResultRows    int32 `protobuf:"varint,7,opt,name=result_rows,json=resultRows,proto3" json:"result_rows,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *EraseIdentityResponse) Reset() {
@@ -1868,6 +1870,13 @@ func (x *EraseIdentityResponse) GetPseudonymDeleted() bool {
 		return x.PseudonymDeleted
 	}
 	return false
+}
+
+func (x *EraseIdentityResponse) GetResultRows() int32 {
+	if x != nil {
+		return x.ResultRows
+	}
+	return 0
 }
 
 // MatchResult is one series a server's match plugin ran.
@@ -2977,7 +2986,7 @@ const file_gravel_hub_v1_stats_proto_rawDesc = "" +
 	"\aseconds\x18\a \x01(\x05R\aseconds\"L\n" +
 	"\x14EraseIdentityRequest\x12\x1a\n" +
 	"\bprovider\x18\x01 \x01(\tR\bprovider\x12\x18\n" +
-	"\asubject\x18\x02 \x01(\tR\asubject\"\x9a\x02\n" +
+	"\asubject\x18\x02 \x01(\tR\asubject\"\xbb\x02\n" +
 	"\x15EraseIdentityResponse\x12\x1d\n" +
 	"\n" +
 	"match_rows\x18\x01 \x01(\x05R\tmatchRows\x12!\n" +
@@ -2985,7 +2994,9 @@ const file_gravel_hub_v1_stats_proto_rawDesc = "" +
 	"\x12participation_rows\x18\x03 \x01(\x05R\x11participationRows\x12<\n" +
 	"\x1aparticipation_monthly_rows\x18\x04 \x01(\x05R\x18participationMonthlyRows\x12%\n" +
 	"\x0eingest_batches\x18\x05 \x01(\x05R\ringestBatches\x12+\n" +
-	"\x11pseudonym_deleted\x18\x06 \x01(\bR\x10pseudonymDeleted\"\xe9\x03\n" +
+	"\x11pseudonym_deleted\x18\x06 \x01(\bR\x10pseudonymDeleted\x12\x1f\n" +
+	"\vresult_rows\x18\a \x01(\x05R\n" +
+	"resultRows\"\xe9\x03\n" +
 	"\vMatchResult\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\tserver_id\x18\x02 \x01(\tR\bserverId\x12\x19\n" +

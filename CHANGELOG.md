@@ -275,6 +275,7 @@ patch release is everything else.
 
 ### Fixed
 
+- **Match results' players are erased and retired like every identity-linked row** (#216, ADR-0012, ADR-0024): `match_result_players` escaped both. `stats erase` now re-keys a player's result rows and blanks their in-game name, and `EraseIdentityResponse.result_rows`, `gravel stats erase` and `gravel-hub stats erase` count them ("N match result rows", before the ingest batches). The `stats_rollup` job anonymises the players of every series that ended before the raw retention cutoff, each with a random token of their own in that series, so the scoreboard stays and nobody is named; `gravel_stats_results_retired_total` (Stats row) counts the series.
 - A 52 MB `gravel-hub` binary was committed at the repository's root with #235; it is removed, and `.gitignore` keeps out the binaries `go build ./cmd/<name>` drops there. The blob stays in the history.
 - `make hub-vm` names the failed systemd units and their journals when cloud-init reports "systemd unit failure", which said nothing about which unit.
 

@@ -29,11 +29,13 @@ type RollupStore interface {
 	OldestRawParticipation(ctx context.Context, orgID uuid.UUID) (time.Time, error)
 	RollUpParticipation(ctx context.Context, orgID uuid.UUID, timezone string, periods []store.Period) (int, error)
 	EraseIdentity(ctx context.Context, orgID uuid.UUID, key store.PlayerKey, token string, by store.Actor, at time.Time) (store.Erasure, error)
+	RetireResults(ctx context.Context, orgID uuid.UUID, cutoff time.Time) (store.Retired, error)
 }
 
 // Retention rolls a player's per-match rows, and participation events (ADR-0014), into monthly
 // totals once they pass the Organization settings' stats.raw_retention_months (ADR-0012 §6), so
-// no raw row is older than the window and the boards keep their numbers.
+// no raw row is older than the window and the boards keep their numbers. Match results past the
+// same window keep their scoreboards with their players anonymised (ADR-0024, #216).
 type Retention struct {
 	st       RollupStore
 	orgID    uuid.UUID
@@ -42,6 +44,7 @@ type Retention struct {
 	logger   *slog.Logger
 	now      func() time.Time
 	rows     prometheus.Counter
+	retired  prometheus.Counter
 }
 
 // NewRetention builds the rollup and registers its metric; changes is bumped when it moves rows,
@@ -50,8 +53,11 @@ func NewRetention(st RollupStore, orgID uuid.UUID, settings SettingsSource, chan
 	r := &Retention{st: st, orgID: orgID, settings: settings, changes: changes, logger: logger, now: time.Now,
 		rows: prometheus.NewCounter(prometheus.CounterOpts{
 			Name: "gravel_stats_rolled_rows_total", Help: "Per-match player rows rolled up into monthly totals past the raw retention window (ADR-0012).",
+		}),
+		retired: prometheus.NewCounter(prometheus.CounterOpts{
+			Name: "gravel_stats_results_retired_total", Help: "Match results past the raw retention window whose players were anonymised (ADR-0024, #216).",
 		})}
-	reg.MustRegister(r.rows)
+	reg.MustRegister(r.rows, r.retired)
 	return r
 }
 
@@ -113,6 +119,15 @@ func (r *Retention) Run(ctx context.Context) error {
 	}
 	loc := set.Location()
 	cutoff := Cutoff(r.now(), loc, set.RawRetentionMonthsOrDefault())
+	retired, err := r.st.RetireResults(ctx, r.orgID, cutoff)
+	if err != nil {
+		return err
+	}
+	r.retired.Add(float64(retired.Results))
+	if retired.Rows > 0 {
+		r.logger.InfoContext(ctx, "stats: anonymised the players of match results past the retention window", "results", retired.Results,
+			"rows", retired.Rows, "before", cutoff.Format(time.DateOnly), "retention_months", set.RawRetentionMonthsOrDefault())
+	}
 	due := func(t time.Time) bool { return !t.IsZero() && t.Before(cutoff) }
 	if !due(oldestMatch) && !due(oldestPart) {
 		return nil
@@ -157,8 +172,8 @@ func oldestOrZero(at time.Time, err error) (time.Time, error) {
 // ErrInvalidErasure is an erasure request without an identity.
 var ErrInvalidErasure = errors.New("stats: an erasure needs a provider and a subject")
 
-// Erase replaces a player's identity in the stats tables, participation included (ADR-0014), and
-// the stored ingest batches with a random token, and deletes their pseudonym (ADR-0012 §7). The numbers stay, shown as a deleted
+// Erase replaces a player's identity in the stats tables, participation (ADR-0014) and match
+// results (ADR-0024) included, and the stored ingest batches with a random token, and deletes their pseudonym (ADR-0012 §7). The numbers stay, shown as a deleted
 // player; nothing maps the token back to the identity. A player still on a server is recorded
 // under their identity again from the next poll. The events log records that by erased someone
 // (stats.erased), never whom.

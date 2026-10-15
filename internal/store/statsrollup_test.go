@@ -134,14 +134,26 @@ func TestEraseIdentity(t *testing.T) {
 	if _, err := st.AddPseudonym(ctx, o.ID, store.PlayerKey{Provider: "steam", Subject: victim}, "Brave Falcon", time.Now()); err != nil {
 		t.Fatal(err)
 	}
+	// A two-map series with the player on both maps, beside another player (ADR-0024).
+	res := playResult(t, st, o.ID, 1, time.Date(2026, 10, 5, 20, 0, 0, 0, time.UTC), true, map[int][]string{1: {victim, "2"}, 2: {victim, "2"}})
 
 	const token = "0123456789abcdef0123456789abcdef"
 	got, err := st.EraseIdentity(ctx, o.ID, store.PlayerKey{Provider: "steam", Subject: victim}, token, store.Actor{Via: store.ViaCLI}, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got != (store.Erasure{MatchRows: 1, MonthlyRows: 1, IngestBatches: 1, Pseudonym: true}) {
+	if got != (store.Erasure{MatchRows: 1, MonthlyRows: 1, ResultRows: 2, IngestBatches: 1, Pseudonym: true}) {
 		t.Errorf("erasure = %+v", got)
+	}
+	r, err := st.GetMatchResult(ctx, o.ID, res)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range r.Players {
+		erased := p.Provider == store.ErasedProvider && p.Subject == token && p.Name == "" && p.Kills == 5
+		if (p.Subject == "2") == erased || p.Subject == victim {
+			t.Errorf("result player %+v", p)
+		}
 	}
 	rows, err := st.Board(ctx, store.BoardQuery{OrganizationID: o.ID, Trusts: []string{"official"}, Metric: store.BoardKills, MinMatches: 1, Limit: 10})
 	if err != nil {
@@ -178,6 +190,101 @@ func TestEraseIdentity(t *testing.T) {
 	if _, err := st.OldestRawMatch(ctx, uuid.New()); !errors.Is(err, store.ErrNotFound) {
 		t.Errorf("an organization without matches: %v", err)
 	}
+}
+
+// Retiring anonymises the players of every series that ended before the cutoff, each player with
+// a token of their own in that series (the same on each map, a different one in the next series),
+// keeps the scoreboard, leaves later and unfinished series alone, and does nothing the second time.
+func TestRetireResults(t *testing.T) {
+	st := storetest.Open(t)
+	storetest.Reset(t, st)
+	ctx := context.Background()
+	o := newOrg(t, st)
+	seedServers(t, st, o.ID)
+	cutoff := time.Date(2025, 11, 1, 5, 0, 0, 0, time.UTC)
+	old1 := playResult(t, st, o.ID, 1, cutoff.Add(-48*time.Hour), true, map[int][]string{1: {"1", "2"}, 2: {"1", "2"}})
+	old2 := playResult(t, st, o.ID, 2, cutoff.Add(-24*time.Hour), true, map[int][]string{1: {"1"}})
+	boundary := playResult(t, st, o.ID, 3, cutoff.Add(-time.Hour), true, map[int][]string{1: {"1"}}) // ends at the cutoff exactly
+	running := playResult(t, st, o.ID, 4, cutoff.Add(-72*time.Hour), false, map[int][]string{1: {"1"}})
+	recent := playResult(t, st, o.ID, 5, cutoff.Add(24*time.Hour), true, map[int][]string{1: {"1"}})
+
+	got, err := st.RetireResults(ctx, o.ID, cutoff)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != (store.Retired{Results: 2, Rows: 5}) {
+		t.Errorf("retired = %+v, want 2 results and 5 rows", got)
+	}
+	players := func(org, id uuid.UUID) []store.MatchResultPlayer {
+		r, err := st.GetMatchResult(ctx, org, id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return r.Players
+	}
+	tokens := map[string]map[int]string{} // series → kills → token (kills tell the players apart)
+	for name, id := range map[string]uuid.UUID{"old1": old1, "old2": old2} {
+		tokens[name] = map[int]string{}
+		for _, p := range players(o.ID, id) {
+			if p.Provider != store.ErasedProvider || p.Name != "" || len(p.Subject) != 32 || p.Subject == "1" || p.Subject == "2" {
+				t.Errorf("%s: a player was not anonymised: %+v", name, p)
+			}
+			if prev, ok := tokens[name][p.Kills]; ok && prev != p.Subject {
+				t.Errorf("%s: one player has two tokens across its maps: %s, %s", name, prev, p.Subject)
+			}
+			tokens[name][p.Kills] = p.Subject
+		}
+	}
+	if tokens["old1"][10] == tokens["old1"][20] || tokens["old1"][10] == tokens["old2"][10] {
+		t.Errorf("tokens link players: %v", tokens)
+	}
+	for name, id := range map[string]uuid.UUID{"boundary": boundary, "running": running, "recent": recent} {
+		for _, p := range players(o.ID, id) {
+			if p.Provider != "steam" || p.Name == "" {
+				t.Errorf("%s was retired: %+v", name, p)
+			}
+		}
+	}
+	if again, err := st.RetireResults(ctx, o.ID, cutoff); err != nil || again != (store.Retired{}) {
+		t.Errorf("a second run = %+v, %v", again, err)
+	}
+	if none, err := st.RetireResults(ctx, uuid.New(), cutoff.Add(1000*time.Hour)); err != nil || none != (store.Retired{}) {
+		t.Errorf("another organization = %+v, %v", none, err)
+	}
+}
+
+// playResult records a series on wd-1 that started at start and, when ended, ended an hour later:
+// its maps by number, each with players by subject; a player's kills are 10 × their subject.
+func playResult(t *testing.T, st *store.Store, orgID uuid.UUID, externalID int64, start time.Time, ended bool, maps map[int][]string) uuid.UUID {
+	t.Helper()
+	ctx := context.Background()
+	r, err := st.StartMatchResult(ctx, store.MatchResult{ID: uuid.New(), OrganizationID: orgID, ServerID: "wd-1", Source: "matchzy", ExternalID: externalID,
+		NumMaps: len(maps), StartedAt: start})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for m, subjects := range maps {
+		var ps []store.MatchResultPlayer
+		for i, s := range subjects {
+			kills := 10
+			if s != "1" && s != "76561190000000001" {
+				kills = 20
+			}
+			if s == "76561190000000001" {
+				kills = 5
+			}
+			ps = append(ps, store.MatchResultPlayer{Provider: "steam", Subject: s, Name: "Player " + s, Team: []string{"team1", "team2"}[i%2], Kills: kills})
+		}
+		if err := st.ReplaceMatchResultPlayers(ctx, r.ID, m, ps); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if ended {
+		if err := st.EndMatchResult(ctx, r.ID, 1, 0, "team1", start.Add(time.Hour)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return r.ID
 }
 
 func seedServers(t *testing.T, st *store.Store, orgID uuid.UUID) {

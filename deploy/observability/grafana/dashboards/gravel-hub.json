@@ -4599,6 +4599,70 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
+      "description": "Match results past stats.raw_retention_months whose players were anonymised, each with a token of their own in the series (#216). The scoreboards stay; nobody is named.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 198
+      },
+      "id": 79,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(increase(gravel_stats_results_retired_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "results",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Match results retired",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
       "description": "The rollup job runs every 6 hours; much over that means it is failing (gravel_hub_jobs_total, result error). Prometheus stores the runner's job label as exported_job, since the scrape's own job label wins.",
       "fieldConfig": {
         "defaults": {
@@ -4621,10 +4685,10 @@
       "gridPos": {
         "h": 4,
         "w": 12,
-        "x": 12,
-        "y": 198
+        "x": 0,
+        "y": 206
       },
-      "id": 79,
+      "id": 80,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -4689,9 +4753,9 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 206
+        "y": 210
       },
-      "id": 80,
+      "id": 81,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4724,9 +4788,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 214
+        "y": 218
       },
-      "id": 81,
+      "id": 82,
       "panels": [],
       "title": "Ingestion",
       "type": "row"
@@ -4768,9 +4832,9 @@
         "h": 4,
         "w": 8,
         "x": 0,
-        "y": 215
+        "y": 219
       },
-      "id": 82,
+      "id": 83,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -4836,9 +4900,9 @@
         "h": 8,
         "w": 16,
         "x": 8,
-        "y": 215
+        "y": 219
       },
-      "id": 83,
+      "id": 84,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4871,9 +4935,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 223
+        "y": 227
       },
-      "id": 84,
+      "id": 85,
       "panels": [],
       "title": "Background jobs",
       "type": "row"
@@ -4913,9 +4977,9 @@
         "h": 8,
         "w": 16,
         "x": 0,
-        "y": 224
+        "y": 228
       },
-      "id": 85,
+      "id": 86,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4970,9 +5034,9 @@
         "h": 4,
         "w": 8,
         "x": 16,
-        "y": 224
+        "y": 228
       },
-      "id": 86,
+      "id": 87,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -5008,9 +5072,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 232
+        "y": 236
       },
-      "id": 87,
+      "id": 88,
       "panels": [],
       "title": "Events",
       "type": "row"
@@ -5051,9 +5115,9 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 233
+        "y": 237
       },
-      "id": 88,
+      "id": 89,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5116,9 +5180,9 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 241
+        "y": 245
       },
-      "id": 89,
+      "id": 90,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5181,9 +5245,9 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 241
+        "y": 245
       },
-      "id": 90,
+      "id": 91,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5216,9 +5280,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 249
+        "y": 253
       },
-      "id": 91,
+      "id": 92,
       "panels": [],
       "title": "Runtime",
       "type": "row"
@@ -5257,9 +5321,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 250
+        "y": 254
       },
-      "id": 92,
+      "id": 93,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5320,9 +5384,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 250
+        "y": 254
       },
-      "id": 93,
+      "id": 94,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5383,9 +5447,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 250
+        "y": 254
       },
-      "id": 94,
+      "id": 95,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5446,9 +5510,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 258
+        "y": 262
       },
-      "id": 95,
+      "id": 96,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5509,9 +5573,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 258
+        "y": 262
       },
-      "id": 96,
+      "id": 97,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5572,9 +5636,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 258
+        "y": 262
       },
-      "id": 97,
+      "id": 98,
       "options": {
         "legend": {
           "displayMode": "list",

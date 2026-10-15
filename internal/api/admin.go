@@ -222,7 +222,7 @@ func (s *StatsServer) EraseIdentity(ctx context.Context, req *connect.Request[hu
 		return nil, mapError(ctx, s.logger, err)
 	}
 	return connect.NewResponse(&hubv1.EraseIdentityResponse{MatchRows: int32(got.MatchRows), MonthlyRows: int32(got.MonthlyRows), //nolint:gosec // row counts
-		ParticipationRows: int32(got.ParticipationRows), ParticipationMonthlyRows: int32(got.ParticipationMonthlyRows), //nolint:gosec // row counts
+		ParticipationRows: int32(got.ParticipationRows), ParticipationMonthlyRows: int32(got.ParticipationMonthlyRows), ResultRows: int32(got.ResultRows), //nolint:gosec // row counts
 		IngestBatches: int32(got.IngestBatches), PseudonymDeleted: got.Pseudonym}), nil //nolint:gosec // row counts
 }
 

@@ -257,6 +257,8 @@ message EraseIdentityResponse {
   int32 participation_monthly_rows = 4;
   int32 ingest_batches = 5;
   bool pseudonym_deleted = 6;
+  // Match results' player rows (ADR-0024), one per map the identity played; their names blanked.
+  int32 result_rows = 7;
 }
 
 // first-party apps, on boards of its own (ADR-0014).
