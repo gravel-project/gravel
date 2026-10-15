@@ -2,8 +2,9 @@
 // token, JSON bodies, and a configuration document in INI form (ADR-0010).
 //
 // War Dogs is in Early Access and its API changes every few weeks, so nothing here assumes a route
-// exists. The server says what it serves at GET /v1/capabilities (public, like GET /v1/health);
-// [Capabilities] matches those routes by shape, so a parameter renamed between builds ({id} versus
+// exists. The server says what it serves at GET /v1/capabilities (public up to CL-509546; from
+// Season 02, CL-516586, only with the token, which the client sends whenever it has one; GET
+// /v1/health stays public); [Capabilities] matches those routes by shape, so a parameter renamed between builds ({id} versus
 // {steamId}) is the same route and a route that is gone is a capability that is absent. A call
 // whose route the server does not advertise fails with [ErrNotSupported] without a request.
 // Parsing is tolerant: unknown fields are ignored and enum values are kept as strings.

@@ -275,9 +275,10 @@ func TestMonitorWatchesTheBuild(t *testing.T) {
 			t.Errorf("the log lacks %q:\n%s", want, logs)
 		}
 	}
+	// Season 02 answers the capabilities only with the token, so the watcher always sends it.
 	for _, req := range r.fake.Requests() {
-		if req.HadToken && req.Path == "/v1/capabilities" {
-			t.Errorf("the watcher sent the credential to the public route")
+		if req.Path == "/v1/capabilities" && !req.Authorized {
+			t.Errorf("the watcher read the capabilities without the token")
 		}
 	}
 

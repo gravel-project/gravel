@@ -1132,7 +1132,12 @@ the edge, as HTG does with `ingest.hiddentoken.com` through its Tunnel).
   secret (`openssl rand -hex 32`), apply. The hub reads the token file every 30 s (job
   `ingest_feeds`). Then apply the server's configuration (`ApplyServerConfig`, Configuration above):
   the driver writes `[WDServerFeed]` from the manifest. War Dogs applies that section at the next
-  restart, so the feed starts after the host's next restart.
+  restart, so the feed starts after the host's next restart. **From Season 02 (CL-516586) War Dogs
+  takes the feed only from the server's own config file** (`bEventFeedEnabled`,
+  `EventFeedEndpoints` and `EventFeedServerName` in `[/Script/WDRCON.WDRCONSettings]`, file only):
+  the schema has no `[WDServerFeed]`, so the driver writes no feed, the plan and the apply carry a
+  warning saying so, and the host sets the feed in that file. `GET /v1/feed` on the server says
+  whether it is on.
 - **Rotating the token.** Put the new token on the first line of the file and the old one on the
   second, apply the configuration, and leave both. The hub accepts the old one for 48 hours from
   when it first read it, which covers a daily restart. Then remove the second line.
@@ -1401,9 +1406,10 @@ holds the RCON password it accepts; put the same one in `servers.yaml`'s `creden
   routes for a minute (429 with Retry-After); 600 requests a minute; 64 KiB bodies.
 - **Optional flags:** `--name` (default "Demo War Dogs server (made-up players)"; the recording's
   name is a real community's), `--build` (an older recording), and `--feed-url` with
-  `--feed-token-file` (start with `[WDServerFeed]` set).
+  `--feed-token-file` (start with the feed set, as the host's own file would: `[WDServerFeed]` on
+  CL-509546; Season 02 takes it from the file alone).
 - **State:** it keeps everything in memory, so a restart starts from the recording again.
-- **The feed:** with `[WDServerFeed] Url` and `Token` in force, it posts kill batches to
+- **The feed:** with a feed `Url` and `Token` in force, it posts kill batches to
   `<Url>/api/ingest/events` every 2 s. The batch's shape is a guess until a real one is captured
   (hidden-token-gaming/deploy#49). It is a JSON array of `{eventId, timestampUtc, killerSteamId,
   victimSteamId, distance}` and lives in `wardogsim/feed.go` alone. The hub stores batches without

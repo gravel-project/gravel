@@ -1,0 +1,15 @@
+{
+  "build": "++Wardogs+Live-CL-516586",
+  "engine": {
+    "branch": "//Wardogs/Live",
+    "changelist": 516586,
+    "compatibleChangelist": 516573,
+    "major": 5,
+    "minor": 7,
+    "patch": 4
+  },
+  "project": {
+    "name": "Wardogs",
+    "version": "v0.2.0"
+  }
+}

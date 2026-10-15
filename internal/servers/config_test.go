@@ -39,7 +39,10 @@ func (c *liveConfig) handle(h map[string]http.HandlerFunc) {
 	h["GET /v1/config"] = func(w http.ResponseWriter, _ *http.Request) {
 		c.mu.Lock()
 		defer c.mu.Unlock()
-		_ = json.NewEncoder(w).Encode(map[string]any{"revision": c.rev(), "writable": true, "text": c.text})
+		// The schema's feed section, as CL-509546 has it: the driver writes the feed only where
+		// the build takes it over RCON.
+		_ = json.NewEncoder(w).Encode(map[string]any{"revision": c.rev(), "writable": true, "text": c.text,
+			"sections": []map[string]any{{"section": "WDServerFeed", "appliesWhen": "next-restart", "allowedKeys": []string{"Token", "Url"}}}})
 	}
 	h["POST /v1/config/validate"] = func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = io.WriteString(w, `{"ok":true,"outcomes":[{"section":"MatchState.Playing.KOTH","state":"next-match"}]}`)

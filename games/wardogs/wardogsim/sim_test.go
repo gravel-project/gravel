@@ -271,8 +271,14 @@ func TestContract(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if doc.Revision == "" || !strings.Contains(doc.Text, "\r\n") || !strings.Contains(doc.Text, "Password="+testToken) || len(doc.Sections) != 8 {
+	if doc.Revision == "" || !strings.Contains(doc.Text, "\r\n") || !strings.Contains(doc.Text, "Password="+testToken) || len(doc.Sections) != len(r.sim.sections) {
 		t.Errorf("config: revision %q, sections %d", doc.Revision, len(doc.Sections))
+	}
+	if v, err := r.c.Version(ctx); err != nil || v.Build != caps.Build || v.Engine.Changelist == 0 {
+		t.Errorf("version: %+v %v", v, err)
+	}
+	if f, err := r.c.Feed(ctx); err != nil || f.Enabled || f.EndpointCount != 0 {
+		t.Errorf("feed with none set: %+v %v", f, err)
 	}
 }
 
@@ -458,8 +464,9 @@ func TestModeration(t *testing.T) {
 	}
 }
 
+// TestConfigRoundTrip runs on CL-509546, the build whose schema has the [WDServerFeed] section.
 func TestConfigRoundTrip(t *testing.T) {
-	r := newRig(t, Options{Profile: busy(), Seed: 5})
+	r := newRig(t, Options{Profile: busy(), Seed: 5, Build: "CL-509546"})
 	ctx := context.Background()
 	doc, err := r.c.Config(ctx)
 	if err != nil {
@@ -539,7 +546,7 @@ func TestRestartReadsTheFeedSection(t *testing.T) {
 	p := busy()
 	hour := 21
 	p.RestartHour = &hour
-	r := newRig(t, Options{Profile: p, Seed: 6})
+	r := newRig(t, Options{Profile: p, Seed: 6, Build: "CL-509546"})
 	ctx := context.Background()
 	doc, _ := r.c.Config(ctx)
 	d := wardogs.ParseDoc(doc.Text)
@@ -564,6 +571,11 @@ func TestRestartReadsTheFeedSection(t *testing.T) {
 func TestTokenThrottle(t *testing.T) {
 	r := newRig(t, Options{Profile: busy(), Seed: 7})
 	ctx := context.Background()
+	// The client learns the routes first: from Season 02 that read needs the token too, and the
+	// lock below would refuse it.
+	if _, err := r.c.Capabilities(ctx); err != nil {
+		t.Fatal(err)
+	}
 	wrong, err := wardogs.New(r.srv.URL, wardogs.Options{Token: "wrong", Now: r.clk.Now})
 	if err != nil {
 		t.Fatal(err)
@@ -653,6 +665,43 @@ func TestFeed(t *testing.T) {
 		}
 	case <-time.After(20 * time.Second):
 		t.Fatal("no batch reached the sink")
+	}
+}
+
+// TestSeason02FeedIsFileOnly: from CL-516586 the feed is set in the server's own file. A
+// [WDServerFeed] written over RCON is stripped as an unknown section and no restart turns it on;
+// the host's file (FeedURL here) does, and GET /v1/feed says so. The recording's own redacted
+// feed section is no feed.
+func TestSeason02FeedIsFileOnly(t *testing.T) {
+	p := busy()
+	hour := 21
+	p.RestartHour = &hour
+	r := newRig(t, Options{Profile: p, Seed: 9, Build: "CL-516586"})
+	ctx := context.Background()
+	doc, err := r.c.Config(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := doc.Schema(secFeed); ok {
+		t.Fatalf("CL-516586's schema has %s", secFeed)
+	}
+	d := wardogs.ParseDoc(doc.Text)
+	d.SetSection(wardogs.DocSection{Name: secFeed, Lines: []wardogs.DocLine{{Key: "Url", Value: "http://127.0.0.1:1"}, {Key: "Token", Value: "feed"}}})
+	res, err := r.c.PutConfig(ctx, d.String(), doc.Revision, wardogs.ApplyOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.ContainsFunc(res.Stripped, func(s wardogs.Stripped) bool { return s.Section == secFeed && s.Reason == "unknown_section" }) {
+		t.Errorf("the feed section was not stripped: %+v", res.Stripped)
+	}
+	r.clk.Add(time.Hour + time.Minute) // past 21:00
+	if f, err := r.c.Feed(ctx); err != nil || f.Enabled {
+		t.Errorf("the feed after a restart: %+v %v", f, err)
+	}
+
+	host := newRig(t, Options{Profile: busy(), Seed: 9, Build: "CL-516586", FeedURL: "http://127.0.0.1:1", FeedToken: "feed"})
+	if f, err := host.c.Feed(ctx); err != nil || !f.Enabled || f.EndpointCount != 1 {
+		t.Errorf("the feed from the host's file: %+v %v", f, err)
 	}
 }
 

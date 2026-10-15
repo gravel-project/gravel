@@ -17,11 +17,13 @@
 //   - Moderation works (kick, kill, message, broadcast, move, ban, unban), and so do the
 //     configuration's get, validate and put with the revision and If-Match. A write takes effect
 //     when its section's schema says: at once, at the next match, or at the daily restart
-//     (Profile.RestartHour), which is also when [WDServerFeed] is read.
+//     (Profile.RestartHour), which is also when [WDServerFeed] is read on a build whose schema
+//     has it (CL-509546). Season 02 (CL-516586) strips it as an unknown section: its feed comes
+//     only from the server's own file, here Options.FeedURL, and GET /v1/feed reports it.
 //   - The server's rules hold: three requests with a missing or wrong token lock the address's
 //     protected routes for a minute (429 with Retry-After), 600 requests a minute per address,
 //     64 KiB bodies, and the admin log is a ring of the newest 500 lines.
-//   - With [WDServerFeed] Url (and Token) in force, kills go out in batches to Url + FeedPath. The
+//   - With a feed Url (and Token) in force, kills go out in batches to Url + FeedPath. The
 //     batch's shape is a documented guess (feed.go): no real batch is recorded yet.
 //
 // What the recording does not show, the simulator decides and says so: the player object follows

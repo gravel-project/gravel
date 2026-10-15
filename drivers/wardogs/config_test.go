@@ -35,6 +35,22 @@ type configServer struct {
 	ifMatch  []string
 	reject   bool
 	moveOnce bool // the next PUT answers 412 after the document moved
+	// season02 serves CL-516586's schema: no [WDServerFeed] section, the feed's keys file only
+	// in the RCON section.
+	season02 bool
+}
+
+func (c *configServer) schema() []map[string]any {
+	locks := []map[string]any{{"key": "Port", "writable": false, "lockedBy": "RCONPort"}}
+	if c.season02 {
+		locks = append(locks, map[string]any{"key": "EventFeedEndpoints", "appliesWhen": "next-restart", "writable": false, "fileOnly": true})
+		return []map[string]any{{"section": "/Script/WDRCON.WDRCONSettings", "appliesWhen": "next-restart",
+			"allowedKeys": []string{"EventFeedEndpoints", "Password", "Port"}, "keyOverrides": locks}}
+	}
+	return []map[string]any{
+		{"section": "/Script/WDRCON.WDRCONSettings", "appliesWhen": "next-restart", "allowedKeys": []string{"Password", "Port"}, "keyOverrides": locks},
+		{"section": "WDServerFeed", "appliesWhen": "next-restart", "allowedKeys": []string{"Token", "Url"}},
+	}
 }
 
 func (c *configServer) handlers() map[string]http.HandlerFunc {
@@ -43,9 +59,7 @@ func (c *configServer) handlers() map[string]http.HandlerFunc {
 			c.mu.Lock()
 			defer c.mu.Unlock()
 			w.Header().Set("ETag", `"`+c.revision+`"`)
-			_ = json.NewEncoder(w).Encode(map[string]any{"revision": c.revision, "writable": true, "text": c.text,
-				"sections": []map[string]any{{"section": "/Script/WDRCON.WDRCONSettings", "appliesWhen": "next-restart", "allowedKeys": []string{"Password", "Port"},
-					"keyOverrides": []map[string]any{{"key": "Port", "writable": false, "lockedBy": "RCONPort"}}}}})
+			_ = json.NewEncoder(w).Encode(map[string]any{"revision": c.revision, "writable": true, "text": c.text, "sections": c.schema()})
 		},
 		"POST /v1/config/validate": func(w http.ResponseWriter, r *http.Request) {
 			b, _ := io.ReadAll(r.Body)
@@ -102,7 +116,7 @@ func TestConfigIsRedacted(t *testing.T) {
 	if doc.Revision != "r1" || len(doc.Bans) != 1 || doc.Bans[0].Subject != "76561190000000009" {
 		t.Errorf("doc = %+v", doc)
 	}
-	if len(doc.Sections) != 1 || !slices.Equal(doc.Sections[0].Locked, []string{"Port: RCONPort"}) {
+	if len(doc.Sections) != 2 || !slices.Equal(doc.Sections[0].Locked, []string{"Port: RCONPort"}) {
 		t.Errorf("sections = %+v", doc.Sections)
 	}
 }
@@ -228,6 +242,47 @@ func TestPlanWritesTheFeed(t *testing.T) {
 	draft.Text = desired + "\r\n[WDServerFeed]\r\nUrl=https://elsewhere.example\r\n"
 	if _, err := d.PlanConfig(context.Background(), draft); !errors.Is(err, drivers.ErrInvalidConfig) {
 		t.Errorf("a draft with the feed section: %v", err)
+	}
+}
+
+// Season 02 (CL-516586) takes the feed only from the server's own file: the driver writes none,
+// keeps the section the server still holds so the plan shows no change for it, and says why.
+func TestSeason02LeavesTheFeedToTheHost(t *testing.T) {
+	d, cs := newConfigDriver(t)
+	cs.mu.Lock()
+	cs.season02 = true
+	cs.mu.Unlock()
+	ctx := context.Background()
+	doc, err := d.Config(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(doc.Sections) != 1 || !slices.Contains(doc.Sections[0].Locked, "EventFeedEndpoints: the server's config file only") {
+		t.Errorf("sections = %+v", doc.Sections)
+	}
+	draft := drivers.ConfigDraft{Text: desired, Bands: bands, Feed: &drivers.Feed{URL: "https://hub.example/", Token: "tok-new-feed"}}
+	plan, err := d.PlanConfig(ctx, draft)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sent := cs.sent[0]; strings.Contains(sent, "hub.example") || strings.Contains(sent, "tok-new-feed") || !strings.Contains(sent, "[WDServerFeed]\r\nUrl=https://ingest.example\r\n") {
+		t.Errorf("the document sent:\n%s", sent)
+	}
+	for _, c := range plan.Changes {
+		if c.Section == "WDServerFeed" {
+			t.Errorf("a feed change in the plan: %+v", c)
+		}
+	}
+	if !slices.ContainsFunc(plan.Result.Warnings, func(w string) bool { return strings.Contains(w, "EventFeedEndpoints") }) {
+		t.Errorf("the plan does not say the feed is the host's: %q", plan.Result.Warnings)
+	}
+	res, err := d.ApplyConfig(ctx, draft, plan.Revision)
+	if err != nil || !slices.ContainsFunc(res.Warnings, func(w string) bool { return strings.Contains(w, "EventFeedEndpoints") }) {
+		t.Errorf("apply: %+v %v", res, err)
+	}
+	// Without a feed in the draft there is nothing to say.
+	if plan, err := d.PlanConfig(ctx, drivers.ConfigDraft{Text: desired, Bands: bands}); err != nil || len(plan.Result.Warnings) != 0 {
+		t.Errorf("a plan with no feed: %q %v", plan.Result.Warnings, err)
 	}
 }
 

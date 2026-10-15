@@ -96,7 +96,7 @@ func New(t drivers.Target) (drivers.ExternalReachable, error) {
 	return &Driver{c: c, logger: logger, now: time.Now}, nil
 }
 
-// Build reads the public capabilities, which name the build, and keeps them for the calls.
+// Build reads the capabilities, which name the build, and keeps them for the calls.
 func (d *Driver) Build(ctx context.Context) (string, error) {
 	caps, err := d.read(ctx)
 	if err != nil {
@@ -125,7 +125,7 @@ func (d *Driver) Capabilities(ctx context.Context) ([]string, error) {
 	return out, nil
 }
 
-// read fetches the public capabilities (the client keeps them for its route lookups) and logs
+// read fetches the capabilities (the client keeps them for its route lookups) and logs
 // how the routes moved since the previous read: the detail behind a changed capability set, in
 // the game's own terms, for whoever re-records the fixtures (games/wardogs/README.md).
 func (d *Driver) read(ctx context.Context) (wardogs.Capabilities, error) {

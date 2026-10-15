@@ -105,6 +105,10 @@ func read(d wardogs.Doc) settings {
 		}
 	}
 	s.feedURL, s.feedToken = str(secFeed, "Url"), str(secFeed, "Token")
+	if s.feedURL == wardogs.Redacted {
+		// A recording's own feed section (Season 02's document still holds one), not a feed.
+		s.feedURL, s.feedToken = "", ""
+	}
 	return s
 }
 

@@ -58,6 +58,9 @@ type KeyOverride struct {
 	Writable *bool `json:"writable"`
 	// LockedBy names what pins the key ("RCONPort", a command-line switch).
 	LockedBy string `json:"lockedBy"`
+	// FileOnly is a key set only in the server's own config file, never over RCON (CL-516586:
+	// the event feed's keys).
+	FileOnly bool `json:"fileOnly"`
 }
 
 // Schema finds a section by name; ok is false when the server does not honour it.

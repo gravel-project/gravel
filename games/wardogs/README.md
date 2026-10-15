@@ -5,7 +5,8 @@ configuration document in INI form), with no gravel imports: it becomes a standa
 the open-source cut (ADR-0001). gravel's driver adapts it; ADR-0010 is the design.
 
 War Dogs is in Early Access and its API changes every few weeks, so the client assumes no route.
-It reads `GET /v1/capabilities`, matches the advertised routes by shape (`{id}` and `{steamId}`
+It reads `GET /v1/capabilities` (with the token whenever it has one: Season 02, CL-516586, stopped
+serving it without, and only `GET /v1/health` is public now), matches the advertised routes by shape (`{id}` and `{steamId}`
 are the same route), and fails a call whose route is gone with `ErrNotSupported` before sending
 anything. Parsing is tolerant in production (a field whose type drifted is reported through
 `Options.OnMismatch` and the rest of the answer is kept) and strict in the tests.
@@ -14,7 +15,7 @@ The server's rules the client keeps:
 
 | Rule | What the client does |
 |---|---|
-| Three requests with a missing or wrong token lock every protected route behind a 429 for a while | One token. After a 401 it sends nothing protected until `SetToken`; protected requests are serialised until the token has been accepted once, so concurrent callers spend one strike, not one each. No token means no protected request at all. |
+| Three requests with a missing or wrong token lock every protected route behind a 429 for a while | One token. After a 401 it sends nothing protected until `SetToken`; protected requests are serialised until the token has been accepted once, so concurrent callers spend one strike, not one each. No token means no protected request at all, and one read of the capabilities: a build that guards them (Season 02) answers 401, which spends one strike, and the client sends no tokenless read of them again (`ErrNoToken`). |
 | A 429 carries `Retry-After` (1–60 s) | Nothing is sent until it has passed (`RateLimitedError`). |
 | 64 KiB request bodies; 600 requests a minute per address | A larger body is refused before sending (`ErrBodyTooLarge`); the rate is the caller's budget. |
 | `GET /v1/config` returns the RCON password in clear | `RedactConfig` blanks the password and its hash, the feed's token and URL and the join password, keeping the CRLF line endings. |
@@ -23,7 +24,10 @@ The server's rules the client keeps:
 ## Fixtures: record, diff, update
 
 `testdata/<build>/` holds one recorded build: every GET route it advertises, as files that mirror
-the route paths, and `recording.json` saying what was recorded and skipped. The tests run the
+the route paths, and `recording.json` saying what was recorded and skipped, and which routes went
+without the token (`tokenless`; a recording without the list, CL-509546, sent the capabilities
+and the health that way). The fake server (`wardogstest`) and the simulator answer those routes
+without a token and guard the rest, as that build did. The tests run the
 same contract against every recorded build (`contract_test.go`), so a new build is added beside
 the old ones, not over them.
 
@@ -57,5 +61,7 @@ the files under `testdata/` stay the one source and a binary can still serve the
 `wardogsim` is a simulated server for a demo hub (gravel#112). It answers as the newest recording
 does, over made-up players with stand-in SteamIDs who join, fight, rejoin and leave on a calibration
 profile's curves. Moderation, configuration writes and the three-strike lock work as above, and it
-posts kill batches to `[WDServerFeed]` in a shape that is a guess until one is captured
-(`wardogsim/feed.go`). A new recording here is what the simulator answers as next.
+posts kill batches in a shape that is a guess until one is captured (`wardogsim/feed.go`): from
+`[WDServerFeed]` on CL-509546, which takes it over RCON; on Season 02, which takes the feed only
+from the server's own file and strips the section, from the start options (the host's file), and
+`GET /v1/feed` says whether it is on. A new recording here is what the simulator answers as next.

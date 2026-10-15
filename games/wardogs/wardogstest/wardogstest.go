@@ -51,11 +51,12 @@ type Server struct {
 	dir string
 	opt Options
 
-	mu       sync.Mutex
-	caps     []byte
-	ready    map[string]bool // advertised shapes
-	requests []Request
-	strikes  int
+	mu        sync.Mutex
+	caps      []byte
+	ready     map[string]bool // advertised shapes
+	tokenless map[string]bool // shapes the build answers without a token (recording.json)
+	requests  []Request
+	strikes   int
 }
 
 // New starts a fake serving one build's directory; it stops when the test ends.
@@ -81,6 +82,9 @@ func New(t testing.TB, dir string, opt Options) *Server {
 		rename[shape(t, from)] = to
 	}
 	s := &Server{dir: dir, opt: opt, ready: map[string]bool{}}
+	if s.tokenless, err = wardogs.TokenlessShapes(os.DirFS(dir)); err != nil {
+		t.Fatalf("wardogstest: %v", err)
+	}
 	var routes []any
 	for _, v := range caps["routes"].([]any) {
 		route := v.(string)
@@ -212,13 +216,12 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 	caps := s.caps
 	s.mu.Unlock()
 
-	if r.Method == http.MethodGet && r.URL.Path == "/v1/capabilities" {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(caps)
-		return
-	}
+	capsReq := r.Method == http.MethodGet && r.URL.Path == "/v1/capabilities"
 	sh := s.shapeOf(r.Method, r.URL.Path)
-	public := sh == "GET /v1/health"
+	if capsReq {
+		sh = "GET /v1/capabilities"
+	}
+	public := s.tokenless[sh]
 	if !public {
 		s.mu.Lock()
 		if !authorized {
@@ -238,6 +241,11 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusUnauthorized, "credential_invalid", "the bearer token is not valid")
 			return
 		}
+	}
+	if capsReq {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(caps)
+		return
 	}
 	if sh == "" {
 		writeError(w, http.StatusNotFound, "not_found", "no such route")
