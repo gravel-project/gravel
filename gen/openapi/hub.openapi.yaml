@@ -1467,6 +1467,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.ClaimOwnershipResponse'
+  /gravel.hub.v1.OrganizationService/ExportHub: {}
   /gravel.hub.v1.OrganizationService/ExportSettings:
     post:
       tags:
@@ -4850,6 +4851,20 @@ components:
       title: EventsSettings
       additionalProperties: false
       description: EventsSettings is how long the events log keeps what it holds (ADR-0028).
+    gravel.hub.v1.ExportHubRequest:
+      type: object
+      title: ExportHubRequest
+      additionalProperties: false
+    gravel.hub.v1.ExportHubResponse:
+      type: object
+      properties:
+        chunk:
+          type: string
+          title: chunk
+          format: byte
+          description: 'The archive''s next bytes: concatenated in order, they are the gzipped tar.'
+      title: ExportHubResponse
+      additionalProperties: false
     gravel.hub.v1.ExportServersRequest:
       type: object
       title: ExportServersRequest

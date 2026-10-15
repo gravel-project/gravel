@@ -84,6 +84,8 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 		return statsCmd(ctx, args, stdout, stderr)
 	case "notifiers":
 		return notifiersCmd(ctx, args, stdout, stderr)
+	case "export":
+		return exportCmd(ctx, args, stdout, stderr)
 	case "version":
 		fmt.Fprintln(stdout, buildVersion())
 		return 0
@@ -117,6 +119,7 @@ func usage(w io.Writer) {
   settings   export, check and apply the Organization settings manifest
   stats      erase a player's identity from the stats
   notifiers  send a notifier a test event
+  export     everything the hub holds as an archive (-o FILE), the owner in person (gravel#213)
 
   The hub is --hub, else GRAVEL_HUB, else the one last logged in to. Exit 3: a --dry-run would
   change something. Exit 4: log in (again).

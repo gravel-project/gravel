@@ -599,4 +599,16 @@ service OrganizationService {
   // settings:write, in person. A manifest that matches the stored settings changes nothing and
   // records no event.
   rpc ApplySettings(ApplySettingsRequest) returns (ApplySettingsResponse);
+  // ExportHub is everything the hub holds as one archive (gravel#213, docs/hub.md "Export and
+  // import"), streamed in chunks: what `gravel-hub export` writes, for a host without the box's
+  // shell (`gravel export`). The owner's alone, in person (org:transfer): it holds personal data
+  // and password hashes.
+  rpc ExportHub(ExportHubRequest) returns (stream ExportHubResponse);
+}
+
+message ExportHubRequest {}
+
+message ExportHubResponse {
+  // The archive's next bytes: concatenated in order, they are the gzipped tar.
+  bytes chunk = 1;
 }

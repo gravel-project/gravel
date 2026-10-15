@@ -265,6 +265,7 @@ The VMs a hub makes for its game servers are the hub's, not the CLI's: they come
 | `gravel settings check MANIFEST` | validate a manifest against the hub | 0 valid; 1 every problem named; 2; 4 |
 | `gravel settings apply MANIFEST` | store it; says which sections changed | 0; 1; 2; 3 `--dry-run` would change something; 4 |
 | `gravel stats erase` | erase a player's identity from the stats; `--provider`, `--subject` | 0; 1; 2; 4 |
+| `gravel export -o FILE` | everything the hub holds as an archive (docs/hub.md, Export and import), streamed; the owner, in person; FILE written 0600 and never overwritten, `-` for stdout | 0; 1; 2; 4 |
 | `gravel notifiers test NAME` | send the notifier a test event | 0 delivered; 1 not, or no such notifier; 4 |
 | `gravel version` | the version | 0 |
 
