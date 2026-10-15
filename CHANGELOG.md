@@ -8,6 +8,8 @@ patch release is everything else.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-15
+
 ### Changed
 
 - **Postgres 17 comes from gravel's mirror on ghcr.io** (#233): `ghcr.io/gravel-project/mirror/postgres:17`, copied weekly from ECR Public by `mirror.yml` with its digest kept, because ECR Public caps the data anonymous pulls may take and GitHub's shared runners kept hitting it (red `backup`, `integration` and `observability` jobs on four PRs in two days). `deploy/postgres/Containerfile`, the stock `gravel-postgres.container` (and so the hub host's stock profile), `ci.yml`'s integration service and `observability/check.sh` pin the same digest as before (`sha256:2d2b…f9e3`), so nothing a host runs changes; `TestPostgresPinsAgree` fails when they drift or one goes back to `public.ecr.aws`, so a Dependabot bump of the Containerfile stays red until the other three follow.
@@ -31,6 +33,7 @@ patch release is everything else.
 - The hub host's cloud-init document is split: `internal/vmdoc` renders the shape every VM gravel makes boots with (admin user, the runtime user on the data volume, podman, security updates, a first-boot script), and `internal/hubvm` adds the hub's files to it. The hub's rendered documents are byte-for-byte unchanged.
 - `drivers.Factory` returns a `drivers.Driver` (the monitor's and moderation's calls), and `drivers.ExternalReachable` is a `Driver` plus `drivers.Configurer`; `Target` names the server and game, and its `Endpoint` may be empty for a driver that learns its address. `internal/httpx` gains `SetLogPath`, so a handler can redact its own path in the access log.
 - The brand kit under `internal/web/static/brand/` is re-vendored with gravel's new one-liner, "Track every game server your community runs, with cross-game stats and one control plane.": the README banners, the link-preview card and the web manifest description carry it, and the README's banner alt text matches.
+- The bot's quadlet unit pins the 0.8.1 image by index digest, verified with cosign 3 against the release workflow at `v0.8.1` (the 0.8.0 bot as a control, a wrong-tag identity refused): `ghcr.io/gravel-project/gravel-bot@sha256:cca27760edd3fb926e699c7a7933ddb7e2a5976a124261ad497bdaadbf213c99`. The hub's unit already pins 0.8.1 (#249).
 
 ### Added
 
@@ -745,7 +748,8 @@ patch release is everything else.
 
 - README and CLAUDE.md follow ADR-0001: status line, principle 2 (the resource lives in the hub's database), the hub and backup paragraphs, the adapter-repo rule, the local-dev default, and a seven-step build order with the issues behind each step. The launch games are the five Hidden Token Gaming plays, in three shapes, with War Dogs first; the open threads link the design-delta issues #2–#9 (#1).
 
-[Unreleased]: https://github.com/gravel-project/gravel/compare/v0.8.1...HEAD
+[Unreleased]: https://github.com/gravel-project/gravel/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/gravel-project/gravel/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/gravel-project/gravel/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/gravel-project/gravel/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/gravel-project/gravel/compare/v0.7.0...v0.7.1
