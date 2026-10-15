@@ -55,3 +55,42 @@ export function list(text: string): string[] {
     .map((x) => x.trim())
     .filter((x) => x !== "");
 }
+
+// i is a list index in a path; hours a rule's weekly windows (discord/seedhours names their fields).
+const i = String.raw`\[\d+\]`;
+const hours = String.raw`hours(${i}(\.(days|from|to))?)?`;
+
+// placed are the paths the form shows a message at: each field it has, each list (its length, a
+// duplicate) and each entry (a problem of the whole entry, such as an overlap). Any other path is
+// listed at the top of the form, so no message is lost.
+const placed = new RegExp(
+  "^(" +
+    [
+      String.raw`notifiers${i}\.(name|kind|url|flavour|topic|to(${i})?|events\.min_severity|events\.kinds(${i})?)`,
+      String.raw`discord\.(guild_id|mod_log|roles\.linked|roles\.providers\.(discord|steam))`,
+      String.raw`discord\.recognition(${i}(\.(role|rule|count))?)?`,
+      String.raw`discord\.server_cards(${i}(\.(server|channel|note))?)?`,
+      String.raw`discord\.seeding(${i}(\.(server|channel|role|below|cooldown|note|${hours}))?)?`,
+      String.raw`discord\.recaps(${i}(\.(server|channel|title|floor|note|${hours}))?)?`,
+      String.raw`discord\.presence\.(channel|note|games(${i}(\.(game|label|activities(${i})?|application_ids(${i})?))?)?)`,
+      String.raw`discord\.streams\.(channel|role|note|streamers(${i}(\.(platform|login|label))?)?)`,
+      String.raw`discord\.news\.feeds(${i}(\.(app_id|channel|label|color|feeds(${i})?))?)?`,
+      String.raw`discord\.match_results\.(channel|servers(${i})?)`,
+      String.raw`stats\.public`,
+      String.raw`local_accounts\.(registration|min_password_length)`,
+    ].join("|") +
+    ")$",
+);
+
+// isPlaced reports whether the form has a place for a message about path.
+export function isPlaced(path: string): boolean {
+  return placed.test(path);
+}
+
+// within is every message about path and its items ("notifiers[0].to" and "notifiers[0].to[1]"),
+// for a field that edits a whole list.
+export function within(p: Problems, path: string): string | undefined {
+  const items = new RegExp("^" + path.replace(/[.[\]]/g, "\\$&") + String.raw`\[\d+\]$`);
+  const found = [...p.byPath].filter(([k]) => k === path || items.test(k)).map(([, v]) => v);
+  return found.length > 0 ? found.join("; ") : undefined;
+}

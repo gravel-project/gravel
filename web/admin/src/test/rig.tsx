@@ -58,6 +58,8 @@ export interface RigOptions {
   // settings is the stored Organization settings document; apps the registered apps.
   settings?: MessageInitShape<typeof OrganizationSettingsSchema>;
   apps?: MessageInitShape<typeof AppSchema>[];
+  // violations are what the hub refuses every settings write with, beside the fake's own two rules.
+  violations?: { path: string; message: string }[];
   // notifierErrors are TestNotifier's answers by name: "" delivered, else why not.
   notifierErrors?: Record<string, string>;
   // metrics: whether a store is configured, the dashboards, and each panel's series (or the error
@@ -81,7 +83,7 @@ export function member(fields: Member = {}): Member {
 }
 
 export function renderShell({ me, demo = false, path = "/", fleet = { totals: {} }, log = [], kinds = [], servers = [], games = [], poll = 0,
-  users = [], pageSize = 100, org = {}, refuse = [], hosts = {}, leases = {}, settings = { version: 1 }, apps = [], notifierErrors = {},
+  users = [], pageSize = 100, org = {}, refuse = [], hosts = {}, leases = {}, settings = { version: 1 }, apps = [], notifierErrors = {}, violations = [],
   metricsStore = true, dashboards = [], panelSeries = {} }: RigOptions = {}) {
   // queries are the QueryRange requests, in order.
   const queries: QueryRangeRequest[] = [];
@@ -119,7 +121,7 @@ export function renderShell({ me, demo = false, path = "/", fleet = { totals: {}
     store.settings.updatedAt = timestampFromDate(new Date(store.at * 1000));
   }
   const checkSettings = (s: ReturnType<typeof create<typeof OrganizationSettingsSchema>>) => {
-    const bad: { path: string; message: string }[] = [];
+    const bad: { path: string; message: string }[] = [...violations];
     s.notifiers.forEach((n, i) => {
       if (!/^[a-z0-9-]+$/.test(n.name)) {
         bad.push({ path: `notifiers[${i}].name`, message: `${JSON.stringify(n.name)} is not a name: lower-case letters, digits and hyphens` });
