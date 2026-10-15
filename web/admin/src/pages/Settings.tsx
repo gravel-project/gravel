@@ -1,17 +1,16 @@
-// Settings (gravel#205): the Organization settings without a YAML file. A form for the notifiers
-// (with a test send), the Discord server and its core mapping, the leaderboards' visibility and
-// local accounts; a YAML tab for the whole document, the rest of Discord included. Every save writes
+// Settings (gravel#205, #253): the Organization settings without a YAML file. A form for the
+// notifiers (with a test send), Discord (the server, its roles and every stock module's settings,
+// in Discord.tsx), the leaderboards' visibility and local accounts; a YAML tab for the whole
+// document, for what the form doesn't edit (the theme, navigation, games, seasons). Every save writes
 // the whole document (ADR-0007 §2) and names the one it replaces, so two editors don't overwrite
 // each other; a refusal is shown under the field it is about.
 import { clone, create } from "@bufbuild/protobuf";
 import { timestampDate } from "@bufbuild/protobuf/wkt";
 import { ConnectError } from "@connectrpc/connect";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type ReactNode, type SubmitEvent, useState } from "react";
+import { type SubmitEvent, useState } from "react";
 
 import {
-  DiscordRolesSchema,
-  DiscordSettingsSchema,
   LocalAccountsSettingsSchema,
   type Notifier,
   NotifierEventsSchema,
@@ -21,17 +20,11 @@ import {
   OrganizationService,
   StatsSettingsSchema,
 } from "../gen/gravel/hub/v1/organization_pb";
-import { conflict, list, noProblems, type NotifierKind, notifierKinds, type Problems, problems } from "../settings";
+import { conflict, isPlaced, noProblems, type NotifierKind, notifierKinds, type Problems, problems, within } from "../settings";
 import { useClient } from "../transport";
+import { Discord } from "./Discord";
+import { button, Check, Field, field, ListInput, primary, Section } from "./form";
 import { utc } from "./People";
-
-const field = "block w-full rounded border border-line bg-surface px-2 py-1";
-const button = "rounded border border-line bg-surface px-3 py-1 disabled:opacity-60";
-// The main action: outlined in the accent, never filled with it (see People).
-const primary = "rounded border-2 border-accent bg-surface px-3 py-1 font-bold disabled:opacity-60";
-
-// formPaths are the fields the form shows a message under; any other path is listed at the top.
-const formPath = /^(notifiers\[\d+\]\.(name|kind|url|flavour|topic|to|events\.min_severity|events\.kinds)|discord\.(guild_id|roles\.linked|mod_log)|stats\.public|local_accounts\.(registration|min_password_length))$/;
 
 export function Settings() {
   const [tab, setTab] = useState<"form" | "yaml">("form");
@@ -93,7 +86,7 @@ function Editor({ loaded }: { loaded: OrganizationSettings }) {
     },
     onError: (err) => {
       setStale(conflict(err));
-      setFound(conflict(err) ? noProblems : problems(err, (p) => formPath.test(p)));
+      setFound(conflict(err) ? noProblems : problems(err, isPlaced));
     },
   });
   // edit applies a change to a copy of the draft.
@@ -107,6 +100,7 @@ function Editor({ loaded }: { loaded: OrganizationSettings }) {
     save.mutate();
   };
   const err = (path: string) => found.byPath.get(path);
+  const errIn = (path: string) => within(found, path);
   return (
     <form onSubmit={submit} aria-label="Settings" noValidate className="grid gap-6">
       {stale && (
@@ -127,8 +121,8 @@ function Editor({ loaded }: { loaded: OrganizationSettings }) {
           </ul>
         </div>
       )}
-      <Notifiers draft={draft} saved={loaded} edit={edit} err={err} />
-      <DiscordCore draft={draft} edit={edit} err={err} />
+      <Notifiers draft={draft} saved={loaded} edit={edit} err={err} errIn={errIn} />
+      <Discord draft={draft} edit={edit} err={err} errIn={errIn} />
       <Section id="stats" title="Leaderboards">
         <Check
           id="stats-public"
@@ -175,48 +169,11 @@ function Editor({ loaded }: { loaded: OrganizationSettings }) {
   );
 }
 
-function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
-  return (
-    <section aria-labelledby={id} className="grid gap-3 rounded border border-line bg-surface p-4">
-      <h2 id={id} className="text-xl font-bold">
-        {title}
-      </h2>
-      {children}
-    </section>
-  );
-}
-
-// Field is a labelled control with the hub's message under it when it refused this field.
-function Field({ id, label, error, hint, children }: { id: string; label: string; error?: string | undefined; hint?: string | undefined; children: ReactNode }) {
-  return (
-    <div className="grid gap-1">
-      <label htmlFor={id}>{label}</label>
-      {children}
-      {hint && <p className="text-sm text-muted">{hint}</p>}
-      {error && (
-        <p id={id + "-error"} className="border-l-4 border-error pl-2 text-sm font-bold">
-          {error}
-        </p>
-      )}
-    </div>
-  );
-}
-
-function Check({ id, label, checked, set, error }: { id: string; label: string; checked: boolean; set: (v: boolean) => void; error?: string | undefined }) {
-  return (
-    <div className="grid gap-1">
-      <label htmlFor={id} className="flex items-center gap-2">
-        <input id={id} type="checkbox" checked={checked} onChange={(e) => { set(e.target.checked); }} />
-        {label}
-      </label>
-      {error && <p className="border-l-4 border-error pl-2 text-sm font-bold">{error}</p>}
-    </div>
-  );
-}
-
 type Edit = (change: (s: OrganizationSettings) => void) => void;
 
-function Notifiers({ draft, saved, edit, err }: { draft: OrganizationSettings; saved: OrganizationSettings; edit: Edit; err: (p: string) => string | undefined }) {
+function Notifiers({ draft, saved, edit, err, errIn }: { draft: OrganizationSettings; saved: OrganizationSettings; edit: Edit; err: (p: string) => string | undefined; errIn: (p: string) => string | undefined }) {
+  // gen remounts the cards after a removal, so a card's typed text never moves to its neighbour.
+  const [gen, setGen] = useState(0);
   const savedNames = new Set(saved.notifiers.map((n) => n.name));
   const add = () => {
     edit((s) => {
@@ -232,12 +189,14 @@ function Notifiers({ draft, saved, edit, err }: { draft: OrganizationSettings; s
       {draft.notifiers.length === 0 && <p>No notifier yet: nobody hears about a server going down unless they’re looking.</p>}
       {draft.notifiers.map((n, i) => (
         <NotifierCard
-          key={i}
+          key={`${String(gen)}-${String(i)}`}
           i={i}
           n={n}
           saved={savedNames.has(n.name) && n.name !== ""}
           edit={edit}
-          err={(f) => err(`notifiers[${i}].${f}`)}
+          remove={() => { edit((s) => { s.notifiers.splice(i, 1); }); setGen((g) => g + 1); }}
+          err={(f) => err(`notifiers[${String(i)}].${f}`)}
+          errIn={(f) => errIn(`notifiers[${String(i)}].${f}`)}
         />
       ))}
       <div>
@@ -249,7 +208,7 @@ function Notifiers({ draft, saved, edit, err }: { draft: OrganizationSettings; s
   );
 }
 
-function NotifierCard({ i, n, saved, edit, err }: { i: number; n: Notifier; saved: boolean; edit: Edit; err: (f: string) => string | undefined }) {
+function NotifierCard({ i, n, saved, edit, remove, err, errIn }: { i: number; n: Notifier; saved: boolean; edit: Edit; remove: () => void; err: (f: string) => string | undefined; errIn: (f: string) => string | undefined }) {
   const org = useClient(OrganizationService);
   const test = useMutation({ mutationFn: () => org.testNotifier({ name: n.name }) });
   const set = (change: (x: Notifier) => void) => {
@@ -298,8 +257,8 @@ function NotifierCard({ i, n, saved, edit, err }: { i: number; n: Notifier; save
           </Field>
         )}
         {kind === "email" && (
-          <Field id={id("to")} label="To (commas between addresses)" error={err("to")}>
-            <input id={id("to")} className={field} value={n.to.join(", ")} onChange={(e) => { set((x) => { x.to = list(e.target.value); }); }} />
+          <Field id={id("to")} label="To (commas between addresses)" error={errIn("to")}>
+            <ListInput id={id("to")} value={n.to} set={(v) => { set((x) => { x.to = v; }); }} />
           </Field>
         )}
         <Field id={id("severity")} label="Send from" error={err("events.min_severity")}>
@@ -315,13 +274,8 @@ function NotifierCard({ i, n, saved, edit, err }: { i: number; n: Notifier; save
             <option value="critical">critical only</option>
           </select>
         </Field>
-        <Field id={id("kinds")} label="Only these kinds or groups (empty for all)" error={err("events.kinds")} hint="server, backup.failed, role">
-          <input
-            id={id("kinds")}
-            className={field}
-            value={events.kinds.join(", ")}
-            onChange={(e) => { set((x) => { x.events = { ...(x.events ?? create(NotifierEventsSchema, {})), kinds: list(e.target.value) }; }); }}
-          />
+        <Field id={id("kinds")} label="Only these kinds or groups (empty for all)" error={errIn("events.kinds")} hint="server, backup.failed, role">
+          <ListInput id={id("kinds")} value={events.kinds} set={(v) => { set((x) => { x.events = { ...(x.events ?? create(NotifierEventsSchema, {})), kinds: v }; }); }} />
         </Field>
       </div>
       <Check id={id("disabled")} label="Paused: sends nothing, and the log passes it by" checked={n.disabled} set={(v) => { set((x) => { x.disabled = v; }); }} />
@@ -329,7 +283,7 @@ function NotifierCard({ i, n, saved, edit, err }: { i: number; n: Notifier; save
         <button type="button" className={button} disabled={!saved || test.isPending} onClick={() => { test.mutate(); }}>
           Send a test
         </button>
-        <button type="button" className={button} onClick={() => { edit((s) => { s.notifiers.splice(i, 1); }); }}>
+        <button type="button" className={button} onClick={remove}>
           Remove
         </button>
         {!saved && <p className="text-sm text-muted">Save the settings first, then send a test.</p>}
@@ -345,57 +299,6 @@ function NotifierCard({ i, n, saved, edit, err }: { i: number; n: Notifier; save
         )}
       </div>
     </fieldset>
-  );
-}
-
-function DiscordCore({ draft, edit, err }: { draft: OrganizationSettings; edit: Edit; err: (p: string) => string | undefined }) {
-  const d = draft.discord ?? create(DiscordSettingsSchema, {});
-  const setD = (change: (x: NonNullable<OrganizationSettings["discord"]>) => void) => {
-    edit((s) => {
-      const x = s.discord ?? create(DiscordSettingsSchema, {});
-      change(x);
-      s.discord = x;
-    });
-  };
-  const count = (n: number, one: string, many: string) => (n > 0 ? `${String(n)} ${n === 1 ? one : many}` : "");
-  const rest = [
-    count(d.recognition.length, "recognition rule", "recognition rules"),
-    count(d.serverCards.length, "server card", "server cards"),
-    count(d.seeding.length, "seeding rule", "seeding rules"),
-    count(d.recaps.length, "recap rule", "recap rules"),
-    count(d.streams?.streamers.length ?? 0, "streamer's go-live posts", "streamers' go-live posts"),
-    count(d.news?.feeds.length ?? 0, "news feed", "news feeds"),
-  ].filter((x) => x !== "");
-  return (
-    <Section id="discord" title="Discord">
-      {d.guildId === "" && (
-        <p>
-          Discord isn’t connected. Put your server’s id below (Discord, Server Settings, Widget, or right-click the server with Developer Mode on), then run gravel’s bot with
-          its app’s credentials (gravel-hub apps create, then docs/bot.md). Everything here works without it.
-        </p>
-      )}
-      <div className="grid items-start gap-3 sm:grid-cols-3">
-        <Field id="discord-guild" label="Server (guild) id" error={err("discord.guild_id")}>
-          <input id="discord-guild" className={field} inputMode="numeric" value={d.guildId} onChange={(e) => { setD((x) => { x.guildId = e.target.value.trim(); }); }} />
-        </Field>
-        <Field id="discord-linked" label="Role for members who linked an account" error={err("discord.roles.linked")}>
-          <input
-            id="discord-linked"
-            className={field}
-            inputMode="numeric"
-            value={d.roles?.linked ?? ""}
-            onChange={(e) => { setD((x) => { x.roles = { ...(x.roles ?? create(DiscordRolesSchema, {})), linked: e.target.value.trim() }; }); }}
-          />
-        </Field>
-        <Field id="discord-modlog" label="Mod-log channel id" error={err("discord.mod_log")}>
-          <input id="discord-modlog" className={field} inputMode="numeric" value={d.modLog} onChange={(e) => { setD((x) => { x.modLog = e.target.value.trim(); }); }} />
-        </Field>
-      </div>
-      <p className="text-sm text-muted">
-        Recognition, server cards, seeding, presence, recaps, streamers, news and match results are edited in the YAML tab
-        {rest.length > 0 ? `; these settings have ${rest.join(", ")}, and saving here keeps them` : ""}.
-      </p>
-    </Section>
   );
 }
 

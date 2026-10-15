@@ -71,11 +71,16 @@ describe("settings", () => {
     expect(screen.getByLabelText<HTMLInputElement>("Server (guild) id").value).toBe("");
   });
 
-  it("says how to connect Discord, and keeps what only the YAML tab edits", async () => {
+  it("says how to connect Discord", async () => {
     renderShell({ me: owner, path: "/settings" });
     expect(await screen.findByText(/Discord isn’t connected/)).toBeTruthy();
-    renderShell({ me: owner, path: "/settings", settings: { version: 1, discord: { guildId: "42", recognition: [{}, {}], seeding: [{}] } } });
-    expect(await screen.findByText(/these settings have 2 recognition rules, 1 seeding rule, and saving here keeps them/)).toBeTruthy();
+  });
+
+  it("keeps a trailing comma while a list is typed", async () => {
+    renderShell({ me: owner, path: "/settings", settings: { version: 1, notifiers: [{ name: "ops-mail", kind: "email", to: ["ops@example.org"] }] } });
+    const to = await screen.findByLabelText<HTMLInputElement>("To (commas between addresses)");
+    fireEvent.change(to, { target: { value: "ops@example.org," } });
+    expect(to.value).toBe("ops@example.org,");
   });
 
   it("edits the whole document as YAML: check, what would change, save", async () => {

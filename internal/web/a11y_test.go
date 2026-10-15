@@ -70,8 +70,8 @@ func (a11yOrg) ListEvents(context.Context, *connect.Request[hubv1.ListEventsRequ
 	}}), nil
 }
 
-// GetOrganizationSettings is Settings' form (gravel#205): a notifier of each kind and Discord
-// connected with rules only the YAML tab edits, so every section's fields are scanned.
+// GetOrganizationSettings is Settings' form (gravel#205, #253): a notifier of each kind and every
+// Discord setting set, so every section's fields are scanned.
 func (a11yOrg) GetOrganizationSettings(context.Context, *connect.Request[hubv1.GetOrganizationSettingsRequest]) (*connect.Response[hubv1.GetOrganizationSettingsResponse], error) {
 	return connect.NewResponse(&hubv1.GetOrganizationSettingsResponse{Settings: &hubv1.OrganizationSettings{Version: 1, UpdatedAt: timestamppb.Now(),
 		Notifiers: []*hubv1.Notifier{
@@ -79,7 +79,20 @@ func (a11yOrg) GetOrganizationSettings(context.Context, *connect.Request[hubv1.G
 			{Name: "ops-hook", Kind: "webhook", Url: "https://ops.example.org/gravel", Events: &hubv1.NotifierEvents{Kinds: []string{"server", "backup"}}},
 			{Name: "ops-mail", Kind: "email", To: []string{"ops@example.org"}, Disabled: true},
 		},
-		Discord:       &hubv1.DiscordSettings{GuildId: "1150000000000000000", ModLog: "1150000000000000001", Roles: &hubv1.DiscordRoles{Linked: "1150000000000000002"}, Recognition: []*hubv1.DiscordRecognition{{}}},
+		Discord: &hubv1.DiscordSettings{GuildId: "1150000000000000000", ModLog: "1150000000000000001",
+			Roles:       &hubv1.DiscordRoles{Linked: "1150000000000000002", Providers: map[string]string{"steam": "1150000000000000003"}},
+			Recognition: []*hubv1.DiscordRecognition{{Role: "1150000000000000004", Rule: "first_members", Count: 100}},
+			ServerCards: []*hubv1.DiscordServerCard{{Server: "htg-wardogs-2", Channel: "1150000000000000005", Note: "Matches start at 20 players."}},
+			Seeding: []*hubv1.DiscordSeeding{{Server: "htg-wardogs-2", Channel: "1150000000000000006", Role: "1150000000000000007", Below: 20, Cooldown: "2h", CallAtStart: true,
+				Hours: []*hubv1.DiscordSeedingHours{{Days: []string{"wed"}, From: "18:00", To: "23:00"}}}},
+			Recaps: []*hubv1.DiscordRecap{{Server: "htg-wardogs-2", Channel: "1150000000000000008", Title: "Wardogs Wednesday", Floor: 20,
+				Hours: []*hubv1.DiscordSeedingHours{{Days: []string{"wed", "sat"}, From: "22:00", To: "02:00"}}}},
+			Presence: &hubv1.DiscordPresence{Channel: "1150000000000000009", Games: []*hubv1.DiscordPresenceGame{{Game: "wardogs", Label: "War Dogs", Activities: []string{"WARDOGS"}}}},
+			Streams: &hubv1.DiscordStreams{Channel: "1150000000000000011", Role: "1150000000000000012",
+				Streamers: []*hubv1.DiscordStreamer{{Platform: "twitch", Login: "hiddentoken", Label: "HTG"}, {Platform: "kick", Login: "hidden-token"}}},
+			News:         &hubv1.DiscordNews{Feeds: []*hubv1.DiscordNewsFeed{{AppId: 730, Channel: "1150000000000000013", Label: "Counter-Strike 2", Color: 0xde9b35}}},
+			MatchResults: &hubv1.DiscordMatchResults{Channel: "1150000000000000014", Servers: []string{"htg-cs2-1"}},
+		},
 		Stats:         &hubv1.StatsSettings{Public: true},
 		LocalAccounts: &hubv1.LocalAccountsSettings{Registration: "closed"},
 	}}), nil

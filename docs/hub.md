@@ -1701,13 +1701,20 @@ page by page.
   last 30 days, about 240 points a line, refreshed every 30 s; stat tiles coloured by their
   thresholds; time series drawn with uPlot, each line's latest value said in words too. Without a
   store it says how to configure one.
-- **Settings** (`/admin/settings`, `settings:write`; gravel#205): the Organization settings without a
-  YAML file. A form for the **notifiers** (add, edit, pause, remove; each kind says where its secret
-  lives in hub.yaml; **Send a test** once saved), **Discord**'s server, linked role and mod-log
-  channel (and how to connect Discord when it isn't), whether the **leaderboards** are public, and
-  **local accounts** (who may register, the shortest password). Recognition, server cards, seeding,
-  presence, recaps, streamers, news and match results are edited in the **YAML** tab, which holds the
-  whole document: check it, see which sections saving would change, save. Every save writes the
+- **Settings** (`/admin/settings`, `settings:write`; gravel#205, #253): the Organization settings
+  without a YAML file. A form for the **notifiers** (add, edit, pause, remove; each kind says where
+  its secret lives in hub.yaml; **Send a test** once saved), all of **Discord** (and how to connect
+  it when it isn't), whether the **leaderboards** are public, and **local accounts** (who may
+  register, the shortest password). Discord's part holds the server, the mod-log channel, the
+  linked-account role and a role per provider (Steam, Discord), then one part per stock module:
+  **recognition** roles, **server cards**, **seeding** rules and **session recaps** (each with its
+  weekly hours: the days a window starts on, from and to, in `stats.timezone`), **who's playing
+  now**, **go-live posts** (Twitch and Kick streamers), **Steam news** feeds (with an optional
+  colour) and **match results** (the servers ticked, or every server). Servers are picked from the
+  hub's own list and a presence key is suggested from its games; a server the hub doesn't list
+  stays as it is, named as such. Each list stops adding at the hub's limit. The **YAML** tab holds
+  the whole document, for what the form doesn't edit (the theme, navigation, games, seasons): check
+  it, see which sections saving would change, save. Every save writes the
   whole document and names the one it replaces (`if_updated_at`): when someone else saved meanwhile,
   nothing is stored and the page offers theirs. A refused field shows the hub's message under it.
 - **Apps** (`/admin/apps`, `apps:manage`): register an app (its name, the scopes it may hold, each
