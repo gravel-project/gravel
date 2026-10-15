@@ -1286,3 +1286,34 @@ func TestHookDriftIsPushedAgain(t *testing.T) {
 		t.Errorf("a deleted hook wasn't put back at the unpark: %v", ok)
 	}
 }
+
+// A hub with no cloud-VM server and no host never asks for its egress: it reaches nothing off its
+// machine (the unplug test, gravel#198). The firewall tests show a hub with one asks.
+func TestNoEgressWithoutCloudVMServers(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	reg := prometheus.NewRegistry()
+	src := &source{}
+	asked := 0
+	m := cloudvm.NewManager(src, cloudvmtest.NewStore(), nil, cloudvm.Options{
+		Providers: func(context.Context, cloudvm.Location) (cloud.Provider, error) { return fake.New(), nil },
+		Remote:    cloudvmtest.NewRemote(),
+		Egress: func(context.Context) ([]string, error) {
+			asked++
+			return []string{"203.0.113.4"}, nil
+		},
+		Runner:     jobs.New(logger, reg),
+		Logger:     logger,
+		Registerer: reg,
+		Now:        time.Now,
+		Sleep:      func(context.Context, time.Duration) {},
+		Wake:       func(string) {},
+	})
+	for range 3 {
+		if err := m.Reconcile(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if asked != 0 {
+		t.Fatalf("a hub with no cloud-VM server asked for its egress %d times", asked)
+	}
+}

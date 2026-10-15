@@ -51,6 +51,19 @@ no provider configured and a transport that fails any dial off loopback, and
 - `/admin` serves the dashboard under the strict CSP;
 - `ListDashboards.available` is false, and nothing fails, with no metrics store.
 
+As built (`internal/hub/unplug_e2e_test.go`, `TestUnplug`; CI's `unplug` job): the host's own
+binaries do the host's part (`gravel-hub migrate`, `servers apply`, `users create-local`), the member
+sets their password from the printed link, `gravel login --local` and `gravel claim` take the hub,
+and `gravel settings apply` adds a webhook notifier on loopback. The server is War Dogs' simulator
+(`wardogsim`) on loopback; once it stops, the fleet shows it down, the `server.down` alarm follows
+after its two minutes, the events log has `server.unreachable`, and the webhook receives it,
+signed. The test also calls every API service on the public listener, so one the router doesn't
+forward fails it. It takes about two minutes and needs a Postgres and the dashboard's bundle:
+
+```sh
+GRAVEL_TEST_DATABASE_URL='postgres://gravel:test@127.0.0.1:55432/gravel?sslmode=disable' make unplug
+```
+
 Hidden Token Gaming then runs the main build with all of it for a week.
 
 ## What it means for a change

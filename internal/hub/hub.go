@@ -626,7 +626,7 @@ func (h *Hub) buildPublic() http.Handler {
 	mux := http.NewServeMux()
 	services := []string{hubv1connect.OrganizationServiceName, hubv1connect.IdentityServiceName, hubv1connect.ServerServiceName,
 		hubv1connect.ModerationServiceName, hubv1connect.ServerHostServiceName, hubv1connect.ServerLeaseServiceName, hubv1connect.ServerConfigServiceName,
-		hubv1connect.StatsServiceName, hubv1connect.AppServiceName}
+		hubv1connect.StatsServiceName, hubv1connect.AppServiceName, hubv1connect.MetricsServiceName}
 	for _, svc := range services {
 		mux.Handle("/"+svc+"/", h.api)
 	}

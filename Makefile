@@ -112,6 +112,11 @@ admin-check: $(ADMIN_DIR)/node_modules/.package-lock.json ## Lint, typecheck and
 	npm --prefix $(ADMIN_DIR) run typecheck
 	npm --prefix $(ADMIN_DIR) test
 
+.PHONY: unplug
+unplug: admin ## The unplug test, H1's gate (gravel#198): a hub with nothing plugged in stands up, gets an owner and shows what is wrong; needs GRAVEL_TEST_DATABASE_URL
+	@[[ -n "$${GRAVEL_TEST_DATABASE_URL:-}" ]] || { echo "set GRAVEL_TEST_DATABASE_URL (see docs/hub.md)"; exit 1; }
+	UNPLUG=1 $(GO) test -count=1 -timeout 10m -run TestUnplug ./internal/hub/
+
 .PHONY: a11y
 a11y: admin ## Run axe over the rendered pages and the admin dashboard (needs node and Chrome; CI does too)
 	A11Y=1 AXE_CLI_VERSION=$(AXE_CLI_VERSION) $(GO) test -count=1 -run TestAccessibility ./internal/web/

@@ -44,6 +44,10 @@ GRAVEL_TEST_DATABASE_URL='postgres://gravel:test@127.0.0.1:55432/gravel?sslmode=
 podman rm -f gravel-test-pg
 ```
 
+`make unplug` (the same Postgres variable; it builds the dashboard's bundle first) is H1's gate, the
+unplug test: run it when a change touches how the hub starts, routes or reaches out, and CI runs it
+on every pull request.
+
 Also, when they apply:
 
 - `make generate` after editing a `.proto` file, a `.templ` page or the dashboard definitions

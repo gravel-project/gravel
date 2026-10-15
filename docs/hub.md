@@ -2212,6 +2212,11 @@ reaches no combat board, of any scope, metric or window (`internal/store`,
 `TestParticipationBoardAndTotals`), and an app's event reaches the member's profile and the
 participation board but not `GetBoard` (`internal/hub`, `TestParticipationFromAnApp`).
 
+`make unplug` is H1's gate ([the unplug test](tiers.md#the-unplug-test), gravel#198): a hub with no
+provider, cloud or metrics store, run end to end from the host's binaries and the CLI, with every
+dial off loopback refused and reported. It skips in `make test` and `make test-integration` (it needs
+`UNPLUG=1` and the dashboard's bundle, which `make unplug` builds).
+
 The War Dogs client (`games/wardogs`) runs one contract against every recorded build in
 `games/wardogs/testdata/` through a fake server (`games/wardogs/wardogstest`); the same contract
 runs against a real server, reading only, with `-tags live` (`games/wardogs/README.md`). The demo
