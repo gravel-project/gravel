@@ -29,6 +29,18 @@ type a11yMe struct {
 	hubv1connect.UnimplementedIdentityServiceHandler
 }
 
+// ListUsers is People's list (gravel#203): the owner, a member with a game's grant and a local
+// account (the reset link), and one with no role, so every row's controls are scanned.
+func (a11yMe) ListUsers(context.Context, *connect.Request[hubv1.ListUsersRequest]) (*connect.Response[hubv1.ListUsersResponse], error) {
+	now := timestamppb.Now()
+	return connect.NewResponse(&hubv1.ListUsersResponse{Users: []*hubv1.User{
+		{Id: "u1", DisplayName: "Jo", Owner: true, CreatedAt: now, LastLoginAt: now, Identities: []*hubv1.Identity{{Provider: "discord", Subject: "1", DisplayName: "jo"}}},
+		{Id: "u2", DisplayName: "Sam", CreatedAt: now, Grants: []*hubv1.RoleGrant{{UserId: "u2", Role: "operator", GameId: "cs2"}, {UserId: "u2", Role: "moderator"}},
+			Identities: []*hubv1.Identity{{Provider: "local", Subject: "sam"}}},
+		{Id: "u3", DisplayName: "Ana", CreatedAt: now, Identities: []*hubv1.Identity{{Provider: "steam", Subject: "76561190000000003"}}},
+	}}), nil
+}
+
 func (a11yMe) GetMe(context.Context, *connect.Request[hubv1.GetMeRequest]) (*connect.Response[hubv1.GetMeResponse], error) {
 	return connect.NewResponse(&hubv1.GetMeResponse{User: &hubv1.User{Id: "u1", DisplayName: "Jo", Owner: true, Roles: []string{"admin"},
 		Capabilities: []string{"members:manage", "servers:operate", "servers:read", "events:read"},
@@ -311,20 +323,6 @@ func TestAccessibility(t *testing.T) {
 					{Label: "Seeding", Rows: []templates.KindTotalsRow{{Label: "All time", Times: 3, Time: "1h 30m"}, {Label: "This week", Times: 1, Time: "10m"}}},
 				}})
 		},
-		"/fixture/members": func() templ.Component {
-			p := base
-			granter := *owner
-			granter.CanGrant = true
-			p.Title, p.User, p.CSRF = "Members", &granter, "csrf"
-			p.Flash = &templates.Flash{Kind: "ok", Text: "Sam is now operator for cs2."}
-			return templates.Members(templates.MembersPage{Page: p, NextURL: "/members?page=x",
-				Roles:  []templates.Option{{Value: "moderator", Label: "moderator", Selected: true}, {Value: "operator", Label: "operator"}, {Value: "admin", Label: "admin"}},
-				Scopes: []templates.Option{{Value: "", Label: "Every game", Selected: true}, {Value: "cs2", Label: "Counter-Strike 2"}},
-				Members: []templates.MemberRow{
-					{ID: "u1", DisplayName: "Jo", Accounts: "Discord, Steam", Joined: now, Owner: true},
-					{ID: "u2", DisplayName: "Sam", Accounts: "Discord", Joined: now, Grants: []templates.GrantView{{Role: "moderator", Label: "moderator"}, {Role: "operator", GameID: "cs2", Label: "operator · Counter-Strike 2"}}},
-					{ID: "u3", DisplayName: "Ana", Accounts: "Discord, Steam", Joined: now}}})
-		},
 		"/fixture/server-moderator": func() templ.Component {
 			p := base
 			p.Title, p.User, p.CSRF = online.Name, owner, "csrf"
@@ -457,16 +455,16 @@ func TestAccessibility(t *testing.T) {
 
 	paths := []string{"/login", "/fixture/account-unowned", "/fixture/account-owner", "/fixture/error",
 		"/fixture/account-nominated", "/fixture/account-handover",
-		"/fixture/servers", "/fixture/servers-demo", "/fixture/server", "/fixture/server-anonymous", "/fixture/server-game-overlay", "/fixture/boards", "/fixture/member-self", "/fixture/member", "/fixture/members",
+		"/fixture/servers", "/fixture/servers-demo", "/fixture/server", "/fixture/server-anonymous", "/fixture/server-game-overlay", "/fixture/boards", "/fixture/member-self", "/fixture/member",
 		"/fixture/participation", "/fixture/participation-empty", "/fixture/member-participation", "/fixture/recap", "/fixture/recap-nobody",
 		"/fixture/server-moderator", "/fixture/server-host", "/fixture/server-host-parked", "/fixture/host-confirm", "/fixture/confirm", "/fixture/log", "/fixture/account-apps", "/fixture/consent",
 		"/fixture/account-proof", "/fixture/proof", "/fixture/proof-proven", "/fixture/host-expect", "/fixture/result",
 		"/fixture/login-local", "/fixture/register", "/fixture/account-local", "/fixture/reset",
-		"/admin", "/admin/events", "/admin/access", "/admin/nowhere"}
+		"/admin", "/admin/events", "/admin/people", "/admin/access", "/admin/nowhere"}
 	// What each dashboard route shows once rendered in the browser.
-	adminRenders := map[string]string{"/admin": ">HTG WARDOGS | NA WEST | #1</a>", "/admin/events": ">HTG WARDOGS | NA WEST | #2 is down</p>", "/admin/access": ">Your access</h1>", "/admin/nowhere": ">Not found</h1>"}
+	adminRenders := map[string]string{"/admin": ">HTG WARDOGS | NA WEST | #1</a>", "/admin/events": ">HTG WARDOGS | NA WEST | #2 is down</p>", "/admin/people": ">Sam</a>", "/admin/access": ">Your access</h1>", "/admin/nowhere": ">Not found</h1>"}
 	// The same, as text on the page, for the viewport script.
-	adminRenderText := map[string]string{"/admin": "HTG WARDOGS | NA WEST | #1", "/admin/events": "HTG WARDOGS | NA WEST | #2 is down", "/admin/access": "Your access"}
+	adminRenderText := map[string]string{"/admin": "HTG WARDOGS | NA WEST | #1", "/admin/events": "HTG WARDOGS | NA WEST | #2 is down", "/admin/people": "Add a local account", "/admin/access": "Your access"}
 	// A fixture left out of the list would never be scanned and the run would still pass.
 	for path := range fixtures {
 		if !slices.Contains(paths, path) {
@@ -509,7 +507,7 @@ func TestAccessibility(t *testing.T) {
 		// The script resolves puppeteer-core and axe-core from web/admin's node_modules (make admin).
 		cmd := exec.CommandContext(ctx, "node", "../../web/admin/scripts/viewport.mjs", chrome,
 			srv.URL+"/admin", adminRenderText["/admin"], srv.URL+"/admin/events", adminRenderText["/admin/events"],
-			srv.URL+"/admin/access", adminRenderText["/admin/access"])
+			srv.URL+"/admin/people", adminRenderText["/admin/people"], srv.URL+"/admin/access", adminRenderText["/admin/access"])
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			t.Fatalf("the dashboard at phone and iPad sizes:\n%s", out)

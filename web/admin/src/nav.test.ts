@@ -2,6 +2,7 @@ import { create } from "@bufbuild/protobuf";
 import { describe, expect, it } from "vitest";
 
 import { RoleGrantSchema, UserSchema } from "./gen/gravel/hub/v1/identity_pb";
+import { OrganizationSchema } from "./gen/gravel/hub/v1/organization_pb";
 import { holds, type NavItem, visible } from "./nav";
 
 const items: NavItem[] = [
@@ -32,5 +33,17 @@ describe("the nav", () => {
 
   it("shows the owner everything", () => {
     expect(visible(create(UserSchema, { owner: true }), items)).toHaveLength(3);
+  });
+
+  it("shows a nominee's page to the member the owner nominated, and to nobody else", () => {
+    const pages: NavItem[] = [{ to: "/people", label: "People", capability: "identity:read", nominee: true }];
+    const sam = create(UserSchema, { id: "sam" });
+    const kim = create(UserSchema, { id: "kim" });
+    const org = create(OrganizationSchema, { pendingOwnerUserId: "sam" });
+    expect(visible(sam, pages, org).map((i) => i.label)).toEqual(["People"]);
+    expect(visible(kim, pages, org)).toEqual([]);
+    expect(visible(sam, pages)).toEqual([]);
+    // No nomination: an id of "" never matches a member's.
+    expect(visible(create(UserSchema, { id: "" }), pages, create(OrganizationSchema, {}))).toEqual([]);
   });
 });

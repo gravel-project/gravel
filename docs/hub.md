@@ -1428,14 +1428,14 @@ games. Leasing in person needs `servers:lease` everywhere; leases are mostly an 
 **Who may grant what** (ADR-0027 §5): a grant needs `roles:grant` for its scope (everywhere for an
 instance-wide grant, or for the game); only the owner changes an admin grant; an app holding
 `roles:grant` changes moderator grants only (so Discord role sync can never grant more); nobody
-changes their own. Grants are made on the Members page (`/members`, for anyone holding
-`roles:grant`) or with `IdentityService.SetUserRole`; `ListRoleGrants` lists them
+changes their own. Grants are made on the admin dashboard's People page (`/admin/people`, which
+offers each viewer only what these rules let them grant) or with `IdentityService.SetUserRole`; `ListRoleGrants` lists them
 (`identity:read`). Every grant and revocation is kept in `role_changes` (who or which app, the game,
 when), which can't be changed.
 
 **From ADR-0013's roles** (migration 00025): every member who held `moderator` holds a moderator
 grant and an operator grant, so park and unpark, which moved to operator, still work for them.
-Prune the operator grants on the Members page where they don't belong. `users.roles` is no longer
+Prune the operator grants on People where they don't belong. `users.roles` is no longer
 read and goes in #199.
 
 | Capability | Admits | Held by |
@@ -1624,6 +1624,9 @@ is the API's to decide, and a page says so in words when it is refused.
 | `/servers/{id}/recap?from=&to=&floor=` | a session recap ([Session recaps](#session-recaps-adr-0018)): the window in `stats.timezone`, peak players, minutes with anyone on and at or above the floor, distinct players, the matches with their times, map and team scores, and the top five by kills as the leaderboard shows players; "Nobody was on during this window." when nobody came. A link that isn't a recap window (not RFC 3339, longer than a day, not ended) is a 400 | as `/boards` ("Recaps are private…" otherwise) |
 | `/participation?kind=&window=&page=` | a participation board: the kinds recorded (a picker; "Nothing has been recorded yet" before the first), window `all`, `week`, `month` or `season:<name>`, players ranked by time taken part, 50 a page; linked from `/boards` | as `/boards` ("Participation boards are private…" otherwise) |
 
+`/members`, the staff's list of members, moved to the admin dashboard as People (#203) and
+redirects there; `/members/{id}` stays a member page.
+
 The forms and links work without JavaScript; htmx swaps only the main content. On a narrow screen a
 board drops its last two columns. A game's pages carry its overlay from the Organization settings
 ([Game overlays](#game-overlays-gravel66)).
@@ -1640,8 +1643,8 @@ limit applies in front of all of it.
 
 `/admin` is the operators' dashboard: a React client of the same API as the pages, embedded in the
 binary ([ADR-0029](adr/0029-the-admin-dashboard-is-a-static-client-in-the-binary.md); the source is
-`web/admin/`). It is H1's in-progress surface: this version has the **Fleet**, **Events** and
-**Your access**; servers, people, settings and the rest arrive page by page.
+`web/admin/`). It is H1's in-progress surface: this version has the **Fleet**, **Events**, **People** and
+**Your access**; servers, settings and the rest arrive page by page.
 
 - **Fleet** (`/admin`, `servers:read`, which every member holds): what is up, who is playing, what
   is wrong, trouble first, from `GetFleetSummary` ([Servers](#servers-adr-0010), Fleet health). A
@@ -1665,6 +1668,17 @@ binary ([ADR-0029](adr/0029-the-admin-dashboard-is-a-static-client-in-the-binary
   severity, the server and the game sit above it; all of them live in the address
   (`/admin/events?server=htg-wardogs-1&severity=warning`), so a link opens the feed filtered. The
   page says **Stale** when its last poll failed or none has answered for 15 s.
+- **People** (`/admin/people`, `identity:read`: admins and moderators; and the member the owner
+  nominated, whatever they hold): every member, 100 a page, with their accounts, when they joined
+  and last logged in, and their roles, each grant named with its game. Every people action is here
+  ([Capabilities](#capabilities-adr-0027)): **grant** a role, instance-wide or for one game, and
+  **revoke** one, offered only as the granter rules allow (only the owner sees admin, a game's
+  admin sees their game, nobody sees their own row's controls); with `members:manage`, **add a
+  local account** and its set-password link, issue a **password reset link** for a member with a
+  local account, and **log a member out everywhere** (asked first). A one-time link is shown once,
+  in the page, with Copy and Done; nothing fetches it again. The owner **hands the hub to** a member
+  (asked first); while a nomination stands, the owner sees it with Cancel, and the nominee sees
+  Accept and Decline here, as on their account page.
 - **Your access** (`/admin/access`): who you are here, your roles (everywhere and per game) and your
   capabilities.
 

@@ -5,7 +5,9 @@ export function NotFound() {
     <>
       <h1 className="mb-4 text-2xl font-bold">Not found</h1>
       <p>
-        There is no such page in the dashboard. <Link href="/">Back to the fleet</Link>.
+        There is no such page in the dashboard. <Link href="/" className="underline">
+          Back to the fleet
+        </Link>.
       </p>
     </>
   );

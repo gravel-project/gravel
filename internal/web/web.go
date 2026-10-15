@@ -133,9 +133,8 @@ func (h *Handler) Register(mux Mux) {
 	mux.HandleFunc("POST /servers/{id}/moderate", h.moderate)
 	mux.HandleFunc("POST /servers/{id}/host", h.host)
 	mux.HandleFunc("GET /servers/{id}/log", h.auditLog)
-	mux.HandleFunc("GET /members", h.members)
-	mux.HandleFunc("POST /members/role", h.setRole)
-	mux.HandleFunc("POST /members/nominate", h.nominateOwner)
+	// People moved to the admin dashboard (gravel#203); an old link lands there.
+	mux.HandleFunc("GET /members", http.RedirectHandler("/admin/people", http.StatusMovedPermanently).ServeHTTP)
 	mux.HandleFunc("POST /auth/local/login", h.localLogin)
 	mux.HandleFunc("GET /auth/local/register", h.registerForm)
 	mux.HandleFunc("POST /auth/local/register", h.register)
