@@ -160,7 +160,10 @@ function Stat({ panel, series }: { panel: MetricsPanel; series: MetricsSeries[] 
         return (
           <li key={s.name} className="flex flex-wrap items-baseline justify-between gap-2">
             {series.length > 1 && <span className="min-w-0 truncate text-sm text-muted">{s.name}</span>}
-            <span className={`text-2xl font-bold tabular-nums ${t === "ok" ? "text-ok" : t === "warn" ? "text-warn" : t === "error" ? "text-error" : ""}`}>{text}</span>
+            {/* The state is the border's colour, never the text's: coloured text fails contrast on a light ground. */}
+            <span className={`border-l-4 pl-2 text-2xl font-bold tabular-nums ${t === "ok" ? "border-ok" : t === "warn" ? "border-warn" : t === "error" ? "border-error" : "border-transparent"}`}>
+              {text}
+            </span>
           </li>
         );
       })}

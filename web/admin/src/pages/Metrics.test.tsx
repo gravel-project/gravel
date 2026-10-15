@@ -47,9 +47,9 @@ describe("metrics", () => {
     const { container, queries } = renderShell({ me: operator, path: "/metrics", dashboards: [hub, bot], panelSeries });
     expect(await screen.findByRole("heading", { name: "API" })).toBeTruthy();
     const up = (await screen.findByText("Up", { selector: "figcaption" })).closest("figure") as HTMLElement;
-    expect(await within(up).findByText("Up", { selector: "span" })).toHaveProperty("className", expect.stringContaining("text-ok") as unknown);
+    expect(await within(up).findByText("Up", { selector: "span" })).toHaveProperty("className", expect.stringContaining("border-ok") as unknown);
     const age = screen.getByText("Backup age").closest("figure") as HTMLElement;
-    expect((await within(age).findByText("27.8 h")).className).toContain("text-error");
+    expect((await within(age).findByText("27.8 h")).className).toContain("border-error");
     const calls = screen.getByText("Calls by procedure").closest("figure") as HTMLElement;
     expect(await within(calls).findByText("Latest: /gravel.hub.v1.ServerService/ListServers: 2.25/s; /gravel.hub.v1.IdentityService/GetMe: 0.5/s")).toBeTruthy();
     expect(await screen.findByText("No data: no call has failed in the range.")).toBeTruthy();

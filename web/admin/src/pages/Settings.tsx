@@ -194,7 +194,7 @@ function Field({ id, label, error, hint, children }: { id: string; label: string
       {children}
       {hint && <p className="text-sm text-muted">{hint}</p>}
       {error && (
-        <p id={id + "-error"} className="text-sm font-bold text-error">
+        <p id={id + "-error"} className="border-l-4 border-error pl-2 text-sm font-bold">
           {error}
         </p>
       )}
@@ -209,7 +209,7 @@ function Check({ id, label, checked, set, error }: { id: string; label: string; 
         <input id={id} type="checkbox" checked={checked} onChange={(e) => { set(e.target.checked); }} />
         {label}
       </label>
-      {error && <p className="text-sm font-bold text-error">{error}</p>}
+      {error && <p className="border-l-4 border-error pl-2 text-sm font-bold">{error}</p>}
     </div>
   );
 }
