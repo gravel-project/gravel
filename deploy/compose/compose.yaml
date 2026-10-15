@@ -1,0 +1,212 @@
+# The hub on a cloud box with Compose (tier 2, docs/tiers.md, gravel#210): `./init.sh <domain>` once,
+# then `docker compose up -d` (or `podman compose`). The images are the quadlets' (deploy/quadlet/),
+# pinned by the same digests (deploy/compose_test.go holds them equal); secrets are files under
+# local/secrets/ that init.sh writes, mounted into each container's /run/secrets, never in the
+# environment or a config file. Compose outside Swarm mounts them with the file's own mode and
+# label, so they are readable files in a directory only this box's user may enter, labelled for
+# containers where SELinux is on (init.sh); the config files mount with :z, which a box without
+# SELinux ignores. deploy/README.md has the whole story.
+#
+# Profiles (COMPOSE_PROFILES in .env; init.sh sets https):
+#   https          Caddy in front, with a certificate for GRAVEL_DOMAIN from Let's Encrypt (ports 80, 443)
+#   tunnel         a Cloudflare Tunnel instead: no open port (local/secrets/tunnel-token)
+#   backups        WAL archiving and a nightly base backup to an S3 bucket (GRAVEL_BACKUP_* in .env)
+#   bot            the Discord bot (local/bot.yaml and its two secrets, docs/bot.md)
+#   observability  Prometheus and Grafana with gravel's dashboards
+name: gravel
+
+services:
+  postgres:
+    # Postgres 17 with WAL-G (deploy/postgres), the image the quadlets' backup set runs: archiving
+    # is off until the backups profile's settings turn it on (GRAVEL_WAL_ARCHIVE=on).
+    image: ghcr.io/gravel-project/gravel-postgres@sha256:2c943077d6949a5e406d60573dec75c1b65a578499b0bc529837b88d5266a183
+    command: ["postgres", "-c", "archive_mode=${GRAVEL_WAL_ARCHIVE:-off}", "-c", "archive_command=wal-g wal-push %p", "-c", "archive_timeout=60"]
+    environment:
+      POSTGRES_USER: gravel
+      POSTGRES_DB: gravel
+      POSTGRES_PASSWORD_FILE: /run/secrets/gravel-db-password
+      WALG_S3_PREFIX: ${GRAVEL_BACKUP_S3_PREFIX:-}
+      AWS_ENDPOINT: ${GRAVEL_BACKUP_ENDPOINT:-}
+      AWS_REGION: ${GRAVEL_BACKUP_REGION:-auto}
+      AWS_S3_FORCE_PATH_STYLE: "true"
+      AWS_SHARED_CREDENTIALS_FILE: /run/secrets/gravel-backup-credentials
+    secrets:
+      - gravel-db-password
+      - gravel-backup-credentials
+    volumes:
+      - gravel-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gravel -d gravel"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+    restart: unless-stopped
+
+  hub:
+    image: ghcr.io/gravel-project/gravel-hub@sha256:10ef2843b8008a11cd2f035cdd91cfc9003e38c00f392cd998268733bf4cea7a
+    command: ["serve", "--config", "/etc/gravel/hub.yaml"]
+    environment:
+      GRAVEL_IMAGE: ghcr.io/gravel-project/gravel-hub@sha256:10ef2843b8008a11cd2f035cdd91cfc9003e38c00f392cd998268733bf4cea7a # /healthz reports it
+    secrets:
+      - gravel-db-url
+      - gravel-stats-pseudonym-key
+    volumes:
+      - ./local/hub.yaml:/etc/gravel/hub.yaml:ro,z
+      - gravel-backup:/var/lib/gravel/backup:ro
+    ports:
+      - "127.0.0.1:${GRAVEL_INTERNAL_PORT:-9090}:9090" # metrics and pprof, for this box only; members come in through Caddy or the tunnel
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/ko-app/gravel-hub", "healthcheck"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+
+  caddy:
+    # HTTPS for GRAVEL_DOMAIN: Caddy gets and renews a Let's Encrypt certificate on its own once the
+    # domain's DNS points at this box and ports 80 and 443 are open. gravel's copy of caddy (#79).
+    image: ghcr.io/gravel-project/mirror/caddy@sha256:685ae3d7c34d9b5f8caeddc5d14051db7bbd88ff1f5a2fa0c16bd8ca328fb7af # 2.11.7
+    profiles: ["https"]
+    environment:
+      GRAVEL_DOMAIN: ${GRAVEL_DOMAIN:?run ./init.sh <domain> first}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro,z
+      - gravel-caddy-data:/data
+      - gravel-caddy-config:/config
+    depends_on: [hub]
+    restart: unless-stopped
+
+  cloudflared:
+    # A Cloudflare Tunnel instead of open ports: point its public hostname at http://hub:8080 in the
+    # Cloudflare dashboard and put the tunnel's token in local/secrets/tunnel-token.
+    image: ghcr.io/gravel-project/mirror/cloudflared@sha256:9b49eed8f62806d5d45ddf59ecefb5710429598ea6d3fcccd2af938f621b2b07
+    profiles: ["tunnel"]
+    command: ["tunnel", "--no-autoupdate", "run", "--token-file", "/run/secrets/gravel-tunnel-token"]
+    secrets:
+      - gravel-tunnel-token
+    depends_on: [hub]
+    restart: unless-stopped
+
+  backup:
+    # A base backup every night at 03:00 UTC (the quadlets' timer), then the status file the hub
+    # reads; WAL archiving between them (GRAVEL_WAL_ARCHIVE=on). ADR-0006, docs/hub.md "Backups".
+    image: ghcr.io/gravel-project/gravel-postgres@sha256:2c943077d6949a5e406d60573dec75c1b65a578499b0bc529837b88d5266a183
+    profiles: ["backups"]
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        # libpq refuses a pgpass anyone else may read, and Compose can't set a secret's mode outside
+        # Swarm: a private copy.
+        install -m 0600 /run/secrets/gravel-backup-pgpass /tmp/pgpass
+        while :; do
+          now=$$(date -u +%s); next=$$(date -u -d "$$(date -u +%F) 03:00" +%s)
+          [ "$$next" -gt "$$now" ] || next=$$((next + 86400))
+          sleep $$((next - now)) && gravel-backup || echo "gravel-backup failed; the next run is tomorrow"
+        done
+    environment:
+      PGHOST: postgres
+      PGUSER: gravel
+      PGDATABASE: gravel
+      PGPASSFILE: /tmp/pgpass
+      WALG_S3_PREFIX: ${GRAVEL_BACKUP_S3_PREFIX:-}
+      AWS_ENDPOINT: ${GRAVEL_BACKUP_ENDPOINT:-}
+      AWS_REGION: ${GRAVEL_BACKUP_REGION:-auto}
+      AWS_S3_FORCE_PATH_STYLE: "true"
+      AWS_SHARED_CREDENTIALS_FILE: /run/secrets/gravel-backup-credentials
+      GRAVEL_BACKUP_RETAIN_FULL: "30"
+    secrets:
+      - gravel-backup-credentials
+      - gravel-backup-pgpass
+    volumes:
+      - gravel-postgres:/var/lib/postgresql/data:ro
+      - gravel-backup:/var/lib/gravel/backup
+    depends_on: [postgres]
+    restart: unless-stopped
+
+  bot:
+    # The Discord bot with the stock modules (docs/bot.md): local/bot.yaml, the bot's token and its
+    # client secret as a hub app (`docker compose exec hub /ko-app/gravel-hub apps create …`).
+    image: ghcr.io/gravel-project/gravel-bot@sha256:6a4692102963c1d93455ed373cf9495a828a53b1134d432a923004cb978b4d9c
+    profiles: ["bot"]
+    command: ["serve", "--config", "/etc/gravel/bot.yaml"]
+    secrets:
+      - gravel-bot-discord-token
+      - gravel-bot-hub-client-secret
+    volumes:
+      - ./local/bot.yaml:/etc/gravel/bot.yaml:ro,z
+    ports:
+      - "127.0.0.1:${GRAVEL_BOT_INTERNAL_PORT:-9091}:9091"
+    depends_on: [hub]
+    healthcheck:
+      test: ["CMD", "/ko-app/gravel-bot", "healthcheck"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+
+  prometheus:
+    image: quay.io/prometheus/prometheus@sha256:efd719c99d83b060d9daefdcf00360461adf279f45ef5391f8d111892118753e # v3.15.0
+    profiles: ["observability"]
+    command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.path=/prometheus", "--storage.tsdb.retention.time=30d", "--storage.tsdb.retention.size=2GB"]
+    volumes:
+      - ../observability/prometheus/compose.yml:/etc/prometheus/prometheus.yml:ro,z
+      - gravel-prometheus:/prometheus
+    ports: ["127.0.0.1:${GRAVEL_PROMETHEUS_PORT:-9092}:9090"]
+    restart: unless-stopped
+
+  grafana:
+    image: ghcr.io/gravel-project/mirror/grafana@sha256:b28bae15e219c998fb0e0424ed724930cc61b1f61fb404d47c862f9a23f9e572 # 13.2.3
+    profiles: ["observability"]
+    depends_on: [prometheus]
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/gravel-grafana-admin-password
+      GRAVEL_PROMETHEUS_URL: http://prometheus:9090
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+    secrets:
+      - gravel-grafana-admin-password
+    volumes:
+      - ../observability/grafana/provisioning:/etc/grafana/provisioning:ro,z
+      - ../observability/grafana/dashboards:/etc/grafana/dashboards/gravel:ro,z
+      - gravel-grafana:/var/lib/grafana
+    ports: ["127.0.0.1:${GRAVEL_GRAFANA_PORT:-3000}:3000"]
+    restart: unless-stopped
+
+secrets:
+  gravel-db-password:
+    file: ./local/secrets/db-password
+  gravel-db-url:
+    file: ./local/secrets/db-url
+  gravel-stats-pseudonym-key:
+    file: ./local/secrets/stats-pseudonym-key
+  gravel-backup-credentials:
+    file: ./local/secrets/backup-credentials
+  gravel-backup-pgpass:
+    file: ./local/secrets/backup-pgpass
+  gravel-tunnel-token:
+    file: ./local/secrets/tunnel-token
+  gravel-bot-discord-token:
+    file: ./local/secrets/bot-discord-token
+  gravel-bot-hub-client-secret:
+    file: ./local/secrets/bot-hub-client-secret
+  gravel-grafana-admin-password:
+    file: ./local/secrets/grafana-admin-password
+
+volumes:
+  gravel-postgres: {}
+  gravel-backup: {}
+  gravel-caddy-data: {}
+  gravel-caddy-config: {}
+  gravel-prometheus: {}
+  gravel-grafana: {}

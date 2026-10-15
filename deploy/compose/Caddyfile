@@ -1,0 +1,9 @@
+# HTTPS for the hub (gravel#210): Caddy gets a certificate for GRAVEL_DOMAIN from Let's Encrypt
+# and renews it. X-Real-IP is overwritten with the connection's address, which is what the hub's
+# server.client_ip_header trusts; a member can't set it.
+{$GRAVEL_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy hub:8080 {
+		header_up X-Real-IP {remote_host}
+	}
+}
