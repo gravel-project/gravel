@@ -1,0 +1,103 @@
+syntax = "proto3";
+
+package gravel.hub.v1;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/gravel-project/gravel/gen/gravel/hub/v1;hubv1";
+
+// MetricsDashboard is one of gravel's operator dashboards (ADR-0009, ADR-0030): the same
+// definition the generated Grafana JSON comes from, as the admin dashboard draws it.
+message MetricsDashboard {
+  // "gravel-hub", "gravel-bot".
+  string uid = 1;
+  string title = 2;
+  string description = 3;
+  repeated MetricsRow rows = 4;
+}
+
+message MetricsRow {
+  string title = 1;
+  repeated MetricsPanel panels = 2;
+}
+
+// MetricsPanel is one panel: what QueryRange takes to draw it, and how to draw it. Its PromQL
+// stays on the hub: a client names the panel, never an expression.
+message MetricsPanel {
+  // Stable within a hub version: "r2p3" (row 2, panel 3).
+  string id = 1;
+  string title = 2;
+  string description = 3;
+  // "stat" or "timeseries".
+  string kind = 4;
+  // Grafana's unit names: "s", "bytes", "percentunit", "reqps", "short", "".
+  string unit = 5;
+  // Width on a 24-column grid, as the Grafana dashboard lays it out.
+  int32 width = 6;
+  // The thresholds, ascending; the first's value is the base. Colours are Grafana's names.
+  repeated MetricsThreshold thresholds = 7;
+  // A stat's value → text and colour.
+  repeated MetricsValueMap mappings = 8;
+  // Why the panel may have no data on a healthy hub (a feature not configured); empty otherwise.
+  string optional = 9;
+}
+
+message MetricsThreshold {
+  double value = 1;
+  string color = 2;
+}
+
+message MetricsValueMap {
+  string value = 1;
+  string text = 2;
+  string color = 3;
+}
+
+message ListDashboardsRequest {}
+
+message ListDashboardsResponse {
+  // Whether the hub has a metrics store to read (hub.yaml metrics.query_url); without one the
+  // dashboards are listed and QueryRange answers failed_precondition.
+  bool available = 1;
+  repeated MetricsDashboard dashboards = 2;
+}
+
+message QueryRangeRequest {
+  string dashboard_uid = 1;
+  string panel_id = 2;
+  google.protobuf.Timestamp start = 3;
+  google.protobuf.Timestamp end = 4;
+  // The resolution; at least 15s, and at most 11,000 points across the range (the hub widens a
+  // finer step). The range is at most 30 days.
+  google.protobuf.Duration step = 5;
+}
+
+// MetricsSeries is one line of a panel: its legend, its labels and its points.
+message MetricsSeries {
+  // The panel target's legend with the series' labels in it ("{{server}}" → "htg-cs2-1").
+  string name = 1;
+  map<string, string> labels = 2;
+  // Unix milliseconds and values, the same length; a gap has no point.
+  repeated int64 times = 3;
+  repeated double values = 4;
+}
+
+message QueryRangeResponse {
+  repeated MetricsSeries series = 1;
+  // The step the hub used, after widening.
+  google.protobuf.Duration step = 2;
+}
+
+// MetricsService serves the operator dashboards in the hub (ADR-0030, gravel#204): their
+// definitions, and their series read from the hub's metrics store, which the hub proxies and never
+// keeps. metrics:read.
+service MetricsService {
+  // ListDashboards is the dashboards and whether a store is configured.
+  rpc ListDashboards(ListDashboardsRequest) returns (ListDashboardsResponse);
+  // QueryRange is one panel's series over a range: the hub expands the panel's own expressions
+  // ($job from hub.yaml, every instance, $__rate_interval from the step) and asks the store's
+  // /api/v1/query_range. not_found for a panel the hub doesn't define; failed_precondition with no
+  // store; unavailable when the store doesn't answer in metrics.timeout.
+  rpc QueryRange(QueryRangeRequest) returns (QueryRangeResponse);
+}

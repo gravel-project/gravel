@@ -75,6 +75,10 @@ func Hub() Dashboard {
 					Targets: []Target{{Expr: rate("gravel_rpc_requests_total", "procedure, code", `code!="ok"`), Legend: "{{procedure}} {{code}}"}}},
 				{Title: "p95 latency by procedure", Kind: "timeseries", Unit: "s", Width: 8,
 					Targets: []Target{{Expr: quantile("0.95", "gravel_rpc_request_duration_seconds", "procedure"), Legend: "{{procedure}}"}}},
+				{Title: "Dashboard queries by result", Kind: "timeseries", Unit: "reqps", Width: 8,
+					Description: "The admin dashboard's /admin/metrics reading this store through the hub (gravel#204): ok, unavailable, refused, too_large, no_store.",
+					Optional:    "nobody has opened /admin/metrics in the range",
+					Targets:     []Target{{Expr: rate("gravel_metrics_queries_total", "result", ""), Legend: "{{result}}"}}},
 			}},
 			{Title: "Login", Panels: []Panel{
 				{Title: "Login, link and Linked Roles attempts", Kind: "timeseries", Width: 12, Optional: "nobody logged in or linked in the range",

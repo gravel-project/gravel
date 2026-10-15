@@ -2,7 +2,9 @@ package dashboards
 
 import (
 	"regexp"
+	"strconv"
 	"strings"
+	"time"
 )
 
 // Dashboard is one as gravel defines it: rows of panels, each panel one or more PromQL targets.
@@ -210,4 +212,29 @@ func MetricNames(expr string) []string {
 		out = append(out, m)
 	}
 	return out
+}
+
+// ExpandFor makes a definition's expression plain PromQL for a range query the hub runs itself
+// (gravel#204): $job is the scrape job (quoted as PromQL quotes strings), $instance every instance,
+// $__rate_interval at least four 15 s scrapes and two steps, $__interval the step, $__range the
+// range. Nothing in it comes from the viewer.
+func ExpandFor(expr, job string, step, span time.Duration) string {
+	r := strings.NewReplacer(
+		"$__rate_interval", promDuration(max(time.Minute, 2*step)), "$__interval", promDuration(step), "$__range", promDuration(span),
+		`"$job"`, strconv.Quote(job), `"$instance"`, `".+"`,
+	)
+	return r.Replace(expr)
+}
+
+// promDuration is a duration as PromQL writes one, in whole seconds (at least 1s).
+func promDuration(d time.Duration) string {
+	return strconv.Itoa(max(1, int(d.Round(time.Second).Seconds()))) + "s"
+}
+
+// Binary is the binary a dashboard reads: "hub" or "bot" (its scrape job, config Metrics.Job).
+func (d Dashboard) Binary() string {
+	if d.UID == "gravel-bot" {
+		return "bot"
+	}
+	return "hub"
 }

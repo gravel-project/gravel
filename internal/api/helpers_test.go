@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"slices"
+	"sync"
 	"testing"
 	"time"
 
@@ -19,6 +20,8 @@ import (
 	"github.com/gravel-project/gravel/internal/apps"
 	"github.com/gravel-project/gravel/internal/apps/appstest"
 	"github.com/gravel-project/gravel/internal/authz"
+	"github.com/gravel-project/gravel/internal/config"
+	"github.com/gravel-project/gravel/internal/dashboards"
 	"github.com/gravel-project/gravel/internal/identity"
 	"github.com/gravel-project/gravel/internal/identity/identitytest"
 	"github.com/gravel-project/gravel/internal/identity/proof"
@@ -26,6 +29,7 @@ import (
 	"github.com/gravel-project/gravel/internal/notify"
 	"github.com/gravel-project/gravel/internal/org"
 	"github.com/gravel-project/gravel/internal/org/orgtest"
+	"github.com/gravel-project/gravel/internal/promquery"
 	"github.com/gravel-project/gravel/internal/results"
 	"github.com/gravel-project/gravel/internal/servers"
 	"github.com/gravel-project/gravel/internal/servers/serverstest"
@@ -66,6 +70,26 @@ type rig struct {
 	erased []erasure
 	// srvSt is the servers' store, which keeps what applies recorded (servers.applied).
 	srvSt *serverstest.FakeStore
+	// store is the metrics store MetricsService reads (gravel#204); results what it counted.
+	store   *fakeMetricsStore
+	results []string
+}
+
+// fakeMetricsStore answers range queries as the test sets it and records each expression it ran.
+type fakeMetricsStore struct {
+	mu     sync.Mutex
+	exprs  []string
+	steps  []time.Duration
+	series []promquery.Series
+	err    error
+}
+
+func (f *fakeMetricsStore) QueryRange(_ context.Context, expr string, _, _ time.Time, step time.Duration) ([]promquery.Series, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.exprs = append(f.exprs, expr)
+	f.steps = append(f.steps, step)
+	return f.series, f.err
 }
 
 // erasure is one EraseIdentity call: whose identity, and who asked.
@@ -207,6 +231,9 @@ func newRig(t *testing.T, idOpts ...rigIdentity) *rig {
 	statsAPI.SetResults(results.New(emptyResults{}, o.ID, nil, func(string) string { return "" }, nil, 0, prometheus.NewRegistry(), logger))
 	mux.Handle(hubv1connect.NewStatsServiceHandler(statsAPI, member))
 	mux.Handle(hubv1connect.NewAppServiceHandler(api.NewAppServer(r.apps, logger).WithAccess(access), member))
+	r.store = &fakeMetricsStore{}
+	mux.Handle(hubv1connect.NewMetricsServiceHandler(api.NewMetricsServer(dashboards.All(), config.Metrics{QueryURL: "http://store:8428"}, r.store, access,
+		func(res string) { r.results = append(r.results, res) }, logger), member))
 	r.srv = newH2CServer(r.sess.Middleware(r.apps.Middleware(mux)))
 	t.Cleanup(r.srv.Close)
 	return r
