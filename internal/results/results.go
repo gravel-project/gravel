@@ -66,19 +66,26 @@ type Service struct {
 	orgID   uuid.UUID
 	leases  Leases
 	mapName func(serverID string) string
-	objects objectstore.Store
-	maxDemo int64
-	logger  *slog.Logger
-	now     func() time.Time
-	events  *prometheus.CounterVec
-	demos   *prometheus.CounterVec
+	// extensions are the stat extensions a server's game declares (ADR-0033), what a player's
+	// row keeps of the plugin's values.
+	extensions func(ctx context.Context, serverID string) []string
+	objects    objectstore.Store
+	maxDemo    int64
+	logger     *slog.Logger
+	now        func() time.Time
+	events     *prometheus.CounterVec
+	demos      *prometheus.CounterVec
 }
 
-// New builds the service. mapName says the map a server is on now (the monitor's last look); objects
-// keeps demos up to maxDemo bytes, nil for none.
-func New(st Store, orgID uuid.UUID, leases Leases, mapName func(string) string, objects objectstore.Store, maxDemo int64,
-	reg prometheus.Registerer, logger *slog.Logger) *Service {
-	s := &Service{st: st, orgID: orgID, leases: leases, mapName: mapName, objects: objects, maxDemo: maxDemo, logger: logger, now: time.Now,
+// New builds the service. mapName says the map a server is on now (the monitor's last look);
+// extensions, the stat extensions its game's spec declares (nil keeps none); objects keeps demos up
+// to maxDemo bytes, nil for none.
+func New(st Store, orgID uuid.UUID, leases Leases, mapName func(string) string, extensions func(context.Context, string) []string,
+	objects objectstore.Store, maxDemo int64, reg prometheus.Registerer, logger *slog.Logger) *Service {
+	if extensions == nil {
+		extensions = func(context.Context, string) []string { return nil }
+	}
+	s := &Service{st: st, orgID: orgID, leases: leases, mapName: mapName, extensions: extensions, objects: objects, maxDemo: maxDemo, logger: logger, now: time.Now,
 		events: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Name: "gravel_match_events_total", Help: "Match plugin events by event name and result: recorded, ignored (not one the hub keeps), or error.",
 		}, []string{"event", "result"}),
@@ -144,7 +151,8 @@ func (s *Service) record(ctx context.Context, server string, ev matchzy.Event, v
 			Team1Score: e.Team1.Score, Team2Score: e.Team2.Score}); err != nil {
 			return err
 		}
-		return s.st.ReplaceMatchResultPlayers(ctx, r.ID, e.MapNumber, append(players(e.Team1, matchzy.Team1), players(e.Team2, matchzy.Team2)...))
+		declared := s.extensions(ctx, server)
+		return s.st.ReplaceMatchResultPlayers(ctx, r.ID, e.MapNumber, append(players(e.Team1, matchzy.Team1, declared), players(e.Team2, matchzy.Team2, declared)...))
 	case matchzy.MapResult:
 		r, err := s.result(ctx, server, ev.MatchID, now)
 		if err != nil {
@@ -177,16 +185,23 @@ func winner(team string) string {
 	return ""
 }
 
-// players are a team's players' running totals on a map, keyed by SteamID64.
-func players(t matchzy.StatsTeam, team string) []store.MatchResultPlayer {
+// players are a team's players' running totals on a map, keyed by SteamID64, with the plugin's
+// values the game declares as extensions (one the plugin doesn't report stays absent).
+func players(t matchzy.StatsTeam, team string, declared []string) []store.MatchResultPlayer {
 	out := make([]store.MatchResultPlayer, 0, len(t.Players))
 	for _, p := range t.Players {
 		if !steamID.MatchString(p.SteamID) {
 			continue // a bot
 		}
-		st := p.Stats
+		values := p.Stats.Values()
+		ext := make(map[string]float64, len(declared))
+		for _, name := range declared {
+			if v, ok := values[name]; ok {
+				ext[name] = v
+			}
+		}
 		out = append(out, store.MatchResultPlayer{Provider: Provider, Subject: p.SteamID, Name: p.Name, Team: team,
-			Kills: st.Kills, Deaths: st.Deaths, Assists: st.Assists, Damage: st.Damage, HeadshotKills: st.HeadshotKills, MVPs: st.MVPs, Score: st.Score})
+			Kills: p.Stats.Kills, Deaths: p.Stats.Deaths, Extensions: ext})
 	}
 	return out
 }

@@ -461,7 +461,16 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 		}
 		return ""
 	}
-	h.results = results.New(st, o.ID, h.leases, mapName, objects, int64(cfg.Demos.MaxMiB)<<20, h.registry, logger)
+	// A result keeps the stat extensions its server's game declares (ADR-0033).
+	extensions := func(ctx context.Context, server string) []string {
+		srv, err := h.servers.Server(ctx, server)
+		if err != nil {
+			return nil
+		}
+		sp, _ := h.servers.Spec(srv.Game)
+		return sp.Stats.Names()
+	}
+	h.results = results.New(st, o.ID, h.leases, mapName, extensions, objects, int64(cfg.Demos.MaxMiB)<<20, h.registry, logger)
 	h.ingest.SetPluginSinks(h.results, h.results)
 	h.jobs.Start(jobs.Job{Name: "ingest_feeds", Every: servers.ReconcileEvery, Immediate: true, Run: h.refreshFeeds})
 	h.jobs.Start(jobs.Job{Name: "ingest_prune", Every: ingest.PruneEvery, Run: func(ctx context.Context) error {

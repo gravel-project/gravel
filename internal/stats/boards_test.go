@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/gravel-project/gravel/internal/org"
+	"github.com/gravel-project/gravel/internal/servers"
 	"github.com/gravel-project/gravel/internal/store"
 )
 
@@ -86,6 +87,28 @@ type boardStore struct {
 	members map[store.PlayerKey]store.BoardMember
 	shown   map[uuid.UUID]bool
 	writes  int // name choices written
+	// games are the servers' games; ext the extension totals BoardExtensions answers (ADR-0033).
+	games map[string]string
+	ext   map[store.PlayerKey]map[string]store.ExtensionTotal
+	extQ  *store.BoardQuery
+}
+
+func (b *boardStore) ServerGame(_ context.Context, _ uuid.UUID, server string) (string, error) {
+	if g, ok := b.games[server]; ok {
+		return g, nil
+	}
+	return "", store.ErrNotFound
+}
+
+func (b *boardStore) BoardExtensions(_ context.Context, q store.BoardQuery, keys []store.PlayerKey) (map[store.PlayerKey]map[string]store.ExtensionTotal, error) {
+	b.extQ = &q
+	out := map[store.PlayerKey]map[string]store.ExtensionTotal{}
+	for _, k := range keys {
+		if t, ok := b.ext[k]; ok {
+			out[k] = t
+		}
+	}
+	return out, nil
 }
 
 func (b *boardStore) Board(_ context.Context, q store.BoardQuery) ([]store.BoardRow, error) {
@@ -270,5 +293,60 @@ func TestBoardCache(t *testing.T) {
 	}
 	if read(Query{}) {
 		t.Error("the re-read answer was not kept")
+	}
+}
+
+// A board of one game shows that game's own stats (ADR-0033): a CS2 server's board carries CS2's
+// extensions as its columns and each player's totals, read over the same window and trusts; a
+// stat a player has no result for is absent and a reported 0 stays 0. A War Dogs board, which
+// declares none, and the organization's board carry the common stats only.
+func TestBoardExtensions(t *testing.T) {
+	a := store.PlayerKey{Provider: "steam", Subject: "76561190000000001"}
+	c := store.PlayerKey{Provider: "steam", Subject: "76561190000000003"}
+	b, bs := newBoards(org.Stats{}, store.BoardRow{Provider: a.Provider, Subject: a.Subject, Kills: 30, Matches: 3},
+		store.BoardRow{Provider: c.Provider, Subject: c.Subject, Kills: 4, Matches: 1})
+	bs.games = map[string]string{"cs2-1": "cs2", "wd-1": "wardogs"}
+	bs.ext = map[store.PlayerKey]map[string]store.ExtensionTotal{a: {"damage": {Total: 4620, Maps: 3, Max: 2310}, "mvps": {Total: 0, Maps: 3}}}
+	got, err := b.Board(context.Background(), Query{ServerID: "cs2-1", Window: WindowWeek})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, e := range got.Extensions {
+		names = append(names, e.Name)
+	}
+	if strings.Join(names, ",") != "assists,damage,headshot_kills,mvps,score" {
+		t.Errorf("columns = %v", names)
+	}
+	if bs.extQ == nil || bs.extQ.ServerID != "cs2-1" || !bs.extQ.From.Equal(got.From) || len(bs.extQ.Trusts) != 2 {
+		t.Errorf("extension query = %+v", bs.extQ)
+	}
+	e := got.Entries[0].Extensions
+	if v, ok := e["mvps"]; !ok || v != 0 || e["damage"] != 4620 || len(e) != 2 {
+		t.Errorf("a's extensions = %v", e)
+	}
+	if got.Entries[1].Extensions != nil {
+		t.Errorf("c has no results, yet %v", got.Entries[1].Extensions)
+	}
+	for name, q := range map[string]Query{"wardogs server": {ServerID: "wd-1"}, "organization": {}, "unknown server": {ServerID: "gone"}} {
+		bs.extQ = nil
+		got, err := b.Board(context.Background(), q)
+		if err != nil || len(got.Extensions) != 0 || got.Entries[0].Extensions != nil || bs.extQ != nil {
+			t.Errorf("%s: columns %v, entry %v, queried %v, %v", name, got.Extensions, got.Entries[0].Extensions, bs.extQ != nil, err)
+		}
+	}
+	// A game's board reads the game's.
+	if got, err := b.Board(context.Background(), Query{GameID: "cs2"}); err != nil || len(got.Extensions) != 5 || bs.extQ.GameID != "cs2" {
+		t.Errorf("game board: %v, %+v", err, bs.extQ)
+	}
+}
+
+// Each aggregate totals a player's maps its own way.
+func TestExtensionValue(t *testing.T) {
+	tot := store.ExtensionTotal{Total: 30, Maps: 4, Max: 12}
+	for agg, want := range map[string]float64{servers.StatSum: 30, servers.StatAvg: 7.5, servers.StatMax: 12} {
+		if got := extensionValue(servers.StatExtension{Aggregate: agg}, tot); got != want {
+			t.Errorf("%s = %v, want %v", agg, got, want)
+		}
 	}
 }

@@ -208,12 +208,23 @@ func TestRetireResults(t *testing.T) {
 	running := playResult(t, st, o.ID, 4, cutoff.Add(-72*time.Hour), false, map[int][]string{1: {"1"}})
 	recent := playResult(t, st, o.ID, 5, cutoff.Add(24*time.Hour), true, map[int][]string{1: {"1"}})
 
-	got, err := st.RetireResults(ctx, o.ID, cutoff)
+	// The periods must hold every retiring series' start, or nothing happens: their extensions
+	// would be lost (ADR-0033).
+	if got, err := st.RetireResults(ctx, o.ID, cutoff, "UTC", nil); err == nil || got != (store.Retired{}) {
+		t.Fatalf("retired without periods = %+v, %v", got, err)
+	}
+	oldest, err := st.OldestRetirableResult(ctx, o.ID, cutoff)
+	if err != nil || !oldest.Equal(cutoff.Add(-72*time.Hour)) && !oldest.Equal(cutoff.Add(-48*time.Hour)) {
+		t.Fatalf("oldest retirable = %v, %v", oldest, err)
+	}
+	october := []store.Period{{From: time.Date(2025, 10, 1, 0, 0, 0, 0, time.UTC), To: time.Date(2025, 11, 1, 0, 0, 0, 0, time.UTC)}}
+	got, err := st.RetireResults(ctx, o.ID, cutoff, "UTC", october)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got != (store.Retired{Results: 2, Rows: 5}) {
-		t.Errorf("retired = %+v, want 2 results and 5 rows", got)
+	// Players 1 and 2, damage and mvps each: player 1's maps in both series add up in one row.
+	if got != (store.Retired{Results: 2, Rows: 5, Rolled: 4}) {
+		t.Errorf("retired = %+v, want 2 results, 5 rows and 4 rolled", got)
 	}
 	players := func(org, id uuid.UUID) []store.MatchResultPlayer {
 		r, err := st.GetMatchResult(ctx, org, id)
@@ -245,11 +256,85 @@ func TestRetireResults(t *testing.T) {
 			}
 		}
 	}
-	if again, err := st.RetireResults(ctx, o.ID, cutoff); err != nil || again != (store.Retired{}) {
+	if again, err := st.RetireResults(ctx, o.ID, cutoff, "UTC", october); err != nil || again != (store.Retired{}) {
 		t.Errorf("a second run = %+v, %v", again, err)
 	}
-	if none, err := st.RetireResults(ctx, uuid.New(), cutoff.Add(1000*time.Hour)); err != nil || none != (store.Retired{}) {
+	if _, err := st.OldestRetirableResult(ctx, o.ID, cutoff); !errors.Is(err, store.ErrNotFound) {
+		t.Errorf("oldest retirable after retiring: %v", err)
+	}
+	if none, err := st.RetireResults(ctx, uuid.New(), cutoff.Add(1000*time.Hour), "UTC", nil); err != nil || none != (store.Retired{}) {
 		t.Errorf("another organization = %+v, %v", none, err)
+	}
+
+	// A board's extension totals add the rolled-up periods to the raw results (ADR-0033): player 1
+	// had damage 1000 on each of 6 maps (3 rolled, 3 raw: boundary, running, recent), player 2
+	// 2000 on 2 rolled maps.
+	p1, p2 := store.PlayerKey{Provider: "steam", Subject: "1"}, store.PlayerKey{Provider: "steam", Subject: "2"}
+	q := store.BoardQuery{OrganizationID: o.ID, ServerID: "wd-1", Trusts: []string{"official", "community"}}
+	ext, err := st.BoardExtensions(ctx, q, []store.PlayerKey{p1, p2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ext[p1]["damage"] != (store.ExtensionTotal{Total: 6000, Maps: 6, Max: 1000}) || ext[p1]["mvps"] != (store.ExtensionTotal{Total: 6, Maps: 6, Max: 1}) ||
+		ext[p2]["damage"] != (store.ExtensionTotal{Total: 4000, Maps: 2, Max: 2000}) {
+		t.Errorf("all time = %+v", ext)
+	}
+	// A window from the cutoff holds only the recent series.
+	q.From = cutoff
+	if ext, err = st.BoardExtensions(ctx, q, []store.PlayerKey{p1, p2}); err != nil || ext[p1]["damage"] != (store.ExtensionTotal{Total: 1000, Maps: 1, Max: 1000}) || len(ext[p2]) != 0 {
+		t.Errorf("from the cutoff = %+v, %v", ext, err)
+	}
+	// Community trust only: wd-1 is Official, so nothing.
+	q.From, q.Trusts = time.Time{}, []string{"community"}
+	if ext, err = st.BoardExtensions(ctx, q, []store.PlayerKey{p1}); err != nil || len(ext) != 0 {
+		t.Errorf("community = %+v, %v", ext, err)
+	}
+	// Erasing player 2 re-keys their rolled-up rows too.
+	erased, err := st.EraseIdentity(ctx, o.ID, p2, "0123456789abcdef0123456789abcdef", store.Actor{Via: store.ViaCLI}, time.Now())
+	if err != nil || erased.ResultMonthlyRows != 2 {
+		t.Errorf("erase = %+v, %v", erased, err)
+	}
+	q.Trusts = []string{"official"}
+	if ext, err = st.BoardExtensions(ctx, q, []store.PlayerKey{p2}); err != nil || len(ext) != 0 {
+		t.Errorf("erased player's extensions = %+v, %v", ext, err)
+	}
+}
+
+// A series takes its server's trust when it starts (README principle 11), and a player's
+// extensions come back as stored: an absent key stays absent, a 0 is a 0.
+func TestMatchResultTrustAndExtensions(t *testing.T) {
+	st := storetest.Open(t)
+	storetest.Reset(t, st)
+	ctx := context.Background()
+	o := newOrg(t, st)
+	seedServers(t, st, o.ID)
+	for server, want := range map[string]string{"wd-1": "official", "wd-2": "community"} {
+		r, err := st.StartMatchResult(ctx, store.MatchResult{ID: uuid.New(), OrganizationID: o.ID, ServerID: server, Source: "matchzy", ExternalID: 7, StartedAt: time.Now()})
+		if err != nil || r.Trust != want {
+			t.Errorf("%s: trust %q, %v", server, r.Trust, err)
+		}
+		if err := st.ReplaceMatchResultPlayers(ctx, r.ID, 1, []store.MatchResultPlayer{
+			{Provider: "steam", Subject: "1", Team: "team1", Extensions: map[string]float64{"mvps": 0, "damage": 12.5}},
+			{Provider: "steam", Subject: "2", Team: "team2"},
+		}); err != nil {
+			t.Fatal(err)
+		}
+		got, err := st.GetMatchResult(ctx, o.ID, r.ID)
+		if err != nil || len(got.Players) != 2 {
+			t.Fatalf("%s: %+v, %v", server, got, err)
+		}
+		for _, p := range got.Players {
+			switch p.Subject {
+			case "1":
+				if v, ok := p.Extensions["mvps"]; !ok || v != 0 || p.Extensions["damage"] != 12.5 || len(p.Extensions) != 2 {
+					t.Errorf("%s: player 1's extensions %v", server, p.Extensions)
+				}
+			case "2":
+				if len(p.Extensions) != 0 {
+					t.Errorf("%s: player 2's extensions %v", server, p.Extensions)
+				}
+			}
+		}
 	}
 }
 
@@ -273,7 +358,9 @@ func playResult(t *testing.T, st *store.Store, orgID uuid.UUID, externalID int64
 			if s == "76561190000000001" {
 				kills = 5
 			}
-			ps = append(ps, store.MatchResultPlayer{Provider: "steam", Subject: s, Name: "Player " + s, Team: []string{"team1", "team2"}[i%2], Kills: kills})
+			// Stat extensions (ADR-0033): damage 100 × kills and one MVP on each map.
+			ps = append(ps, store.MatchResultPlayer{Provider: "steam", Subject: s, Name: "Player " + s, Team: []string{"team1", "team2"}[i%2], Kills: kills,
+				Extensions: map[string]float64{"damage": float64(kills * 100), "mvps": 1}})
 		}
 		if err := st.ReplaceMatchResultPlayers(ctx, r.ID, m, ps); err != nil {
 			t.Fatal(err)

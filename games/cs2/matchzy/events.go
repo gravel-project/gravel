@@ -132,6 +132,30 @@ type PlayerStats struct {
 	MVPs              int `json:"mvp"`
 }
 
+// Values are the stats MatchZy 0.9.1 fills beyond kills and deaths, by the names a Game spec's
+// stats.extensions use (ADR-0033): lower-case with underscores, so "mvp" is "mvps" and "2k" is
+// "kills_2k". A field MatchZy 0.9.1 never fills is absent, never a count of nothing.
+func (p PlayerStats) Values() map[string]float64 {
+	return map[string]float64{
+		"assists":         float64(p.Assists),
+		"damage":          float64(p.Damage),
+		"utility_damage":  float64(p.UtilityDamage),
+		"enemies_flashed": float64(p.EnemiesFlashed),
+		"headshot_kills":  float64(p.HeadshotKills),
+		"rounds_played":   float64(p.RoundsPlayed),
+		"bomb_defuses":    float64(p.BombDefuses),
+		"bomb_plants":     float64(p.BombPlants),
+		"kills_2k":        float64(p.Kills2),
+		"kills_3k":        float64(p.Kills3),
+		"kills_4k":        float64(p.Kills4),
+		"kills_5k":        float64(p.Kills5),
+		"clutch_1v1":      float64(p.OneV1),
+		"clutch_1v2":      float64(p.OneV2),
+		"score":           float64(p.Score),
+		"mvps":            float64(p.MVPs),
+	}
+}
+
 // Player is a player in the live events (MatchZyPlayer, Get5's Get5Player).
 type Player struct {
 	// SteamID is the SteamID64 as a string, or "BOT-<user id>" for a bot.

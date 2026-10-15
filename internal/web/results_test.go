@@ -19,7 +19,7 @@ var fakeResult = &hubv1.MatchResult{Id: "r1", ServerId: "htg-wardogs-1", Team1Na
 	StartedAt: timestamppb.New(time.Date(2026, 10, 14, 1, 0, 0, 0, time.UTC)), EndedAt: timestamppb.New(time.Date(2026, 10, 14, 2, 0, 0, 0, time.UTC)),
 	Maps: []*hubv1.MatchResultMap{{MapNumber: 0, MapName: "de_nuke", Team1Score: 13, Team2Score: 9, Winner: "team1", HasDemo: true}},
 	Players: []*hubv1.MatchResultPlayer{
-		{MapNumber: 0, Name: "Jo", UserId: "u1", Team: "team1", Kills: 21, Deaths: 12, Assists: 4, Damage: 2310, Mvps: 5},
+		{MapNumber: 0, Name: "Jo", UserId: "u1", Team: "team1", Kills: 21, Deaths: 12, Extensions: map[string]float64{"assists": 4, "damage": 2310, "mvps": 0}},
 		{MapNumber: 0, Name: "Brave Falcon", Pseudonymous: true, Team: "team2", Kills: 15, Deaths: 18},
 	}}
 
@@ -32,7 +32,11 @@ func (f *fakeStats) GetMatchResult(_ context.Context, req *connect.Request[hubv1
 	if req.Msg.GetId() != "r1" {
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("no such result"))
 	}
-	return connect.NewResponse(&hubv1.GetMatchResultResponse{Result: fakeResult}), nil
+	return connect.NewResponse(&hubv1.GetMatchResultResponse{Result: fakeResult, StatExtensions: []*hubv1.StatExtension{
+		{Name: "assists", Label: "Assists", Type: "int", Aggregate: "sum"},
+		{Name: "damage", Label: "Damage", Type: "int", Unit: "HP", Aggregate: "sum"},
+		{Name: "mvps", Label: "MVPs", Type: "int", Aggregate: "sum"},
+	}}), nil
 }
 
 func (f *fakeStats) GetMatchDemo(_ context.Context, req *connect.Request[hubv1.GetMatchDemoRequest]) (*connect.Response[hubv1.GetMatchDemoResponse], error) {
@@ -51,7 +55,9 @@ func TestResultPage(t *testing.T) {
 		t.Fatalf("result: %d", resp.StatusCode)
 	}
 	for _, want := range []string{"<h1>Alpha &lt;b&gt; 1–0 Bravo</h1>", "Alpha &lt;b&gt; won", "Map 1", "de_nuke", "13–9", `href="/results/r1/demo/0"`,
-		`<a href="/members/u1">Jo</a>`, "Brave Falcon", ">2310<"} {
+		`<a href="/members/u1">Jo</a>`, "Brave Falcon", ">2310<", ">Damage (HP)<", ">MVPs<",
+		// Jo's 0 MVPs is a reported zero; Brave Falcon's row has none reported.
+		`<td class="num">0</td>`, `<span class="visually-hidden">not reported</span>`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("the page lacks %q", want)
 		}

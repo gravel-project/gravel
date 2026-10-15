@@ -87,7 +87,7 @@ func (s *StatsServer) GetBoard(ctx context.Context, req *connect.Request[hubv1.G
 	resp := &hubv1.GetBoardResponse{}
 	for _, e := range b.Entries {
 		pe := &hubv1.BoardEntry{Rank: int32(e.Rank), Name: e.Name, Pseudonymous: e.Pseudonymous, Kills: int32(e.Kills), Deaths: int32(e.Deaths), //nolint:gosec // bounded by the store
-			Kd: e.KD, SecondsOn: int32(e.SecondsOn), Matches: int32(e.Matches)} //nolint:gosec // bounded by the store
+			Kd: e.KD, SecondsOn: int32(e.SecondsOn), Matches: int32(e.Matches), Extensions: e.Extensions} //nolint:gosec // bounded by the store
 		if e.UserID != uuid.Nil {
 			pe.UserId = e.UserID.String()
 		}
@@ -99,6 +99,7 @@ func (s *StatsServer) GetBoard(ctx context.Context, req *connect.Request[hubv1.G
 	if !b.From.IsZero() {
 		resp.From, resp.To = timestamppb.New(b.From), timestamppb.New(b.To)
 	}
+	resp.StatExtensions = statExtensionMessages(b.Extensions)
 	return connect.NewResponse(resp), nil
 }
 

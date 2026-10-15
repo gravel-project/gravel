@@ -77,16 +77,28 @@ func (s *StatsServer) GetMatchResult(ctx context.Context, req *connect.Request[h
 	if err != nil {
 		return nil, mapError(ctx, s.logger, err)
 	}
+	exts, err := s.boards.ServerExtensions(ctx, r.ServerID)
+	if err != nil {
+		return nil, mapError(ctx, s.logger, err)
+	}
 	for i, p := range r.Players {
 		mp := &hubv1.MatchResultPlayer{MapNumber: int32(p.MapNumber), Name: shown[i].Name, Pseudonymous: shown[i].Pseudonymous, Team: p.Team, //nolint:gosec // small counts
-			Kills: int32(p.Kills), Deaths: int32(p.Deaths), Assists: int32(p.Assists), Damage: int32(p.Damage), HeadshotKills: int32(p.HeadshotKills), //nolint:gosec // game counters
-			Mvps: int32(p.MVPs), Score: int32(p.Score)} //nolint:gosec // game counters
+			Kills: int32(p.Kills), Deaths: int32(p.Deaths)} //nolint:gosec // game counters
+		// The game's declared stats only (ADR-0033): what a row holds beyond them stays unshown.
+		for _, e := range exts {
+			if v, ok := p.Extensions[e.Name]; ok {
+				if mp.Extensions == nil {
+					mp.Extensions = map[string]float64{}
+				}
+				mp.Extensions[e.Name] = v
+			}
+		}
 		if shown[i].UserID != uuid.Nil {
 			mp.UserId = shown[i].UserID.String()
 		}
 		m.Players = append(m.Players, mp)
 	}
-	return connect.NewResponse(&hubv1.GetMatchResultResponse{Result: m}), nil
+	return connect.NewResponse(&hubv1.GetMatchResultResponse{Result: m, StatExtensions: statExtensionMessages(exts)}), nil
 }
 
 // GetMatchDemo is a link to a map's demo.

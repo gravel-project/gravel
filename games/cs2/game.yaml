@@ -32,6 +32,16 @@ plugins:
 # guidelines: off until counsel says otherwise.
 no_paid_perks: true
 
+# CS2's own stats (ADR-0033), each player's on each map of a match result. The names are what
+# MatchZy reports (games/cs2/matchzy PlayerStats.Values); the boards total a player's maps.
+stats:
+  extensions:
+    - {name: assists, label: Assists, aggregate: sum}
+    - {name: damage, label: Damage, unit: HP, aggregate: sum}
+    - {name: headshot_kills, label: Headshot kills, aggregate: sum}
+    - {name: mvps, label: MVPs, aggregate: sum}
+    - {name: score, label: Score, aggregate: sum}
+
 # How a CS2 server runs on a VM the hub makes (the cloud-VM driver, ADR-0003): joedwards32/cs2, the
 # maintained image the community runs (steamrt4; it runs SteamCMD's app_update 730 at every start,
 # so a restart is the patch-day step), with its ~60 GB install on the data volume. The hub writes the

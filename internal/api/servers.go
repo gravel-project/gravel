@@ -174,7 +174,7 @@ func (s *ServerServer) ListGames(ctx context.Context, _ *connect.Request[hubv1.L
 	out := &hubv1.ListGamesResponse{}
 	for _, g := range games {
 		p := &hubv1.Game{Id: g.ID, Name: g.Name, IdentityProvider: g.IdentityProvider, NoPaidPerks: g.NoPaidPerks,
-			Layout: &hubv1.GameLayout{Board: g.Layout.Board}}
+			Layout: &hubv1.GameLayout{Board: g.Layout.Board}, StatExtensions: statExtensionMessages(g.Stats.Extensions)}
 		for _, b := range g.Bands {
 			p.Bands = append(p.Bands, &hubv1.Band{Section: b.Section, Key: b.Key, Min: b.Min, Max: b.Max,
 				MaxLength: b.MaxLength, Hosts: b.Hosts, UnlessSet: b.UnlessSet})
@@ -321,4 +321,14 @@ func teamCounts(o servers.Observation) (counts map[string]int32, known bool) {
 		}
 	}
 	return counts, known || len(o.Players) == 0
+}
+
+// statExtensionMessages are a game's stat extensions as the API shows them (ADR-0033), with the
+// type's default spelled out.
+func statExtensionMessages(exts []servers.StatExtension) []*hubv1.StatExtension {
+	out := make([]*hubv1.StatExtension, 0, len(exts))
+	for _, e := range exts {
+		out = append(out, &hubv1.StatExtension{Name: e.Name, Label: e.Label, Type: e.TypeOrDefault(), Unit: e.Unit, Aggregate: e.Aggregate})
+	}
+	return out
 }

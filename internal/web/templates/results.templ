@@ -41,14 +41,14 @@ templ ResultContent(p ResultPage) {
 				if m.DemoURL != "" {
 					<p><a href={ templ.SafeURL(m.DemoURL) }>Download the demo</a></p>
 				}
-				@resultTeam(p.Team1, m.Players1, fmt.Sprintf("map-%d-team1", m.Number))
-				@resultTeam(p.Team2, m.Players2, fmt.Sprintf("map-%d-team2", m.Number))
+				@resultTeam(p.Team1, m.Players1, p.Columns, fmt.Sprintf("map-%d-team1", m.Number))
+				@resultTeam(p.Team2, m.Players2, p.Columns, fmt.Sprintf("map-%d-team2", m.Number))
 			</section>
 		}
 	}
 }
 
-templ resultTeam(team string, players []ResultPlayer, id string) {
+templ resultTeam(team string, players []ResultPlayer, columns []StatColumn, id string) {
 	if len(players) > 0 {
 		<table aria-describedby={ id }>
 			<caption id={ id }>{ team }</caption>
@@ -57,9 +57,9 @@ templ resultTeam(team string, players []ResultPlayer, id string) {
 					<th scope="col">Player</th>
 					<th scope="col" class="num">Kills</th>
 					<th scope="col" class="num">Deaths</th>
-					<th scope="col" class="num">Assists</th>
-					<th scope="col" class="num">Damage</th>
-					<th scope="col" class="num">MVPs</th>
+					for _, c := range columns {
+						<th scope="col" class="num">{ c.Heading() }</th>
+					}
 				</tr>
 			</thead>
 			<tbody>
@@ -74,9 +74,13 @@ templ resultTeam(team string, players []ResultPlayer, id string) {
 						</td>
 						<td class="num">{ fmt.Sprint(pl.Kills) }</td>
 						<td class="num">{ fmt.Sprint(pl.Deaths) }</td>
-						<td class="num">{ fmt.Sprint(pl.Assists) }</td>
-						<td class="num">{ fmt.Sprint(pl.Damage) }</td>
-						<td class="num">{ fmt.Sprint(pl.MVPs) }</td>
+						for _, v := range pl.Extensions {
+							if v == "" {
+								<td class="num"><span aria-hidden="true">–</span><span class="visually-hidden">not reported</span></td>
+							} else {
+								<td class="num">{ v }</td>
+							}
+						}
 					</tr>
 				}
 			</tbody>

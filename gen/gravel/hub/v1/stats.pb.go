@@ -34,9 +34,13 @@ type BoardEntry struct {
 	Kills  int32  `protobuf:"varint,5,opt,name=kills,proto3" json:"kills,omitempty"`
 	Deaths int32  `protobuf:"varint,6,opt,name=deaths,proto3" json:"deaths,omitempty"`
 	// kills / max(deaths, 1).
-	Kd            float64 `protobuf:"fixed64,7,opt,name=kd,proto3" json:"kd,omitempty"`
-	SecondsOn     int32   `protobuf:"varint,8,opt,name=seconds_on,json=secondsOn,proto3" json:"seconds_on,omitempty"`
-	Matches       int32   `protobuf:"varint,9,opt,name=matches,proto3" json:"matches,omitempty"`
+	Kd        float64 `protobuf:"fixed64,7,opt,name=kd,proto3" json:"kd,omitempty"`
+	SecondsOn int32   `protobuf:"varint,8,opt,name=seconds_on,json=secondsOn,proto3" json:"seconds_on,omitempty"`
+	Matches   int32   `protobuf:"varint,9,opt,name=matches,proto3" json:"matches,omitempty"`
+	// The game's own stats over the window (ADR-0033) by name, totalled as each one's aggregate
+	// says, from the player's match results: only on a board of one server or one game. A stat the
+	// player has no result for is absent; 0 is a reported zero.
+	Extensions    map[string]float64 `protobuf:"bytes,10,rep,name=extensions,proto3" json:"extensions,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"fixed64,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -132,6 +136,13 @@ func (x *BoardEntry) GetMatches() int32 {
 		return x.Matches
 	}
 	return 0
+}
+
+func (x *BoardEntry) GetExtensions() map[string]float64 {
+	if x != nil {
+		return x.Extensions
+	}
+	return nil
 }
 
 type GetBoardRequest struct {
@@ -237,10 +248,13 @@ type GetBoardResponse struct {
 	Entries       []*BoardEntry          `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty"`
 	NextPageToken string                 `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
 	// The window's bounds; unset for "all".
-	From          *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=from,proto3" json:"from,omitempty"`
-	To            *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=to,proto3" json:"to,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	From *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=from,proto3" json:"from,omitempty"`
+	To   *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=to,proto3" json:"to,omitempty"`
+	// The columns behind the entries' extensions, in order: the game's stat extensions, on a board
+	// of one server or one game.
+	StatExtensions []*StatExtension `protobuf:"bytes,5,rep,name=stat_extensions,json=statExtensions,proto3" json:"stat_extensions,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *GetBoardResponse) Reset() {
@@ -297,6 +311,13 @@ func (x *GetBoardResponse) GetFrom() *timestamppb.Timestamp {
 func (x *GetBoardResponse) GetTo() *timestamppb.Timestamp {
 	if x != nil {
 		return x.To
+	}
+	return nil
+}
+
+func (x *GetBoardResponse) GetStatExtensions() []*StatExtension {
+	if x != nil {
+		return x.StatExtensions
 	}
 	return nil
 }
@@ -2151,14 +2172,12 @@ type MatchResultPlayer struct {
 	// The member, when shown by name.
 	UserId string `protobuf:"bytes,4,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	// "team1" or "team2".
-	Team          string `protobuf:"bytes,5,opt,name=team,proto3" json:"team,omitempty"`
-	Kills         int32  `protobuf:"varint,6,opt,name=kills,proto3" json:"kills,omitempty"`
-	Deaths        int32  `protobuf:"varint,7,opt,name=deaths,proto3" json:"deaths,omitempty"`
-	Assists       int32  `protobuf:"varint,8,opt,name=assists,proto3" json:"assists,omitempty"`
-	Damage        int32  `protobuf:"varint,9,opt,name=damage,proto3" json:"damage,omitempty"`
-	HeadshotKills int32  `protobuf:"varint,10,opt,name=headshot_kills,json=headshotKills,proto3" json:"headshot_kills,omitempty"`
-	Mvps          int32  `protobuf:"varint,11,opt,name=mvps,proto3" json:"mvps,omitempty"`
-	Score         int32  `protobuf:"varint,12,opt,name=score,proto3" json:"score,omitempty"`
+	Team   string `protobuf:"bytes,5,opt,name=team,proto3" json:"team,omitempty"`
+	Kills  int32  `protobuf:"varint,6,opt,name=kills,proto3" json:"kills,omitempty"`
+	Deaths int32  `protobuf:"varint,7,opt,name=deaths,proto3" json:"deaths,omitempty"`
+	// The game's own stats on the map (ADR-0033) by name, as GetMatchResultResponse.stat_extensions
+	// declares them. One the match plugin didn't report is absent; 0 is a reported zero.
+	Extensions    map[string]float64 `protobuf:"bytes,13,rep,name=extensions,proto3" json:"extensions,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"fixed64,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2242,39 +2261,11 @@ func (x *MatchResultPlayer) GetDeaths() int32 {
 	return 0
 }
 
-func (x *MatchResultPlayer) GetAssists() int32 {
+func (x *MatchResultPlayer) GetExtensions() map[string]float64 {
 	if x != nil {
-		return x.Assists
+		return x.Extensions
 	}
-	return 0
-}
-
-func (x *MatchResultPlayer) GetDamage() int32 {
-	if x != nil {
-		return x.Damage
-	}
-	return 0
-}
-
-func (x *MatchResultPlayer) GetHeadshotKills() int32 {
-	if x != nil {
-		return x.HeadshotKills
-	}
-	return 0
-}
-
-func (x *MatchResultPlayer) GetMvps() int32 {
-	if x != nil {
-		return x.Mvps
-	}
-	return 0
-}
-
-func (x *MatchResultPlayer) GetScore() int32 {
-	if x != nil {
-		return x.Score
-	}
-	return 0
+	return nil
 }
 
 type ListMatchResultsRequest struct {
@@ -2444,10 +2435,13 @@ func (x *GetMatchResultRequest) GetId() string {
 }
 
 type GetMatchResultResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Result        *MatchResult           `protobuf:"bytes,1,opt,name=result,proto3" json:"result,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Result *MatchResult           `protobuf:"bytes,1,opt,name=result,proto3" json:"result,omitempty"`
+	// The columns behind the players' extensions, in order: the stat extensions of the series'
+	// server's game (ADR-0033).
+	StatExtensions []*StatExtension `protobuf:"bytes,2,rep,name=stat_extensions,json=statExtensions,proto3" json:"stat_extensions,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *GetMatchResultResponse) Reset() {
@@ -2483,6 +2477,13 @@ func (*GetMatchResultResponse) Descriptor() ([]byte, []int) {
 func (x *GetMatchResultResponse) GetResult() *MatchResult {
 	if x != nil {
 		return x.Result
+	}
+	return nil
+}
+
+func (x *GetMatchResultResponse) GetStatExtensions() []*StatExtension {
+	if x != nil {
+		return x.StatExtensions
 	}
 	return nil
 }
@@ -3323,7 +3324,7 @@ var File_gravel_hub_v1_stats_proto protoreflect.FileDescriptor
 
 const file_gravel_hub_v1_stats_proto_rawDesc = "" +
 	"\n" +
-	"\x19gravel/hub/v1/stats.proto\x12\rgravel.hub.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1bgravel/hub/v1/servers.proto\"\xe8\x01\n" +
+	"\x19gravel/hub/v1/stats.proto\x12\rgravel.hub.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1bgravel/hub/v1/servers.proto\"\xf2\x02\n" +
 	"\n" +
 	"BoardEntry\x12\x12\n" +
 	"\x04rank\x18\x01 \x01(\x05R\x04rank\x12\x12\n" +
@@ -3335,7 +3336,14 @@ const file_gravel_hub_v1_stats_proto_rawDesc = "" +
 	"\x02kd\x18\a \x01(\x01R\x02kd\x12\x1d\n" +
 	"\n" +
 	"seconds_on\x18\b \x01(\x05R\tsecondsOn\x12\x18\n" +
-	"\amatches\x18\t \x01(\x05R\amatches\"\xcb\x01\n" +
+	"\amatches\x18\t \x01(\x05R\amatches\x12I\n" +
+	"\n" +
+	"extensions\x18\n" +
+	" \x03(\v2).gravel.hub.v1.BoardEntry.ExtensionsEntryR\n" +
+	"extensions\x1a=\n" +
+	"\x0fExtensionsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\x01R\x05value:\x028\x01\"\xcb\x01\n" +
 	"\x0fGetBoardRequest\x12\x1b\n" +
 	"\tserver_id\x18\x01 \x01(\tR\bserverId\x12\x17\n" +
 	"\agame_id\x18\x02 \x01(\tR\x06gameId\x12\x16\n" +
@@ -3344,12 +3352,13 @@ const file_gravel_hub_v1_stats_proto_rawDesc = "" +
 	"\x06metric\x18\x05 \x01(\tR\x06metric\x12\x1b\n" +
 	"\tpage_size\x18\x06 \x01(\x05R\bpageSize\x12\x1d\n" +
 	"\n" +
-	"page_token\x18\a \x01(\tR\tpageToken\"\xcb\x01\n" +
+	"page_token\x18\a \x01(\tR\tpageToken\"\x92\x02\n" +
 	"\x10GetBoardResponse\x123\n" +
 	"\aentries\x18\x01 \x03(\v2\x19.gravel.hub.v1.BoardEntryR\aentries\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x12.\n" +
 	"\x04from\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x04from\x12*\n" +
-	"\x02to\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x02to\"\x88\x02\n" +
+	"\x02to\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x02to\x12E\n" +
+	"\x0fstat_extensions\x18\x05 \x03(\v2\x1c.gravel.hub.v1.StatExtensionR\x0estatExtensions\"\x88\x02\n" +
 	"\fMatchSummary\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\tserver_id\x18\x02 \x01(\tR\bserverId\x12\x17\n" +
@@ -3507,7 +3516,7 @@ const file_gravel_hub_v1_stats_proto_rawDesc = "" +
 	"\n" +
 	"started_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tstartedAt\x125\n" +
 	"\bended_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\aendedAt\x12\x19\n" +
-	"\bhas_demo\x18\b \x01(\bR\ahasDemo\"\xc8\x02\n" +
+	"\bhas_demo\x18\b \x01(\bR\ahasDemo\"\x8a\x03\n" +
 	"\x11MatchResultPlayer\x12\x1d\n" +
 	"\n" +
 	"map_number\x18\x01 \x01(\x05R\tmapNumber\x12\x12\n" +
@@ -3516,13 +3525,13 @@ const file_gravel_hub_v1_stats_proto_rawDesc = "" +
 	"\auser_id\x18\x04 \x01(\tR\x06userId\x12\x12\n" +
 	"\x04team\x18\x05 \x01(\tR\x04team\x12\x14\n" +
 	"\x05kills\x18\x06 \x01(\x05R\x05kills\x12\x16\n" +
-	"\x06deaths\x18\a \x01(\x05R\x06deaths\x12\x18\n" +
-	"\aassists\x18\b \x01(\x05R\aassists\x12\x16\n" +
-	"\x06damage\x18\t \x01(\x05R\x06damage\x12%\n" +
-	"\x0eheadshot_kills\x18\n" +
-	" \x01(\x05R\rheadshotKills\x12\x12\n" +
-	"\x04mvps\x18\v \x01(\x05R\x04mvps\x12\x14\n" +
-	"\x05score\x18\f \x01(\x05R\x05score\"\xca\x01\n" +
+	"\x06deaths\x18\a \x01(\x05R\x06deaths\x12P\n" +
+	"\n" +
+	"extensions\x18\r \x03(\v20.gravel.hub.v1.MatchResultPlayer.ExtensionsEntryR\n" +
+	"extensions\x1a=\n" +
+	"\x0fExtensionsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\x01R\x05value:\x028\x01J\x04\b\b\x10\rR\aassistsR\x06damageR\x0eheadshot_killsR\x04mvpsR\x05score\"\xca\x01\n" +
 	"\x17ListMatchResultsRequest\x12\x1b\n" +
 	"\tserver_id\x18\x01 \x01(\tR\bserverId\x12\x19\n" +
 	"\blease_id\x18\x02 \x01(\tR\aleaseId\x12\x1d\n" +
@@ -3534,9 +3543,10 @@ const file_gravel_hub_v1_stats_proto_rawDesc = "" +
 	"\x18ListMatchResultsResponse\x124\n" +
 	"\aresults\x18\x01 \x03(\v2\x1a.gravel.hub.v1.MatchResultR\aresults\"'\n" +
 	"\x15GetMatchResultRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"L\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"\x93\x01\n" +
 	"\x16GetMatchResultResponse\x122\n" +
-	"\x06result\x18\x01 \x01(\v2\x1a.gravel.hub.v1.MatchResultR\x06result\"D\n" +
+	"\x06result\x18\x01 \x01(\v2\x1a.gravel.hub.v1.MatchResultR\x06result\x12E\n" +
+	"\x0fstat_extensions\x18\x02 \x03(\v2\x1c.gravel.hub.v1.StatExtensionR\x0estatExtensions\"D\n" +
 	"\x13GetMatchDemoRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
 	"\n" +
@@ -3637,7 +3647,7 @@ func file_gravel_hub_v1_stats_proto_rawDescGZIP() []byte {
 	return file_gravel_hub_v1_stats_proto_rawDescData
 }
 
-var file_gravel_hub_v1_stats_proto_msgTypes = make([]protoimpl.MessageInfo, 42)
+var file_gravel_hub_v1_stats_proto_msgTypes = make([]protoimpl.MessageInfo, 44)
 var file_gravel_hub_v1_stats_proto_goTypes = []any{
 	(*BoardEntry)(nil),                    // 0: gravel.hub.v1.BoardEntry
 	(*GetBoardRequest)(nil),               // 1: gravel.hub.v1.GetBoardRequest
@@ -3681,89 +3691,96 @@ var file_gravel_hub_v1_stats_proto_goTypes = []any{
 	(*ActivityWeek)(nil),                  // 39: gravel.hub.v1.ActivityWeek
 	(*QuietRegular)(nil),                  // 40: gravel.hub.v1.QuietRegular
 	(*GetActivityResponse)(nil),           // 41: gravel.hub.v1.GetActivityResponse
-	(*timestamppb.Timestamp)(nil),         // 42: google.protobuf.Timestamp
-	(*TeamScore)(nil),                     // 43: gravel.hub.v1.TeamScore
+	nil,                                   // 42: gravel.hub.v1.BoardEntry.ExtensionsEntry
+	nil,                                   // 43: gravel.hub.v1.MatchResultPlayer.ExtensionsEntry
+	(*timestamppb.Timestamp)(nil),         // 44: google.protobuf.Timestamp
+	(*StatExtension)(nil),                 // 45: gravel.hub.v1.StatExtension
+	(*TeamScore)(nil),                     // 46: gravel.hub.v1.TeamScore
 }
 var file_gravel_hub_v1_stats_proto_depIdxs = []int32{
-	0,  // 0: gravel.hub.v1.GetBoardResponse.entries:type_name -> gravel.hub.v1.BoardEntry
-	42, // 1: gravel.hub.v1.GetBoardResponse.from:type_name -> google.protobuf.Timestamp
-	42, // 2: gravel.hub.v1.GetBoardResponse.to:type_name -> google.protobuf.Timestamp
-	42, // 3: gravel.hub.v1.MatchSummary.started_at:type_name -> google.protobuf.Timestamp
-	42, // 4: gravel.hub.v1.MatchSummary.ended_at:type_name -> google.protobuf.Timestamp
-	3,  // 5: gravel.hub.v1.ListMatchesResponse.matches:type_name -> gravel.hub.v1.MatchSummary
-	42, // 6: gravel.hub.v1.ProfileTotals.from:type_name -> google.protobuf.Timestamp
-	42, // 7: gravel.hub.v1.ProfileTotals.to:type_name -> google.protobuf.Timestamp
-	42, // 8: gravel.hub.v1.PlayerMatch.started_at:type_name -> google.protobuf.Timestamp
-	42, // 9: gravel.hub.v1.PlayerMatch.ended_at:type_name -> google.protobuf.Timestamp
-	10, // 10: gravel.hub.v1.GetMemberProfileResponse.totals:type_name -> gravel.hub.v1.ProfileTotals
-	11, // 11: gravel.hub.v1.GetMemberProfileResponse.recent:type_name -> gravel.hub.v1.PlayerMatch
-	22, // 12: gravel.hub.v1.GetMemberProfileResponse.participation:type_name -> gravel.hub.v1.ParticipationTotals
-	14, // 13: gravel.hub.v1.ParticipationEvent.identity:type_name -> gravel.hub.v1.PlayerIdentity
-	42, // 14: gravel.hub.v1.ParticipationEvent.occurred_at:type_name -> google.protobuf.Timestamp
-	15, // 15: gravel.hub.v1.RecordParticipationRequest.events:type_name -> gravel.hub.v1.ParticipationEvent
-	17, // 16: gravel.hub.v1.RecordParticipationResponse.results:type_name -> gravel.hub.v1.ParticipationResult
-	19, // 17: gravel.hub.v1.GetParticipationBoardResponse.entries:type_name -> gravel.hub.v1.ParticipationEntry
-	42, // 18: gravel.hub.v1.GetParticipationBoardResponse.from:type_name -> google.protobuf.Timestamp
-	42, // 19: gravel.hub.v1.GetParticipationBoardResponse.to:type_name -> google.protobuf.Timestamp
-	42, // 20: gravel.hub.v1.ParticipationTotals.from:type_name -> google.protobuf.Timestamp
-	42, // 21: gravel.hub.v1.ParticipationTotals.to:type_name -> google.protobuf.Timestamp
-	42, // 22: gravel.hub.v1.MatchResult.started_at:type_name -> google.protobuf.Timestamp
-	42, // 23: gravel.hub.v1.MatchResult.ended_at:type_name -> google.protobuf.Timestamp
-	26, // 24: gravel.hub.v1.MatchResult.maps:type_name -> gravel.hub.v1.MatchResultMap
-	27, // 25: gravel.hub.v1.MatchResult.players:type_name -> gravel.hub.v1.MatchResultPlayer
-	42, // 26: gravel.hub.v1.MatchResultMap.started_at:type_name -> google.protobuf.Timestamp
-	42, // 27: gravel.hub.v1.MatchResultMap.ended_at:type_name -> google.protobuf.Timestamp
-	42, // 28: gravel.hub.v1.ListMatchResultsRequest.ended_after:type_name -> google.protobuf.Timestamp
-	25, // 29: gravel.hub.v1.ListMatchResultsResponse.results:type_name -> gravel.hub.v1.MatchResult
-	25, // 30: gravel.hub.v1.GetMatchResultResponse.result:type_name -> gravel.hub.v1.MatchResult
-	42, // 31: gravel.hub.v1.GetMatchDemoResponse.expires_at:type_name -> google.protobuf.Timestamp
-	42, // 32: gravel.hub.v1.GetSessionRecapRequest.from:type_name -> google.protobuf.Timestamp
-	42, // 33: gravel.hub.v1.GetSessionRecapRequest.to:type_name -> google.protobuf.Timestamp
-	42, // 34: gravel.hub.v1.RecapMatch.started_at:type_name -> google.protobuf.Timestamp
-	42, // 35: gravel.hub.v1.RecapMatch.ended_at:type_name -> google.protobuf.Timestamp
-	43, // 36: gravel.hub.v1.RecapMatch.teams:type_name -> gravel.hub.v1.TeamScore
-	42, // 37: gravel.hub.v1.GetSessionRecapResponse.from:type_name -> google.protobuf.Timestamp
-	42, // 38: gravel.hub.v1.GetSessionRecapResponse.to:type_name -> google.protobuf.Timestamp
-	35, // 39: gravel.hub.v1.GetSessionRecapResponse.matches:type_name -> gravel.hub.v1.RecapMatch
-	0,  // 40: gravel.hub.v1.GetSessionRecapResponse.top:type_name -> gravel.hub.v1.BoardEntry
-	42, // 41: gravel.hub.v1.ActivityWeek.start:type_name -> google.protobuf.Timestamp
-	42, // 42: gravel.hub.v1.QuietRegular.last_seen:type_name -> google.protobuf.Timestamp
-	42, // 43: gravel.hub.v1.GetActivityResponse.from:type_name -> google.protobuf.Timestamp
-	42, // 44: gravel.hub.v1.GetActivityResponse.to:type_name -> google.protobuf.Timestamp
-	38, // 45: gravel.hub.v1.GetActivityResponse.hours:type_name -> gravel.hub.v1.ActivityHour
-	39, // 46: gravel.hub.v1.GetActivityResponse.weeks:type_name -> gravel.hub.v1.ActivityWeek
-	40, // 47: gravel.hub.v1.GetActivityResponse.quiet:type_name -> gravel.hub.v1.QuietRegular
-	1,  // 48: gravel.hub.v1.StatsService.GetBoard:input_type -> gravel.hub.v1.GetBoardRequest
-	4,  // 49: gravel.hub.v1.StatsService.ListMatches:input_type -> gravel.hub.v1.ListMatchesRequest
-	6,  // 50: gravel.hub.v1.StatsService.GetBoardName:input_type -> gravel.hub.v1.GetBoardNameRequest
-	8,  // 51: gravel.hub.v1.StatsService.SetBoardName:input_type -> gravel.hub.v1.SetBoardNameRequest
-	12, // 52: gravel.hub.v1.StatsService.GetMemberProfile:input_type -> gravel.hub.v1.GetMemberProfileRequest
-	16, // 53: gravel.hub.v1.StatsService.RecordParticipation:input_type -> gravel.hub.v1.RecordParticipationRequest
-	20, // 54: gravel.hub.v1.StatsService.GetParticipationBoard:input_type -> gravel.hub.v1.GetParticipationBoardRequest
-	34, // 55: gravel.hub.v1.StatsService.GetSessionRecap:input_type -> gravel.hub.v1.GetSessionRecapRequest
-	28, // 56: gravel.hub.v1.StatsService.ListMatchResults:input_type -> gravel.hub.v1.ListMatchResultsRequest
-	30, // 57: gravel.hub.v1.StatsService.GetMatchResult:input_type -> gravel.hub.v1.GetMatchResultRequest
-	32, // 58: gravel.hub.v1.StatsService.GetMatchDemo:input_type -> gravel.hub.v1.GetMatchDemoRequest
-	23, // 59: gravel.hub.v1.StatsService.EraseIdentity:input_type -> gravel.hub.v1.EraseIdentityRequest
-	37, // 60: gravel.hub.v1.StatsService.GetActivity:input_type -> gravel.hub.v1.GetActivityRequest
-	2,  // 61: gravel.hub.v1.StatsService.GetBoard:output_type -> gravel.hub.v1.GetBoardResponse
-	5,  // 62: gravel.hub.v1.StatsService.ListMatches:output_type -> gravel.hub.v1.ListMatchesResponse
-	7,  // 63: gravel.hub.v1.StatsService.GetBoardName:output_type -> gravel.hub.v1.GetBoardNameResponse
-	9,  // 64: gravel.hub.v1.StatsService.SetBoardName:output_type -> gravel.hub.v1.SetBoardNameResponse
-	13, // 65: gravel.hub.v1.StatsService.GetMemberProfile:output_type -> gravel.hub.v1.GetMemberProfileResponse
-	18, // 66: gravel.hub.v1.StatsService.RecordParticipation:output_type -> gravel.hub.v1.RecordParticipationResponse
-	21, // 67: gravel.hub.v1.StatsService.GetParticipationBoard:output_type -> gravel.hub.v1.GetParticipationBoardResponse
-	36, // 68: gravel.hub.v1.StatsService.GetSessionRecap:output_type -> gravel.hub.v1.GetSessionRecapResponse
-	29, // 69: gravel.hub.v1.StatsService.ListMatchResults:output_type -> gravel.hub.v1.ListMatchResultsResponse
-	31, // 70: gravel.hub.v1.StatsService.GetMatchResult:output_type -> gravel.hub.v1.GetMatchResultResponse
-	33, // 71: gravel.hub.v1.StatsService.GetMatchDemo:output_type -> gravel.hub.v1.GetMatchDemoResponse
-	24, // 72: gravel.hub.v1.StatsService.EraseIdentity:output_type -> gravel.hub.v1.EraseIdentityResponse
-	41, // 73: gravel.hub.v1.StatsService.GetActivity:output_type -> gravel.hub.v1.GetActivityResponse
-	61, // [61:74] is the sub-list for method output_type
-	48, // [48:61] is the sub-list for method input_type
-	48, // [48:48] is the sub-list for extension type_name
-	48, // [48:48] is the sub-list for extension extendee
-	0,  // [0:48] is the sub-list for field type_name
+	42, // 0: gravel.hub.v1.BoardEntry.extensions:type_name -> gravel.hub.v1.BoardEntry.ExtensionsEntry
+	0,  // 1: gravel.hub.v1.GetBoardResponse.entries:type_name -> gravel.hub.v1.BoardEntry
+	44, // 2: gravel.hub.v1.GetBoardResponse.from:type_name -> google.protobuf.Timestamp
+	44, // 3: gravel.hub.v1.GetBoardResponse.to:type_name -> google.protobuf.Timestamp
+	45, // 4: gravel.hub.v1.GetBoardResponse.stat_extensions:type_name -> gravel.hub.v1.StatExtension
+	44, // 5: gravel.hub.v1.MatchSummary.started_at:type_name -> google.protobuf.Timestamp
+	44, // 6: gravel.hub.v1.MatchSummary.ended_at:type_name -> google.protobuf.Timestamp
+	3,  // 7: gravel.hub.v1.ListMatchesResponse.matches:type_name -> gravel.hub.v1.MatchSummary
+	44, // 8: gravel.hub.v1.ProfileTotals.from:type_name -> google.protobuf.Timestamp
+	44, // 9: gravel.hub.v1.ProfileTotals.to:type_name -> google.protobuf.Timestamp
+	44, // 10: gravel.hub.v1.PlayerMatch.started_at:type_name -> google.protobuf.Timestamp
+	44, // 11: gravel.hub.v1.PlayerMatch.ended_at:type_name -> google.protobuf.Timestamp
+	10, // 12: gravel.hub.v1.GetMemberProfileResponse.totals:type_name -> gravel.hub.v1.ProfileTotals
+	11, // 13: gravel.hub.v1.GetMemberProfileResponse.recent:type_name -> gravel.hub.v1.PlayerMatch
+	22, // 14: gravel.hub.v1.GetMemberProfileResponse.participation:type_name -> gravel.hub.v1.ParticipationTotals
+	14, // 15: gravel.hub.v1.ParticipationEvent.identity:type_name -> gravel.hub.v1.PlayerIdentity
+	44, // 16: gravel.hub.v1.ParticipationEvent.occurred_at:type_name -> google.protobuf.Timestamp
+	15, // 17: gravel.hub.v1.RecordParticipationRequest.events:type_name -> gravel.hub.v1.ParticipationEvent
+	17, // 18: gravel.hub.v1.RecordParticipationResponse.results:type_name -> gravel.hub.v1.ParticipationResult
+	19, // 19: gravel.hub.v1.GetParticipationBoardResponse.entries:type_name -> gravel.hub.v1.ParticipationEntry
+	44, // 20: gravel.hub.v1.GetParticipationBoardResponse.from:type_name -> google.protobuf.Timestamp
+	44, // 21: gravel.hub.v1.GetParticipationBoardResponse.to:type_name -> google.protobuf.Timestamp
+	44, // 22: gravel.hub.v1.ParticipationTotals.from:type_name -> google.protobuf.Timestamp
+	44, // 23: gravel.hub.v1.ParticipationTotals.to:type_name -> google.protobuf.Timestamp
+	44, // 24: gravel.hub.v1.MatchResult.started_at:type_name -> google.protobuf.Timestamp
+	44, // 25: gravel.hub.v1.MatchResult.ended_at:type_name -> google.protobuf.Timestamp
+	26, // 26: gravel.hub.v1.MatchResult.maps:type_name -> gravel.hub.v1.MatchResultMap
+	27, // 27: gravel.hub.v1.MatchResult.players:type_name -> gravel.hub.v1.MatchResultPlayer
+	44, // 28: gravel.hub.v1.MatchResultMap.started_at:type_name -> google.protobuf.Timestamp
+	44, // 29: gravel.hub.v1.MatchResultMap.ended_at:type_name -> google.protobuf.Timestamp
+	43, // 30: gravel.hub.v1.MatchResultPlayer.extensions:type_name -> gravel.hub.v1.MatchResultPlayer.ExtensionsEntry
+	44, // 31: gravel.hub.v1.ListMatchResultsRequest.ended_after:type_name -> google.protobuf.Timestamp
+	25, // 32: gravel.hub.v1.ListMatchResultsResponse.results:type_name -> gravel.hub.v1.MatchResult
+	25, // 33: gravel.hub.v1.GetMatchResultResponse.result:type_name -> gravel.hub.v1.MatchResult
+	45, // 34: gravel.hub.v1.GetMatchResultResponse.stat_extensions:type_name -> gravel.hub.v1.StatExtension
+	44, // 35: gravel.hub.v1.GetMatchDemoResponse.expires_at:type_name -> google.protobuf.Timestamp
+	44, // 36: gravel.hub.v1.GetSessionRecapRequest.from:type_name -> google.protobuf.Timestamp
+	44, // 37: gravel.hub.v1.GetSessionRecapRequest.to:type_name -> google.protobuf.Timestamp
+	44, // 38: gravel.hub.v1.RecapMatch.started_at:type_name -> google.protobuf.Timestamp
+	44, // 39: gravel.hub.v1.RecapMatch.ended_at:type_name -> google.protobuf.Timestamp
+	46, // 40: gravel.hub.v1.RecapMatch.teams:type_name -> gravel.hub.v1.TeamScore
+	44, // 41: gravel.hub.v1.GetSessionRecapResponse.from:type_name -> google.protobuf.Timestamp
+	44, // 42: gravel.hub.v1.GetSessionRecapResponse.to:type_name -> google.protobuf.Timestamp
+	35, // 43: gravel.hub.v1.GetSessionRecapResponse.matches:type_name -> gravel.hub.v1.RecapMatch
+	0,  // 44: gravel.hub.v1.GetSessionRecapResponse.top:type_name -> gravel.hub.v1.BoardEntry
+	44, // 45: gravel.hub.v1.ActivityWeek.start:type_name -> google.protobuf.Timestamp
+	44, // 46: gravel.hub.v1.QuietRegular.last_seen:type_name -> google.protobuf.Timestamp
+	44, // 47: gravel.hub.v1.GetActivityResponse.from:type_name -> google.protobuf.Timestamp
+	44, // 48: gravel.hub.v1.GetActivityResponse.to:type_name -> google.protobuf.Timestamp
+	38, // 49: gravel.hub.v1.GetActivityResponse.hours:type_name -> gravel.hub.v1.ActivityHour
+	39, // 50: gravel.hub.v1.GetActivityResponse.weeks:type_name -> gravel.hub.v1.ActivityWeek
+	40, // 51: gravel.hub.v1.GetActivityResponse.quiet:type_name -> gravel.hub.v1.QuietRegular
+	1,  // 52: gravel.hub.v1.StatsService.GetBoard:input_type -> gravel.hub.v1.GetBoardRequest
+	4,  // 53: gravel.hub.v1.StatsService.ListMatches:input_type -> gravel.hub.v1.ListMatchesRequest
+	6,  // 54: gravel.hub.v1.StatsService.GetBoardName:input_type -> gravel.hub.v1.GetBoardNameRequest
+	8,  // 55: gravel.hub.v1.StatsService.SetBoardName:input_type -> gravel.hub.v1.SetBoardNameRequest
+	12, // 56: gravel.hub.v1.StatsService.GetMemberProfile:input_type -> gravel.hub.v1.GetMemberProfileRequest
+	16, // 57: gravel.hub.v1.StatsService.RecordParticipation:input_type -> gravel.hub.v1.RecordParticipationRequest
+	20, // 58: gravel.hub.v1.StatsService.GetParticipationBoard:input_type -> gravel.hub.v1.GetParticipationBoardRequest
+	34, // 59: gravel.hub.v1.StatsService.GetSessionRecap:input_type -> gravel.hub.v1.GetSessionRecapRequest
+	28, // 60: gravel.hub.v1.StatsService.ListMatchResults:input_type -> gravel.hub.v1.ListMatchResultsRequest
+	30, // 61: gravel.hub.v1.StatsService.GetMatchResult:input_type -> gravel.hub.v1.GetMatchResultRequest
+	32, // 62: gravel.hub.v1.StatsService.GetMatchDemo:input_type -> gravel.hub.v1.GetMatchDemoRequest
+	23, // 63: gravel.hub.v1.StatsService.EraseIdentity:input_type -> gravel.hub.v1.EraseIdentityRequest
+	37, // 64: gravel.hub.v1.StatsService.GetActivity:input_type -> gravel.hub.v1.GetActivityRequest
+	2,  // 65: gravel.hub.v1.StatsService.GetBoard:output_type -> gravel.hub.v1.GetBoardResponse
+	5,  // 66: gravel.hub.v1.StatsService.ListMatches:output_type -> gravel.hub.v1.ListMatchesResponse
+	7,  // 67: gravel.hub.v1.StatsService.GetBoardName:output_type -> gravel.hub.v1.GetBoardNameResponse
+	9,  // 68: gravel.hub.v1.StatsService.SetBoardName:output_type -> gravel.hub.v1.SetBoardNameResponse
+	13, // 69: gravel.hub.v1.StatsService.GetMemberProfile:output_type -> gravel.hub.v1.GetMemberProfileResponse
+	18, // 70: gravel.hub.v1.StatsService.RecordParticipation:output_type -> gravel.hub.v1.RecordParticipationResponse
+	21, // 71: gravel.hub.v1.StatsService.GetParticipationBoard:output_type -> gravel.hub.v1.GetParticipationBoardResponse
+	36, // 72: gravel.hub.v1.StatsService.GetSessionRecap:output_type -> gravel.hub.v1.GetSessionRecapResponse
+	29, // 73: gravel.hub.v1.StatsService.ListMatchResults:output_type -> gravel.hub.v1.ListMatchResultsResponse
+	31, // 74: gravel.hub.v1.StatsService.GetMatchResult:output_type -> gravel.hub.v1.GetMatchResultResponse
+	33, // 75: gravel.hub.v1.StatsService.GetMatchDemo:output_type -> gravel.hub.v1.GetMatchDemoResponse
+	24, // 76: gravel.hub.v1.StatsService.EraseIdentity:output_type -> gravel.hub.v1.EraseIdentityResponse
+	41, // 77: gravel.hub.v1.StatsService.GetActivity:output_type -> gravel.hub.v1.GetActivityResponse
+	65, // [65:78] is the sub-list for method output_type
+	52, // [52:65] is the sub-list for method input_type
+	52, // [52:52] is the sub-list for extension type_name
+	52, // [52:52] is the sub-list for extension extendee
+	0,  // [0:52] is the sub-list for field type_name
 }
 
 func init() { file_gravel_hub_v1_stats_proto_init() }
@@ -3778,7 +3795,7 @@ func file_gravel_hub_v1_stats_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gravel_hub_v1_stats_proto_rawDesc), len(file_gravel_hub_v1_stats_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   42,
+			NumMessages:   44,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

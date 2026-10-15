@@ -1,6 +1,6 @@
 # ADR-0035: Player sessions from the poll
 
-**Status:** proposed (2026-10-15; accepted when John merges #208's pull request) · **Changes:** what the stats store keeps beside matches; amends ADR-0012 §2 (the poll also records sessions) and §6 and §7 (sessions are rolled up and erased like match rows) · **Decided in:** John's design session *gravel — Design Session: Hub, Spines & Dashboard* (2026-10-10 to 12, the admin dashboard's player activity view) and Hidden Token Gaming's roadmap re-cut (handbook D35–D36) · **Built in:** #208 · **Part of:** H1 (#182)
+**Status:** accepted (2026-10-15, John; built in #208) · **Changes:** what the stats store keeps beside matches; amends ADR-0012 §2 (the poll also records sessions) and §6 and §7 (sessions are rolled up and erased like match rows) · **Decided in:** John's design session *gravel — Design Session: Hub, Spines & Dashboard* (2026-10-10 to 12, the admin dashboard's player activity view) and Hidden Token Gaming's roadmap re-cut (handbook D35–D36) · **Built in:** #208 · **Part of:** H1 (#182)
 
 ## Context
 

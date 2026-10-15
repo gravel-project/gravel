@@ -7,9 +7,11 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"maps"
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -20,6 +22,7 @@ import (
 
 	"github.com/gravel-project/gravel/internal/objectstore/objectstoretest"
 	"github.com/gravel-project/gravel/internal/results"
+	"github.com/gravel-project/gravel/internal/servers"
 	"github.com/gravel-project/gravel/internal/store"
 	"github.com/gravel-project/gravel/internal/store/storetest"
 )
@@ -55,6 +58,9 @@ type rig struct {
 	reg     *prometheus.Registry
 }
 
+// cs2Extensions are the stat extensions CS2's spec declares (ADR-0033), what a result keeps.
+func cs2Extensions(context.Context, string) []string { return servers.Specs()["cs2"].Stats.Names() }
+
 func newRig(t *testing.T, withDemos bool) *rig {
 	t.Helper()
 	st := storetest.Open(t)
@@ -78,9 +84,9 @@ func newRig(t *testing.T, withDemos bool) *rig {
 	}
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	if objects != nil {
-		r.svc = results.New(st, o.ID, r.leases, func(string) string { return "de_nuke" }, objects, 64<<20, r.reg, logger)
+		r.svc = results.New(st, o.ID, r.leases, func(string) string { return "de_nuke" }, cs2Extensions, objects, 64<<20, r.reg, logger)
 	} else {
-		r.svc = results.New(st, o.ID, r.leases, func(string) string { return "de_nuke" }, nil, 64<<20, r.reg, logger)
+		r.svc = results.New(st, o.ID, r.leases, func(string) string { return "de_nuke" }, cs2Extensions, nil, 64<<20, r.reg, logger)
 	}
 	return r
 }
@@ -134,6 +140,12 @@ func TestASeriesFromItsEvents(t *testing.T) {
 	}
 	if len(got.Players) == 0 || got.Players[0].Provider != results.Provider || !strings.HasPrefix(got.Players[0].Subject, "7656119") {
 		t.Errorf("players %+v", got.Players)
+	}
+	// A row keeps the plugin's values the game declares, and nothing else MatchZy sent.
+	for _, p := range got.Players {
+		if keys := slices.Sorted(maps.Keys(p.Extensions)); !slices.Equal(keys, []string{"assists", "damage", "headshot_kills", "mvps", "score"}) {
+			t.Errorf("%s's extensions %v", p.Subject, p.Extensions)
+		}
 	}
 	if len(r.leases.ended) != 1 || r.leases.ended[0] != "cs2-1" {
 		t.Errorf("the lease's match ended %v", r.leases.ended)

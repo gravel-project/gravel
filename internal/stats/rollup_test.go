@@ -83,8 +83,11 @@ type rollupStore struct {
 	partPeriods []store.Period
 	partMoved   int
 
-	retireCutoff time.Time
-	retired      store.Retired
+	oldestResult  time.Time
+	retireCutoff  time.Time
+	retireTZ      string
+	retirePeriods []store.Period
+	retired       store.Retired
 
 	oldestSession  time.Time
 	sessionPeriods []store.Period
@@ -103,8 +106,15 @@ func (r *rollupStore) RollUpActivity(_ context.Context, _ uuid.UUID, _ string, p
 	return r.sessionsMoved, nil
 }
 
-func (r *rollupStore) RetireResults(_ context.Context, _ uuid.UUID, cutoff time.Time) (store.Retired, error) {
-	r.retireCutoff = cutoff
+func (r *rollupStore) OldestRetirableResult(_ context.Context, _ uuid.UUID, cutoff time.Time) (time.Time, error) {
+	if r.oldestResult.IsZero() || !r.oldestResult.Before(cutoff) {
+		return time.Time{}, store.ErrNotFound
+	}
+	return r.oldestResult, nil
+}
+
+func (r *rollupStore) RetireResults(_ context.Context, _ uuid.UUID, cutoff time.Time, tz string, periods []store.Period) (store.Retired, error) {
+	r.retireCutoff, r.retireTZ, r.retirePeriods = cutoff, tz, periods
 	return r.retired, nil
 }
 
@@ -147,19 +157,30 @@ func TestRetentionRun(t *testing.T) {
 		return r, reg
 	}
 
-	// Match results past the window are retired on every run, whatever else is due (#216), from
-	// the same cutoff: the start of May in Chicago for six months from October.
-	st0 := &rollupStore{retired: store.Retired{Results: 2, Rows: 9}}
+	// Match results past the window are retired whatever else is due (#216), from the same
+	// cutoff: the start of May in Chicago for six months from October. Their extensions roll up
+	// first (ADR-0033), into the periods from the oldest one's month to the cutoff.
+	chicago, _ := time.LoadLocation("America/Chicago")
+	st0 := &rollupStore{oldestResult: time.Date(2026, 3, 12, 0, 0, 0, 0, time.UTC), retired: store.Retired{Results: 2, Rows: 9, Rolled: 4}}
 	r0, _ := newRun(st0)
 	if err := r0.Run(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	chicago, _ := time.LoadLocation("America/Chicago")
 	if want := time.Date(2026, 5, 1, 0, 0, 0, 0, chicago); !st0.retireCutoff.Equal(want) {
 		t.Errorf("retired before %v, want %v", st0.retireCutoff, want)
 	}
+	if st0.retireTZ != "America/Chicago" || len(st0.retirePeriods) != 2 || !st0.retirePeriods[0].From.Equal(time.Date(2026, 3, 1, 0, 0, 0, 0, chicago)) ||
+		!st0.retirePeriods[1].To.Equal(time.Date(2026, 5, 1, 0, 0, 0, 0, chicago)) {
+		t.Errorf("retired in %s over %v", st0.retireTZ, st0.retirePeriods)
+	}
 	if n := testutil.ToFloat64(r0.retired); n != 2 {
 		t.Errorf("retired results metric = %v", n)
+	}
+	// None ended before the cutoff: nothing is retired.
+	st1 := &rollupStore{oldestResult: time.Date(2026, 6, 2, 0, 0, 0, 0, time.UTC)}
+	r1, _ := newRun(st1)
+	if err := r1.Run(context.Background()); err != nil || !st1.retireCutoff.IsZero() {
+		t.Errorf("retired with nothing due: %v, cutoff %v", err, st1.retireCutoff)
 	}
 
 	// No raw rows, or none past the window: nothing is rolled.

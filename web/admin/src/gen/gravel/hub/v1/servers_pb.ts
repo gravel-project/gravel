@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file gravel/hub/v1/servers.proto.
  */
 export const file_gravel_hub_v1_servers: GenFile = /*@__PURE__*/
-  fileDesc("ChtncmF2ZWwvaHViL3YxL3NlcnZlcnMucHJvdG8SDWdyYXZlbC5odWIudjEiowEKBEJhbmQSDwoHc2VjdGlvbhgBIAEoCRILCgNrZXkYAiABKAkSEAoDbWluGAMgASgDSACIAQESEAoDbWF4GAQgASgDSAGIAQESFwoKbWF4X2xlbmd0aBgFIAEoA0gCiAEBEg0KBWhvc3RzGAYgAygJEhIKCnVubGVzc19zZXQYByABKAlCBgoEX21pbkIGCgRfbWF4Qg0KC19tYXhfbGVuZ3RoIqEBCgRHYW1lEgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkSGQoRaWRlbnRpdHlfcHJvdmlkZXIYAyABKAkSIgoFYmFuZHMYBCADKAsyEy5ncmF2ZWwuaHViLnYxLkJhbmQSFQoNbm9fcGFpZF9wZXJrcxgFIAEoCBIpCgZsYXlvdXQYBiABKAsyGS5ncmF2ZWwuaHViLnYxLkdhbWVMYXlvdXQiGwoKR2FtZUxheW91dBINCgVib2FyZBgBIAMoCSJZCglUZWFtU2NvcmUSDAoEbmFtZRgBIAEoCRINCgVjb2xvchgCIAEoCRINCgVzY29yZRgDIAEoAxIUCgdwbGF5ZXJzGAQgASgFSACIAQFCCgoIX3BsYXllcnMirAMKDFNlcnZlclN0YXR1cxINCgVzdGF0ZRgBIAEoCRIRCglyZWFjaGFibGUYAiABKAgSLwoLb2JzZXJ2ZWRfYXQYAyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEg0KBWJ1aWxkGAQgASgJEhQKDGNhcGFiaWxpdGllcxgFIAMoCRIPCgdwbGF5ZXJzGAYgASgFEhMKC21heF9wbGF5ZXJzGAcgASgFEgsKA21hcBgIIAEoCRITCgtleHBlcmllbmNlcxgJIAMoCRIQCghsaWdodGluZxgKIAEoCRInCgV0ZWFtcxgLIAMoCzIYLmdyYXZlbC5odWIudjEuVGVhbVNjb3JlEhIKCnNjb3JlX3RpY2sYDCABKAUSFgoOcm90YXRpb25faW5kZXgYDSABKAUSGwoTbmV4dF9yb3RhdGlvbl9pbmRleBgOIAEoBRIUCgxyb3RhdGlvbl9tYXAYDyABKAkSGQoRbmV4dF9yb3RhdGlvbl9tYXAYECABKAkSJwoEam9pbhgRIAEoCzIZLmdyYXZlbC5odWIudjEuU2VydmVySm9pbiJLCgpTZXJ2ZXJKb2luEg4KBm1ldGhvZBgBIAEoCRINCgV2YWx1ZRgCIAEoCRIMCgRoaW50GAMgASgJEhAKCHBhc3N3b3JkGAQgASgJIqABCgZTZXJ2ZXISCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRIPCgdnYW1lX2lkGAMgASgJEhAKCGxvY2F0aW9uGAQgASgJEg0KBXRydXN0GAUgASgJEisKBnN0YXR1cxgHIAEoCzIbLmdyYXZlbC5odWIudjEuU2VydmVyU3RhdHVzEg4KBmRyaXZlchgIIAEoCUoECAYQB1IHc2VlZGluZyKOAQoMU2VydmVyUGxheWVyEgwKBG5hbWUYASABKAkSEAoIcHJvdmlkZXIYAiABKAkSDwoHc3ViamVjdBgDIAEoCRIMCgR0ZWFtGAQgASgJEg0KBWtpbGxzGAUgASgFEg4KBmRlYXRocxgGIAEoBRIPCgdwaW5nX21zGAcgASgFEg8KB3VzZXJfaWQYCCABKAkiEgoQTGlzdEdhbWVzUmVxdWVzdCI3ChFMaXN0R2FtZXNSZXNwb25zZRIiCgVnYW1lcxgBIAMoCzITLmdyYXZlbC5odWIudjEuR2FtZSIUChJMaXN0U2VydmVyc1JlcXVlc3QiPQoTTGlzdFNlcnZlcnNSZXNwb25zZRImCgdzZXJ2ZXJzGAEgAygLMhUuZ3JhdmVsLmh1Yi52MS5TZXJ2ZXIiKwoWR2V0U2VydmVyU3RhdHVzUmVxdWVzdBIRCglzZXJ2ZXJfaWQYASABKAkiQAoXR2V0U2VydmVyU3RhdHVzUmVzcG9uc2USJQoGc2VydmVyGAEgASgLMhUuZ3JhdmVsLmh1Yi52MS5TZXJ2ZXIiLQoYTGlzdFNlcnZlclBsYXllcnNSZXF1ZXN0EhEKCXNlcnZlcl9pZBgBIAEoCSJ6ChlMaXN0U2VydmVyUGxheWVyc1Jlc3BvbnNlEiwKB3BsYXllcnMYASADKAsyGy5ncmF2ZWwuaHViLnYxLlNlcnZlclBsYXllchIvCgtvYnNlcnZlZF9hdBgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAiGAoWR2V0RmxlZXRTdW1tYXJ5UmVxdWVzdCKMAQoLRmxlZXRUb3RhbHMSDwoHc2VydmVycxgBIAEoBRIKCgJ1cBgCIAEoBRIQCghkZWdyYWRlZBgDIAEoBRIMCgRkb3duGAQgASgFEgwKBGlkbGUYBSABKAUSDwoHdW5rbm93bhgGIAEoBRIPCgdwbGF5ZXJzGAcgASgFEhAKCGNhcGFjaXR5GAggASgFInoKCkZsZWV0QWxhcm0SDAoEa2luZBgBIAEoCRIQCghzZXZlcml0eRgCIAEoCRIRCglzZXJ2ZXJfaWQYAyABKAkSKQoFc2luY2UYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEg4KBmRldGFpbBgFIAEoCSKSAwoLRmxlZXRTZXJ2ZXISCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRIPCgdnYW1lX2lkGAMgASgJEhEKCWdhbWVfbmFtZRgEIAEoCRINCgV0cnVzdBgFIAEoCRIOCgZkcml2ZXIYBiABKAkSDgoGaGVhbHRoGAcgASgJEg4KBnJlYXNvbhgIIAEoCRIwCgxoZWFsdGhfc2luY2UYCSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEg0KBXN0YXRlGAogASgJEg8KB3BsYXllcnMYCyABKAUSEwoLbWF4X3BsYXllcnMYDCABKAUSCwoDbWFwGA0gASgJEi8KC29ic2VydmVkX2F0GA4gASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIPCgdwb2xsX21zGA8gASgFEg4KBm1pc3NlcxgQIAEoBRISCgpob3N0X3N0YXRlGBEgASgJEhcKD2hvc3RfZXJyb3JfY29kZRgSIAEoCRITCgtsZWFzZV9zdGF0ZRgTIAEoCSLIAQoXR2V0RmxlZXRTdW1tYXJ5UmVzcG9uc2USKgoGdG90YWxzGAEgASgLMhouZ3JhdmVsLmh1Yi52MS5GbGVldFRvdGFscxIpCgZhbGFybXMYAiADKAsyGS5ncmF2ZWwuaHViLnYxLkZsZWV0QWxhcm0SKwoHc2VydmVycxgDIAMoCzIaLmdyYXZlbC5odWIudjEuRmxlZXRTZXJ2ZXISKQoFYXNfb2YYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIhYKFEV4cG9ydFNlcnZlcnNSZXF1ZXN0IikKFUV4cG9ydFNlcnZlcnNSZXNwb25zZRIQCghtYW5pZmVzdBgBIAEoCSI4ChNBcHBseVNlcnZlcnNSZXF1ZXN0EhAKCG1hbmlmZXN0GAEgASgJEg8KB2RyeV9ydW4YAiABKAgiOAoUQXBwbHlTZXJ2ZXJzUmVzcG9uc2USDwoHY2hhbmdlcxgBIAMoCRIPCgdhcHBsaWVkGAIgASgIIicKE0NoZWNrU2VydmVyc1JlcXVlc3QSEAoIbWFuaWZlc3QYASABKAkiJwoUQ2hlY2tTZXJ2ZXJzUmVzcG9uc2USDwoHc3VtbWFyeRgBIAEoCTLvBQoNU2VydmVyU2VydmljZRJOCglMaXN0R2FtZXMSHy5ncmF2ZWwuaHViLnYxLkxpc3RHYW1lc1JlcXVlc3QaIC5ncmF2ZWwuaHViLnYxLkxpc3RHYW1lc1Jlc3BvbnNlElQKC0xpc3RTZXJ2ZXJzEiEuZ3JhdmVsLmh1Yi52MS5MaXN0U2VydmVyc1JlcXVlc3QaIi5ncmF2ZWwuaHViLnYxLkxpc3RTZXJ2ZXJzUmVzcG9uc2USYAoPR2V0U2VydmVyU3RhdHVzEiUuZ3JhdmVsLmh1Yi52MS5HZXRTZXJ2ZXJTdGF0dXNSZXF1ZXN0GiYuZ3JhdmVsLmh1Yi52MS5HZXRTZXJ2ZXJTdGF0dXNSZXNwb25zZRJmChFMaXN0U2VydmVyUGxheWVycxInLmdyYXZlbC5odWIudjEuTGlzdFNlcnZlclBsYXllcnNSZXF1ZXN0GiguZ3JhdmVsLmh1Yi52MS5MaXN0U2VydmVyUGxheWVyc1Jlc3BvbnNlEmAKD0dldEZsZWV0U3VtbWFyeRIlLmdyYXZlbC5odWIudjEuR2V0RmxlZXRTdW1tYXJ5UmVxdWVzdBomLmdyYXZlbC5odWIudjEuR2V0RmxlZXRTdW1tYXJ5UmVzcG9uc2USWgoNRXhwb3J0U2VydmVycxIjLmdyYXZlbC5odWIudjEuRXhwb3J0U2VydmVyc1JlcXVlc3QaJC5ncmF2ZWwuaHViLnYxLkV4cG9ydFNlcnZlcnNSZXNwb25zZRJXCgxBcHBseVNlcnZlcnMSIi5ncmF2ZWwuaHViLnYxLkFwcGx5U2VydmVyc1JlcXVlc3QaIy5ncmF2ZWwuaHViLnYxLkFwcGx5U2VydmVyc1Jlc3BvbnNlElcKDENoZWNrU2VydmVycxIiLmdyYXZlbC5odWIudjEuQ2hlY2tTZXJ2ZXJzUmVxdWVzdBojLmdyYXZlbC5odWIudjEuQ2hlY2tTZXJ2ZXJzUmVzcG9uc2VCOlo4Z2l0aHViLmNvbS9ncmF2ZWwtcHJvamVjdC9ncmF2ZWwvZ2VuL2dyYXZlbC9odWIvdjE7aHVidjFiBnByb3RvMw", [file_google_protobuf_timestamp]);
+  fileDesc("ChtncmF2ZWwvaHViL3YxL3NlcnZlcnMucHJvdG8SDWdyYXZlbC5odWIudjEiowEKBEJhbmQSDwoHc2VjdGlvbhgBIAEoCRILCgNrZXkYAiABKAkSEAoDbWluGAMgASgDSACIAQESEAoDbWF4GAQgASgDSAGIAQESFwoKbWF4X2xlbmd0aBgFIAEoA0gCiAEBEg0KBWhvc3RzGAYgAygJEhIKCnVubGVzc19zZXQYByABKAlCBgoEX21pbkIGCgRfbWF4Qg0KC19tYXhfbGVuZ3RoItgBCgRHYW1lEgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkSGQoRaWRlbnRpdHlfcHJvdmlkZXIYAyABKAkSIgoFYmFuZHMYBCADKAsyEy5ncmF2ZWwuaHViLnYxLkJhbmQSFQoNbm9fcGFpZF9wZXJrcxgFIAEoCBIpCgZsYXlvdXQYBiABKAsyGS5ncmF2ZWwuaHViLnYxLkdhbWVMYXlvdXQSNQoPc3RhdF9leHRlbnNpb25zGAcgAygLMhwuZ3JhdmVsLmh1Yi52MS5TdGF0RXh0ZW5zaW9uIlsKDVN0YXRFeHRlbnNpb24SDAoEbmFtZRgBIAEoCRINCgVsYWJlbBgCIAEoCRIMCgR0eXBlGAMgASgJEgwKBHVuaXQYBCABKAkSEQoJYWdncmVnYXRlGAUgASgJIhsKCkdhbWVMYXlvdXQSDQoFYm9hcmQYASADKAkiWQoJVGVhbVNjb3JlEgwKBG5hbWUYASABKAkSDQoFY29sb3IYAiABKAkSDQoFc2NvcmUYAyABKAMSFAoHcGxheWVycxgEIAEoBUgAiAEBQgoKCF9wbGF5ZXJzIqwDCgxTZXJ2ZXJTdGF0dXMSDQoFc3RhdGUYASABKAkSEQoJcmVhY2hhYmxlGAIgASgIEi8KC29ic2VydmVkX2F0GAMgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBINCgVidWlsZBgEIAEoCRIUCgxjYXBhYmlsaXRpZXMYBSADKAkSDwoHcGxheWVycxgGIAEoBRITCgttYXhfcGxheWVycxgHIAEoBRILCgNtYXAYCCABKAkSEwoLZXhwZXJpZW5jZXMYCSADKAkSEAoIbGlnaHRpbmcYCiABKAkSJwoFdGVhbXMYCyADKAsyGC5ncmF2ZWwuaHViLnYxLlRlYW1TY29yZRISCgpzY29yZV90aWNrGAwgASgFEhYKDnJvdGF0aW9uX2luZGV4GA0gASgFEhsKE25leHRfcm90YXRpb25faW5kZXgYDiABKAUSFAoMcm90YXRpb25fbWFwGA8gASgJEhkKEW5leHRfcm90YXRpb25fbWFwGBAgASgJEicKBGpvaW4YESABKAsyGS5ncmF2ZWwuaHViLnYxLlNlcnZlckpvaW4iSwoKU2VydmVySm9pbhIOCgZtZXRob2QYASABKAkSDQoFdmFsdWUYAiABKAkSDAoEaGludBgDIAEoCRIQCghwYXNzd29yZBgEIAEoCSKgAQoGU2VydmVyEgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkSDwoHZ2FtZV9pZBgDIAEoCRIQCghsb2NhdGlvbhgEIAEoCRINCgV0cnVzdBgFIAEoCRIrCgZzdGF0dXMYByABKAsyGy5ncmF2ZWwuaHViLnYxLlNlcnZlclN0YXR1cxIOCgZkcml2ZXIYCCABKAlKBAgGEAdSB3NlZWRpbmcijgEKDFNlcnZlclBsYXllchIMCgRuYW1lGAEgASgJEhAKCHByb3ZpZGVyGAIgASgJEg8KB3N1YmplY3QYAyABKAkSDAoEdGVhbRgEIAEoCRINCgVraWxscxgFIAEoBRIOCgZkZWF0aHMYBiABKAUSDwoHcGluZ19tcxgHIAEoBRIPCgd1c2VyX2lkGAggASgJIhIKEExpc3RHYW1lc1JlcXVlc3QiNwoRTGlzdEdhbWVzUmVzcG9uc2USIgoFZ2FtZXMYASADKAsyEy5ncmF2ZWwuaHViLnYxLkdhbWUiFAoSTGlzdFNlcnZlcnNSZXF1ZXN0Ij0KE0xpc3RTZXJ2ZXJzUmVzcG9uc2USJgoHc2VydmVycxgBIAMoCzIVLmdyYXZlbC5odWIudjEuU2VydmVyIisKFkdldFNlcnZlclN0YXR1c1JlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJIkAKF0dldFNlcnZlclN0YXR1c1Jlc3BvbnNlEiUKBnNlcnZlchgBIAEoCzIVLmdyYXZlbC5odWIudjEuU2VydmVyIi0KGExpc3RTZXJ2ZXJQbGF5ZXJzUmVxdWVzdBIRCglzZXJ2ZXJfaWQYASABKAkiegoZTGlzdFNlcnZlclBsYXllcnNSZXNwb25zZRIsCgdwbGF5ZXJzGAEgAygLMhsuZ3JhdmVsLmh1Yi52MS5TZXJ2ZXJQbGF5ZXISLwoLb2JzZXJ2ZWRfYXQYAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIhgKFkdldEZsZWV0U3VtbWFyeVJlcXVlc3QijAEKC0ZsZWV0VG90YWxzEg8KB3NlcnZlcnMYASABKAUSCgoCdXAYAiABKAUSEAoIZGVncmFkZWQYAyABKAUSDAoEZG93bhgEIAEoBRIMCgRpZGxlGAUgASgFEg8KB3Vua25vd24YBiABKAUSDwoHcGxheWVycxgHIAEoBRIQCghjYXBhY2l0eRgIIAEoBSJ6CgpGbGVldEFsYXJtEgwKBGtpbmQYASABKAkSEAoIc2V2ZXJpdHkYAiABKAkSEQoJc2VydmVyX2lkGAMgASgJEikKBXNpbmNlGAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIOCgZkZXRhaWwYBSABKAkikgMKC0ZsZWV0U2VydmVyEgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkSDwoHZ2FtZV9pZBgDIAEoCRIRCglnYW1lX25hbWUYBCABKAkSDQoFdHJ1c3QYBSABKAkSDgoGZHJpdmVyGAYgASgJEg4KBmhlYWx0aBgHIAEoCRIOCgZyZWFzb24YCCABKAkSMAoMaGVhbHRoX3NpbmNlGAkgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBINCgVzdGF0ZRgKIAEoCRIPCgdwbGF5ZXJzGAsgASgFEhMKC21heF9wbGF5ZXJzGAwgASgFEgsKA21hcBgNIAEoCRIvCgtvYnNlcnZlZF9hdBgOIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASDwoHcG9sbF9tcxgPIAEoBRIOCgZtaXNzZXMYECABKAUSEgoKaG9zdF9zdGF0ZRgRIAEoCRIXCg9ob3N0X2Vycm9yX2NvZGUYEiABKAkSEwoLbGVhc2Vfc3RhdGUYEyABKAkiyAEKF0dldEZsZWV0U3VtbWFyeVJlc3BvbnNlEioKBnRvdGFscxgBIAEoCzIaLmdyYXZlbC5odWIudjEuRmxlZXRUb3RhbHMSKQoGYWxhcm1zGAIgAygLMhkuZ3JhdmVsLmh1Yi52MS5GbGVldEFsYXJtEisKB3NlcnZlcnMYAyADKAsyGi5ncmF2ZWwuaHViLnYxLkZsZWV0U2VydmVyEikKBWFzX29mGAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCIWChRFeHBvcnRTZXJ2ZXJzUmVxdWVzdCIpChVFeHBvcnRTZXJ2ZXJzUmVzcG9uc2USEAoIbWFuaWZlc3QYASABKAkiOAoTQXBwbHlTZXJ2ZXJzUmVxdWVzdBIQCghtYW5pZmVzdBgBIAEoCRIPCgdkcnlfcnVuGAIgASgIIjgKFEFwcGx5U2VydmVyc1Jlc3BvbnNlEg8KB2NoYW5nZXMYASADKAkSDwoHYXBwbGllZBgCIAEoCCInChNDaGVja1NlcnZlcnNSZXF1ZXN0EhAKCG1hbmlmZXN0GAEgASgJIicKFENoZWNrU2VydmVyc1Jlc3BvbnNlEg8KB3N1bW1hcnkYASABKAky7wUKDVNlcnZlclNlcnZpY2USTgoJTGlzdEdhbWVzEh8uZ3JhdmVsLmh1Yi52MS5MaXN0R2FtZXNSZXF1ZXN0GiAuZ3JhdmVsLmh1Yi52MS5MaXN0R2FtZXNSZXNwb25zZRJUCgtMaXN0U2VydmVycxIhLmdyYXZlbC5odWIudjEuTGlzdFNlcnZlcnNSZXF1ZXN0GiIuZ3JhdmVsLmh1Yi52MS5MaXN0U2VydmVyc1Jlc3BvbnNlEmAKD0dldFNlcnZlclN0YXR1cxIlLmdyYXZlbC5odWIudjEuR2V0U2VydmVyU3RhdHVzUmVxdWVzdBomLmdyYXZlbC5odWIudjEuR2V0U2VydmVyU3RhdHVzUmVzcG9uc2USZgoRTGlzdFNlcnZlclBsYXllcnMSJy5ncmF2ZWwuaHViLnYxLkxpc3RTZXJ2ZXJQbGF5ZXJzUmVxdWVzdBooLmdyYXZlbC5odWIudjEuTGlzdFNlcnZlclBsYXllcnNSZXNwb25zZRJgCg9HZXRGbGVldFN1bW1hcnkSJS5ncmF2ZWwuaHViLnYxLkdldEZsZWV0U3VtbWFyeVJlcXVlc3QaJi5ncmF2ZWwuaHViLnYxLkdldEZsZWV0U3VtbWFyeVJlc3BvbnNlEloKDUV4cG9ydFNlcnZlcnMSIy5ncmF2ZWwuaHViLnYxLkV4cG9ydFNlcnZlcnNSZXF1ZXN0GiQuZ3JhdmVsLmh1Yi52MS5FeHBvcnRTZXJ2ZXJzUmVzcG9uc2USVwoMQXBwbHlTZXJ2ZXJzEiIuZ3JhdmVsLmh1Yi52MS5BcHBseVNlcnZlcnNSZXF1ZXN0GiMuZ3JhdmVsLmh1Yi52MS5BcHBseVNlcnZlcnNSZXNwb25zZRJXCgxDaGVja1NlcnZlcnMSIi5ncmF2ZWwuaHViLnYxLkNoZWNrU2VydmVyc1JlcXVlc3QaIy5ncmF2ZWwuaHViLnYxLkNoZWNrU2VydmVyc1Jlc3BvbnNlQjpaOGdpdGh1Yi5jb20vZ3JhdmVsLXByb2plY3QvZ3JhdmVsL2dlbi9ncmF2ZWwvaHViL3YxO2h1YnYxYgZwcm90bzM", [file_google_protobuf_timestamp]);
 
 /**
  * Band is a publisher guardrail on one of a game's configuration keys, of one kind: a range (min,
@@ -112,6 +112,14 @@ export type Game = Message<"gravel.hub.v1.Game"> & {
    * @generated from field: gravel.hub.v1.GameLayout layout = 6;
    */
   layout?: GameLayout | undefined;
+
+  /**
+   * The game's own stats beyond kills and deaths (the Game spec's stats.extensions, ADR-0033), in
+   * the order the pages show them.
+   *
+   * @generated from field: repeated gravel.hub.v1.StatExtension stat_extensions = 7;
+   */
+  statExtensions: StatExtension[];
 };
 
 /**
@@ -120,6 +128,56 @@ export type Game = Message<"gravel.hub.v1.Game"> & {
  */
 export const GameSchema: GenMessage<Game> = /*@__PURE__*/
   messageDesc(file_gravel_hub_v1_servers, 1);
+
+/**
+ * StatExtension is one of a game's own stats, declarative data from its Game spec (ADR-0033): a
+ * number each player has on each map of a match result.
+ *
+ * @generated from message gravel.hub.v1.StatExtension
+ */
+export type StatExtension = Message<"gravel.hub.v1.StatExtension"> & {
+  /**
+   * The key in extensions maps: "headshot_kills".
+   *
+   * @generated from field: string name = 1;
+   */
+  name: string;
+
+  /**
+   * The column's heading: "Headshot kills".
+   *
+   * @generated from field: string label = 2;
+   */
+  label: string;
+
+  /**
+   * "int" or "float": how a value is shown.
+   *
+   * @generated from field: string type = 3;
+   */
+  type: string;
+
+  /**
+   * Shown beside a value, if any: "HP".
+   *
+   * @generated from field: string unit = 4;
+   */
+  unit: string;
+
+  /**
+   * How a board totals a player's maps: "sum", "avg" (per map) or "max".
+   *
+   * @generated from field: string aggregate = 5;
+   */
+  aggregate: string;
+};
+
+/**
+ * Describes the message gravel.hub.v1.StatExtension.
+ * Use `create(StatExtensionSchema)` to create a new message.
+ */
+export const StatExtensionSchema: GenMessage<StatExtension> = /*@__PURE__*/
+  messageDesc(file_gravel_hub_v1_servers, 2);
 
 /**
  * GameLayout is a game's page layout, declarative data from its Game spec.
@@ -140,7 +198,7 @@ export type GameLayout = Message<"gravel.hub.v1.GameLayout"> & {
  * Use `create(GameLayoutSchema)` to create a new message.
  */
 export const GameLayoutSchema: GenMessage<GameLayout> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_servers, 2);
+  messageDesc(file_gravel_hub_v1_servers, 3);
 
 /**
  * TeamScore is one team's (faction's) score and, when the hub knows it, how many players it has.
@@ -180,7 +238,7 @@ export type TeamScore = Message<"gravel.hub.v1.TeamScore"> & {
  * Use `create(TeamScoreSchema)` to create a new message.
  */
 export const TeamScoreSchema: GenMessage<TeamScore> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_servers, 3);
+  messageDesc(file_gravel_hub_v1_servers, 4);
 
 /**
  * ServerStatus is the hub's last observation of a server. It carries no personal data.
@@ -304,7 +362,7 @@ export type ServerStatus = Message<"gravel.hub.v1.ServerStatus"> & {
  * Use `create(ServerStatusSchema)` to create a new message.
  */
 export const ServerStatusSchema: GenMessage<ServerStatus> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_servers, 4);
+  messageDesc(file_gravel_hub_v1_servers, 5);
 
 /**
  * ServerJoin is how a player reaches a server from the game. It is public, what a community
@@ -348,7 +406,7 @@ export type ServerJoin = Message<"gravel.hub.v1.ServerJoin"> & {
  * Use `create(ServerJoinSchema)` to create a new message.
  */
 export const ServerJoinSchema: GenMessage<ServerJoin> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_servers, 5);
+  messageDesc(file_gravel_hub_v1_servers, 6);
 
 /**
  * Server is a server a driver controls (ManagedServer), as the public sees it: never its control
@@ -407,7 +465,7 @@ export type Server = Message<"gravel.hub.v1.Server"> & {
  * Use `create(ServerSchema)` to create a new message.
  */
 export const ServerSchema: GenMessage<Server> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_servers, 6);
+  messageDesc(file_gravel_hub_v1_servers, 7);
 
 /**
  * ServerPlayer is one connected player at the last successful poll.
@@ -465,7 +523,7 @@ export type ServerPlayer = Message<"gravel.hub.v1.ServerPlayer"> & {
  * Use `create(ServerPlayerSchema)` to create a new message.
  */
 export const ServerPlayerSchema: GenMessage<ServerPlayer> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_servers, 7);
+  messageDesc(file_gravel_hub_v1_servers, 8);
 
 /**
  * @generated from message gravel.hub.v1.ListGamesRequest
@@ -478,7 +536,7 @@ export type ListGamesRequest = Message<"gravel.hub.v1.ListGamesRequest"> & {
  * Use `create(ListGamesRequestSchema)` to create a new message.
  */
 export const ListGamesRequestSchema: GenMessage<ListGamesRequest> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_servers, 8);
+  messageDesc(file_gravel_hub_v1_servers, 9);
 
 /**
  * @generated from message gravel.hub.v1.ListGamesResponse
@@ -495,7 +553,7 @@ export type ListGamesResponse = Message<"gravel.hub.v1.ListGamesResponse"> & {
  * Use `create(ListGamesResponseSchema)` to create a new message.
  */
 export const ListGamesResponseSchema: GenMessage<ListGamesResponse> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_servers, 9);
+  messageDesc(file_gravel_hub_v1_servers, 10);
 
 /**
  * @generated from message gravel.hub.v1.ListServersRequest
@@ -508,7 +566,7 @@ export type ListServersRequest = Message<"gravel.hub.v1.ListServersRequest"> & {
  * Use `create(ListServersRequestSchema)` to create a new message.
  */
 export const ListServersRequestSchema: GenMessage<ListServersRequest> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_servers, 10);
+  messageDesc(file_gravel_hub_v1_servers, 11);
 
 /**
  * @generated from message gravel.hub.v1.ListServersResponse
@@ -525,7 +583,7 @@ export type ListServersResponse = Message<"gravel.hub.v1.ListServersResponse"> &
  * Use `create(ListServersResponseSchema)` to create a new message.
  */
 export const ListServersResponseSchema: GenMessage<ListServersResponse> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_servers, 11);
+  messageDesc(file_gravel_hub_v1_servers, 12);
 
 /**
  * @generated from message gravel.hub.v1.GetServerStatusRequest
@@ -542,7 +600,7 @@ export type GetServerStatusRequest = Message<"gravel.hub.v1.GetServerStatusReque
  * Use `create(GetServerStatusRequestSchema)` to create a new message.
  */
 export const GetServerStatusRequestSchema: GenMessage<GetServerStatusRequest> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_servers, 12);
+  messageDesc(file_gravel_hub_v1_servers, 13);
 
 /**
  * @generated from message gravel.hub.v1.GetServerStatusResponse
@@ -559,7 +617,7 @@ export type GetServerStatusResponse = Message<"gravel.hub.v1.GetServerStatusResp
  * Use `create(GetServerStatusResponseSchema)` to create a new message.
  */
 export const GetServerStatusResponseSchema: GenMessage<GetServerStatusResponse> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_servers, 13);
+  messageDesc(file_gravel_hub_v1_servers, 14);
 
 /**
  * @generated from message gravel.hub.v1.ListServerPlayersRequest
@@ -576,7 +634,7 @@ export type ListServerPlayersRequest = Message<"gravel.hub.v1.ListServerPlayersR
  * Use `create(ListServerPlayersRequestSchema)` to create a new message.
  */
 export const ListServerPlayersRequestSchema: GenMessage<ListServerPlayersRequest> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_servers, 14);
+  messageDesc(file_gravel_hub_v1_servers, 15);
 
 /**
  * @generated from message gravel.hub.v1.ListServerPlayersResponse
@@ -600,7 +658,7 @@ export type ListServerPlayersResponse = Message<"gravel.hub.v1.ListServerPlayers
  * Use `create(ListServerPlayersResponseSchema)` to create a new message.
  */
 export const ListServerPlayersResponseSchema: GenMessage<ListServerPlayersResponse> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_servers, 15);
+  messageDesc(file_gravel_hub_v1_servers, 16);
 
 /**
  * @generated from message gravel.hub.v1.GetFleetSummaryRequest
@@ -613,7 +671,7 @@ export type GetFleetSummaryRequest = Message<"gravel.hub.v1.GetFleetSummaryReque
  * Use `create(GetFleetSummaryRequestSchema)` to create a new message.
  */
 export const GetFleetSummaryRequestSchema: GenMessage<GetFleetSummaryRequest> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_servers, 16);
+  messageDesc(file_gravel_hub_v1_servers, 17);
 
 /**
  * FleetTotals counts the fleet (gravel#190).
@@ -669,7 +727,7 @@ export type FleetTotals = Message<"gravel.hub.v1.FleetTotals"> & {
  * Use `create(FleetTotalsSchema)` to create a new message.
  */
 export const FleetTotalsSchema: GenMessage<FleetTotals> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_servers, 17);
+  messageDesc(file_gravel_hub_v1_servers, 18);
 
 /**
  * FleetAlarm is something wrong that needs a person, open for as long as its cause lasts; it is
@@ -718,7 +776,7 @@ export type FleetAlarm = Message<"gravel.hub.v1.FleetAlarm"> & {
  * Use `create(FleetAlarmSchema)` to create a new message.
  */
 export const FleetAlarmSchema: GenMessage<FleetAlarm> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_servers, 18);
+  messageDesc(file_gravel_hub_v1_servers, 19);
 
 /**
  * FleetServer is one server's health, with what it is judged on.
@@ -844,7 +902,7 @@ export type FleetServer = Message<"gravel.hub.v1.FleetServer"> & {
  * Use `create(FleetServerSchema)` to create a new message.
  */
 export const FleetServerSchema: GenMessage<FleetServer> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_servers, 19);
+  messageDesc(file_gravel_hub_v1_servers, 20);
 
 /**
  * @generated from message gravel.hub.v1.GetFleetSummaryResponse
@@ -882,7 +940,7 @@ export type GetFleetSummaryResponse = Message<"gravel.hub.v1.GetFleetSummaryResp
  * Use `create(GetFleetSummaryResponseSchema)` to create a new message.
  */
 export const GetFleetSummaryResponseSchema: GenMessage<GetFleetSummaryResponse> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_servers, 20);
+  messageDesc(file_gravel_hub_v1_servers, 21);
 
 /**
  * @generated from message gravel.hub.v1.ExportServersRequest
@@ -895,7 +953,7 @@ export type ExportServersRequest = Message<"gravel.hub.v1.ExportServersRequest">
  * Use `create(ExportServersRequestSchema)` to create a new message.
  */
 export const ExportServersRequestSchema: GenMessage<ExportServersRequest> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_servers, 21);
+  messageDesc(file_gravel_hub_v1_servers, 22);
 
 /**
  * @generated from message gravel.hub.v1.ExportServersResponse
@@ -914,7 +972,7 @@ export type ExportServersResponse = Message<"gravel.hub.v1.ExportServersResponse
  * Use `create(ExportServersResponseSchema)` to create a new message.
  */
 export const ExportServersResponseSchema: GenMessage<ExportServersResponse> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_servers, 22);
+  messageDesc(file_gravel_hub_v1_servers, 23);
 
 /**
  * @generated from message gravel.hub.v1.ApplyServersRequest
@@ -940,7 +998,7 @@ export type ApplyServersRequest = Message<"gravel.hub.v1.ApplyServersRequest"> &
  * Use `create(ApplyServersRequestSchema)` to create a new message.
  */
 export const ApplyServersRequestSchema: GenMessage<ApplyServersRequest> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_servers, 23);
+  messageDesc(file_gravel_hub_v1_servers, 24);
 
 /**
  * @generated from message gravel.hub.v1.ApplyServersResponse
@@ -966,7 +1024,7 @@ export type ApplyServersResponse = Message<"gravel.hub.v1.ApplyServersResponse">
  * Use `create(ApplyServersResponseSchema)` to create a new message.
  */
 export const ApplyServersResponseSchema: GenMessage<ApplyServersResponse> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_servers, 24);
+  messageDesc(file_gravel_hub_v1_servers, 25);
 
 /**
  * @generated from message gravel.hub.v1.CheckServersRequest
@@ -983,7 +1041,7 @@ export type CheckServersRequest = Message<"gravel.hub.v1.CheckServersRequest"> &
  * Use `create(CheckServersRequestSchema)` to create a new message.
  */
 export const CheckServersRequestSchema: GenMessage<CheckServersRequest> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_servers, 25);
+  messageDesc(file_gravel_hub_v1_servers, 26);
 
 /**
  * @generated from message gravel.hub.v1.CheckServersResponse
@@ -1002,7 +1060,7 @@ export type CheckServersResponse = Message<"gravel.hub.v1.CheckServersResponse">
  * Use `create(CheckServersResponseSchema)` to create a new message.
  */
 export const CheckServersResponseSchema: GenMessage<CheckServersResponse> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_servers, 26);
+  messageDesc(file_gravel_hub_v1_servers, 27);
 
 /**
  * ServerService reads the games and servers the hub controls (ADR-0010). They are applied from a
