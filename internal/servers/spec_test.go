@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gravel-project/gravel/games/cs2/matchzy"
 	"github.com/gravel-project/gravel/games/wardogs"
 	"github.com/gravel-project/gravel/games/wardogs/wardogstest"
 )
@@ -82,18 +83,26 @@ func TestWarDogsBandsAreInTheServersSchema(t *testing.T) {
 func TestParseSpecRefusesMalformedRules(t *testing.T) {
 	const head = "id: x\nname: X\nidentity_provider: steam\ndrivers: []\n"
 	for name, c := range map[string]struct{ yaml, want string }{
-		"no kind":       {"bands:\n  - {section: S, key: K}\n", "set exactly one of min/max, max_length or hosts"},
-		"two kinds":     {"bands:\n  - {section: S, key: K, max: 3, max_length: 4}\n", "set exactly one of"},
-		"crossed":       {"bands:\n  - {section: S, key: K, min: 4, max: 3}\n", "min is above max"},
-		"zero length":   {"bands:\n  - {section: S, key: K, max_length: 0}\n", "max_length must be at least 1"},
-		"bad host":      {"bands:\n  - {section: S, key: K, hosts: [Example.com]}\n", `host "Example.com" must be a lower-case domain name`},
-		"url host":      {"bands:\n  - {section: S, key: K, hosts: [\"https://example.com\"]}\n", "must be a lower-case domain name"},
-		"no section":    {"bands:\n  - {key: K, max: 3}\n", "section and key are required"},
-		"twice":         {"bands:\n  - {section: S, key: K, max: 3}\n  - {section: S, key: K, max: 4}\n", "listed twice"},
-		"deny reason":   {"plugins:\n  deny:\n    - {match: skin}\n", "plugins.deny[0]: match (with a letter or digit) and reason are required"},
-		"deny match":    {"plugins:\n  deny:\n    - {match: \"--\", reason: r}\n", "plugins.deny[0]"},
-		"allow symbols": {"plugins:\n  allow: [\"!!\"]\n", "plugins.allow[0]"},
-		"unknown key":   {"policy: strict\n", "field policy not found"},
+		"no kind":        {"bands:\n  - {section: S, key: K}\n", "set exactly one of min/max, max_length or hosts"},
+		"two kinds":      {"bands:\n  - {section: S, key: K, max: 3, max_length: 4}\n", "set exactly one of"},
+		"crossed":        {"bands:\n  - {section: S, key: K, min: 4, max: 3}\n", "min is above max"},
+		"zero length":    {"bands:\n  - {section: S, key: K, max_length: 0}\n", "max_length must be at least 1"},
+		"bad host":       {"bands:\n  - {section: S, key: K, hosts: [Example.com]}\n", `host "Example.com" must be a lower-case domain name`},
+		"url host":       {"bands:\n  - {section: S, key: K, hosts: [\"https://example.com\"]}\n", "must be a lower-case domain name"},
+		"no section":     {"bands:\n  - {key: K, max: 3}\n", "section and key are required"},
+		"twice":          {"bands:\n  - {section: S, key: K, max: 3}\n  - {section: S, key: K, max: 4}\n", "listed twice"},
+		"deny reason":    {"plugins:\n  deny:\n    - {match: skin}\n", "plugins.deny[0]: match (with a letter or digit) and reason are required"},
+		"deny match":     {"plugins:\n  deny:\n    - {match: \"--\", reason: r}\n", "plugins.deny[0]"},
+		"allow symbols":  {"plugins:\n  allow: [\"!!\"]\n", "plugins.allow[0]"},
+		"unknown key":    {"policy: strict\n", "field policy not found"},
+		"stat aggregate": {"stats:\n  extensions:\n    - {name: assists, label: A, aggregate: median}\n", `aggregate "median" is not sum, avg or max`},
+		"stat no agg":    {"stats:\n  extensions:\n    - {name: assists, label: A}\n", `aggregate "" is not sum, avg or max`},
+		"stat type":      {"stats:\n  extensions:\n    - {name: assists, label: A, type: text, aggregate: sum}\n", `type "text" is not int or float`},
+		"stat name":      {"stats:\n  extensions:\n    - {name: Assists, label: A, aggregate: sum}\n", "name must be lower-case letters"},
+		"stat common":    {"stats:\n  extensions:\n    - {name: kills, label: K, aggregate: sum}\n", `"kills" is a common stat`},
+		"stat twice":     {"stats:\n  extensions:\n    - {name: a, label: A, aggregate: sum}\n    - {name: a, label: B, aggregate: max}\n", "stats.extensions[1] (a): listed twice"},
+		"stat label":     {"stats:\n  extensions:\n    - {name: a, aggregate: sum}\n", "label is required"},
+		"stat unknown":   {"stats:\n  extensions:\n    - {name: a, label: A, aggregate: sum, source: x}\n", "field source not found"},
 	} {
 		_, err := ParseSpec([]byte(head + c.yaml))
 		if err == nil || !strings.Contains(err.Error(), c.want) {
@@ -180,5 +189,27 @@ func TestTightenNewKinds(t *testing.T) {
 	m.Games[0].Bands = append(m.Games[0].Bands, Band{Section: gs, Key: "ServerImageURL", Hosts: []string{"i.ibb.co"}}, Band{Section: gs, Key: "ServerName", MaxLength: i64(40)})
 	if err := m.Validate(Specs(), []string{"wardogs"}, nil); err != nil {
 		t.Errorf("tightenings refused: %v", err)
+	}
+}
+
+// The extensions a shipped spec declares are stats its result source reports: CS2's are MatchZy's
+// values, so a typo in game.yaml never becomes a column that is always empty.
+func TestCS2StatExtensionsAreMatchZyValues(t *testing.T) {
+	cs2 := Specs()["cs2"]
+	if len(cs2.Stats.Extensions) == 0 {
+		t.Fatal("cs2 declares no stat extensions")
+	}
+	values := matchzy.PlayerStats{}.Values()
+	for _, e := range cs2.Stats.Extensions {
+		if _, ok := values[e.Name]; !ok {
+			t.Errorf("cs2's extension %q is not a MatchZy value", e.Name)
+		}
+	}
+	if got := cs2.Stats.Names(); !slices.Equal(got, []string{"assists", "damage", "headshot_kills", "mvps", "score"}) {
+		t.Errorf("names = %v", got)
+	}
+	// A spec with none is the common stats only.
+	if n := Specs()["wardogs"].Stats.Names(); len(n) != 0 {
+		t.Errorf("wardogs declares %v", n)
 	}
 }

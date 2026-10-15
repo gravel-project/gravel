@@ -184,7 +184,7 @@ Public listener (`server.listen`), HTTP/1.1 and unencrypted HTTP/2 so gRPC works
 | `/gravel.hub.v1.IdentityService/RevokeUserSessions` | `{"user_id": "…"}` → log a member out everywhere, with the tokens apps hold for them; `members:manage` |
 | `/gravel.hub.v1.IdentityService/ListRoleGrants` | `{"user_id": "…"}` (or `{}` for everyone) → who holds which role where; `identity:read` |
 | `/gravel.hub.v1.IdentityService/ListIdentityEvents` | `{"after_id": 0, "limit": 100}` → the identity log after a position, oldest first, the id to continue from, and the log's newest id (`head_id`, where a reader that just made a full pass starts); role sync's incremental pass; `identity:read` or the owner |
-| `/gravel.hub.v1.ServerService/ListGames` | the enabled games, their identity provider, bands, layout and `no_paid_perks`; public |
+| `/gravel.hub.v1.ServerService/ListGames` | the enabled games, their identity provider, bands, layout, stat extensions and `no_paid_perks`; public |
 | `/gravel.hub.v1.ServerService/ListServers` | every server with its last observation (state, reachable, players and max, map, teams with their scores and, when the hub can count them, their players, capabilities, build, `observed_at`); public, no personal data, never a control address |
 | `/gravel.hub.v1.ServerService/GetServerStatus` | `{"server_id": "…"}` → one server; public; `not_found` for an unknown id |
 | `/gravel.hub.v1.StatsService/GetMemberProfile` | `{"user_id": "…"}` (empty: the caller) → a member's totals by window, their participation per kind over the same windows, and recent matches ([Pages](#pages-gravel18)); the member, the owner, `stats:read`, or anyone when they show their name and stats are public; else `not_found` |
@@ -656,6 +656,7 @@ game, but a server for one is refused. A spec's rules:
 | `bands` | One per configuration key, of one kind: a range (`min`, `max`), a longest value (`max_length`, in characters) or the hosts a URL may point at (`hosts`: https, the host or a subdomain of one; an empty value passes). `unless_set` lifts a band while another key of its section has a value. | By the driver on every config plan and apply, before anything is sent (problems `out_of_band`, `too_long`, `host_not_allowed`). `servers.yaml` may tighten a band of the same kind (a narrower range, a shorter length, a subset of hosts), never loosen one or change its `unless_set` |
 | `plugins` | `deny`: rules, each a `match` and the publisher's `reason`; a plugin whose name contains a match is refused. `allow`: when set, the only plugins permitted. Names compare by letters and digits only, case-insensitively. The denylist wins over the allow list. | `Spec.CheckPlugins` refuses a set naming every refused plugin and why; the Counter-Strike 2 image build and driver call it (P4) |
 | `layout` | How the pages show the game, as data: `board` is a board's columns in order (`kills`, `deaths`, `kd`, `time`, `matches`), the first being what it ranks by. Shown by `ListGames` (`Game.layout`). | The pages ([Pages](#pages-gravel18)) |
+| `stats` | The game's own stats beyond kills and deaths (ADR-0033): `extensions`, each a `name` (lower-case letters, digits and underscores; never a common stat), a `label`, a `type` (`int`, the default, or `float`), an optional `unit` and an `aggregate` (`sum`, `avg` per map, or `max`), at most 16, in the order the pages show them. The names are what the game's result source reports (CS2: MatchZy's, with `mvp` as `mvps`). Shown by `ListGames` (`Game.stat_extensions`). | Match results keep only these; boards and the result and stats pages show them ([Stats](#stats-adr-0012)) |
 | `no_paid_perks` | The publisher forbids a paid benefit (a supporter perk, a crowdfunding reward) that depends on the game's data or features. Shown by `ListGames`. | The benefit logic honours it (P6) |
 
 War Dogs' bands: `ScorePeriod` 18–30, `MinimumRequiredPlayers` at least 20, `ServerName` at most 64
@@ -1032,14 +1033,17 @@ the server's own host (`pre.sh` writes both into MatchZy's config). An event is 
 
 - `series_start` makes the result (teams, maps), linked to the server's live lease;
 - `going_live` starts a map (its name from the hub's last look at the server);
-- each `round_end` writes the map's running score and every player's running totals;
+- each `round_end` writes the map's running score and every player's running totals: kills,
+  deaths, and the stats the game's spec declares (`stats.extensions`, ADR-0033; CS2's are assists,
+  damage, headshot kills, MVPs and score), each absent when MatchZy didn't report it;
 - `map_result` the map's score and winner;
 - `series_end` the maps won and the winner, and starts the lease's last `release_after`.
 
 An event for a series whose start never came starts it. A demo goes to the `demos` bucket under
 `matches/<result>/<map>-<file>`, and the map records it; without a bucket the demo route answers
 404. Read them with `StatsService.ListMatchResults` (by server or lease, ended or not),
-`GetMatchResult` (players shown as on a board: an opted-in name, else a pseudonym) and
+`GetMatchResult` (players shown as on a board: an opted-in name, else a pseudonym; each player's
+`extensions` with the game's declarations in `stat_extensions`) and
 `GetMatchDemo` (a 15-minute link), or on the page `/results/{id}`, under the same access as the
 boards. A result's player rows are erased and retired like every identity-linked row: `stats erase`
 re-keys them, and past `stats.raw_retention_months` the retention job anonymises them
@@ -1192,6 +1196,14 @@ Monday), `month` or a named `season`, in `stats.timezone`. Until `stats.public` 
 owner and apps with `stats:read` can read boards and match lists: turn it on when the host's
 privacy policy covers stats.
 
+**A game's own stats** (ADR-0033). A board of one server or one game carries the stats its Game spec
+declares (`stats.extensions`) beside the common ones: each entry's `extensions`, by name, from the
+player's match results over the same window and trusts, totalled by each one's aggregate (`sum`;
+`avg`, per map; `max`, the best map), and the columns in `stat_extensions`. A player with no result
+for a stat has none (absent, not 0). The organization's board, which mixes games, carries none, and
+a board ranks by a common stat only. A result counts toward a game's board when its server was
+Official as the series started (`match_results.trust`).
+
 ```sh
 curl -s -H 'Content-Type: application/json' -d '{"server_id":"htg-wardogs-1","window":"week"}' \
   https://app.example.com/gravel.hub.v1.StatsService/GetBoard | jq '.entries[] | {rank, name, kills, deaths, kd}'
@@ -1211,11 +1223,13 @@ The same job **retires match results** ([Match results](#match-results-adr-0024)
 that day: each player of the series becomes `erased` and a random token of their own in that series
 (the same on each of its maps, unlinkable to any other series), and their in-game name is blanked.
 The scoreboard stays readable, shown as deleted players; nothing is deleted. A series that hasn't
-ended is never retired. `gravel_stats_results_retired_total` counts the series.
+ended is never retired. Before that, in the same transaction, each player's stat extensions are
+added to `result_stats_monthly` (a total, the maps and the best map, per period like the matches),
+so a season's or all time's board keeps them. `gravel_stats_results_retired_total` counts the series.
 
 **Erasure.** `gravel-hub stats erase --provider steam --subject <SteamID64>` replaces the identity
 with `erased` and a random token in `match_stats`, `stats_monthly`, `participation_events`,
-`participation_monthly`, `match_result_players` (blanking the in-game name), `player_sessions`,
+`participation_monthly`, `match_result_players` (blanking the in-game name), `result_stats_monthly`, `player_sessions`,
 `player_activity_monthly` and the bodies of the stored ingest batches (their hashes recomputed), and deletes the pseudonym, in one transaction. The numbers
 stay, shown as "Deleted player"; nothing maps the token back (a hash would not do: every SteamID can
 be tried). A player still on a server is recorded under their identity again from the next poll.
@@ -1746,6 +1760,11 @@ page by page.
   last 30 days, about 240 points a line, refreshed every 30 s; stat tiles coloured by their
   thresholds; time series drawn with uPlot, each line's latest value said in words too. Without a
   store it says how to configure one.
+- **Stats** (`/admin/stats`, `stats:read`, or anyone while `stats.public` is on; gravel#206,
+  ADR-0033): a game's board over this week, this month or all time, ranked by any of its layout's
+  columns, with the stats its spec declares as more columns (the unit in the heading, a dash read as
+  "not reported" where a player has none), whether the boards are public, and the game's latest
+  match results linking to their pages. The page draws whatever the hub declares; it knows no game.
 - **Activity** (`/admin/activity`, `stats:read` everywhere; gravel#208, ADR-0035): when people play
   and who stopped, over the last 7, 30 or 90 days ([Player activity](#player-activity-adr-0035)):
   the players, sessions and median session, who came back and the mean days played, new and lost

@@ -54,6 +54,8 @@ type Store interface {
 	PlayerActivity(ctx context.Context, q store.ActivityQuery) (store.Activity, error)
 	SessionRecap(ctx context.Context, q store.RecapQuery) (store.Recap, error)
 	Board(ctx context.Context, q store.BoardQuery) ([]store.BoardRow, error)
+	BoardExtensions(ctx context.Context, q store.BoardQuery, keys []store.PlayerKey) (map[store.PlayerKey]map[string]store.ExtensionTotal, error)
+	ServerGame(ctx context.Context, orgID uuid.UUID, serverID string) (string, error)
 	ListMatches(ctx context.Context, orgID uuid.UUID, serverID string, beforeID int64, limit int) ([]store.MatchSummary, error)
 	Pseudonyms(ctx context.Context, orgID uuid.UUID, keys []store.PlayerKey) (map[store.PlayerKey]string, error)
 	AddPseudonym(ctx context.Context, orgID uuid.UUID, key store.PlayerKey, name string, at time.Time) (string, error)

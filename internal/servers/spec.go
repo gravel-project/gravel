@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"regexp"
 	"slices"
 	"strings"
 	"unicode"
@@ -39,6 +40,9 @@ type Spec struct {
 	NoPaidPerks bool `yaml:"no_paid_perks"`
 	// Layout is how the pages show the game: declarative data, so the core stays game-agnostic.
 	Layout Layout `yaml:"layout"`
+	// Stats are the game's own stats beyond the common ones (ADR-0033): declarative data the
+	// results keep and the boards and pages show generically.
+	Stats Stats `yaml:"stats"`
 	// CloudVM is how the game runs on a VM the hub makes (the cloud-VM driver, ADR-0003); nil for a
 	// game that driver does not run.
 	CloudVM *cloudvm.Profile `yaml:"cloudvm,omitempty"`
@@ -49,6 +53,94 @@ type Layout struct {
 	// Board is the columns a board of the game shows, in order; the first is what it ranks by
 	// unless the reader picks another. Each is a board metric: kills, deaths, kd, time, matches.
 	Board []string `yaml:"board,omitempty"`
+}
+
+// Stats are a game's stats beyond the common ones (ADR-0033).
+type Stats struct {
+	// Extensions are the per-player numbers a game's match results carry beside kills and deaths
+	// (CS2's assists, damage, headshot kills, MVPs), in the order the pages show them.
+	Extensions []StatExtension `yaml:"extensions,omitempty"`
+}
+
+// StatExtension is one of a game's own stats: a number each player has on each map of a match
+// result, named as the game's result source names it.
+type StatExtension struct {
+	// Name is the key, lower-case letters, digits and underscores: what the results keep and the
+	// API returns. Never one of the common stats (BoardMetrics).
+	Name string `yaml:"name"`
+	// Label is the column's heading: "Assists".
+	Label string `yaml:"label"`
+	// Type is "int" (the default) or "float": how a value is shown.
+	Type string `yaml:"type,omitempty"`
+	// Unit is shown beside a value, if any: "HP".
+	Unit string `yaml:"unit,omitempty"`
+	// Aggregate is how a board totals a player's maps: "sum", "avg" (per map) or "max".
+	Aggregate string `yaml:"aggregate"`
+}
+
+// Stat extension types and aggregates.
+const (
+	StatInt   = "int"
+	StatFloat = "float"
+	StatSum   = "sum"
+	StatAvg   = "avg"
+	StatMax   = "max"
+)
+
+// MaxStatExtensions is how many stats of its own a game may declare.
+const MaxStatExtensions = 16
+
+// TypeOrDefault is the extension's type, "int" when unset.
+func (e StatExtension) TypeOrDefault() string {
+	if e.Type == "" {
+		return StatInt
+	}
+	return e.Type
+}
+
+// Names are the extensions' names, in order.
+func (s Stats) Names() []string {
+	out := make([]string, 0, len(s.Extensions))
+	for _, e := range s.Extensions {
+		out = append(out, e.Name)
+	}
+	return out
+}
+
+var statName = regexp.MustCompile(`^[a-z][a-z0-9_]{0,31}$`)
+
+// validate names every problem with the stats.
+func (s Stats) validate() []string {
+	var problems []string
+	if len(s.Extensions) > MaxStatExtensions {
+		problems = append(problems, fmt.Sprintf("stats.extensions: at most %d", MaxStatExtensions))
+	}
+	seen := map[string]bool{}
+	for i, e := range s.Extensions {
+		at := fmt.Sprintf("stats.extensions[%d] (%s)", i, e.Name)
+		switch {
+		case !statName.MatchString(e.Name):
+			problems = append(problems, at+": name must be lower-case letters, digits and underscores, starting with a letter, at most 32")
+		case slices.Contains(BoardMetrics, e.Name):
+			problems = append(problems, fmt.Sprintf("%s: %q is a common stat (%s)", at, e.Name, strings.Join(BoardMetrics, ", ")))
+		case seen[e.Name]:
+			problems = append(problems, at+": listed twice")
+		}
+		seen[e.Name] = true
+		if strings.TrimSpace(e.Label) == "" || len(e.Label) > 32 {
+			problems = append(problems, at+": label is required, at most 32 characters")
+		}
+		if len(e.Unit) > 8 {
+			problems = append(problems, at+": unit is at most 8 characters")
+		}
+		if t := e.TypeOrDefault(); t != StatInt && t != StatFloat {
+			problems = append(problems, fmt.Sprintf("%s: type %q is not int or float", at, e.Type))
+		}
+		if e.Aggregate != StatSum && e.Aggregate != StatAvg && e.Aggregate != StatMax {
+			problems = append(problems, fmt.Sprintf("%s: aggregate %q is not sum, avg or max", at, e.Aggregate))
+		}
+	}
+	return problems
 }
 
 // BoardMetrics are the metrics a board can rank by, which Layout.Board picks from.
@@ -255,6 +347,7 @@ func ParseSpec(b []byte) (Spec, error) {
 			problems = append(problems, fmt.Sprintf("layout.board[%d]: %q is not one of %s, or is listed twice", i, m, strings.Join(BoardMetrics, ", ")))
 		}
 	}
+	problems = append(problems, s.Stats.validate()...)
 	for i, a := range s.Plugins.Allow {
 		if pluginKey(a) == "" {
 			problems = append(problems, fmt.Sprintf("plugins.allow[%d]: %q has no letter or digit", i, a))

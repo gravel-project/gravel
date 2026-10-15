@@ -27,8 +27,11 @@ type MatchResult struct {
 	Winner         string // "", "team1", "team2", "none"
 	StartedAt      time.Time
 	EndedAt        *time.Time
-	Maps           []MatchResultMap
-	Players        []MatchResultPlayer
+	// Trust is the server's when the series started (README principle 11): "official" or
+	// "community". StartMatchResult takes it from the server.
+	Trust   string
+	Maps    []MatchResultMap
+	Players []MatchResultPlayer
 }
 
 // MatchResultMap is one map of a series.
@@ -47,28 +50,26 @@ type MatchResultMap struct {
 
 // MatchResultPlayer is one player's totals on one map, keyed by their provider identity.
 type MatchResultPlayer struct {
-	ResultID      uuid.UUID
-	MapNumber     int
-	Provider      string
-	Subject       string
-	Name          string
-	Team          string // "team1" or "team2"
-	Kills         int
-	Deaths        int
-	Assists       int
-	Damage        int
-	HeadshotKills int
-	MVPs          int
-	Score         int
+	ResultID  uuid.UUID
+	MapNumber int
+	Provider  string
+	Subject   string
+	Name      string
+	Team      string // "team1" or "team2"
+	Kills     int
+	Deaths    int
+	// Extensions are the game's own stats on the map, by the names its spec declares
+	// (stats.extensions, ADR-0033); one the source didn't report is absent, never 0.
+	Extensions map[string]float64
 }
 
 const matchResultColumns = `id, organization_id, server_id, lease_id, source, external_id, team1_name, team2_name, num_maps, team1_score,
-	team2_score, winner, started_at, ended_at`
+	team2_score, winner, started_at, ended_at, trust`
 
 func scanMatchResult(row pgx.Row) (MatchResult, error) {
 	var r MatchResult
 	err := row.Scan(&r.ID, &r.OrganizationID, &r.ServerID, &r.LeaseID, &r.Source, &r.ExternalID, &r.Team1Name, &r.Team2Name, &r.NumMaps,
-		&r.Team1Score, &r.Team2Score, &r.Winner, &r.StartedAt, &r.EndedAt)
+		&r.Team1Score, &r.Team2Score, &r.Winner, &r.StartedAt, &r.EndedAt, &r.Trust)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return r, ErrNotFound
 	}
@@ -79,7 +80,8 @@ func scanMatchResult(row pgx.Row) (MatchResult, error) {
 // match id the server already has (a repeated event) updates its teams and keeps the rest.
 func (s *Store) StartMatchResult(ctx context.Context, r MatchResult) (MatchResult, error) {
 	got, err := scanMatchResult(s.pool.QueryRow(ctx, `INSERT INTO match_results (id, organization_id, server_id, lease_id, source, external_id,
-		team1_name, team2_name, num_maps, started_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		team1_name, team2_name, num_maps, started_at, trust) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+		  (SELECT trust FROM managed_servers WHERE organization_id = $2 AND id = $3))
 		ON CONFLICT (organization_id, server_id, source, external_id) DO UPDATE SET
 		  team1_name = CASE WHEN excluded.team1_name = '' THEN match_results.team1_name ELSE excluded.team1_name END,
 		  team2_name = CASE WHEN excluded.team2_name = '' THEN match_results.team2_name ELSE excluded.team2_name END,
@@ -171,10 +173,14 @@ func (s *Store) ReplaceMatchResultPlayers(ctx context.Context, resultID uuid.UUI
 		return fmt.Errorf("store: match players: %w", err)
 	}
 	for _, p := range players {
-		if _, err := tx.Exec(ctx, `INSERT INTO match_result_players (result_id, map_number, provider, subject, name, team, kills, deaths, assists,
-			damage, headshot_kills, mvps, score) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		ext := p.Extensions
+		if ext == nil {
+			ext = map[string]float64{}
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO match_result_players (result_id, map_number, provider, subject, name, team, kills, deaths, extensions)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 			ON CONFLICT (result_id, map_number, provider, subject) DO NOTHING`,
-			resultID, mapNumber, p.Provider, p.Subject, p.Name, p.Team, p.Kills, p.Deaths, p.Assists, p.Damage, p.HeadshotKills, p.MVPs, p.Score); err != nil {
+			resultID, mapNumber, p.Provider, p.Subject, p.Name, p.Team, p.Kills, p.Deaths, ext); err != nil {
 			return fmt.Errorf("store: match players: %w", err)
 		}
 	}
@@ -207,7 +213,7 @@ func (s *Store) GetMatchResult(ctx context.Context, orgID, id uuid.UUID) (MatchR
 		r.Maps = append(r.Maps, m)
 	}
 	rows.Close()
-	prows, err := s.pool.Query(ctx, `SELECT result_id, map_number, provider, subject, name, team, kills, deaths, assists, damage, headshot_kills, mvps, score
+	prows, err := s.pool.Query(ctx, `SELECT result_id, map_number, provider, subject, name, team, kills, deaths, extensions
 		FROM match_result_players WHERE result_id = $1 ORDER BY map_number, team, kills DESC, subject`, id)
 	if err != nil {
 		return r, fmt.Errorf("store: get match result: %w", err)
@@ -215,8 +221,7 @@ func (s *Store) GetMatchResult(ctx context.Context, orgID, id uuid.UUID) (MatchR
 	defer prows.Close()
 	for prows.Next() {
 		var p MatchResultPlayer
-		if err := prows.Scan(&p.ResultID, &p.MapNumber, &p.Provider, &p.Subject, &p.Name, &p.Team, &p.Kills, &p.Deaths, &p.Assists, &p.Damage,
-			&p.HeadshotKills, &p.MVPs, &p.Score); err != nil {
+		if err := prows.Scan(&p.ResultID, &p.MapNumber, &p.Provider, &p.Subject, &p.Name, &p.Team, &p.Kills, &p.Deaths, &p.Extensions); err != nil {
 			return r, fmt.Errorf("store: get match result: %w", err)
 		}
 		r.Players = append(r.Players, p)

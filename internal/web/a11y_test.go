@@ -127,6 +127,28 @@ func (a11yStats) GetActivity(context.Context, *connect.Request[hubv1.GetActivity
 	return connect.NewResponse(out), nil
 }
 
+// GetBoard is /admin/stats (gravel#206): a board with a game's own stats beside the common ones,
+// a member by name and a pseudonym with none reported, so the not-reported cells are scanned.
+func (a11yStats) GetBoard(context.Context, *connect.Request[hubv1.GetBoardRequest]) (*connect.Response[hubv1.GetBoardResponse], error) {
+	return connect.NewResponse(&hubv1.GetBoardResponse{
+		StatExtensions: []*hubv1.StatExtension{
+			{Name: "assists", Label: "Assists", Type: "int", Aggregate: "sum"},
+			{Name: "damage", Label: "Damage", Type: "int", Unit: "HP", Aggregate: "sum"},
+			{Name: "mvps", Label: "MVPs", Type: "int", Aggregate: "sum"},
+		},
+		Entries: []*hubv1.BoardEntry{
+			{Rank: 1, Name: "Ana", UserId: "u-ana", Kills: 61, Deaths: 40, Kd: 1.525, SecondsOn: 7200, Matches: 3,
+				Extensions: map[string]float64{"assists": 12, "damage": 9240, "mvps": 0}},
+			{Rank: 2, Name: "Brave Falcon", Pseudonymous: true, Kills: 20, Deaths: 22, Kd: 0.909, SecondsOn: 3600, Matches: 1},
+		}}), nil
+}
+
+func (a11yStats) ListMatchResults(context.Context, *connect.Request[hubv1.ListMatchResultsRequest]) (*connect.Response[hubv1.ListMatchResultsResponse], error) {
+	return connect.NewResponse(&hubv1.ListMatchResultsResponse{Results: []*hubv1.MatchResult{
+		{Id: "r1", ServerId: "htg-wardogs-2", Team1Name: "Alpha", Team2Name: "Bravo", Team1Score: 1, EndedAt: timestamppb.New(time.Now().Add(-time.Hour))},
+	}}), nil
+}
+
 // a11yMetrics is /admin/metrics (gravel#204): a stat and two time series with a few lines each,
 // over the last six hours, so the charts draw and are scanned.
 type a11yMetrics struct {
@@ -603,11 +625,11 @@ func TestAccessibility(t *testing.T) {
 		"/fixture/server-moderator", "/fixture/server-host", "/fixture/server-host-parked", "/fixture/host-confirm", "/fixture/confirm", "/fixture/log", "/fixture/account-apps", "/fixture/consent",
 		"/fixture/account-proof", "/fixture/proof", "/fixture/proof-proven", "/fixture/host-expect", "/fixture/result",
 		"/fixture/login-local", "/fixture/register", "/fixture/account-local", "/fixture/reset",
-		"/admin", "/admin/events", "/admin/people", "/admin/servers/htg-cs2-1", "/admin/settings", "/admin/apps", "/admin/metrics", "/admin/activity", "/admin/access", "/admin/nowhere"}
+		"/admin", "/admin/events", "/admin/people", "/admin/servers/htg-cs2-1", "/admin/settings", "/admin/apps", "/admin/metrics", "/admin/stats", "/admin/activity", "/admin/access", "/admin/nowhere"}
 	// What each dashboard route shows once rendered in the browser.
-	adminRenders := map[string]string{"/admin": ">HTG WARDOGS | NA WEST | #1</a>", "/admin/events": ">HTG WARDOGS | NA WEST | #2 is down</p>", "/admin/people": ">Sam</a>", "/admin/servers/htg-cs2-1": ">Release the lease</button>", "/admin/settings": ">Save the settings</button>", "/admin/apps": ">HTG Bot</p>", "/admin/metrics": ">p95 latency by procedure</figcaption>", "/admin/activity": ">Regulars gone quiet</h2>", "/admin/access": ">Your access</h1>", "/admin/nowhere": ">Not found</h1>"}
+	adminRenders := map[string]string{"/admin": ">HTG WARDOGS | NA WEST | #1</a>", "/admin/events": ">HTG WARDOGS | NA WEST | #2 is down</p>", "/admin/people": ">Sam</a>", "/admin/servers/htg-cs2-1": ">Release the lease</button>", "/admin/settings": ">Save the settings</button>", "/admin/apps": ">HTG Bot</p>", "/admin/metrics": ">p95 latency by procedure</figcaption>", "/admin/stats": ">Damage (HP)</th>", "/admin/activity": ">Regulars gone quiet</h2>", "/admin/access": ">Your access</h1>", "/admin/nowhere": ">Not found</h1>"}
 	// The same, as text on the page, for the viewport script.
-	adminRenderText := map[string]string{"/admin": "HTG WARDOGS | NA WEST | #1", "/admin/events": "HTG WARDOGS | NA WEST | #2 is down", "/admin/people": "Add a local account", "/admin/servers/htg-cs2-1": "Release the lease", "/admin/settings": "Save the settings", "/admin/apps": "Register an app", "/admin/metrics": "p95 latency by procedure", "/admin/activity": "Regulars gone quiet", "/admin/access": "Your access"}
+	adminRenderText := map[string]string{"/admin": "HTG WARDOGS | NA WEST | #1", "/admin/events": "HTG WARDOGS | NA WEST | #2 is down", "/admin/people": "Add a local account", "/admin/servers/htg-cs2-1": "Release the lease", "/admin/settings": "Save the settings", "/admin/apps": "Register an app", "/admin/metrics": "p95 latency by procedure", "/admin/stats": "Latest results", "/admin/activity": "Regulars gone quiet", "/admin/access": "Your access"}
 	// A fixture left out of the list would never be scanned and the run would still pass.
 	for path := range fixtures {
 		if !slices.Contains(paths, path) {
@@ -651,7 +673,7 @@ func TestAccessibility(t *testing.T) {
 		cmd := exec.CommandContext(ctx, "node", "../../web/admin/scripts/viewport.mjs", chrome,
 			srv.URL+"/admin", adminRenderText["/admin"], srv.URL+"/admin/events", adminRenderText["/admin/events"],
 			srv.URL+"/admin/people", adminRenderText["/admin/people"], srv.URL+"/admin/servers/htg-cs2-1", adminRenderText["/admin/servers/htg-cs2-1"], srv.URL+"/admin/settings", adminRenderText["/admin/settings"],
-			srv.URL+"/admin/apps", adminRenderText["/admin/apps"], srv.URL+"/admin/metrics", adminRenderText["/admin/metrics"], srv.URL+"/admin/activity", adminRenderText["/admin/activity"], srv.URL+"/admin/access", adminRenderText["/admin/access"])
+			srv.URL+"/admin/apps", adminRenderText["/admin/apps"], srv.URL+"/admin/metrics", adminRenderText["/admin/metrics"], srv.URL+"/admin/stats", adminRenderText["/admin/stats"], srv.URL+"/admin/activity", adminRenderText["/admin/activity"], srv.URL+"/admin/access", adminRenderText["/admin/access"])
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			t.Fatalf("the dashboard at phone and iPad sizes:\n%s", out)

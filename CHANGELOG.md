@@ -8,6 +8,23 @@ patch release is everything else.
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** a game's own stats are declared by its Game spec and kept as one map (#206, ADR-0033, proposed; accepted when merged). The numbers a player has on a map of a match result beside kills and deaths are the ones `game.yaml` declares under `stats.extensions` (each a `name`, `label`, `type` `int`|`float`, optional `unit`, and `aggregate` `sum`|`avg`|`max`; at most 16; `ParseSpec` refuses an unknown aggregate or type, a bad, common or repeated name, a missing label). CS2 declares assists, damage (HP), headshot kills, MVPs and score, MatchZy's names (`matchzy.PlayerStats.Values`).
+  - **The API:** `MatchResultPlayer`'s `assists`, `damage`, `headshot_kills`, `mvps` and `score` (8 to 12) are removed and reserved; read `extensions` (`map<string, double>`: an absent key was not reported, a 0 is a reported zero), with the columns in `GetMatchResultResponse.stat_extensions`. `Game.stat_extensions` in `ListGames`.
+  - **Go:** `store.MatchResultPlayer` holds `Extensions` instead of the five fields; `results.New` takes the declared extensions after `mapName`; `store.RetireResults` takes the timezone and the rollup's periods.
+  - **Migration 00032** (`rewrite match_result_players, match_results`): the five columns move into `match_result_players.extensions` and are dropped; `match_results.trust` (the server's when the series started, README principle 11; the series so far take their server's now); `result_stats_monthly`.
+  - **The result page** (`/results/{id}`) draws a column per declared stat, the unit in the heading, a dash read as "not reported" for one a player has none of; it shows headshot kills and score now too.
+
+### Added
+
+- A board of one server or one game carries its game's own stats (#206, ADR-0033): `BoardEntry.extensions`, each player's results over the board's window and trusts totalled by each stat's aggregate, with the columns in `GetBoardResponse.stat_extensions`. The organization's board carries none. Results' extensions survive retention: before the retention job anonymises a series' players it adds their extensions to `result_stats_monthly` in the same transaction (a total, the maps and the best map, per season-cut period), refusing to run when its periods miss a series rather than lose one; erasure re-keys those rows too.
+- `/admin/stats` (#206): a game's board over this week, this month or all time, ranked by any of its layout's columns, with the game's own stats as more columns, whether the boards are public, and the game's latest match results linking to their pages. It draws the hub's declarations and knows no game. In the a11y run and the phone and iPad viewport run.
+
+### Fixed
+
+- ADR-0035 is marked accepted (it was merged with #257).
+
 ## [0.9.0] - 2026-10-15
 
 ### Changed

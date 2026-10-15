@@ -34,6 +34,24 @@ message Game {
   bool no_paid_perks = 5;
   // How the pages show the game (the Game spec's layout).
   GameLayout layout = 6;
+  // The game's own stats beyond kills and deaths (the Game spec's stats.extensions, ADR-0033), in
+  // the order the pages show them.
+  repeated StatExtension stat_extensions = 7;
+}
+
+// StatExtension is one of a game's own stats, declarative data from its Game spec (ADR-0033): a
+// number each player has on each map of a match result.
+message StatExtension {
+  // The key in extensions maps: "headshot_kills".
+  string name = 1;
+  // The column's heading: "Headshot kills".
+  string label = 2;
+  // "int" or "float": how a value is shown.
+  string type = 3;
+  // Shown beside a value, if any: "HP".
+  string unit = 4;
+  // How a board totals a player's maps: "sum", "avg" (per map) or "max".
+  string aggregate = 5;
 }
 
 // GameLayout is a game's page layout, declarative data from its Game spec.

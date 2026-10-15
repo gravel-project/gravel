@@ -21,6 +21,10 @@ message BoardEntry {
   double kd = 7;
   int32 seconds_on = 8;
   int32 matches = 9;
+  // The game's own stats over the window (ADR-0033) by name, totalled as each one's aggregate
+  // says, from the player's match results: only on a board of one server or one game. A stat the
+  // player has no result for is absent; 0 is a reported zero.
+  map<string, double> extensions = 10;
 }
 
 message GetBoardRequest {
@@ -45,6 +49,9 @@ message GetBoardResponse {
   // The window's bounds; unset for "all".
   google.protobuf.Timestamp from = 3;
   google.protobuf.Timestamp to = 4;
+  // The columns behind the entries' extensions, in order: the game's stat extensions, on a board
+  // of one server or one game.
+  repeated StatExtension stat_extensions = 5;
 }
 
 // MatchSummary is one match on a server.
@@ -351,11 +358,12 @@ message MatchResultPlayer {
   string team = 5;
   int32 kills = 6;
   int32 deaths = 7;
-  int32 assists = 8;
-  int32 damage = 9;
-  int32 headshot_kills = 10;
-  int32 mvps = 11;
-  int32 score = 12;
+  // The fixed CS2 columns, which became extensions (ADR-0033).
+  reserved 8 to 12;
+  reserved "assists", "damage", "headshot_kills", "mvps", "score";
+  // The game's own stats on the map (ADR-0033) by name, as GetMatchResultResponse.stat_extensions
+  // declares them. One the match plugin didn't report is absent; 0 is a reported zero.
+  map<string, double> extensions = 13;
 }
 
 message ListMatchResultsRequest {
@@ -378,6 +386,9 @@ message GetMatchResultRequest {
 
 message GetMatchResultResponse {
   MatchResult result = 1;
+  // The columns behind the players' extensions, in order: the stat extensions of the series'
+  // server's game (ADR-0033).
+  repeated StatExtension stat_extensions = 2;
 }
 
 message GetMatchDemoRequest {

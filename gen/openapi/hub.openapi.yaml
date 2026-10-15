@@ -3887,6 +3887,17 @@ components:
           type: integer
           title: matches
           format: int32
+        extensions:
+          type: object
+          title: extensions
+          additionalProperties:
+            type: number
+            title: value
+            format: double
+          description: |-
+            The game's own stats over the window (ADR-0033) by name, totalled as each one's aggregate
+             says, from the player's match results: only on a board of one server or one game. A stat the
+             player has no result for is absent; 0 is a reported zero.
       title: BoardEntry
       additionalProperties: false
       description: |-
@@ -5018,6 +5029,14 @@ components:
             - $ref: '#/components/schemas/gravel.hub.v1.GameLayout'
           title: layout
           description: How the pages show the game (the Game spec's layout).
+        statExtensions:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.StatExtension'
+          title: stat_extensions
+          description: |-
+            The game's own stats beyond kills and deaths (the Game spec's stats.extensions, ADR-0033), in
+             the order the pages show them.
       title: Game
       additionalProperties: false
       description: |-
@@ -5257,6 +5276,14 @@ components:
           allOf:
             - $ref: '#/components/schemas/google.protobuf.Timestamp'
           title: to
+        statExtensions:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.StatExtension'
+          title: stat_extensions
+          description: |-
+            The columns behind the entries' extensions, in order: the game's stat extensions, on a board
+             of one server or one game.
       title: GetBoardResponse
       additionalProperties: false
     gravel.hub.v1.GetFleetSummaryRequest:
@@ -5328,6 +5355,14 @@ components:
           allOf:
             - $ref: '#/components/schemas/gravel.hub.v1.MatchResult'
           title: result
+        statExtensions:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.StatExtension'
+          title: stat_extensions
+          description: |-
+            The columns behind the players' extensions, in order: the stat extensions of the series'
+             server's game (ADR-0033).
       title: GetMatchResultResponse
       additionalProperties: false
     gravel.hub.v1.GetMeRequest:
@@ -6498,26 +6533,16 @@ components:
           type: integer
           title: deaths
           format: int32
-        assists:
-          type: integer
-          title: assists
-          format: int32
-        damage:
-          type: integer
-          title: damage
-          format: int32
-        headshotKills:
-          type: integer
-          title: headshot_kills
-          format: int32
-        mvps:
-          type: integer
-          title: mvps
-          format: int32
-        score:
-          type: integer
-          title: score
-          format: int32
+        extensions:
+          type: object
+          title: extensions
+          additionalProperties:
+            type: number
+            title: value
+            format: double
+          description: |-
+            The game's own stats on the map (ADR-0033) by name, as GetMatchResultResponse.stat_extensions
+             declares them. One the match plugin didn't report is absent; 0 is a reported zero.
       title: MatchResultPlayer
       additionalProperties: false
       description: MatchResultPlayer is a player's totals on one map, shown as a board shows them.
@@ -8367,6 +8392,34 @@ components:
           description: 'The provider the account it proves is at: "steam".'
       title: StartProofResponse
       additionalProperties: false
+    gravel.hub.v1.StatExtension:
+      type: object
+      properties:
+        name:
+          type: string
+          title: name
+          description: 'The key in extensions maps: "headshot_kills".'
+        label:
+          type: string
+          title: label
+          description: 'The column''s heading: "Headshot kills".'
+        type:
+          type: string
+          title: type
+          description: '"int" or "float": how a value is shown.'
+        unit:
+          type: string
+          title: unit
+          description: 'Shown beside a value, if any: "HP".'
+        aggregate:
+          type: string
+          title: aggregate
+          description: 'How a board totals a player''s maps: "sum", "avg" (per map) or "max".'
+      title: StatExtension
+      additionalProperties: false
+      description: |-
+        StatExtension is one of a game's own stats, declarative data from its Game spec (ADR-0033): a
+         number each player has on each map of a match result.
     gravel.hub.v1.StatsSeason:
       type: object
       properties:

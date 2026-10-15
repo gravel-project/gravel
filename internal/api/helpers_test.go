@@ -228,7 +228,7 @@ func newRig(t *testing.T, idOpts ...rigIdentity) *rig {
 		r.erased = append(r.erased, erasure{key, by})
 		return store.Erasure{MatchRows: 3, Pseudonym: true}, nil
 	})
-	statsAPI.SetResults(results.New(emptyResults{}, o.ID, nil, func(string) string { return "" }, nil, 0, prometheus.NewRegistry(), logger))
+	statsAPI.SetResults(results.New(emptyResults{}, o.ID, nil, func(string) string { return "" }, nil, nil, 0, prometheus.NewRegistry(), logger))
 	mux.Handle(hubv1connect.NewStatsServiceHandler(statsAPI, member))
 	mux.Handle(hubv1connect.NewAppServiceHandler(api.NewAppServer(r.apps, logger).WithAccess(access), member))
 	r.store = &fakeMetricsStore{}

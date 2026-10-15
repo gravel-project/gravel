@@ -120,6 +120,16 @@ func TestParseRoundEnd(t *testing.T) {
 	if got := re.Team2.Players[0].Stats; got.BombPlants != 2 || got.Kills3 != 1 || got.MVPs != 1 {
 		t.Errorf("team2 player %+v", got)
 	}
+	vals := want.Stats.Values()
+	if vals["assists"] != 1 || vals["damage"] != 612 || vals["headshot_kills"] != 3 || vals["mvps"] != 2 || vals["score"] != 14 || vals["kills_2k"] != 1 {
+		t.Errorf("values %v", vals)
+	}
+	// What MatchZy never fills is absent; kills and deaths are the common stats, never an extension.
+	for _, k := range []string{"flash_assists", "kast", "kills", "deaths", "mvp"} {
+		if _, ok := vals[k]; ok {
+			t.Errorf("values has %q", k)
+		}
+	}
 }
 
 // Every PlayerStats field must have a JSON name MatchZy sends, so none is silently never read.

@@ -2,6 +2,7 @@ package web
 
 import (
 	"fmt"
+	"math"
 	"net/http"
 	"strconv"
 
@@ -45,6 +46,10 @@ func (h *Handler) result(w http.ResponseWriter, r *http.Request) {
 	rp := templates.ResultPage{Page: p.Page, ID: m.GetId(), ServerID: m.GetServerId(), ServerName: server, Team1: name(m.GetTeam1Name(), "Team 1"),
 		Team2: name(m.GetTeam2Name(), "Team 2"), Score1: int(m.GetTeam1Score()), Score2: int(m.GetTeam2Score()), Winner: m.GetWinner(),
 		Started: m.GetStartedAt().AsTime().In(loc).Format("Jan 2, 15:04 MST"), Ended: m.GetEndedAt() != nil}
+	exts := resp.Msg.GetStatExtensions()
+	for _, e := range exts {
+		rp.Columns = append(rp.Columns, templates.StatColumn{Label: e.GetLabel(), Unit: e.GetUnit()})
+	}
 	for _, mp := range m.GetMaps() {
 		row := templates.ResultMap{Number: int(mp.GetMapNumber()) + 1, Name: mp.GetMapName(), Score1: int(mp.GetTeam1Score()), Score2: int(mp.GetTeam2Score()),
 			Winner: mp.GetWinner()}
@@ -56,7 +61,10 @@ func (h *Handler) result(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			pr := templates.ResultPlayer{Name: pl.GetName(), Pseudonymous: pl.GetPseudonymous(), UserID: pl.GetUserId(), Kills: int(pl.GetKills()),
-				Deaths: int(pl.GetDeaths()), Assists: int(pl.GetAssists()), Damage: int(pl.GetDamage()), MVPs: int(pl.GetMvps())}
+				Deaths: int(pl.GetDeaths())}
+			for _, e := range exts {
+				pr.Extensions = append(pr.Extensions, statCell(e, pl.GetExtensions()))
+			}
 			if pl.GetTeam() == "team2" {
 				row.Players2 = append(row.Players2, pr)
 			} else {
@@ -98,4 +106,17 @@ func (h *Handler) resultDemo(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Cache-Control", "no-store")
 	http.Redirect(w, r, resp.Msg.GetUrl(), http.StatusFound)
+}
+
+// statCell is one of a game's own stats as a table shows it (ADR-0033): a whole number for an int,
+// one decimal for a float, "" when the value is absent (not reported, unlike a 0).
+func statCell(e *hubv1.StatExtension, values map[string]float64) string {
+	v, ok := values[e.GetName()]
+	if !ok {
+		return ""
+	}
+	if e.GetType() == "float" {
+		return strconv.FormatFloat(v, 'f', 1, 64)
+	}
+	return strconv.FormatFloat(math.Round(v), 'f', 0, 64)
 }

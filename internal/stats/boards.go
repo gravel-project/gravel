@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/gravel-project/gravel/internal/org"
+	"github.com/gravel-project/gravel/internal/servers"
 	"github.com/gravel-project/gravel/internal/store"
 )
 
@@ -134,6 +135,9 @@ type Entry struct {
 	KD           float64
 	SecondsOn    int
 	Matches      int
+	// Extensions are the game's own stats over the window (ADR-0033), each totalled by its
+	// aggregate, on a board of one server or one game; one the player has no result for is absent.
+	Extensions map[string]float64
 }
 
 // Board is a page of a board, with its window (zero for all time) and whether a next page exists.
@@ -141,6 +145,41 @@ type Board struct {
 	Entries  []Entry
 	From, To time.Time
 	More     bool
+	// Extensions are the columns behind the entries' Extensions: the stat extensions of the
+	// board's game (ADR-0033), none on the organization's board.
+	Extensions []servers.StatExtension
+}
+
+// shippedSpecs are the Game specs gravel ships, parsed once.
+var shippedSpecs = sync.OnceValue(servers.Specs)
+
+// StatExtensions are a game's stat extensions (ADR-0033), none for an unknown game.
+func StatExtensions(gameID string) []servers.StatExtension {
+	return shippedSpecs()[gameID].Stats.Extensions
+}
+
+// ServerExtensions are the stat extensions of a server's game (ADR-0033), none for a server the
+// hub doesn't know.
+func (b *Boards) ServerExtensions(ctx context.Context, serverID string) ([]servers.StatExtension, error) {
+	game, err := b.st.ServerGame(ctx, b.orgID, serverID)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return StatExtensions(game), nil
+}
+
+// extensionValue totals one extension by its aggregate.
+func extensionValue(e servers.StatExtension, t store.ExtensionTotal) float64 {
+	switch e.Aggregate {
+	case servers.StatAvg:
+		return t.Total / float64(max(t.Maps, 1))
+	case servers.StatMax:
+		return t.Max
+	}
+	return t.Total
 }
 
 // Public reports whether the Organization settings make stats public.
@@ -218,9 +257,36 @@ func (b *Boards) board(ctx context.Context, q Query) (Board, error) {
 	if err != nil {
 		return Board{}, err
 	}
+	// A board of one game (a server's is its game's) shows that game's own stats beside the common
+	// ones, from its match results over the same window and trusts (ADR-0033).
+	extGame := game
+	if q.ServerID != "" {
+		g, err := b.st.ServerGame(ctx, b.orgID, q.ServerID)
+		if err != nil && !errors.Is(err, store.ErrNotFound) {
+			return Board{}, err
+		}
+		extGame = g // "" for a server the hub doesn't know: no extensions
+	}
+	var totals map[store.PlayerKey]map[string]store.ExtensionTotal
+	if out.Extensions = StatExtensions(extGame); len(out.Extensions) > 0 && len(keys) > 0 {
+		totals, err = b.st.BoardExtensions(ctx, store.BoardQuery{OrganizationID: b.orgID, ServerID: q.ServerID, GameID: game, From: from, To: to,
+			Timezone: set.Location().String(), Trusts: trusts}, keys)
+		if err != nil {
+			return Board{}, err
+		}
+	}
 	for i, r := range rows {
-		out.Entries = append(out.Entries, Entry{Rank: q.Offset + i + 1, Name: shown[i].Name, Pseudonymous: shown[i].Pseudonymous, UserID: shown[i].UserID,
-			Kills: r.Kills, Deaths: r.Deaths, SecondsOn: r.SecondsOn, Matches: r.Matches, KD: float64(r.Kills) / float64(max(r.Deaths, 1))})
+		e := Entry{Rank: q.Offset + i + 1, Name: shown[i].Name, Pseudonymous: shown[i].Pseudonymous, UserID: shown[i].UserID,
+			Kills: r.Kills, Deaths: r.Deaths, SecondsOn: r.SecondsOn, Matches: r.Matches, KD: float64(r.Kills) / float64(max(r.Deaths, 1))}
+		if t := totals[keys[i]]; len(t) > 0 {
+			e.Extensions = map[string]float64{}
+			for _, x := range out.Extensions {
+				if v, ok := t[x.Name]; ok {
+					e.Extensions[x.Name] = extensionValue(x, v)
+				}
+			}
+		}
+		out.Entries = append(out.Entries, e)
 	}
 	return out, nil
 }

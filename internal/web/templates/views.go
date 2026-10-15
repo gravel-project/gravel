@@ -679,7 +679,22 @@ type ResultPage struct {
 	Winner                   string // team1, team2, none, or "" while it lasts
 	Started                  string
 	Ended                    bool
-	Maps                     []ResultMap
+	// Columns are the game's own stats (ADR-0033), shown after kills and deaths, in order.
+	Columns []StatColumn
+	Maps    []ResultMap
+}
+
+// StatColumn is one of a game's own stats as a table heads it: its label, and its unit if any.
+type StatColumn struct {
+	Label, Unit string
+}
+
+// Heading is the column's heading: "Damage (HP)".
+func (c StatColumn) Heading() string {
+	if c.Unit == "" {
+		return c.Label
+	}
+	return c.Label + " (" + c.Unit + ")"
 }
 
 // ResultMap is one map of a result, numbered from 1.
@@ -699,7 +714,7 @@ type ResultPlayer struct {
 	UserID       string
 	Kills        int
 	Deaths       int
-	Assists      int
-	Damage       int
-	MVPs         int
+	// Extensions are the cells under ResultPage.Columns, formatted; "" is a stat the match
+	// plugin didn't report.
+	Extensions []string
 }

@@ -22,6 +22,7 @@ export const pages: readonly NavItem[] = [
   { to: "/events", label: "Events", capability: "events:read", roles: ["admin", "operator", "moderator"] },
   { to: "/people", label: "People", capability: "identity:read", nominee: true },
   { to: "/metrics", label: "Metrics", capability: "metrics:read" },
+  { to: "/stats", label: "Stats", capability: "stats:read" },
   { to: "/activity", label: "Activity", capability: "stats:read" },
   { to: "/settings", label: "Settings", capability: "settings:write" },
   { to: "/apps", label: "Apps", capability: "apps:manage" },

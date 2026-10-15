@@ -29,7 +29,8 @@ type RollupStore interface {
 	OldestRawParticipation(ctx context.Context, orgID uuid.UUID) (time.Time, error)
 	RollUpParticipation(ctx context.Context, orgID uuid.UUID, timezone string, periods []store.Period) (int, error)
 	EraseIdentity(ctx context.Context, orgID uuid.UUID, key store.PlayerKey, token string, by store.Actor, at time.Time) (store.Erasure, error)
-	RetireResults(ctx context.Context, orgID uuid.UUID, cutoff time.Time) (store.Retired, error)
+	OldestRetirableResult(ctx context.Context, orgID uuid.UUID, cutoff time.Time) (time.Time, error)
+	RetireResults(ctx context.Context, orgID uuid.UUID, cutoff time.Time, timezone string, periods []store.Period) (store.Retired, error)
 	OldestRawSession(ctx context.Context, orgID uuid.UUID) (time.Time, error)
 	RollUpActivity(ctx context.Context, orgID uuid.UUID, timezone string, periods []store.Period) (int, error)
 }
@@ -126,18 +127,13 @@ func (r *Retention) Run(ctx context.Context) error {
 	}
 	loc := set.Location()
 	cutoff := Cutoff(r.now(), loc, set.RawRetentionMonthsOrDefault())
-	retired, err := r.st.RetireResults(ctx, r.orgID, cutoff)
+	oldestResult, err := oldestOrZero(r.st.OldestRetirableResult(ctx, r.orgID, cutoff))
 	if err != nil {
 		return err
 	}
-	r.retired.Add(float64(retired.Results))
-	if retired.Rows > 0 {
-		r.logger.InfoContext(ctx, "stats: anonymised the players of match results past the retention window", "results", retired.Results,
-			"rows", retired.Rows, "before", cutoff.Format(time.DateOnly), "retention_months", set.RawRetentionMonthsOrDefault())
-	}
 	due := func(t time.Time) bool { return !t.IsZero() && t.Before(cutoff) }
 	var oldest time.Time
-	for _, t := range []time.Time{oldestMatch, oldestPart, oldestSession} {
+	for _, t := range []time.Time{oldestMatch, oldestPart, oldestSession, oldestResult} {
 		if due(t) && (oldest.IsZero() || t.Before(oldest)) {
 			oldest = t
 		}
@@ -148,6 +144,21 @@ func (r *Retention) Run(ctx context.Context) error {
 	periods, err := Periods(oldest, cutoff, loc, set.Seasons)
 	if err != nil {
 		return err
+	}
+	if !oldestResult.IsZero() {
+		// A series ends after it starts, so one that ended before the cutoff started inside the
+		// periods; RetireResults refuses one that didn't rather than lose its extensions.
+		retired, err := r.st.RetireResults(ctx, r.orgID, cutoff, loc.String(), periods)
+		if err != nil {
+			return err
+		}
+		r.retired.Add(float64(retired.Results))
+		// The boards' numbers are the same before and after (the extensions move into the monthly
+		// rows), so the boards' cache stays.
+		if retired.Rows > 0 {
+			r.logger.InfoContext(ctx, "stats: anonymised the players of match results past the retention window", "results", retired.Results,
+				"rows", retired.Rows, "extension_rows", retired.Rolled, "before", cutoff.Format(time.DateOnly), "retention_months", set.RawRetentionMonthsOrDefault())
+		}
 	}
 	var got store.Rollup
 	if due(oldestMatch) {
