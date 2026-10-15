@@ -185,3 +185,44 @@ func TestStoreErrorsPropagate(t *testing.T) {
 		t.Error("want error")
 	}
 }
+
+func TestMintClaimToken(t *testing.T) {
+	ctx := context.Background()
+	host := store.Actor{Via: store.ViaCLI}
+	f := &orgtest.FakeStore{}
+	s, now := newTestService(f)
+	if _, _, err := s.MintClaimToken(ctx, 0, host); err == nil {
+		t.Error("no organization yet: no error")
+	}
+	_, printed, _ := s.EnsureBuiltin(ctx, "x") // what serve logged
+
+	for _, bad := range []time.Duration{time.Second, MaxClaimTokenTTL + time.Minute, -time.Hour} {
+		if _, _, err := s.MintClaimToken(ctx, bad, host); err == nil {
+			t.Errorf("ttl %s: no error", bad)
+		}
+	}
+	token, expires, err := s.MintClaimToken(ctx, 0, host)
+	if err != nil || len(token) != 43 || !expires.Equal(now.Add(15*time.Minute)) {
+		t.Fatalf("default ttl: %q %v %v", token, expires, err)
+	}
+	if f.Writes[len(f.Writes)-1] != "mint-token" {
+		t.Errorf("writes %v: the host's mint is its own write, recorded as an event", f.Writes)
+	}
+	week, expires, err := s.MintClaimToken(ctx, MaxClaimTokenTTL, host)
+	if err != nil || !expires.Equal(now.Add(MaxClaimTokenTTL)) || week == token {
+		t.Fatalf("a week: %q %v %v", week, expires, err)
+	}
+	// Each mint replaces the one before, the logged one included.
+	for _, old := range []string{printed, token} {
+		if _, err := s.Claim(ctx, old, store.Actor{UserID: &owner}); !errors.Is(err, ErrInvalidToken) {
+			t.Errorf("a replaced token claimed: %v", err)
+		}
+	}
+	*now = now.Add(6 * 24 * time.Hour) // a slow customer: still inside the week
+	if _, err := s.Claim(ctx, week, store.Actor{UserID: &owner}); err != nil {
+		t.Fatalf("the minted token: %v", err)
+	}
+	if _, _, err := s.MintClaimToken(ctx, 0, host); !errors.Is(err, ErrAlreadyOwned) {
+		t.Errorf("owned: %v", err)
+	}
+}

@@ -83,6 +83,9 @@ updates install themselves daily (dnf5-automatic, no reboot).
   gravel hub status --name hub-1          # prints the owner-claim token while the hub is unowned
   ```
 
+  Missed it, or it expired? Mint a fresh one on the host (ADR-0036):
+  `gravel hub ssh --name hub-1 -- podman exec gravel-hub /ko-app/gravel-hub claim-token --config /etc/gravel/hub.yaml`.
+
   `--tunnel-token-file` (mode 0600) installs a Cloudflare Tunnel's token as the
   `gravel-tunnel-token` podman secret over SSH, on standard input, and starts `gravel-cloudflared`;
   route the tunnel to `http://gravel-hub:8080`. Then turn login on as `docs/hub.md` "Login" says,

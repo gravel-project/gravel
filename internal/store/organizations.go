@@ -113,6 +113,37 @@ func (s *Store) SetClaimToken(ctx context.Context, id uuid.UUID, hash []byte, ex
 	return nil
 }
 
+// MintClaimToken replaces an unowned organization's claim token as SetClaimToken does, and
+// records in the same transaction that the host's command line minted one
+// (ownership.claim_token_minted, by by, ADR-0036). The event carries the expiry, nothing of the
+// token. ErrOwned once the organization is owned.
+func (s *Store) MintClaimToken(ctx context.Context, id uuid.UUID, hash []byte, expiresAt time.Time, by Actor, now time.Time) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("store: mint claim token: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	tag, err := tx.Exec(ctx,
+		`UPDATE organizations SET claim_token_hash = $2, claim_token_expires_at = $3 WHERE id = $1 AND claimed_at IS NULL`,
+		id, hash, expiresAt)
+	if err != nil {
+		return fmt.Errorf("store: mint claim token: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrOwned
+	}
+	if err := s.appendEvent(ctx, tx, by.event(Event{OrganizationID: id, At: now, Kind: "ownership.claim_token_minted",
+		Summary: "the host minted an owner-claim token, valid until " + expiresAt.UTC().Format("2006-01-02 15:04 UTC"),
+		Source:  "organizations.claim_token", // no source id: every mint is its own event
+		Detail:  map[string]any{"expires_at": expiresAt.UTC().Format(time.RFC3339)}})); err != nil {
+		return err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("store: mint claim token: %w", err)
+	}
+	return nil
+}
+
 // ErrOwned is returned when a claim-related write hits an organization that is already owned.
 var ErrOwned = errors.New("organization is already owned")
 

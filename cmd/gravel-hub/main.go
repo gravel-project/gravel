@@ -7,6 +7,7 @@
 //	gravel-hub settings export [--config hub.yaml]              print the Organization settings as a manifest
 //	gravel-hub settings apply <manifest.yaml> [--dry-run]       apply a manifest (exit 3 on --dry-run with changes)
 //	gravel-hub settings check <manifest.yaml>                   validate a manifest; no config, no database
+//	gravel-hub claim-token [--ttl DURATION]                     mint an owner-claim token on the host; prints it once
 //	gravel-hub apps create --name NAME --scopes SCOPES          register a first-party app; prints its secret once
 //	gravel-hub apps list                                        the registered apps
 //	gravel-hub apps revoke --client-id ID                       revoke an app and its tokens
@@ -73,6 +74,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		return settings(ctx, args, stdout, stderr)
 	case "apps":
 		return appsCmd(ctx, args, stdout, stderr)
+	case "claim-token":
+		return claimTokenCmd(ctx, args, stdout, stderr)
 	case "users":
 		return usersCmd(ctx, args, stdout, stderr)
 	case "servers":
@@ -112,6 +115,8 @@ func usage(w io.Writer) {
   healthcheck   GET /healthz and exit 0 when it answers; --url
   settings      export the Organization settings as a manifest, apply one (--dry-run exits 3 on a change),
                 or check one without a config or database
+  claim-token   mint an owner-claim token while the hub is unowned and print it once (--ttl, up to 7 days):
+                shell access to the host is the proof, as reading the start-up log is (ADR-0036)
   apps          register, list or revoke first-party apps (create prints the client secret once)
   users         make a local account (create-local) or reset one's password (reset-password); each prints a
                 one-time link that sets the password: how a hub with no provider gets its first member
@@ -128,7 +133,7 @@ func usage(w io.Writer) {
   import        load an export into an empty database, before the new hub's first start
   version       print the version
 
-apps, servers, users and stats run against the database on this host: they are for bootstrap and
+claim-token, apps, servers, users and stats run against the database on this host: they are for bootstrap and
 for what only the host may change (a servers manifest's files and where their secrets go). Day to day,
 staff do the same over the API (docs/hub.md, Admin procedures).
 
