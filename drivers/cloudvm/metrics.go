@@ -7,7 +7,7 @@ import (
 )
 
 // The states a host gauge reports, every one, so a dashboard sees a 0 as well as a 1.
-var allStates = []string{StateAbsent, StateCreating, StateBooting, StateStarting, StateRunning, StateParking, StateParked, StateResizing, StateDestroying}
+var allStates = []string{StateAbsent, StateCreating, StateBooting, StateStarting, StateRunning, StateParking, StateParked, StateResizing, StateRebooting, StateDestroying}
 
 type metrics struct {
 	state        *prometheus.GaugeVec
@@ -134,6 +134,8 @@ func opOf(state string) string {
 		return "park"
 	case StateResizing:
 		return "resize"
+	case StateRebooting:
+		return "reboot"
 	case StateDestroying:
 		return "destroy"
 	}
@@ -154,6 +156,8 @@ func opName(from, to string) string {
 		return "park"
 	case from == StateRunning && to == StateResizing:
 		return "resize"
+	case from == StateRunning && to == StateRebooting:
+		return "reboot"
 	case to == StateDestroying:
 		return "destroy"
 	}

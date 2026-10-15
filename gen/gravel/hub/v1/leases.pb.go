@@ -714,8 +714,10 @@ func (x *ReleaseServerLeaseRequest) GetOnBehalfOf() *Actor {
 }
 
 type ReleaseServerLeaseResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Lease         *ServerLease           `protobuf:"bytes,1,opt,name=lease,proto3" json:"lease,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Lease *ServerLease           `protobuf:"bytes,1,opt,name=lease,proto3" json:"lease,omitempty"`
+	// The events log row the release wrote (gravel#202); 0 when it could not be recorded.
+	EventId       int64 `protobuf:"varint,2,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -755,6 +757,13 @@ func (x *ReleaseServerLeaseResponse) GetLease() *ServerLease {
 		return x.Lease
 	}
 	return nil
+}
+
+func (x *ReleaseServerLeaseResponse) GetEventId() int64 {
+	if x != nil {
+		return x.EventId
+	}
+	return 0
 }
 
 type WatchServerLeaseRequest struct {
@@ -916,9 +925,10 @@ const file_gravel_hub_v1_leases_proto_rawDesc = "" +
 	"\blease_id\x18\x01 \x01(\tR\aleaseId\x12\x16\n" +
 	"\x06reason\x18\x02 \x01(\tR\x06reason\x126\n" +
 	"\fon_behalf_of\x18\x03 \x01(\v2\x14.gravel.hub.v1.ActorR\n" +
-	"onBehalfOf\"N\n" +
+	"onBehalfOf\"i\n" +
 	"\x1aReleaseServerLeaseResponse\x120\n" +
-	"\x05lease\x18\x01 \x01(\v2\x1a.gravel.hub.v1.ServerLeaseR\x05lease\"4\n" +
+	"\x05lease\x18\x01 \x01(\v2\x1a.gravel.hub.v1.ServerLeaseR\x05lease\x12\x19\n" +
+	"\bevent_id\x18\x02 \x01(\x03R\aeventId\"4\n" +
 	"\x17WatchServerLeaseRequest\x12\x19\n" +
 	"\blease_id\x18\x01 \x01(\tR\aleaseId\"L\n" +
 	"\x18WatchServerLeaseResponse\x120\n" +

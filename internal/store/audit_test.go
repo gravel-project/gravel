@@ -68,13 +68,13 @@ func TestAuditLogIsAppendOnly(t *testing.T) {
 	}
 
 	// The outcome is written once.
-	if err := st.FinishAuditEntry(ctx, o.ID, id1, "ok", t0.Add(2*time.Second)); err != nil {
-		t.Fatal(err)
+	if eventID, err := st.FinishAuditEntry(ctx, o.ID, id1, "ok", t0.Add(2*time.Second)); err != nil || eventID == 0 {
+		t.Fatal(eventID, err)
 	}
-	if err := st.FinishAuditEntry(ctx, o.ID, id1, "error", t0.Add(3*time.Second)); !errors.Is(err, store.ErrNotFound) {
+	if _, err := st.FinishAuditEntry(ctx, o.ID, id1, "error", t0.Add(3*time.Second)); !errors.Is(err, store.ErrNotFound) {
 		t.Errorf("a second outcome: %v", err)
 	}
-	if err := st.FinishAuditEntry(ctx, uuid.New(), id2, "ok", t0); !errors.Is(err, store.ErrNotFound) {
+	if _, err := st.FinishAuditEntry(ctx, uuid.New(), id2, "ok", t0); !errors.Is(err, store.ErrNotFound) {
 		t.Errorf("another organization's entry: %v", err)
 	}
 

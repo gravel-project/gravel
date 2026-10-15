@@ -14,12 +14,12 @@ func TestMigrateCheck(t *testing.T) {
 		t.Fatalf("migrated: exit %d, %q %q", code, out, errOut)
 	}
 	// The database of a hub one release behind: two migrations to go.
-	if err := st.MigrateDownTo(context.Background(), 27); err != nil {
+	if err := st.MigrateDownTo(context.Background(), 28); err != nil {
 		t.Fatal(err)
 	}
 	for _, flag := range []string{"--check", "--status"} {
 		code, out, errOut := run("migrate", flag, "--config", cfgPath)
-		want := "schema version 27, latest 29, pending 2\n  00028  notifier_cursors    instant\n  00029  ownership_transfer  scan organizations\n"
+		want := "schema version 28, latest 30, pending 2\n  00029  ownership_transfer  scan organizations\n  00030  host_reboot         scan server_hosts\n"
 		if code != 3 || out != want {
 			t.Errorf("%s two behind: exit %d, %q %q; want 3 and:\n%s", flag, code, out, errOut, want)
 		}

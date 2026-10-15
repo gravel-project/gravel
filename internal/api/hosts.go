@@ -21,7 +21,7 @@ import (
 )
 
 // HostServer serves gravel.hub.v1.ServerHostService (ADR-0003): reads with servers:read (every
-// member holds it); park, unpark and the expectation with servers:operate; resize, unpin, snapshot
+// member holds it); park, unpark, reboot and the expectation with servers:operate; resize, unpin, snapshot
 // and destroy with servers:provision (ADR-0027).
 type HostServer struct {
 	hubv1connect.UnimplementedServerHostServiceHandler
@@ -96,7 +96,7 @@ func (s *HostServer) SetServerHostDesired(ctx context.Context, req *connect.Requ
 	if err != nil {
 		return nil, err
 	}
-	id, err := s.hosts.SetDesired(ctx, who, m.GetServerId(), desired, m.GetReason())
+	done, err := s.hosts.SetDesired(ctx, who, m.GetServerId(), desired, m.GetReason())
 	if err != nil {
 		return nil, s.mapError(ctx, err)
 	}
@@ -104,7 +104,33 @@ func (s *HostServer) SetServerHostDesired(ctx context.Context, req *connect.Requ
 	if err != nil {
 		return nil, err
 	}
-	return connect.NewResponse(&hubv1.SetServerHostDesiredResponse{Host: h, AuditId: id}), nil
+	return connect.NewResponse(&hubv1.SetServerHostDesiredResponse{Host: h, AuditId: done.AuditID, EventId: done.EventID}), nil
+}
+
+// RebootServerHost stops a running host's instance and starts it again (gravel#202):
+// servers:operate, like park and unpark.
+func (s *HostServer) RebootServerHost(ctx context.Context, req *connect.Request[hubv1.RebootServerHostRequest]) (*connect.Response[hubv1.RebootServerHostResponse], error) {
+	m := req.Msg
+	if _, err := s.access.RequireFor(ctx, authz.ServersOperate, authz.Target{ServerID: m.GetServerId()}, m.GetOnBehalfOf()); err != nil {
+		return nil, err
+	}
+	var ob *drivers.Identity
+	if o := m.GetOnBehalfOf(); o != nil {
+		ob = &drivers.Identity{Provider: o.GetProvider(), Subject: o.GetSubject()}
+	}
+	who, err := actor(ctx, ob)
+	if err != nil {
+		return nil, err
+	}
+	done, err := s.hosts.Reboot(ctx, who, m.GetServerId(), m.GetForce(), m.GetReason())
+	if err != nil {
+		return nil, s.mapError(ctx, err)
+	}
+	h, err := s.host(ctx, m.GetServerId())
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&hubv1.RebootServerHostResponse{Host: h, AuditId: done.AuditID, EventId: done.EventID}), nil
 }
 
 // SetServerHostExpectation says how many players a host should expect until when (#172).
@@ -130,7 +156,7 @@ func (s *HostServer) SetServerHostExpectation(ctx context.Context, req *connect.
 	if err != nil {
 		return nil, err
 	}
-	id, _, err := s.hosts.SetExpectation(ctx, who, m.GetServerId(), int(m.GetPlayers()), until, m.GetReason())
+	done, _, err := s.hosts.SetExpectation(ctx, who, m.GetServerId(), int(m.GetPlayers()), until, m.GetReason())
 	if err != nil {
 		return nil, s.mapError(ctx, err)
 	}
@@ -138,7 +164,7 @@ func (s *HostServer) SetServerHostExpectation(ctx context.Context, req *connect.
 	if err != nil {
 		return nil, err
 	}
-	return connect.NewResponse(&hubv1.SetServerHostExpectationResponse{Host: h, AuditId: id}), nil
+	return connect.NewResponse(&hubv1.SetServerHostExpectationResponse{Host: h, AuditId: done.AuditID, EventId: done.EventID}), nil
 }
 
 // ResizeServerHost moves a running host to another size.
@@ -151,7 +177,7 @@ func (s *HostServer) ResizeServerHost(ctx context.Context, req *connect.Request[
 	if strings.TrimSpace(m.GetSize()) == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("size is required"))
 	}
-	id, err := s.hosts.Resize(ctx, who, m.GetServerId(), m.GetSize(), m.GetForce(), m.GetPin(), m.GetReason())
+	done, err := s.hosts.Resize(ctx, who, m.GetServerId(), m.GetSize(), m.GetForce(), m.GetPin(), m.GetReason())
 	if err != nil {
 		return nil, s.mapError(ctx, err)
 	}
@@ -159,7 +185,7 @@ func (s *HostServer) ResizeServerHost(ctx context.Context, req *connect.Request[
 	if err != nil {
 		return nil, err
 	}
-	return connect.NewResponse(&hubv1.ResizeServerHostResponse{Host: h, AuditId: id}), nil
+	return connect.NewResponse(&hubv1.ResizeServerHostResponse{Host: h, AuditId: done.AuditID, EventId: done.EventID}), nil
 }
 
 // UnpinServerHostSize lets the scaling policy decide a host's size again.
@@ -169,7 +195,7 @@ func (s *HostServer) UnpinServerHostSize(ctx context.Context, req *connect.Reque
 	if err != nil {
 		return nil, err
 	}
-	id, err := s.hosts.Unpin(ctx, who, m.GetServerId(), m.GetReason())
+	done, err := s.hosts.Unpin(ctx, who, m.GetServerId(), m.GetReason())
 	if err != nil {
 		return nil, s.mapError(ctx, err)
 	}
@@ -177,7 +203,7 @@ func (s *HostServer) UnpinServerHostSize(ctx context.Context, req *connect.Reque
 	if err != nil {
 		return nil, err
 	}
-	return connect.NewResponse(&hubv1.UnpinServerHostSizeResponse{Host: h, AuditId: id}), nil
+	return connect.NewResponse(&hubv1.UnpinServerHostSizeResponse{Host: h, AuditId: done.AuditID, EventId: done.EventID}), nil
 }
 
 // SnapshotServerHostVolume copies a parked host's data volume into a snapshot.
@@ -187,7 +213,7 @@ func (s *HostServer) SnapshotServerHostVolume(ctx context.Context, req *connect.
 	if err != nil {
 		return nil, err
 	}
-	id, snap, err := s.hosts.SnapshotVolume(ctx, who, m.GetServerId(), strings.TrimSpace(m.GetName()), m.GetReason())
+	done, snap, err := s.hosts.SnapshotVolume(ctx, who, m.GetServerId(), strings.TrimSpace(m.GetName()), m.GetReason())
 	if err != nil {
 		return nil, s.mapError(ctx, err)
 	}
@@ -199,7 +225,7 @@ func (s *HostServer) SnapshotServerHostVolume(ctx context.Context, req *connect.
 	if !snap.CreatedAt.IsZero() {
 		out.CreatedAt = timestamppb.New(snap.CreatedAt)
 	}
-	return connect.NewResponse(&hubv1.SnapshotServerHostVolumeResponse{Host: h, AuditId: id, Snapshot: out}), nil
+	return connect.NewResponse(&hubv1.SnapshotServerHostVolumeResponse{Host: h, AuditId: done.AuditID, EventId: done.EventID, Snapshot: out}), nil
 }
 
 // DestroyServerHost removes a parked host's remains.
@@ -209,7 +235,7 @@ func (s *HostServer) DestroyServerHost(ctx context.Context, req *connect.Request
 	if err != nil {
 		return nil, err
 	}
-	id, err := s.hosts.Destroy(ctx, who, m.GetServerId(), m.GetDeleteVolume(), m.GetReleaseAddress(), m.GetReason())
+	done, err := s.hosts.Destroy(ctx, who, m.GetServerId(), m.GetDeleteVolume(), m.GetReleaseAddress(), m.GetReason())
 	if err != nil {
 		return nil, s.mapError(ctx, err)
 	}
@@ -217,7 +243,7 @@ func (s *HostServer) DestroyServerHost(ctx context.Context, req *connect.Request
 	if err != nil {
 		return nil, err
 	}
-	return connect.NewResponse(&hubv1.DestroyServerHostResponse{Host: h, AuditId: id}), nil
+	return connect.NewResponse(&hubv1.DestroyServerHostResponse{Host: h, AuditId: done.AuditID, EventId: done.EventID}), nil
 }
 
 // provisioner admits a caller holding servers:provision (the owner in person; no app may hold it

@@ -22,7 +22,7 @@ import (
 // hostStateLabels are what a reader sees for a host's state.
 var hostStateLabels = map[string]string{
 	"absent": "Not made", "creating": "Being made", "booting": "Booting", "starting": "Starting the game",
-	"running": "Running", "parking": "Parking", "parked": "Parked", "resizing": "Resizing", "destroying": "Being destroyed",
+	"running": "Running", "parking": "Parking", "parked": "Parked", "resizing": "Resizing", "rebooting": "Rebooting", "destroying": "Being destroyed",
 }
 
 // hostPanel is the machine as the server page shows it; nil when the reader may not see it or the

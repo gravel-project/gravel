@@ -71,10 +71,10 @@ func (s *Store) InsertAuditEntry(ctx context.Context, e AuditEntry) (int64, erro
 
 // FinishAuditEntry records an entry's outcome; ErrNotFound when the entry does not exist or is
 // already finished.
-func (s *Store) FinishAuditEntry(ctx context.Context, orgID uuid.UUID, id int64, outcome string, at time.Time) error {
+func (s *Store) FinishAuditEntry(ctx context.Context, orgID uuid.UUID, id int64, outcome string, at time.Time) (int64, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
-		return fmt.Errorf("store: finish audit entry: %w", err)
+		return 0, fmt.Errorf("store: finish audit entry: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	e := Event{OrganizationID: orgID, At: at, Source: "audit_log", SourceID: fmt.Sprint(id)}
@@ -83,21 +83,22 @@ func (s *Store) FinishAuditEntry(ctx context.Context, orgID uuid.UUID, id int64,
 		RETURNING action, server_id, actor_user_id, actor_app_id, on_behalf_provider, on_behalf_subject, request_id`,
 		orgID, id, outcome, at).Scan(&action, &e.ServerID, &e.ActorUserID, &e.ActorAppID, &e.OnBehalfProvider, &e.OnBehalfSubject, &e.RequestID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return ErrNotFound
+		return 0, ErrNotFound
 	}
 	if err != nil {
-		return fmt.Errorf("store: finish audit entry: %w", err)
+		return 0, fmt.Errorf("store: finish audit entry: %w", err)
 	}
 	e.Kind = AuditEventKind(action)
 	e.Summary = strings.ReplaceAll(action, "_", " ") + " on " + e.ServerID + ": " + outcome
 	e.Detail = map[string]any{"action": action, "outcome": outcome, "audit_id": id}
-	if err := s.appendEvent(ctx, tx, e); err != nil {
-		return err
+	eventID, err := s.appendEventID(ctx, tx, e)
+	if err != nil {
+		return 0, err
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("store: finish audit entry: %w", err)
+		return 0, fmt.Errorf("store: finish audit entry: %w", err)
 	}
-	return nil
+	return eventID, nil
 }
 
 // AuditFilter narrows ListAuditEntries.

@@ -42,6 +42,9 @@ const (
 	// ServerHostServiceSetServerHostDesiredProcedure is the fully-qualified name of the
 	// ServerHostService's SetServerHostDesired RPC.
 	ServerHostServiceSetServerHostDesiredProcedure = "/gravel.hub.v1.ServerHostService/SetServerHostDesired"
+	// ServerHostServiceRebootServerHostProcedure is the fully-qualified name of the ServerHostService's
+	// RebootServerHost RPC.
+	ServerHostServiceRebootServerHostProcedure = "/gravel.hub.v1.ServerHostService/RebootServerHost"
 	// ServerHostServiceResizeServerHostProcedure is the fully-qualified name of the ServerHostService's
 	// ResizeServerHost RPC.
 	ServerHostServiceResizeServerHostProcedure = "/gravel.hub.v1.ServerHostService/ResizeServerHost"
@@ -69,6 +72,10 @@ type ServerHostServiceClient interface {
 	// SetServerHostDesired parks or unparks a host. The owner, a moderator, or an app with
 	// servers:moderate (acting for itself or for a moderator).
 	SetServerHostDesired(context.Context, *connect.Request[v1.SetServerHostDesiredRequest]) (*connect.Response[v1.SetServerHostDesiredResponse], error)
+	// RebootServerHost stops a running host's instance and starts it again (gravel#202), warning the
+	// players first: servers:operate. failed_precondition when the host isn't running, or (without
+	// force) when players are on.
+	RebootServerHost(context.Context, *connect.Request[v1.RebootServerHostRequest]) (*connect.Response[v1.RebootServerHostResponse], error)
 	// ResizeServerHost moves a running host to another size now. The owner only;
 	// failed_precondition with players on unless force.
 	ResizeServerHost(context.Context, *connect.Request[v1.ResizeServerHostRequest]) (*connect.Response[v1.ResizeServerHostResponse], error)
@@ -117,6 +124,12 @@ func NewServerHostServiceClient(httpClient connect.HTTPClient, baseURL string, o
 			connect.WithSchema(serverHostServiceMethods.ByName("SetServerHostDesired")),
 			connect.WithClientOptions(opts...),
 		),
+		rebootServerHost: connect.NewClient[v1.RebootServerHostRequest, v1.RebootServerHostResponse](
+			httpClient,
+			baseURL+ServerHostServiceRebootServerHostProcedure,
+			connect.WithSchema(serverHostServiceMethods.ByName("RebootServerHost")),
+			connect.WithClientOptions(opts...),
+		),
 		resizeServerHost: connect.NewClient[v1.ResizeServerHostRequest, v1.ResizeServerHostResponse](
 			httpClient,
 			baseURL+ServerHostServiceResizeServerHostProcedure,
@@ -155,6 +168,7 @@ type serverHostServiceClient struct {
 	getServerHost            *connect.Client[v1.GetServerHostRequest, v1.GetServerHostResponse]
 	listServerHostEvents     *connect.Client[v1.ListServerHostEventsRequest, v1.ListServerHostEventsResponse]
 	setServerHostDesired     *connect.Client[v1.SetServerHostDesiredRequest, v1.SetServerHostDesiredResponse]
+	rebootServerHost         *connect.Client[v1.RebootServerHostRequest, v1.RebootServerHostResponse]
 	resizeServerHost         *connect.Client[v1.ResizeServerHostRequest, v1.ResizeServerHostResponse]
 	unpinServerHostSize      *connect.Client[v1.UnpinServerHostSizeRequest, v1.UnpinServerHostSizeResponse]
 	setServerHostExpectation *connect.Client[v1.SetServerHostExpectationRequest, v1.SetServerHostExpectationResponse]
@@ -175,6 +189,11 @@ func (c *serverHostServiceClient) ListServerHostEvents(ctx context.Context, req 
 // SetServerHostDesired calls gravel.hub.v1.ServerHostService.SetServerHostDesired.
 func (c *serverHostServiceClient) SetServerHostDesired(ctx context.Context, req *connect.Request[v1.SetServerHostDesiredRequest]) (*connect.Response[v1.SetServerHostDesiredResponse], error) {
 	return c.setServerHostDesired.CallUnary(ctx, req)
+}
+
+// RebootServerHost calls gravel.hub.v1.ServerHostService.RebootServerHost.
+func (c *serverHostServiceClient) RebootServerHost(ctx context.Context, req *connect.Request[v1.RebootServerHostRequest]) (*connect.Response[v1.RebootServerHostResponse], error) {
+	return c.rebootServerHost.CallUnary(ctx, req)
 }
 
 // ResizeServerHost calls gravel.hub.v1.ServerHostService.ResizeServerHost.
@@ -212,6 +231,10 @@ type ServerHostServiceHandler interface {
 	// SetServerHostDesired parks or unparks a host. The owner, a moderator, or an app with
 	// servers:moderate (acting for itself or for a moderator).
 	SetServerHostDesired(context.Context, *connect.Request[v1.SetServerHostDesiredRequest]) (*connect.Response[v1.SetServerHostDesiredResponse], error)
+	// RebootServerHost stops a running host's instance and starts it again (gravel#202), warning the
+	// players first: servers:operate. failed_precondition when the host isn't running, or (without
+	// force) when players are on.
+	RebootServerHost(context.Context, *connect.Request[v1.RebootServerHostRequest]) (*connect.Response[v1.RebootServerHostResponse], error)
 	// ResizeServerHost moves a running host to another size now. The owner only;
 	// failed_precondition with players on unless force.
 	ResizeServerHost(context.Context, *connect.Request[v1.ResizeServerHostRequest]) (*connect.Response[v1.ResizeServerHostResponse], error)
@@ -256,6 +279,12 @@ func NewServerHostServiceHandler(svc ServerHostServiceHandler, opts ...connect.H
 		connect.WithSchema(serverHostServiceMethods.ByName("SetServerHostDesired")),
 		connect.WithHandlerOptions(opts...),
 	)
+	serverHostServiceRebootServerHostHandler := connect.NewUnaryHandler(
+		ServerHostServiceRebootServerHostProcedure,
+		svc.RebootServerHost,
+		connect.WithSchema(serverHostServiceMethods.ByName("RebootServerHost")),
+		connect.WithHandlerOptions(opts...),
+	)
 	serverHostServiceResizeServerHostHandler := connect.NewUnaryHandler(
 		ServerHostServiceResizeServerHostProcedure,
 		svc.ResizeServerHost,
@@ -294,6 +323,8 @@ func NewServerHostServiceHandler(svc ServerHostServiceHandler, opts ...connect.H
 			serverHostServiceListServerHostEventsHandler.ServeHTTP(w, r)
 		case ServerHostServiceSetServerHostDesiredProcedure:
 			serverHostServiceSetServerHostDesiredHandler.ServeHTTP(w, r)
+		case ServerHostServiceRebootServerHostProcedure:
+			serverHostServiceRebootServerHostHandler.ServeHTTP(w, r)
 		case ServerHostServiceResizeServerHostProcedure:
 			serverHostServiceResizeServerHostHandler.ServeHTTP(w, r)
 		case ServerHostServiceUnpinServerHostSizeProcedure:
@@ -323,6 +354,10 @@ func (UnimplementedServerHostServiceHandler) ListServerHostEvents(context.Contex
 
 func (UnimplementedServerHostServiceHandler) SetServerHostDesired(context.Context, *connect.Request[v1.SetServerHostDesiredRequest]) (*connect.Response[v1.SetServerHostDesiredResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.ServerHostService.SetServerHostDesired is not implemented"))
+}
+
+func (UnimplementedServerHostServiceHandler) RebootServerHost(context.Context, *connect.Request[v1.RebootServerHostRequest]) (*connect.Response[v1.RebootServerHostResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.ServerHostService.RebootServerHost is not implemented"))
 }
 
 func (UnimplementedServerHostServiceHandler) ResizeServerHost(context.Context, *connect.Request[v1.ResizeServerHostRequest]) (*connect.Response[v1.ResizeServerHostResponse], error) {

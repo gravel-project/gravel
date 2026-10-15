@@ -26,6 +26,7 @@ const (
 	ActionHostSnapshot = "host_snapshot"
 	ActionHostExpect   = "host_expect"
 	ActionHostDestroy  = "host_destroy"
+	ActionHostReboot   = "host_reboot"
 )
 
 // Outcomes of a host request: accepted (the host's state machine carries it out, and its
@@ -293,7 +294,7 @@ func hostToRow(org uuid.UUID, h cloudvm.Host) (store.ServerHost, error) {
 		BootSeconds: intPtr(h.BootSeconds), ReadySeconds: intPtr(h.ReadySeconds), PinnedSize: h.PinnedSize,
 		PendingSize: h.PendingSize, PendingReason: h.PendingReason, PendingSince: timePtr(h.PendingSince),
 		LastResizeAt: timePtr(h.LastResizeAt), ExpectedPlayers: h.ExpectedPlayers, ExpectedUntil: timePtr(h.ExpectedUntil),
-		ExpectedReason: h.ExpectedReason}
+		ExpectedReason: h.ExpectedReason, Reboot: h.Reboot}
 	if h.RequestAuditID != 0 {
 		a := h.RequestAuditID
 		r.RequestAuditID = &a
@@ -311,7 +312,7 @@ func hostToRow(org uuid.UUID, h cloudvm.Host) (store.ServerHost, error) {
 func hostFromRow(r store.ServerHost) (cloudvm.Host, error) {
 	h := cloudvm.Host{ServerID: r.ServerID, LocationID: r.LocationID,
 		Intent: cloudvm.Intent{Desired: r.Desired, TargetSize: r.TargetSize, DestroyVolume: r.DestroyVolume, ReleaseAddress: r.ReleaseAddress,
-			PinnedSize: r.PinnedSize, ExpectedPlayers: r.ExpectedPlayers, ExpectedReason: r.ExpectedReason},
+			PinnedSize: r.PinnedSize, ExpectedPlayers: r.ExpectedPlayers, ExpectedReason: r.ExpectedReason, Reboot: r.Reboot},
 		State: r.State, Step: r.Step, Size: r.Size, DiskGiB: r.DiskGiB, InstanceID: r.InstanceID, InstanceAddress: r.InstanceAddress,
 		VolumeID: r.VolumeID, Address: r.Address, AddressReserved: r.AddressReserved, FirewallID: r.FirewallID, Egress: r.Egress,
 		HostKey: r.HostKey, EnvSHA256: r.EnvSHA256, Attempts: r.Attempts, ErrorCode: r.ErrorCode, LastError: r.LastError,
@@ -438,22 +439,29 @@ func (h *Hosts) Events(ctx context.Context, serverID string, before int64, limit
 }
 
 // request audits a host request, runs it and records its outcome.
-func (h *Hosts) request(ctx context.Context, actor Actor, serverID, action, reason string, detail map[string]any, run func(auditID int64) error) (int64, error) {
+// Done is what a host request left behind: its audit row, and the event that row wrote in the
+// events log (0 when the outcome could not be recorded), for a client to point at (gravel#202).
+type Done struct {
+	AuditID int64
+	EventID int64
+}
+
+func (h *Hosts) request(ctx context.Context, actor Actor, serverID, action, reason string, detail map[string]any, run func(auditID int64) error) (Done, error) {
 	if h.mgr == nil {
-		return 0, ErrNotCloudVM
+		return Done{}, ErrNotCloudVM
 	}
 	if _, ok := h.mgr.Host(serverID); !ok {
-		return 0, ErrNotCloudVM
+		return Done{}, ErrNotCloudVM
 	}
 	if err := validate(actor, Action{Kind: ActionBroadcast, Message: "-"}); err != nil {
-		return 0, err
+		return Done{}, err
 	}
 	if len(reason) > MaxReasonLength {
-		return 0, fmt.Errorf("%w: the reason is over %d characters", ErrInvalidModeration, MaxReasonLength)
+		return Done{}, fmt.Errorf("%w: the reason is over %d characters", ErrInvalidModeration, MaxReasonLength)
 	}
 	d, err := json.Marshal(detail)
 	if err != nil {
-		return 0, err
+		return Done{}, err
 	}
 	entry := store.AuditEntry{OrganizationID: h.orgID, At: h.now().UTC(), ActorUserID: actor.UserID, ActorAppID: actor.AppID,
 		ServerID: serverID, Action: action, Reason: reason, Detail: d, RequestID: actor.RequestID}
@@ -462,7 +470,7 @@ func (h *Hosts) request(ctx context.Context, actor Actor, serverID, action, reas
 	}
 	id, err := h.audit.InsertAuditEntry(ctx, entry)
 	if err != nil {
-		return 0, err
+		return Done{}, err
 	}
 	callErr := run(id)
 	word := OutcomeAccepted
@@ -483,15 +491,16 @@ func (h *Hosts) request(ctx context.Context, actor Actor, serverID, action, reas
 	}
 	fctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer cancel()
-	if err := h.audit.FinishAuditEntry(fctx, h.orgID, id, word, h.now().UTC()); err != nil {
+	done := Done{AuditID: id}
+	if done.EventID, err = h.audit.FinishAuditEntry(fctx, h.orgID, id, word, h.now().UTC()); err != nil {
 		h.logger.Error("a host request's outcome was not recorded", "audit_id", id, "error", err.Error())
 	}
-	h.logger.Info("host request", "server", serverID, "action", action, "outcome", word, "audit_id", id, "request_id", actor.RequestID)
-	return id, callErr
+	h.logger.Info("host request", "server", serverID, "action", action, "outcome", word, "audit_id", id, "event_id", done.EventID, "request_id", actor.RequestID)
+	return done, callErr
 }
 
 // SetDesired parks or unparks a host.
-func (h *Hosts) SetDesired(ctx context.Context, actor Actor, serverID, desired, reason string) (int64, error) {
+func (h *Hosts) SetDesired(ctx context.Context, actor Actor, serverID, desired, reason string) (Done, error) {
 	action := ActionHostUnpark
 	if desired == cloudvm.DesiredParked {
 		action = ActionHostPark
@@ -504,7 +513,7 @@ func (h *Hosts) SetDesired(ctx context.Context, actor Actor, serverID, desired, 
 
 // Resize moves a running host to another size; with pin the size stays (the scaling policy stands
 // aside and an unparked host comes back to it).
-func (h *Hosts) Resize(ctx context.Context, actor Actor, serverID, size string, force, pin bool, reason string) (int64, error) {
+func (h *Hosts) Resize(ctx context.Context, actor Actor, serverID, size string, force, pin bool, reason string) (Done, error) {
 	return h.request(ctx, actor, serverID, ActionHostResize, reason, map[string]any{"size": size, "force": force, "pin": pin}, func(id int64) error {
 		_, err := h.mgr.Resize(ctx, serverID, size, force, pin, id)
 		return err
@@ -513,42 +522,51 @@ func (h *Hosts) Resize(ctx context.Context, actor Actor, serverID, size string, 
 
 // SnapshotVolume copies a parked host's data volume into a snapshot (#166); name "" takes the
 // default.
-func (h *Hosts) SnapshotVolume(ctx context.Context, actor Actor, serverID, name, reason string) (int64, cloud.Snapshot, error) {
+func (h *Hosts) SnapshotVolume(ctx context.Context, actor Actor, serverID, name, reason string) (Done, cloud.Snapshot, error) {
 	var snap cloud.Snapshot
-	id, err := h.request(ctx, actor, serverID, ActionHostSnapshot, reason, map[string]any{"name": name}, func(id int64) error {
+	done, err := h.request(ctx, actor, serverID, ActionHostSnapshot, reason, map[string]any{"name": name}, func(id int64) error {
 		var err error
 		snap, err = h.mgr.SnapshotVolume(ctx, serverID, name, id)
 		return err
 	})
-	return id, snap, err
+	return done, snap, err
 }
 
 // SetExpectation tells a host how many players to expect until when (#172); 0 players clears it.
 // The reason is the audit row's and the decision's ("PUG 3 filled").
-func (h *Hosts) SetExpectation(ctx context.Context, actor Actor, serverID string, players int, until time.Time, reason string) (int64, cloudvm.Host, error) {
+func (h *Hosts) SetExpectation(ctx context.Context, actor Actor, serverID string, players int, until time.Time, reason string) (Done, cloudvm.Host, error) {
 	var host cloudvm.Host
 	detail := map[string]any{"players": players}
 	if players > 0 {
 		detail["until"] = until.UTC().Format(time.RFC3339)
 	}
-	id, err := h.request(ctx, actor, serverID, ActionHostExpect, reason, detail, func(id int64) error {
+	done, err := h.request(ctx, actor, serverID, ActionHostExpect, reason, detail, func(id int64) error {
 		var err error
 		host, err = h.mgr.SetExpectation(ctx, serverID, players, until, reason, id)
 		return err
 	})
-	return id, host, err
+	return done, host, err
 }
 
 // Unpin lets the scaling policy decide the host's size again.
-func (h *Hosts) Unpin(ctx context.Context, actor Actor, serverID, reason string) (int64, error) {
+func (h *Hosts) Unpin(ctx context.Context, actor Actor, serverID, reason string) (Done, error) {
 	return h.request(ctx, actor, serverID, ActionHostUnpin, reason, map[string]any{}, func(id int64) error {
 		_, err := h.mgr.Unpin(ctx, serverID, id)
 		return err
 	})
 }
 
+// Reboot stops a running host's instance and starts it again (gravel#202): the game warned first,
+// as for a resize; with players on it refuses unless force.
+func (h *Hosts) Reboot(ctx context.Context, actor Actor, serverID string, force bool, reason string) (Done, error) {
+	return h.request(ctx, actor, serverID, ActionHostReboot, reason, map[string]any{"force": force}, func(id int64) error {
+		_, err := h.mgr.Reboot(ctx, serverID, force, id)
+		return err
+	})
+}
+
 // Destroy removes a parked host's remains.
-func (h *Hosts) Destroy(ctx context.Context, actor Actor, serverID string, deleteVolume, releaseAddress bool, reason string) (int64, error) {
+func (h *Hosts) Destroy(ctx context.Context, actor Actor, serverID string, deleteVolume, releaseAddress bool, reason string) (Done, error) {
 	return h.request(ctx, actor, serverID, ActionHostDestroy, reason, map[string]any{"delete_volume": deleteVolume, "release_address": releaseAddress}, func(id int64) error {
 		_, err := h.mgr.Destroy(ctx, serverID, deleteVolume, releaseAddress, id)
 		return err

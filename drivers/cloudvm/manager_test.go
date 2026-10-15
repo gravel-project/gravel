@@ -607,6 +607,66 @@ func TestResize(t *testing.T) {
 	}
 }
 
+// A reboot (gravel#202) stops the same instance gracefully and starts it again: no resize, no new
+// instance, the game warned first; players on refuse it unless forced, and a host that isn't
+// running refuses it. The request survives a restart of the hub.
+func TestReboot(t *testing.T) {
+	r := newRig(t)
+	ctx := context.Background()
+	if _, err := r.m.Reboot(ctx, serverID, true, 0); !errors.Is(err, cloudvm.ErrNotRunning) {
+		t.Errorf("rebooting a host that isn't running: %v", err)
+	}
+	before := r.up()
+	r.game.SetPlayers(cloudvm.GamePlayer{UserID: 2, Name: "a"})
+	if _, err := r.m.Status(ctx, serverID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := r.m.Reboot(ctx, serverID, false, 0); !errors.Is(err, cloudvm.ErrPlayersOn) {
+		t.Errorf("with a player on: %v", err)
+	}
+	if _, err := r.m.Reboot(ctx, serverID, true, 12); err != nil {
+		t.Fatal(err)
+	}
+	if h := r.host(); !h.Reboot || h.RequestAuditID != 12 {
+		t.Fatalf("the request was not kept: %+v", h)
+	}
+	// The hub restarts before its next tick: the new manager finds the request in the store.
+	r.m = r.manager(r.st)
+	if err := r.m.Reconcile(ctx); err != nil {
+		t.Fatal(err)
+	}
+	// Its poll reads the game, so it knows who is on to warn.
+	if _, err := r.m.Status(ctx, serverID); err != nil {
+		t.Fatal(err)
+	}
+	calls := len(r.p.Calls())
+	r.advance(time.Minute)
+	if err := r.tick(); err != nil {
+		t.Fatal(err)
+	}
+	h := r.host()
+	if h.State != cloudvm.StateRunning || h.Reboot || h.InstanceID != before.InstanceID || h.Size != before.Size {
+		t.Fatalf("after the reboot %+v", h)
+	}
+	got := mutating(r.p.Calls()[calls:])
+	if !slices.Contains(got, "StopInstance") || !slices.Contains(got, "StartInstance") || slices.Contains(got, "ResizeInstance") || slices.Contains(got, "CreateInstance") {
+		t.Errorf("calls %v", got)
+	}
+	if slices.Contains(r.p.StopModes(), false) {
+		t.Error("a forced stop: the game deserves a graceful shutdown")
+	}
+	if !slices.ContainsFunc(r.st.Events(), func(e cloudvm.Event) bool {
+		return e.From == cloudvm.StateRunning && e.To == cloudvm.StateRebooting && e.AuditID == 12
+	}) {
+		t.Errorf("no running → rebooting transition carrying the request: %+v", r.st.Events())
+	}
+	if !slices.ContainsFunc(r.game.Commands(), func(c string) bool {
+		return strings.HasPrefix(c, "say ") && strings.Contains(c, "restarts in 10 seconds")
+	}) {
+		t.Errorf("the players were not warned: %v", r.game.Commands())
+	}
+}
+
 func TestDestroy(t *testing.T) {
 	r := newRig(t)
 	r.up()

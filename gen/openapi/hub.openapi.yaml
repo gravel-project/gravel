@@ -1944,6 +1944,48 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.ListServerHostEventsResponse'
+  /gravel.hub.v1.ServerHostService/RebootServerHost:
+    post:
+      tags:
+        - gravel.hub.v1.ServerHostService
+      summary: RebootServerHost
+      description: |-
+        RebootServerHost stops a running host's instance and starts it again (gravel#202), warning the
+         players first: servers:operate. failed_precondition when the host isn't running, or (without
+         force) when players are on.
+      operationId: gravel.hub.v1.ServerHostService.RebootServerHost
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.RebootServerHostRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.RebootServerHostResponse'
   /gravel.hub.v1.ServerHostService/ResizeServerHost:
     post:
       tags:
@@ -4017,6 +4059,13 @@ components:
           type: string
           title: audit_id
           format: int64
+        eventId:
+          type: string
+          title: event_id
+          format: int64
+          description: |-
+            The events log row the request wrote (gravel#202), for a client to point at; 0 when it could
+             not be recorded.
       title: DestroyServerHostResponse
       additionalProperties: false
     gravel.hub.v1.DiscordMatchResults:
@@ -6764,6 +6813,44 @@ components:
       description: |-
         ProfileTotals is a member's totals over one window: "all", "week", "month", or "season" with
          season naming one running now. from and to are unset for all time.
+    gravel.hub.v1.RebootServerHostRequest:
+      type: object
+      properties:
+        serverId:
+          type: string
+          title: server_id
+        force:
+          type: boolean
+          title: force
+          description: Reboot with players on (they are warned first, as for a resize).
+        reason:
+          type: string
+          title: reason
+        onBehalfOf:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.Actor'
+          title: on_behalf_of
+          description: Who the caller acts for, for an app (as SetServerHostDesired).
+      title: RebootServerHostRequest
+      additionalProperties: false
+    gravel.hub.v1.RebootServerHostResponse:
+      type: object
+      properties:
+        host:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.ServerHost'
+          title: host
+        auditId:
+          type: string
+          title: audit_id
+          format: int64
+        eventId:
+          type: string
+          title: event_id
+          format: int64
+          description: The events log row the request wrote; 0 when it could not be recorded.
+      title: RebootServerHostResponse
+      additionalProperties: false
     gravel.hub.v1.RecapMatch:
       type: object
       properties:
@@ -6842,6 +6929,11 @@ components:
           allOf:
             - $ref: '#/components/schemas/gravel.hub.v1.ServerLease'
           title: lease
+        eventId:
+          type: string
+          title: event_id
+          format: int64
+          description: The events log row the release wrote (gravel#202); 0 when it could not be recorded.
       title: ReleaseServerLeaseResponse
       additionalProperties: false
     gravel.hub.v1.RequestServerLeaseRequest:
@@ -6942,6 +7034,13 @@ components:
           type: string
           title: audit_id
           format: int64
+        eventId:
+          type: string
+          title: event_id
+          format: int64
+          description: |-
+            The events log row the request wrote (gravel#202), for a client to point at; 0 when it could
+             not be recorded.
       title: ResizeServerHostResponse
       additionalProperties: false
     gravel.hub.v1.RevokeAppGrantRequest:
@@ -7107,8 +7206,8 @@ components:
           type: string
           title: state
           description: |-
-            "absent", "creating", "booting", "starting", "running", "parking", "parked", "resizing" or
-             "destroying". running and parked are where a host rests; the others are transitions.
+            "absent", "creating", "booting", "starting", "running", "parking", "parked", "resizing",
+             "rebooting" or "destroying". running and parked are where a host rests; the others are transitions.
         step:
           type: string
           title: step
@@ -7537,6 +7636,13 @@ components:
           type: string
           title: audit_id
           format: int64
+        eventId:
+          type: string
+          title: event_id
+          format: int64
+          description: |-
+            The events log row the request wrote (gravel#202), for a client to point at; 0 when it could
+             not be recorded.
       title: SetServerHostDesiredResponse
       additionalProperties: false
     gravel.hub.v1.SetServerHostExpectationRequest:
@@ -7577,6 +7683,13 @@ components:
           type: string
           title: audit_id
           format: int64
+        eventId:
+          type: string
+          title: event_id
+          format: int64
+          description: |-
+            The events log row the request wrote (gravel#202), for a client to point at; 0 when it could
+             not be recorded.
       title: SetServerHostExpectationResponse
       additionalProperties: false
     gravel.hub.v1.SetUserRoleRequest:
@@ -7640,6 +7753,13 @@ components:
           allOf:
             - $ref: '#/components/schemas/gravel.hub.v1.VolumeSnapshot'
           title: snapshot
+        eventId:
+          type: string
+          title: event_id
+          format: int64
+          description: |-
+            The events log row the request wrote (gravel#202), for a client to point at; 0 when it could
+             not be recorded.
       title: SnapshotServerHostVolumeResponse
       additionalProperties: false
     gravel.hub.v1.StartProofRequest:
@@ -7904,6 +8024,13 @@ components:
           type: string
           title: audit_id
           format: int64
+        eventId:
+          type: string
+          title: event_id
+          format: int64
+          description: |-
+            The events log row the request wrote (gravel#202), for a client to point at; 0 when it could
+             not be recorded.
       title: UnpinServerHostSizeResponse
       additionalProperties: false
     gravel.hub.v1.UpdateOrganizationSettingsRequest:

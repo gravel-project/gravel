@@ -176,11 +176,11 @@ func (s *LeaseServer) ReleaseServerLease(ctx context.Context, req *connect.Reque
 	if err := s.mayHold(who, lease); err != nil {
 		return nil, err
 	}
-	lease, err = s.leases.Release(ctx, who, id, m.GetReason())
+	lease, eventID, err := s.leases.Release(ctx, who, id, m.GetReason())
 	if err != nil {
 		return nil, s.mapError(ctx, err)
 	}
-	return connect.NewResponse(&hubv1.ReleaseServerLeaseResponse{Lease: leaseMessage(lease)}), nil
+	return connect.NewResponse(&hubv1.ReleaseServerLeaseResponse{Lease: leaseMessage(lease), EventId: eventID}), nil
 }
 
 // WatchServerLease streams a lease as it changes, until it is over.

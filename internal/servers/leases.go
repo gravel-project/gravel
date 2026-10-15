@@ -455,23 +455,23 @@ func HeldBy(lease Lease, a Actor) bool {
 
 // Release gives a live lease back: the server is parked and its own password and settings come
 // back at its next start. ErrLeaseFinished for a lease that is over.
-func (l *Leases) Release(ctx context.Context, actor Actor, id uuid.UUID, reason string) (Lease, error) {
+func (l *Leases) Release(ctx context.Context, actor Actor, id uuid.UUID, reason string) (Lease, int64, error) {
 	row, err := l.rows.GetServerLease(ctx, l.orgID, id)
 	if errors.Is(err, store.ErrNotFound) {
-		return Lease{}, ErrNoSuchLease
+		return Lease{}, 0, ErrNoSuchLease
 	}
 	if err != nil {
-		return Lease{}, err
+		return Lease{}, 0, err
 	}
 	if !row.Live() {
-		return l.view(ctx, row, false), ErrLeaseFinished
+		return l.view(ctx, row, false), 0, ErrLeaseFinished
 	}
 	if len(reason) > MaxLeaseReason || strings.ContainsAny(reason, "\n\r") {
-		return Lease{}, fmt.Errorf("%w: the reason is one line of at most %d bytes", ErrInvalidLease, MaxLeaseReason)
+		return Lease{}, 0, fmt.Errorf("%w: the reason is one line of at most %d bytes", ErrInvalidLease, MaxLeaseReason)
 	}
 	auditID, err := l.auditEntry(ctx, actor, row.ServerID, ActionLeaseRelease, reason, map[string]any{"lease_id": row.ID.String()})
 	if err != nil {
-		return Lease{}, err
+		return Lease{}, 0, err
 	}
 	why := "released by its holder"
 	if !HeldBy(Lease{ServerLease: row}, actor) {
@@ -485,11 +485,12 @@ func (l *Leases) Release(ctx context.Context, actor Actor, id uuid.UUID, reason 
 	if err != nil {
 		outcome = StateError
 	}
-	l.finishAudit(ctx, auditID, outcome)
+	eventID := l.finishAudit(ctx, auditID, outcome)
 	if err != nil {
-		return Lease{}, err
+		return Lease{}, 0, err
 	}
-	return l.Get(ctx, id)
+	lease, err := l.Get(ctx, id)
+	return lease, eventID, err
 }
 
 // end finishes a lease (released or failed) and gives the server back: the expectation cleared,
@@ -780,12 +781,15 @@ func (l *Leases) auditEntry(ctx context.Context, actor Actor, serverID, action, 
 	return l.audit.InsertAuditEntry(ctx, entry)
 }
 
-func (l *Leases) finishAudit(ctx context.Context, id int64, outcome string) {
+// finishAudit records a lease request's outcome and answers the event it wrote (0 when it could not).
+func (l *Leases) finishAudit(ctx context.Context, id int64, outcome string) int64 {
 	fctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer cancel()
-	if err := l.audit.FinishAuditEntry(fctx, l.orgID, id, outcome, l.now().UTC()); err != nil {
+	eventID, err := l.audit.FinishAuditEntry(fctx, l.orgID, id, outcome, l.now().UTC())
+	if err != nil {
 		l.logger.Error("a lease request's outcome was not recorded", "audit_id", id, "error", err.Error())
 	}
+	return eventID
 }
 
 type leaseMetrics struct {

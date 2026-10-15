@@ -126,8 +126,13 @@ func TestEventsLog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := st.FinishAuditEntry(ctx, o.ID, id, "ok", t0.Add(8*time.Minute)); err != nil {
+	kickEvent, err := st.FinishAuditEntry(ctx, o.ID, id, "ok", t0.Add(8*time.Minute))
+	if err != nil {
 		t.Fatal(err)
+	}
+	// The id FinishAuditEntry answers is the event it wrote (gravel#202).
+	if last := eventKinds(t, st, o.ID, store.EventQuery{AfterID: kickEvent - 1, Limit: 1}); len(last) != 1 || last[0] != "moderation.kick" {
+		t.Errorf("event %d is %v, want the kick", kickEvent, last)
 	}
 
 	want := "identity.registered identity.registered role.granted host.running host.failing host.recovered host.resized lease.starting lease.ready moderation.kick"

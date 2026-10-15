@@ -101,7 +101,8 @@ type Action struct {
 // AuditStore is what moderation needs from the database.
 type AuditStore interface {
 	InsertAuditEntry(ctx context.Context, e store.AuditEntry) (int64, error)
-	FinishAuditEntry(ctx context.Context, orgID uuid.UUID, id int64, outcome string, at time.Time) error
+	// FinishAuditEntry records the outcome and answers the id of the event it writes.
+	FinishAuditEntry(ctx context.Context, orgID uuid.UUID, id int64, outcome string, at time.Time) (int64, error)
 	ListAuditEntries(ctx context.Context, orgID uuid.UUID, f store.AuditFilter) ([]store.AuditEntry, error)
 }
 
@@ -217,7 +218,7 @@ func (m *Moderation) finish(ctx context.Context, serverID, action string, id int
 	}
 	fctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer cancel()
-	if err := m.st.FinishAuditEntry(fctx, m.orgID, id, word, m.now().UTC()); err != nil {
+	if _, err := m.st.FinishAuditEntry(fctx, m.orgID, id, word, m.now().UTC()); err != nil {
 		m.logger.Error("outcome not recorded; the audit entry stays unfinished", "audit_id", id, "outcome", word, "error", err.Error())
 	}
 	m.total.WithLabelValues(serverID, action, word).Inc()
