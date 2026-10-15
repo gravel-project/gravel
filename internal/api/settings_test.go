@@ -30,7 +30,7 @@ func TestOrganizationSettings(t *testing.T) {
 		Nav:   []*hubv1.NavLink{{Label: "Discord", Url: "https://discord.gg/x"}, {Label: "Rules", Url: "https://hiddentoken.com/rules/", Placement: "footer"}, {Label: "Admin", Url: "/admin", Role: "owner"}},
 		Discord: &hubv1.DiscordSettings{GuildId: "519496143298756611",
 			Roles:       &hubv1.DiscordRoles{Linked: "1300000000000000001", Providers: map[string]string{"steam": "1300000000000000002"}},
-			Recognition: []*hubv1.DiscordRecognition{{Role: "1300000000000000003", Rule: "first_members", Count: 50}},
+			Recognition: []*hubv1.DiscordRecognition{{Role: "1300000000000000003", Rule: "first_members", Count: 50, MinMembers: 100}},
 			ServerCards: []*hubv1.DiscordServerCard{{Server: "htg-wardogs-1", Channel: "1300000000000000100", Note: "Matches start at 20 players."}}, ModLog: "1300000000000000200",
 			Seeding: []*hubv1.DiscordSeeding{{Server: "htg-wardogs-1", Channel: "1300000000000000101", Role: "1300000000000000004", Below: 20,
 				Hours: []*hubv1.DiscordSeedingHours{{Days: []string{"wed", "sat", "sun"}, From: "18:00", To: "23:00"}}, Cooldown: "2h", CallAtStart: true, Note: "Join from the server browser."}},

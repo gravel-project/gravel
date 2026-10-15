@@ -120,6 +120,9 @@ message DiscordRecognition {
   // "first_members": the first count members by registration.
   string rule = 2;
   int32 count = 3;
+  // The rule stays off until the hub has this many registered members (gravel#181); 0 is no
+  // gate. A role given while it was on is never taken back.
+  int32 min_members = 4;
 }
 
 // DiscordServerCard places one server's live status card in a channel: one message the bot edits

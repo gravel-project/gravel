@@ -553,6 +553,10 @@ type Recognition struct {
 	// Rule is RuleFirstMembers: the first Count members by registration.
 	Rule  string `json:"rule" yaml:"rule"`
 	Count int    `json:"count" yaml:"count"`
+	// MinMembers gates the rule on the community's size (gravel#181, handbook D29): role sync
+	// leaves it alone until the hub has this many registered members, then hands it out as the
+	// rule says. 0 is no gate. A role given while live is never taken back.
+	MinMembers int `json:"min_members,omitempty" yaml:"min_members,omitempty"`
 }
 
 // Recognition rules.
@@ -864,6 +868,9 @@ func validateDiscord(d Discord, bad func(string, ...any)) {
 		}
 		if r.Count < 1 || r.Count > MaxFirstMembers {
 			bad("%s.count: %d is not between 1 and %d", field, r.Count, MaxFirstMembers)
+		}
+		if r.MinMembers < 0 || r.MinMembers > MaxFirstMembers {
+			bad("%s.min_members: %d is not between 0 (no gate) and %d", field, r.MinMembers, MaxFirstMembers)
 		}
 	}
 	if d.ModLog != "" && !snowflakeOK(d.ModLog) {

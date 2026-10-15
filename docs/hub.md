@@ -295,6 +295,7 @@ discord:                     # what the bot manages (docs/bot.md); ids as quoted
     - role: "…"
       rule: first_members    # the first `count` members by registration
       count: 50
+      min_members: 100       # optional: off until the hub has this many registered members (gravel#181)
   server_cards:              # a live status card per server, edited in place; at most 10
     - server: htg-wardogs-1  # the server's id in servers.yaml, one card each
       channel: "…"           # the bot needs View Channel, Send Messages, Read Message History

@@ -140,7 +140,9 @@ the hub's members:
 - a member who linked a provider gets `roles.providers.<provider>` where one is mapped;
 - the first `count` members by registration get a `recognition` role, which is **never removed**
   once given (registration order does not change, and a role given by hand before role sync is
-  kept).
+  kept). A rule with `min_members` is off until the hub has that many registered members
+  (gravel#181): below it role sync gives nobody the role, and, since a recognition role is never
+  removed, nobody loses it either. `settings check` says which roles are off until how many.
 
 A pass reads the mapping, every hub member (`ListUsers`) and every guild member, and adds or
 removes **only the roles the mapping names**: other roles, staff roles and bots are never touched,

@@ -371,10 +371,12 @@ type Mapping struct {
 	Recognition []Recognition
 }
 
-// Recognition is a role for the first Count members by registration.
+// Recognition is a role for the first Count members by registration, off while the hub has
+// fewer than MinMembers registered members (0: no gate; gravel#181).
 type Recognition struct {
-	Role  snowflake.ID
-	Count int
+	Role       snowflake.ID
+	Count      int
+	MinMembers int
 }
 
 // MappingFrom reads the settings' discord section. The hub validated it; an id that does not
@@ -416,7 +418,7 @@ func MappingFrom(d *hubv1.DiscordSettings) (Mapping, error) {
 		if err != nil {
 			return Mapping{}, err
 		}
-		m.Recognition = append(m.Recognition, Recognition{Role: id, Count: int(r.GetCount())})
+		m.Recognition = append(m.Recognition, Recognition{Role: id, Count: int(r.GetCount()), MinMembers: int(r.GetMinMembers())})
 	}
 	return m, nil
 }
@@ -442,8 +444,10 @@ func (m Mapping) managed() map[snowflake.ID]bool {
 }
 
 // Desired is the mapped roles each hub member with a Discord identity should have, by Discord
-// user id. users are in registration order, oldest first, as ListUsers returns them; the first
-// Count of them earn a recognition role whether or not they are in the guild.
+// user id. users are every registered member in registration order, oldest first, as ListUsers
+// returns them; the first Count of them earn a recognition role whether or not they are in the
+// guild, once the hub has the rule's MinMembers (a gated rule earns nobody anything yet, and
+// since a recognition role is never removed, nobody loses one either).
 func Desired(m Mapping, users []*hubv1.User) map[snowflake.ID]map[snowflake.ID]bool {
 	out := map[snowflake.ID]map[snowflake.ID]bool{}
 	for i, u := range users {
@@ -471,7 +475,7 @@ func Desired(m Mapping, users []*hubv1.User) map[snowflake.ID]map[snowflake.ID]b
 			}
 		}
 		for _, r := range m.Recognition {
-			if i < r.Count {
+			if i < r.Count && (r.MinMembers == 0 || len(users) >= r.MinMembers) {
 				roles[r.Role] = true
 			}
 		}

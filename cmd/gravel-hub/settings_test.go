@@ -106,6 +106,12 @@ func TestSettingsCheck(t *testing.T) {
 	if code, out, errOut := run("settings", "check", manifest); code != 0 || out != "settings valid (0 nav links, theme default, discord guild 519496143298756611, 0 roles, 1 seeding rules)\n" || errOut != "" {
 		t.Errorf("seeding: %d %q %q", code, out, errOut)
 	}
+	// A gated recognition role says how many members it waits for (gravel#181).
+	writeFile(t, manifest, "discord:\n  guild_id: \"519496143298756611\"\n  recognition:\n    - {role: \"1300000000000000003\", rule: first_members, count: 50, min_members: 100}\n")
+	if code, out, errOut := run("settings", "check", manifest); code != 0 ||
+		out != "settings valid (0 nav links, theme default, discord guild 519496143298756611, 1 roles, recognition role 1300000000000000003 off until 100 members)\n" || errOut != "" {
+		t.Errorf("gated recognition: %d %q %q", code, out, errOut)
+	}
 	writeFile(t, manifest, strings.Replace(seeding, "below: 20", "below: 1", 1))
 	if code, _, errOut := run("settings", "check", manifest); code != 1 || !strings.Contains(errOut, "discord.seeding[0].below: 1 is not between 2 and 1000") {
 		t.Errorf("a bad seeding rule: %d %q", code, errOut)

@@ -20,6 +20,7 @@ patch release is everything else.
 
 - A board of one server or one game carries its game's own stats (#206, ADR-0033): `BoardEntry.extensions`, each player's results over the board's window and trusts totalled by each stat's aggregate, with the columns in `GetBoardResponse.stat_extensions`. The organization's board carries none. Results' extensions survive retention: before the retention job anonymises a series' players it adds their extensions to `result_stats_monthly` in the same transaction (a total, the maps and the best map, per season-cut period), refusing to run when its periods miss a series rather than lose one; erasure re-keys those rows too.
 - `/admin/stats` (#206): a game's board over this week, this month or all time, ranked by any of its layout's columns, with the game's own stats as more columns, whether the boards are public, and the game's latest match results linking to their pages. It draws the hub's declarations and knows no game. In the a11y run and the phone and iPad viewport run.
+- A recognition rule can wait for the community to grow (#181, Hidden Token Gaming's D29): `discord.recognition[].min_members` keeps the rule off until the hub has that many registered members, then role sync hands it out as before. It never takes a role back, gated or not. `settings check` says "recognition role … off until N members"; the API's `DiscordRecognition.min_members`; the dashboard's Discord settings have the field.
 
 ### Fixed
 

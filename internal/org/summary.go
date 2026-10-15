@@ -97,6 +97,11 @@ func describeDiscord(d Discord) string {
 		return "unmapped"
 	}
 	out := fmt.Sprintf("guild %s, %d roles", d.GuildID, len(d.RoleIDs()))
+	for _, r := range d.Recognition {
+		if r.MinMembers > 0 {
+			out += fmt.Sprintf(", recognition role %s off until %d members", r.Role, r.MinMembers)
+		}
+	}
 	if n := len(d.ServerCards); n > 0 {
 		out += fmt.Sprintf(", %d server cards", n)
 	}
