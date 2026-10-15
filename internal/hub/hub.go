@@ -56,6 +56,7 @@ import (
 	"github.com/gravel-project/gravel/internal/results"
 	"github.com/gravel-project/gravel/internal/servers"
 	"github.com/gravel-project/gravel/internal/session"
+	"github.com/gravel-project/gravel/internal/spend"
 	"github.com/gravel-project/gravel/internal/stats"
 	"github.com/gravel-project/gravel/internal/store"
 	"github.com/gravel-project/gravel/internal/web"
@@ -107,6 +108,7 @@ type Hub struct {
 	monitor    *servers.Monitor
 	moderation *servers.Moderation
 	stats      *stats.Boards
+	spend      *spend.Service // cloud spend (ADR-0034)
 	// participation records first-party apps' participation events (ADR-0014).
 	participation *stats.Participation
 	feeds         *ingest.Keyring
@@ -432,6 +434,27 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 	// Participation from first-party apps (ADR-0014) shares the change counter, so its boards are
 	// cached like the combat boards.
 	h.participation = stats.NewParticipation(st, o.ID, h.servers, servers.GameIDs(), statsSettings, changes, h.registry)
+	// Cloud spend (ADR-0034): each cloud location's bill, where its token may read it, a snapshot
+	// a day, beside the hub's own estimate.
+	h.spend = spend.New(st, o.ID, func(ctx context.Context) ([]spend.Location, error) {
+		locs, errs, err := h.hosts.CloudLocations(ctx)
+		if err != nil {
+			return nil, err
+		}
+		out := make([]spend.Location, 0, len(locs))
+		for i, l := range locs {
+			sl := spend.Location{ID: l.ID, Provider: l.Provider, Err: errs[i]}
+			if sl.Err == nil {
+				sl.Cloud, sl.Err = h.cloudProvider(ctx, l)
+			}
+			out = append(out, sl)
+		}
+		return out, nil
+	}, func(ctx context.Context) (*time.Location, error) {
+		set, err := statsSettings(ctx)
+		return set.Location(), err
+	}, logger)
+	h.jobs.Start(jobs.Job{Name: "cloud_spend", Every: spend.SnapshotEvery, Immediate: true, Run: h.spend.Snapshot})
 	// Retention (ADR-0012 §6): raw rows past the window roll up into monthly totals.
 	h.jobs.Start(jobs.Job{Name: "stats_rollup", Every: stats.RollupEvery, Immediate: true,
 		Run: stats.NewRetention(st, o.ID, statsSettings, changes, h.registry, logger).Run})
@@ -609,7 +632,7 @@ func (h *Hub) buildAPI() *http.ServeMux {
 		WithFleet(h.fleet, h.alarms).WithManifests(h.servers, applyOpts), interceptors))
 	moderation := api.NewModerationServer(h.moderation, access, h.ids, h.logger)
 	mux.Handle(hubv1connect.NewModerationServiceHandler(moderation, interceptors))
-	mux.Handle(hubv1connect.NewServerHostServiceHandler(api.NewHostServer(h.hosts, access, h.logger), interceptors))
+	mux.Handle(hubv1connect.NewServerHostServiceHandler(api.NewHostServer(h.hosts, access, h.logger).WithSpend(h.spend), interceptors))
 	mux.Handle(hubv1connect.NewMetricsServiceHandler(api.NewMetricsServer(dashboards.All(), h.cfg.Metrics, h.metricsStore(),
 		access, func(r string) { h.metricsQueries.WithLabelValues(r).Inc() }, h.logger), interceptors))
 	mux.Handle(hubv1connect.NewServerLeaseServiceHandler(api.NewLeaseServer(h.leases, access, h.logger), interceptors))

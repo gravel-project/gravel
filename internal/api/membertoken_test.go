@@ -309,7 +309,7 @@ func TestEveryProcedureIsClassifiedForMemberTokens(t *testing.T) {
 		hubv1connect.ServerLeaseServiceListServerLeasesProcedure, hubv1connect.ServerLeaseServiceReleaseServerLeaseProcedure,
 		hubv1connect.ServerLeaseServiceWatchServerLeaseProcedure,
 		hubv1connect.MetricsServiceListDashboardsProcedure, hubv1connect.MetricsServiceQueryRangeProcedure, hubv1connect.StatsServiceGetActivityProcedure,
-		hubv1connect.ServerHostServiceResizeServerHostProcedure, hubv1connect.ServerHostServiceUnpinServerHostSizeProcedure, hubv1connect.ServerHostServiceSnapshotServerHostVolumeProcedure, hubv1connect.ServerHostServiceDestroyServerHostProcedure,
+		hubv1connect.ServerHostServiceResizeServerHostProcedure, hubv1connect.ServerHostServiceUnpinServerHostSizeProcedure, hubv1connect.ServerHostServiceSnapshotServerHostVolumeProcedure, hubv1connect.ServerHostServiceDestroyServerHostProcedure, hubv1connect.ServerHostServiceGetSpendProcedure,
 	}
 	seen := 0
 	protoregistry.GlobalFiles.RangeFilesByPackage("gravel.hub.v1", func(fd protoreflect.FileDescriptor) bool {

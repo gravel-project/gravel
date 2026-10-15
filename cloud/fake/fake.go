@@ -55,6 +55,7 @@ type Provider struct {
 	failOps   map[string]int     // next operations of a method the cloud reports as failed
 	calls     []string
 	stopModes []bool // the graceful flag of every StopInstance, in order
+	bill      cloud.Bill
 }
 
 type instance struct {

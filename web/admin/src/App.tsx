@@ -12,6 +12,7 @@ import { type NavItem, visible } from "./nav";
 import { NotFound } from "./pages/NotFound";
 import { Access } from "./pages/Access";
 import { Activity } from "./pages/Activity";
+import { Spend } from "./pages/Spend";
 import { Stats } from "./pages/Stats";
 import { Events } from "./pages/Events";
 import { Fleet } from "./pages/Fleet";
@@ -99,6 +100,9 @@ function Shell() {
             </Route>
             <Route path="/activity">
               <Activity />
+            </Route>
+            <Route path="/spend">
+              <Spend />
             </Route>
             <Route path="/settings">
               <Settings />

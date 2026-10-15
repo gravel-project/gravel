@@ -291,4 +291,70 @@ service ServerHostService {
   rpc SnapshotServerHostVolume(SnapshotServerHostVolumeRequest) returns (SnapshotServerHostVolumeResponse);
   // DestroyServerHost removes a parked host's remains. The owner only.
   rpc DestroyServerHost(DestroyServerHostRequest) returns (DestroyServerHostResponse);
+  // GetSpend is a month's cloud spend (ADR-0034): the cloud's own bill where the location's
+  // token may read it, the hub's compute estimate beside it, by day and by cause, and where the
+  // month ends. servers:provision held everywhere: the spend is the whole hub's.
+  rpc GetSpend(GetSpendRequest) returns (GetSpendResponse);
+}
+
+message GetSpendRequest {
+  // "YYYY-MM"; empty for this month.
+  string month = 1;
+}
+
+message GetSpendResponse {
+  // "YYYY-MM", in timezone (the Organization settings' stats.timezone).
+  string month = 1;
+  string timezone = 2;
+  // The month holds now: projected_usd is a projection, not the month's total.
+  bool current = 3;
+  // The hub has a cloud location (none: there is no cloud spend to show).
+  bool available = 4;
+  repeated SpendLocation locations = 5;
+  // The month so far by the bills, as of billed_as_of (they lag a day); billed is whether any
+  // location's bill was read this month.
+  bool billed = 6;
+  double billed_usd = 7;
+  google.protobuf.Timestamp billed_as_of = 8;
+  // The hub's estimate: its cloud-VM servers' compute at the prices recorded (a floor).
+  double estimated_usd = 9;
+  // Where the month ends: from the bills when there are any, else the estimate
+  // (projected_from "billed" or "estimated"); the month's total once it ended.
+  double projected_usd = 10;
+  string projected_from = 11;
+  // Each day of the month up to today.
+  repeated SpendDay days = 12;
+  // Each server's part, then each uncaused bill line's, largest first.
+  repeated SpendCause causes = 13;
+}
+
+// SpendLocation is what the hub last found of a cloud location's bill.
+message SpendLocation {
+  string id = 1;
+  string provider = 2;
+  bool billed = 3;
+  // Why not, when not: the token may not read bills, the cloud has none the hub can read, …
+  string reason = 4;
+  google.protobuf.Timestamp read_at = 5;
+}
+
+// SpendDay is one day: the bills' figure for it (when two days' snapshots tell it) and the
+// estimate of its compute.
+message SpendDay {
+  // "YYYY-MM-DD".
+  string date = 1;
+  double billed_usd = 2;
+  bool has_billed = 3;
+  double estimated_usd = 4;
+}
+
+// SpendCause is one server's part of the month, or one bill line no server is the cause of.
+message SpendCause {
+  // The server; empty for an uncaused line, which name names.
+  string server_id = 1;
+  string name = 2;
+  // The billed USD by kind: "compute", "storage", "network", "other".
+  map<string, double> kinds = 3;
+  double billed_usd = 4;
+  double estimated_usd = 5;
 }

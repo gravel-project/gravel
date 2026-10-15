@@ -118,6 +118,26 @@ func (h *Hosts) firstLine(path string) (string, error) {
 	return "", fmt.Errorf("%s is empty", path)
 }
 
+// CloudLocations are the servers.yaml locations in a cloud, each with its token read, or why it
+// could not be (cloud spend, ADR-0034): the location as the cloud-VM driver reaches it, without
+// the SSH key, which reading a bill doesn't need.
+func (h *Hosts) CloudLocations(ctx context.Context) ([]cloudvm.Location, []error, error) {
+	locs, err := h.svc.Locations(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	out, errs := make([]cloudvm.Location, 0, len(locs)), make([]error, 0, len(locs))
+	for _, l := range locs {
+		token, err := h.firstLine(l.TokenFile)
+		if err != nil {
+			err = fmt.Errorf("location %s: token: %w", l.ID, err)
+		}
+		out = append(out, cloudvm.Location{ID: l.ID, Provider: l.Provider, Region: l.Region, Project: l.Project, Token: token})
+		errs = append(errs, err)
+	}
+	return out, errs, nil
+}
+
 // CloudVMServers implements cloudvm.Source: every cloud-VM server, a removed one included (its host
 // is parked and stays until destroyed), with its location and secrets read. A live server whose
 // secrets cannot be read is left out until they can (logged); a removed one needs only its

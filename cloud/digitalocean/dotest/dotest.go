@@ -48,6 +48,12 @@ func WithActionDelay(d time.Duration) Option { return func(s *Server) { s.delay 
 // WithMaxPerPage caps a list page below the API's 200, to exercise pagination.
 func WithMaxPerPage(n int) Option { return func(s *Server) { s.maxPerPage = n } }
 
+// WithInvoiceItems sets the team's invoice preview (ADR-0034): its items, every project's, and
+// when it was last brought up to date.
+func WithInvoiceItems(updated time.Time, items ...godo.InvoiceItem) Option {
+	return func(s *Server) { s.invoiceUpdated, s.invoiceItems = updated, items }
+}
+
 // WithProject adds a project to the account.
 func WithProject(id, name string) Option {
 	return func(s *Server) {
@@ -111,11 +117,14 @@ type Server struct {
 	tags         map[string]bool
 	projects     []godo.Project
 	assigned     map[string][]string // project id → URNs
-	actions      map[int]*action
-	faults       []*fault
-	failActions  map[string]int
-	requests     []Request
-	remaining    int
+	// The invoice preview: every project's items, and when it was last generated.
+	invoiceItems   []godo.InvoiceItem
+	invoiceUpdated time.Time
+	actions        map[int]*action
+	faults         []*fault
+	failActions    map[string]int
+	requests       []Request
+	remaining      int
 }
 
 type droplet struct {
@@ -295,6 +304,10 @@ func (s *Server) handler() http.Handler {
 	mux.HandleFunc("POST /v2/tags/{name}/resources", s.tagResources)
 
 	mux.HandleFunc("GET /v2/projects", s.listProjects)
+	mux.HandleFunc("GET /v2/projects/default", s.getDefaultProject)
+	mux.HandleFunc("GET /v2/projects/{id}", s.getProject)
+	mux.HandleFunc("GET /v2/customers/my/invoices", s.listInvoices)
+	mux.HandleFunc("GET /v2/customers/my/invoices/preview", s.invoicePreview)
 	mux.HandleFunc("POST /v2/projects/{id}/resources", s.assignResources)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -484,6 +497,8 @@ func (s *Server) writeList(w http.ResponseWriter, r *http.Request, key string, i
 	case []godo.Key:
 		writeListPage(s, w, r, key, v)
 	case []godo.Project:
+		writeListPage(s, w, r, key, v)
+	case []godo.InvoiceItem:
 		writeListPage(s, w, r, key, v)
 	default:
 		panic(fmt.Sprintf("dotest: no list for %T", items))
