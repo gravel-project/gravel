@@ -1,12 +1,3 @@
-// Package hubvm makes the hub's own host (ADR-0020): the cloud-init document a hub VM boots with,
-// and the create, status and destroy steps the gravel CLI runs through a cloud.Provider. The hub
-// is never a ManagedServer: nothing here runs inside the hub, and nothing in the hub calls it.
-//
-// The document has two profiles. "host" is the machine and nothing more: an admin user for the
-// OS, a rootless runtime user whose home is the data volume, podman, and automatic security
-// updates; an operator's own configuration management installs the hub on top (Hidden Token
-// Gaming's Ansible does). "stock" is the host plus gravel's own units from deploy/quadlet, with
-// the database secrets generated on the host at first boot, so one command gives a running hub.
 package hubvm
 
 import (

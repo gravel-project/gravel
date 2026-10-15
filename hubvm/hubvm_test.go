@@ -75,7 +75,7 @@ func mustCreate(t *testing.T, p cloud.Provider, s Spec) Result {
 func actions(steps []Step) string {
 	var parts []string
 	for _, s := range steps {
-		parts = append(parts, s.Kind+":"+string(s.Action))
+		parts = append(parts, string(s.Kind)+":"+string(s.Action))
 	}
 	return strings.Join(parts, " ")
 }
@@ -144,6 +144,36 @@ func TestCreateFromNothing(t *testing.T) {
 	spec := p.specs[0]
 	if spec.Name != "hub-1" || spec.Region != "fake-1" || spec.Size != "small" || spec.Image != "fedora-44-x64" || len(spec.SSHKeyIDs) != 1 {
 		t.Errorf("instance spec %+v", spec)
+	}
+}
+
+func TestCreateTags(t *testing.T) {
+	p := newRecorder()
+	s := testSpec()
+	s.Tags = []string{"grvl", "grvl:org:42", "grvl"}
+	r := mustCreate(t, p, s)
+	want := []string{BaseTag, Tag("hub-1"), "grvl", "grvl:org:42"}
+	if !slices.Equal(p.specs[0].Tags, want) {
+		t.Errorf("instance tags %v, want %v", p.specs[0].Tags, want)
+	}
+	if !slices.Equal(r.Volume.Tags, want) {
+		t.Errorf("volume tags %v, want %v", r.Volume.Tags, want)
+	}
+	if !slices.Equal(r.Firewall.Tags, []string{Tag("hub-1")}) {
+		t.Errorf("firewall targets %v: a caller's tag would widen what the firewall guards", r.Firewall.Tags)
+	}
+	// Found again without them: the tags are the caller's, gravel finds the hub by its own.
+	again := mustCreate(t, p, testSpec())
+	if again.Changed() {
+		t.Errorf("a second create without the tags changed %s", actions(again.Steps))
+	}
+
+	for _, bad := range []string{BaseTag, Tag("other"), "", "two words"} {
+		s := testSpec()
+		s.Tags = []string{bad}
+		if _, err := Create(t.Context(), fake.New(), s, true); err == nil {
+			t.Errorf("tag %q: no error", bad)
+		}
 	}
 }
 

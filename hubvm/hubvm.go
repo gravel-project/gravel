@@ -52,12 +52,27 @@ type Spec struct {
 	// sources; a new firewall needs at least one.
 	SSHFrom    []string
 	Monitoring bool
+	// Tags are the caller's own, added to BaseTag and Tag(Name) on the instance and the volume
+	// when they are made (a control plane's tenant, say); a resource that already exists keeps
+	// the tags it has. The firewall is not tagged with them: its tags pick the instances it
+	// guards. A tag in gravel's namespace (BaseTag, or starting with BaseTag + ":") is refused.
+	Tags []string
 	// Document is the cloud-init document's parameters; Create fills in the hostname and the
 	// data device.
 	Document Params
 }
 
-// Action is what Create did, or would do, to one resource.
+// Kind is the kind of resource a step is about.
+type Kind string
+
+// Kinds, in the order Create makes them.
+const (
+	KindFirewall Kind = "firewall"
+	KindVolume   Kind = "volume"
+	KindInstance Kind = "instance"
+)
+
+// Action is what Create, AllowSSH or Destroy did, or would do, to one resource.
 type Action string
 
 // Actions.
@@ -65,14 +80,15 @@ const (
 	Unchanged Action = "unchanged"
 	Created   Action = "created"
 	Updated   Action = "updated"
+	Deleted   Action = "deleted"
 )
 
 // Step is one resource and what happened to it.
 type Step struct {
-	Kind     string // "firewall", "volume", "instance"
+	Kind     Kind
 	Name     string
 	Action   Action
-	Detail   string
+	Detail   string // for a person: sizes, regions, addresses; never parse it
 	Resource string // the provider's id, when there is one
 }
 
@@ -109,6 +125,10 @@ func Create(ctx context.Context, p cloud.Provider, s Spec, dryRun bool) (Result,
 	if err != nil {
 		return Result{}, err
 	}
+	tags, err := resourceTags(s)
+	if err != nil {
+		return Result{}, err
+	}
 	var r Result
 
 	// The firewall first: an instance must never be up before the rules that guard it are.
@@ -118,7 +138,7 @@ func Create(ctx context.Context, p cloud.Provider, s Spec, dryRun bool) (Result,
 	}
 	r.Firewall, r.Steps = fw, append(r.Steps, step)
 
-	vol, step, existed, err := ensureVolume(ctx, p, s, dryRun)
+	vol, step, existed, err := ensureVolume(ctx, p, s, tags, dryRun)
 	if err != nil {
 		return r, err
 	}
@@ -136,7 +156,7 @@ func Create(ctx context.Context, p cloud.Provider, s Spec, dryRun bool) (Result,
 			return r, fmt.Errorf("hubvm: instance %s (%s) carries %s but not its data volume %s; destroy it (gravel hub destroy) and run create again", inst.Name, inst.ID, Tag(s.Name), vol.Name)
 		}
 		r.Instance = &inst
-		r.Steps = append(r.Steps, Step{Kind: "instance", Name: inst.Name, Action: Unchanged, Resource: inst.ID,
+		r.Steps = append(r.Steps, Step{Kind: KindInstance, Name: inst.Name, Action: Unchanged, Resource: inst.ID,
 			Detail: fmt.Sprintf("%s, %s in %s, %s", inst.Status, inst.Size, inst.Region, orNone(inst.PublicIPv4))})
 		return r, nil
 	default:
@@ -159,7 +179,7 @@ func Create(ctx context.Context, p cloud.Provider, s Spec, dryRun bool) (Result,
 		detail += ", on the existing data volume"
 	}
 	if dryRun {
-		r.Steps = append(r.Steps, Step{Kind: "instance", Name: s.Name, Action: Created, Detail: detail})
+		r.Steps = append(r.Steps, Step{Kind: KindInstance, Name: s.Name, Action: Created, Detail: detail})
 		return r, nil
 	}
 	keyID, err := p.EnsureSSHKey(ctx, s.SSHKeyName, s.SSHPublicKey)
@@ -173,7 +193,7 @@ func Create(ctx context.Context, p cloud.Provider, s Spec, dryRun bool) (Result,
 		Image:      s.Image,
 		UserData:   userData,
 		SSHKeyIDs:  []string{keyID},
-		Tags:       []string{BaseTag, Tag(s.Name)},
+		Tags:       tags,
 		VolumeIDs:  []string{vol.ID},
 		Monitoring: s.Monitoring,
 	})
@@ -187,7 +207,7 @@ func Create(ctx context.Context, p cloud.Provider, s Spec, dryRun bool) (Result,
 		return r, fmt.Errorf("hubvm: read the new instance: %w", err)
 	}
 	r.Instance, r.Recreated = &inst, existed
-	r.Steps = append(r.Steps, Step{Kind: "instance", Name: inst.Name, Action: Created, Resource: inst.ID, Detail: detail + ", " + orNone(inst.PublicIPv4)})
+	r.Steps = append(r.Steps, Step{Kind: KindInstance, Name: inst.Name, Action: Created, Resource: inst.ID, Detail: detail + ", " + orNone(inst.PublicIPv4)})
 	return r, nil
 }
 
@@ -211,7 +231,7 @@ func ensureFirewall(ctx context.Context, p cloud.Provider, name string, sshFrom 
 		sshFrom = SSHSources(*cur)
 	}
 	want := firewallSpec(name, sshFrom)
-	step := Step{Kind: "firewall", Name: fwName, Detail: "SSH from " + strings.Join(sshFrom, ", ")}
+	step := Step{Kind: KindFirewall, Name: fwName, Detail: "SSH from " + strings.Join(sshFrom, ", ")}
 	switch {
 	case cur == nil:
 		step.Action = Created
@@ -237,6 +257,24 @@ func ensureFirewall(ctx context.Context, p cloud.Provider, name string, sshFrom 
 	return &fw, step, nil
 }
 
+// resourceTags are the instance's and the volume's tags: gravel's two, then the caller's in the
+// order given, without duplicates.
+func resourceTags(s Spec) ([]string, error) {
+	tags := []string{BaseTag, Tag(s.Name)}
+	for _, t := range s.Tags {
+		if t == BaseTag || strings.HasPrefix(t, BaseTag+":") {
+			return nil, fmt.Errorf("hubvm: tag %q is gravel's own; a caller's tags are outside %s", t, BaseTag)
+		}
+		if t == "" || strings.ContainsAny(t, " \t\n") {
+			return nil, fmt.Errorf("hubvm: tag %q: no empty tag and no spaces", t)
+		}
+		if !slices.Contains(tags, t) {
+			tags = append(tags, t)
+		}
+	}
+	return tags, nil
+}
+
 // firewallSpec admits SSH from the given sources and nothing else; everything outbound is open
 // (the hub reaches the world through a tunnel it dials, so nothing else comes in).
 func firewallSpec(name string, sshFrom []string) cloud.FirewallSpec {
@@ -260,7 +298,7 @@ func SSHSources(fw cloud.Firewall) []string {
 	return slices.Compact(out)
 }
 
-func ensureVolume(ctx context.Context, p cloud.Provider, s Spec, dryRun bool) (*cloud.Volume, Step, bool, error) {
+func ensureVolume(ctx context.Context, p cloud.Provider, s Spec, tags []string, dryRun bool) (*cloud.Volume, Step, bool, error) {
 	name := VolumeName(s.Name)
 	vols, err := p.Volumes(ctx, cloud.Filter{Name: name})
 	if err != nil {
@@ -281,15 +319,15 @@ func ensureVolume(ctx context.Context, p cloud.Provider, s Spec, dryRun bool) (*
 		if len(v.InstanceIDs) > 0 {
 			detail += ", attached to " + strings.Join(v.InstanceIDs, ", ")
 		}
-		return &v, Step{Kind: "volume", Name: name, Action: Unchanged, Resource: v.ID, Detail: detail}, true, nil
+		return &v, Step{Kind: KindVolume, Name: name, Action: Unchanged, Resource: v.ID, Detail: detail}, true, nil
 	default:
 		return nil, Step{}, false, fmt.Errorf("hubvm: %d volumes are named %s in %s", len(vols), name, s.Region)
 	}
-	step := Step{Kind: "volume", Name: name, Action: Created, Detail: fmt.Sprintf("%d GiB in %s", s.VolumeGiB, s.Region)}
+	step := Step{Kind: KindVolume, Name: name, Action: Created, Detail: fmt.Sprintf("%d GiB in %s", s.VolumeGiB, s.Region)}
 	if dryRun {
 		return &cloud.Volume{Name: name, Region: s.Region, SizeGiB: s.VolumeGiB}, step, false, nil
 	}
-	v, err := p.CreateVolume(ctx, cloud.VolumeSpec{Name: name, Region: s.Region, SizeGiB: s.VolumeGiB, Tags: []string{BaseTag, Tag(s.Name)}})
+	v, err := p.CreateVolume(ctx, cloud.VolumeSpec{Name: name, Region: s.Region, SizeGiB: s.VolumeGiB, Tags: tags})
 	if err != nil {
 		return nil, Step{}, false, fmt.Errorf("hubvm: create volume %s: %w", name, err)
 	}
@@ -349,7 +387,7 @@ func Destroy(ctx context.Context, p cloud.Provider, name string, o DestroyOption
 		return nil, fmt.Errorf("hubvm: list instances: %w", err)
 	}
 	for _, in := range insts {
-		steps = append(steps, Step{Kind: "instance", Name: in.Name, Action: "deleted", Resource: in.ID})
+		steps = append(steps, Step{Kind: KindInstance, Name: in.Name, Action: Deleted, Resource: in.ID})
 		if o.DryRun {
 			continue
 		}
@@ -369,7 +407,7 @@ func Destroy(ctx context.Context, p cloud.Provider, name string, o DestroyOption
 			return steps, fmt.Errorf("hubvm: list volumes: %w", err)
 		}
 		for _, v := range vols {
-			steps = append(steps, Step{Kind: "volume", Name: v.Name, Action: "deleted", Resource: v.ID})
+			steps = append(steps, Step{Kind: KindVolume, Name: v.Name, Action: Deleted, Resource: v.ID})
 			if o.DryRun {
 				continue
 			}
@@ -384,7 +422,7 @@ func Destroy(ctx context.Context, p cloud.Provider, name string, o DestroyOption
 			return steps, fmt.Errorf("hubvm: list firewalls: %w", err)
 		}
 		for _, fw := range fws {
-			steps = append(steps, Step{Kind: "firewall", Name: fw.Name, Action: "deleted", Resource: fw.ID})
+			steps = append(steps, Step{Kind: KindFirewall, Name: fw.Name, Action: Deleted, Resource: fw.ID})
 			if o.DryRun {
 				continue
 			}

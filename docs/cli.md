@@ -108,7 +108,40 @@ configuration. A new instance has a new outbound address; anything that admits t
 
 `create` changes nothing on an existing volume (its size, its contents) and never resizes an
 instance. `--dry-run` on `create`, `destroy` and `allow-ssh` exits 3 when it would change
-something and 0 when it would not.
+something and 0 when it would not. `--tag` (repeatable) on `create` adds tags of your own to the
+instance and the volume when they are made, beside gravel's; the firewall never gets them.
+
+### Machine-readable output
+
+`--output json` on `create`, `status`, `destroy` and `allow-ssh` prints **one JSON object on
+stdout** once the flags parse, also when the command fails (then with `error` set, and the message
+on stderr too); the lines a person watches (waiting for cloud-init, its warnings) go to stderr.
+The exit codes are the same as without it. A program written in Go imports the
+[`hubvm`](../hubvm) package instead, which these commands are built on.
+
+```sh
+gravel hub create --name hub-1 --region sfo3 --size s-2vcpu-4gb --ssh-from 203.0.113.9 \
+  --tag my-tenant --output json | jq -r .instance.public_ipv4
+```
+
+| Field | In | What it is |
+|---|---|---|
+| `hub` | all | the hub's name |
+| `dry_run`, `changed` | create, destroy, allow-ssh | a dry run; whether anything changed, or would |
+| `steps[]` | create, destroy, allow-ssh | `kind` (`firewall`, `volume`, `instance`), `name`, `action` (`unchanged`, `created`, `updated`, `deleted`; in a dry run, what would be done), `id` (the provider's; empty for what a dry run would make), `detail` (for a person: don't parse it) |
+| `firewall` | create, status | `id`, `name`, `ssh_from[]` (CIDRs); `null` when there is none |
+| `volume` | create, status | `id`, `name`, `region`, `size_gib`, `attached_to[]` (instance ids); `null` when there is none |
+| `instance` | create, status | `id`, `name`, `status` (`pending`, `running`, `stopped`, `unknown`), `region`, `size`, `image`, `public_ipv4`, `private_ipv4` (empty until assigned), `tags[]`; `null` when there is none |
+| `recreated` | create | a new instance on a volume that existed: the hub came back with its data |
+| `ready` | create | SSH answered and cloud-init finished; `false` with `--no-wait` or `--dry-run` |
+| `tunnel_installed` | create | `--tunnel-token-file`'s token installed and `gravel-cloudflared` started |
+| `claim` | status | an unowned stock hub's owner-claim token, `token` and `expires_at`, read from its log over SSH; `null` when owned, not read (`--no-ssh`, no running instance) or unreadable |
+| `warnings[]` | status | what went wrong without failing the command (the log could not be read) |
+| `volume_kept` | destroy | the data volume was left for a later `create` (no `--delete-volume`) |
+| `error` | all | present only when the command failed (exit 1) |
+
+The field names are a public surface (docs/releasing.md "Versions"): one is never renamed or
+removed without a **Breaking:** release; new ones may appear, so ignore what you don't know.
 
 ## Talking to a hub
 
@@ -236,10 +269,10 @@ The VMs a hub makes for its game servers are the hub's, not the CLI's: they come
 
 | Command | What it does | Exit codes |
 |---|---|---|
-| `gravel hub create` | make or find the firewall, volume and instance; wait for SSH and cloud-init | 0 done; 1 failed; 2 usage; 3 `--dry-run` would change something |
-| `gravel hub status` | what exists; the owner-claim token of an unowned stock hub (over SSH; `--no-ssh` skips it) | 0; 1 |
-| `gravel hub destroy` | delete the instance; `--delete-volume`, `--delete-firewall`; needs `--yes` | 0; 1; 2; 3 `--dry-run` |
-| `gravel hub allow-ssh` | replace the addresses SSH is admitted from | 0; 1; 2; 3 `--dry-run` |
+| `gravel hub create` | make or find the firewall, volume and instance; wait for SSH and cloud-init; `--tag`; `--output json` | 0 done; 1 failed; 2 usage; 3 `--dry-run` would change something |
+| `gravel hub status` | what exists; the owner-claim token of an unowned stock hub (over SSH; `--no-ssh` skips it); `--output json` | 0; 1 |
+| `gravel hub destroy` | delete the instance; `--delete-volume`, `--delete-firewall`; needs `--yes`; `--output json` | 0; 1; 2; 3 `--dry-run` |
+| `gravel hub allow-ssh` | replace the addresses SSH is admitted from; `--output json` | 0; 1; 2; 3 `--dry-run` |
 | `gravel hub ssh` | ssh to the host as `gravel` (`--admin`: as `admin`) | the remote command's |
 | `gravel hub cloud-init` | print the document for `--name` and `--device` | 0; 1; 2 |
 | `gravel login` | `--local`: a local account's session; `--app`: an app's client id and secret file | 0; 1 refused; 2 usage |
