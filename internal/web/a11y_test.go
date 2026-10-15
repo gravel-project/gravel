@@ -92,6 +92,34 @@ type a11yFleet struct {
 	hubv1connect.UnimplementedServerServiceHandler
 }
 
+// GetServerStatus, GetServerHost and ListServerLeases are a server's controls (gravel#202): a
+// running cloud-VM host with a pinned size and an expectation, and a live lease, so every section
+// of /admin/servers/{id} is scanned.
+func (a11yFleet) GetServerStatus(_ context.Context, req *connect.Request[hubv1.GetServerStatusRequest]) (*connect.Response[hubv1.GetServerStatusResponse], error) {
+	return connect.NewResponse(&hubv1.GetServerStatusResponse{Server: &hubv1.Server{Id: req.Msg.GetServerId(), Name: "HTG CS2 #1", GameId: "cs2", Driver: "cloudvm",
+		Status: &hubv1.ServerStatus{State: "online"}}}), nil
+}
+
+type a11yHosts struct {
+	hubv1connect.UnimplementedServerHostServiceHandler
+}
+
+func (a11yHosts) GetServerHost(_ context.Context, req *connect.Request[hubv1.GetServerHostRequest]) (*connect.Response[hubv1.GetServerHostResponse], error) {
+	return connect.NewResponse(&hubv1.GetServerHostResponse{Host: &hubv1.ServerHost{ServerId: req.Msg.GetServerId(), State: "running", Desired: "running",
+		Size: "c-4", PinnedSize: "c-4", Address: "198.51.100.1", HourlyPriceUsd: 0.125, MonthCostUsd: 31.5,
+		ExpectedPlayers: 10, ExpectedUntil: timestamppb.New(time.Now().Add(2 * time.Hour)), ExpectedReason: "PUG night",
+		Sizes: []*hubv1.HostSize{{Slug: "c-2", Vcpus: 2, MemoryMib: 4096, PriceHourlyUsd: 0.063}, {Slug: "c-4", Vcpus: 4, MemoryMib: 8192, PriceHourlyUsd: 0.125}}}}), nil
+}
+
+type a11yLeases struct {
+	hubv1connect.UnimplementedServerLeaseServiceHandler
+}
+
+func (a11yLeases) ListServerLeases(_ context.Context, req *connect.Request[hubv1.ListServerLeasesRequest]) (*connect.Response[hubv1.ListServerLeasesResponse], error) {
+	return connect.NewResponse(&hubv1.ListServerLeasesResponse{Leases: []*hubv1.ServerLease{{Id: "l-1", ServerId: req.Msg.GetServerId(), Holder: "muster",
+		Pool: "pug", State: "ready", CreatedAt: timestamppb.Now()}}}), nil
+}
+
 func (a11yFleet) GetFleetSummary(context.Context, *connect.Request[hubv1.GetFleetSummaryRequest]) (*connect.Response[hubv1.GetFleetSummaryResponse], error) {
 	now := time.Now()
 	ago := func(d time.Duration) *timestamppb.Timestamp { return timestamppb.New(now.Add(-d)) }
@@ -421,6 +449,8 @@ func TestAccessibility(t *testing.T) {
 	mux.Handle(hubv1connect.NewIdentityServiceHandler(a11yMe{}))
 	mux.Handle(hubv1connect.NewOrganizationServiceHandler(a11yOrg{}))
 	mux.Handle(hubv1connect.NewServerServiceHandler(a11yFleet{}))
+	mux.Handle(hubv1connect.NewServerHostServiceHandler(a11yHosts{}))
+	mux.Handle(hubv1connect.NewServerLeaseServiceHandler(a11yLeases{}))
 	for path, build := range fixtures {
 		mux.HandleFunc("GET "+path, func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -460,11 +490,11 @@ func TestAccessibility(t *testing.T) {
 		"/fixture/server-moderator", "/fixture/server-host", "/fixture/server-host-parked", "/fixture/host-confirm", "/fixture/confirm", "/fixture/log", "/fixture/account-apps", "/fixture/consent",
 		"/fixture/account-proof", "/fixture/proof", "/fixture/proof-proven", "/fixture/host-expect", "/fixture/result",
 		"/fixture/login-local", "/fixture/register", "/fixture/account-local", "/fixture/reset",
-		"/admin", "/admin/events", "/admin/people", "/admin/access", "/admin/nowhere"}
+		"/admin", "/admin/events", "/admin/people", "/admin/servers/htg-cs2-1", "/admin/access", "/admin/nowhere"}
 	// What each dashboard route shows once rendered in the browser.
-	adminRenders := map[string]string{"/admin": ">HTG WARDOGS | NA WEST | #1</a>", "/admin/events": ">HTG WARDOGS | NA WEST | #2 is down</p>", "/admin/people": ">Sam</a>", "/admin/access": ">Your access</h1>", "/admin/nowhere": ">Not found</h1>"}
+	adminRenders := map[string]string{"/admin": ">HTG WARDOGS | NA WEST | #1</a>", "/admin/events": ">HTG WARDOGS | NA WEST | #2 is down</p>", "/admin/people": ">Sam</a>", "/admin/servers/htg-cs2-1": ">Release the lease</button>", "/admin/access": ">Your access</h1>", "/admin/nowhere": ">Not found</h1>"}
 	// The same, as text on the page, for the viewport script.
-	adminRenderText := map[string]string{"/admin": "HTG WARDOGS | NA WEST | #1", "/admin/events": "HTG WARDOGS | NA WEST | #2 is down", "/admin/people": "Add a local account", "/admin/access": "Your access"}
+	adminRenderText := map[string]string{"/admin": "HTG WARDOGS | NA WEST | #1", "/admin/events": "HTG WARDOGS | NA WEST | #2 is down", "/admin/people": "Add a local account", "/admin/servers/htg-cs2-1": "Release the lease", "/admin/access": "Your access"}
 	// A fixture left out of the list would never be scanned and the run would still pass.
 	for path := range fixtures {
 		if !slices.Contains(paths, path) {
@@ -507,7 +537,7 @@ func TestAccessibility(t *testing.T) {
 		// The script resolves puppeteer-core and axe-core from web/admin's node_modules (make admin).
 		cmd := exec.CommandContext(ctx, "node", "../../web/admin/scripts/viewport.mjs", chrome,
 			srv.URL+"/admin", adminRenderText["/admin"], srv.URL+"/admin/events", adminRenderText["/admin/events"],
-			srv.URL+"/admin/people", adminRenderText["/admin/people"], srv.URL+"/admin/access", adminRenderText["/admin/access"])
+			srv.URL+"/admin/people", adminRenderText["/admin/people"], srv.URL+"/admin/servers/htg-cs2-1", adminRenderText["/admin/servers/htg-cs2-1"], srv.URL+"/admin/access", adminRenderText["/admin/access"])
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			t.Fatalf("the dashboard at phone and iPad sizes:\n%s", out)

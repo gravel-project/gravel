@@ -33,8 +33,8 @@ type ServerHost struct {
 	Region   string `protobuf:"bytes,4,opt,name=region,proto3" json:"region,omitempty"`
 	// "running", "parked" or "absent" (destroyed).
 	Desired string `protobuf:"bytes,5,opt,name=desired,proto3" json:"desired,omitempty"`
-	// "absent", "creating", "booting", "starting", "running", "parking", "parked", "resizing" or
-	// "destroying". running and parked are where a host rests; the others are transitions.
+	// "absent", "creating", "booting", "starting", "running", "parking", "parked", "resizing",
+	// "rebooting" or "destroying". running and parked are where a host rests; the others are transitions.
 	State string `protobuf:"bytes,6,opt,name=state,proto3" json:"state,omitempty"`
 	// The step within a transition ("volume", "instance", "env", "game"); "" when settled.
 	Step string `protobuf:"bytes,7,opt,name=step,proto3" json:"step,omitempty"`
@@ -898,9 +898,12 @@ func (x *SetServerHostDesiredRequest) GetOnBehalfOf() *Actor {
 }
 
 type SetServerHostDesiredResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Host          *ServerHost            `protobuf:"bytes,1,opt,name=host,proto3" json:"host,omitempty"`
-	AuditId       int64                  `protobuf:"varint,2,opt,name=audit_id,json=auditId,proto3" json:"audit_id,omitempty"`
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Host    *ServerHost            `protobuf:"bytes,1,opt,name=host,proto3" json:"host,omitempty"`
+	AuditId int64                  `protobuf:"varint,2,opt,name=audit_id,json=auditId,proto3" json:"audit_id,omitempty"`
+	// The events log row the request wrote (gravel#202), for a client to point at; 0 when it could
+	// not be recorded.
+	EventId       int64 `protobuf:"varint,3,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -945,6 +948,13 @@ func (x *SetServerHostDesiredResponse) GetHost() *ServerHost {
 func (x *SetServerHostDesiredResponse) GetAuditId() int64 {
 	if x != nil {
 		return x.AuditId
+	}
+	return 0
+}
+
+func (x *SetServerHostDesiredResponse) GetEventId() int64 {
+	if x != nil {
+		return x.EventId
 	}
 	return 0
 }
@@ -1030,9 +1040,12 @@ func (x *ResizeServerHostRequest) GetPin() bool {
 }
 
 type ResizeServerHostResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Host          *ServerHost            `protobuf:"bytes,1,opt,name=host,proto3" json:"host,omitempty"`
-	AuditId       int64                  `protobuf:"varint,2,opt,name=audit_id,json=auditId,proto3" json:"audit_id,omitempty"`
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Host    *ServerHost            `protobuf:"bytes,1,opt,name=host,proto3" json:"host,omitempty"`
+	AuditId int64                  `protobuf:"varint,2,opt,name=audit_id,json=auditId,proto3" json:"audit_id,omitempty"`
+	// The events log row the request wrote (gravel#202), for a client to point at; 0 when it could
+	// not be recorded.
+	EventId       int64 `protobuf:"varint,3,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1077,6 +1090,13 @@ func (x *ResizeServerHostResponse) GetHost() *ServerHost {
 func (x *ResizeServerHostResponse) GetAuditId() int64 {
 	if x != nil {
 		return x.AuditId
+	}
+	return 0
+}
+
+func (x *ResizeServerHostResponse) GetEventId() int64 {
+	if x != nil {
+		return x.EventId
 	}
 	return 0
 }
@@ -1134,9 +1154,12 @@ func (x *UnpinServerHostSizeRequest) GetReason() string {
 }
 
 type UnpinServerHostSizeResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Host          *ServerHost            `protobuf:"bytes,1,opt,name=host,proto3" json:"host,omitempty"`
-	AuditId       int64                  `protobuf:"varint,2,opt,name=audit_id,json=auditId,proto3" json:"audit_id,omitempty"`
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Host    *ServerHost            `protobuf:"bytes,1,opt,name=host,proto3" json:"host,omitempty"`
+	AuditId int64                  `protobuf:"varint,2,opt,name=audit_id,json=auditId,proto3" json:"audit_id,omitempty"`
+	// The events log row the request wrote (gravel#202), for a client to point at; 0 when it could
+	// not be recorded.
+	EventId       int64 `protobuf:"varint,3,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1181,6 +1204,13 @@ func (x *UnpinServerHostSizeResponse) GetHost() *ServerHost {
 func (x *UnpinServerHostSizeResponse) GetAuditId() int64 {
 	if x != nil {
 		return x.AuditId
+	}
+	return 0
+}
+
+func (x *UnpinServerHostSizeResponse) GetEventId() int64 {
+	if x != nil {
+		return x.EventId
 	}
 	return 0
 }
@@ -1266,9 +1296,12 @@ func (x *SetServerHostExpectationRequest) GetOnBehalfOf() *Actor {
 }
 
 type SetServerHostExpectationResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Host          *ServerHost            `protobuf:"bytes,1,opt,name=host,proto3" json:"host,omitempty"`
-	AuditId       int64                  `protobuf:"varint,2,opt,name=audit_id,json=auditId,proto3" json:"audit_id,omitempty"`
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Host    *ServerHost            `protobuf:"bytes,1,opt,name=host,proto3" json:"host,omitempty"`
+	AuditId int64                  `protobuf:"varint,2,opt,name=audit_id,json=auditId,proto3" json:"audit_id,omitempty"`
+	// The events log row the request wrote (gravel#202), for a client to point at; 0 when it could
+	// not be recorded.
+	EventId       int64 `protobuf:"varint,3,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1313,6 +1346,13 @@ func (x *SetServerHostExpectationResponse) GetHost() *ServerHost {
 func (x *SetServerHostExpectationResponse) GetAuditId() int64 {
 	if x != nil {
 		return x.AuditId
+	}
+	return 0
+}
+
+func (x *SetServerHostExpectationResponse) GetEventId() int64 {
+	if x != nil {
+		return x.EventId
 	}
 	return 0
 }
@@ -1466,10 +1506,13 @@ func (x *VolumeSnapshot) GetCreatedAt() *timestamppb.Timestamp {
 }
 
 type SnapshotServerHostVolumeResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Host          *ServerHost            `protobuf:"bytes,1,opt,name=host,proto3" json:"host,omitempty"`
-	AuditId       int64                  `protobuf:"varint,2,opt,name=audit_id,json=auditId,proto3" json:"audit_id,omitempty"`
-	Snapshot      *VolumeSnapshot        `protobuf:"bytes,3,opt,name=snapshot,proto3" json:"snapshot,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Host     *ServerHost            `protobuf:"bytes,1,opt,name=host,proto3" json:"host,omitempty"`
+	AuditId  int64                  `protobuf:"varint,2,opt,name=audit_id,json=auditId,proto3" json:"audit_id,omitempty"`
+	Snapshot *VolumeSnapshot        `protobuf:"bytes,3,opt,name=snapshot,proto3" json:"snapshot,omitempty"`
+	// The events log row the request wrote (gravel#202), for a client to point at; 0 when it could
+	// not be recorded.
+	EventId       int64 `protobuf:"varint,4,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1525,6 +1568,144 @@ func (x *SnapshotServerHostVolumeResponse) GetSnapshot() *VolumeSnapshot {
 	return nil
 }
 
+func (x *SnapshotServerHostVolumeResponse) GetEventId() int64 {
+	if x != nil {
+		return x.EventId
+	}
+	return 0
+}
+
+type RebootServerHostRequest struct {
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	ServerId string                 `protobuf:"bytes,1,opt,name=server_id,json=serverId,proto3" json:"server_id,omitempty"`
+	// Reboot with players on (they are warned first, as for a resize).
+	Force  bool   `protobuf:"varint,2,opt,name=force,proto3" json:"force,omitempty"`
+	Reason string `protobuf:"bytes,3,opt,name=reason,proto3" json:"reason,omitempty"`
+	// Who the caller acts for, for an app (as SetServerHostDesired).
+	OnBehalfOf    *Actor `protobuf:"bytes,4,opt,name=on_behalf_of,json=onBehalfOf,proto3" json:"on_behalf_of,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RebootServerHostRequest) Reset() {
+	*x = RebootServerHostRequest{}
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RebootServerHostRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RebootServerHostRequest) ProtoMessage() {}
+
+func (x *RebootServerHostRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RebootServerHostRequest.ProtoReflect.Descriptor instead.
+func (*RebootServerHostRequest) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_hosts_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *RebootServerHostRequest) GetServerId() string {
+	if x != nil {
+		return x.ServerId
+	}
+	return ""
+}
+
+func (x *RebootServerHostRequest) GetForce() bool {
+	if x != nil {
+		return x.Force
+	}
+	return false
+}
+
+func (x *RebootServerHostRequest) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+func (x *RebootServerHostRequest) GetOnBehalfOf() *Actor {
+	if x != nil {
+		return x.OnBehalfOf
+	}
+	return nil
+}
+
+type RebootServerHostResponse struct {
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Host    *ServerHost            `protobuf:"bytes,1,opt,name=host,proto3" json:"host,omitempty"`
+	AuditId int64                  `protobuf:"varint,2,opt,name=audit_id,json=auditId,proto3" json:"audit_id,omitempty"`
+	// The events log row the request wrote; 0 when it could not be recorded.
+	EventId       int64 `protobuf:"varint,3,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RebootServerHostResponse) Reset() {
+	*x = RebootServerHostResponse{}
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RebootServerHostResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RebootServerHostResponse) ProtoMessage() {}
+
+func (x *RebootServerHostResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RebootServerHostResponse.ProtoReflect.Descriptor instead.
+func (*RebootServerHostResponse) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_hosts_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *RebootServerHostResponse) GetHost() *ServerHost {
+	if x != nil {
+		return x.Host
+	}
+	return nil
+}
+
+func (x *RebootServerHostResponse) GetAuditId() int64 {
+	if x != nil {
+		return x.AuditId
+	}
+	return 0
+}
+
+func (x *RebootServerHostResponse) GetEventId() int64 {
+	if x != nil {
+		return x.EventId
+	}
+	return 0
+}
+
 type DestroyServerHostRequest struct {
 	state    protoimpl.MessageState `protogen:"open.v1"`
 	ServerId string                 `protobuf:"bytes,1,opt,name=server_id,json=serverId,proto3" json:"server_id,omitempty"`
@@ -1539,7 +1720,7 @@ type DestroyServerHostRequest struct {
 
 func (x *DestroyServerHostRequest) Reset() {
 	*x = DestroyServerHostRequest{}
-	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[19]
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1551,7 +1732,7 @@ func (x *DestroyServerHostRequest) String() string {
 func (*DestroyServerHostRequest) ProtoMessage() {}
 
 func (x *DestroyServerHostRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[19]
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1564,7 +1745,7 @@ func (x *DestroyServerHostRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DestroyServerHostRequest.ProtoReflect.Descriptor instead.
 func (*DestroyServerHostRequest) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_hosts_proto_rawDescGZIP(), []int{19}
+	return file_gravel_hub_v1_hosts_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *DestroyServerHostRequest) GetServerId() string {
@@ -1596,16 +1777,19 @@ func (x *DestroyServerHostRequest) GetReason() string {
 }
 
 type DestroyServerHostResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Host          *ServerHost            `protobuf:"bytes,1,opt,name=host,proto3" json:"host,omitempty"`
-	AuditId       int64                  `protobuf:"varint,2,opt,name=audit_id,json=auditId,proto3" json:"audit_id,omitempty"`
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Host    *ServerHost            `protobuf:"bytes,1,opt,name=host,proto3" json:"host,omitempty"`
+	AuditId int64                  `protobuf:"varint,2,opt,name=audit_id,json=auditId,proto3" json:"audit_id,omitempty"`
+	// The events log row the request wrote (gravel#202), for a client to point at; 0 when it could
+	// not be recorded.
+	EventId       int64 `protobuf:"varint,3,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *DestroyServerHostResponse) Reset() {
 	*x = DestroyServerHostResponse{}
-	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[20]
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1617,7 +1801,7 @@ func (x *DestroyServerHostResponse) String() string {
 func (*DestroyServerHostResponse) ProtoMessage() {}
 
 func (x *DestroyServerHostResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[20]
+	mi := &file_gravel_hub_v1_hosts_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1630,7 +1814,7 @@ func (x *DestroyServerHostResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DestroyServerHostResponse.ProtoReflect.Descriptor instead.
 func (*DestroyServerHostResponse) Descriptor() ([]byte, []int) {
-	return file_gravel_hub_v1_hosts_proto_rawDescGZIP(), []int{20}
+	return file_gravel_hub_v1_hosts_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *DestroyServerHostResponse) GetHost() *ServerHost {
@@ -1643,6 +1827,13 @@ func (x *DestroyServerHostResponse) GetHost() *ServerHost {
 func (x *DestroyServerHostResponse) GetAuditId() int64 {
 	if x != nil {
 		return x.AuditId
+	}
+	return 0
+}
+
+func (x *DestroyServerHostResponse) GetEventId() int64 {
+	if x != nil {
+		return x.EventId
 	}
 	return 0
 }
@@ -1735,35 +1926,39 @@ const file_gravel_hub_v1_hosts_proto_rawDesc = "" +
 	"\adesired\x18\x02 \x01(\tR\adesired\x12\x16\n" +
 	"\x06reason\x18\x03 \x01(\tR\x06reason\x126\n" +
 	"\fon_behalf_of\x18\x04 \x01(\v2\x14.gravel.hub.v1.ActorR\n" +
-	"onBehalfOf\"h\n" +
+	"onBehalfOf\"\x83\x01\n" +
 	"\x1cSetServerHostDesiredResponse\x12-\n" +
 	"\x04host\x18\x01 \x01(\v2\x19.gravel.hub.v1.ServerHostR\x04host\x12\x19\n" +
-	"\baudit_id\x18\x02 \x01(\x03R\aauditId\"\x8a\x01\n" +
+	"\baudit_id\x18\x02 \x01(\x03R\aauditId\x12\x19\n" +
+	"\bevent_id\x18\x03 \x01(\x03R\aeventId\"\x8a\x01\n" +
 	"\x17ResizeServerHostRequest\x12\x1b\n" +
 	"\tserver_id\x18\x01 \x01(\tR\bserverId\x12\x12\n" +
 	"\x04size\x18\x02 \x01(\tR\x04size\x12\x14\n" +
 	"\x05force\x18\x03 \x01(\bR\x05force\x12\x16\n" +
 	"\x06reason\x18\x04 \x01(\tR\x06reason\x12\x10\n" +
-	"\x03pin\x18\x05 \x01(\bR\x03pin\"d\n" +
+	"\x03pin\x18\x05 \x01(\bR\x03pin\"\x7f\n" +
 	"\x18ResizeServerHostResponse\x12-\n" +
 	"\x04host\x18\x01 \x01(\v2\x19.gravel.hub.v1.ServerHostR\x04host\x12\x19\n" +
-	"\baudit_id\x18\x02 \x01(\x03R\aauditId\"Q\n" +
+	"\baudit_id\x18\x02 \x01(\x03R\aauditId\x12\x19\n" +
+	"\bevent_id\x18\x03 \x01(\x03R\aeventId\"Q\n" +
 	"\x1aUnpinServerHostSizeRequest\x12\x1b\n" +
 	"\tserver_id\x18\x01 \x01(\tR\bserverId\x12\x16\n" +
-	"\x06reason\x18\x02 \x01(\tR\x06reason\"g\n" +
+	"\x06reason\x18\x02 \x01(\tR\x06reason\"\x82\x01\n" +
 	"\x1bUnpinServerHostSizeResponse\x12-\n" +
 	"\x04host\x18\x01 \x01(\v2\x19.gravel.hub.v1.ServerHostR\x04host\x12\x19\n" +
-	"\baudit_id\x18\x02 \x01(\x03R\aauditId\"\xda\x01\n" +
+	"\baudit_id\x18\x02 \x01(\x03R\aauditId\x12\x19\n" +
+	"\bevent_id\x18\x03 \x01(\x03R\aeventId\"\xda\x01\n" +
 	"\x1fSetServerHostExpectationRequest\x12\x1b\n" +
 	"\tserver_id\x18\x01 \x01(\tR\bserverId\x12\x18\n" +
 	"\aplayers\x18\x02 \x01(\x05R\aplayers\x120\n" +
 	"\x05until\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x05until\x12\x16\n" +
 	"\x06reason\x18\x04 \x01(\tR\x06reason\x126\n" +
 	"\fon_behalf_of\x18\x05 \x01(\v2\x14.gravel.hub.v1.ActorR\n" +
-	"onBehalfOf\"l\n" +
+	"onBehalfOf\"\x87\x01\n" +
 	" SetServerHostExpectationResponse\x12-\n" +
 	"\x04host\x18\x01 \x01(\v2\x19.gravel.hub.v1.ServerHostR\x04host\x12\x19\n" +
-	"\baudit_id\x18\x02 \x01(\x03R\aauditId\"j\n" +
+	"\baudit_id\x18\x02 \x01(\x03R\aauditId\x12\x19\n" +
+	"\bevent_id\x18\x03 \x01(\x03R\aeventId\"j\n" +
 	"\x1fSnapshotServerHostVolumeRequest\x12\x1b\n" +
 	"\tserver_id\x18\x01 \x01(\tR\bserverId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x16\n" +
@@ -1775,23 +1970,36 @@ const file_gravel_hub_v1_hosts_proto_rawDesc = "" +
 	"\bsize_gib\x18\x04 \x01(\x01R\asizeGib\x12$\n" +
 	"\x0emin_volume_gib\x18\x05 \x01(\x05R\fminVolumeGib\x129\n" +
 	"\n" +
-	"created_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xa7\x01\n" +
+	"created_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xc2\x01\n" +
 	" SnapshotServerHostVolumeResponse\x12-\n" +
 	"\x04host\x18\x01 \x01(\v2\x19.gravel.hub.v1.ServerHostR\x04host\x12\x19\n" +
 	"\baudit_id\x18\x02 \x01(\x03R\aauditId\x129\n" +
-	"\bsnapshot\x18\x03 \x01(\v2\x1d.gravel.hub.v1.VolumeSnapshotR\bsnapshot\"\x9d\x01\n" +
+	"\bsnapshot\x18\x03 \x01(\v2\x1d.gravel.hub.v1.VolumeSnapshotR\bsnapshot\x12\x19\n" +
+	"\bevent_id\x18\x04 \x01(\x03R\aeventId\"\x9c\x01\n" +
+	"\x17RebootServerHostRequest\x12\x1b\n" +
+	"\tserver_id\x18\x01 \x01(\tR\bserverId\x12\x14\n" +
+	"\x05force\x18\x02 \x01(\bR\x05force\x12\x16\n" +
+	"\x06reason\x18\x03 \x01(\tR\x06reason\x126\n" +
+	"\fon_behalf_of\x18\x04 \x01(\v2\x14.gravel.hub.v1.ActorR\n" +
+	"onBehalfOf\"\x7f\n" +
+	"\x18RebootServerHostResponse\x12-\n" +
+	"\x04host\x18\x01 \x01(\v2\x19.gravel.hub.v1.ServerHostR\x04host\x12\x19\n" +
+	"\baudit_id\x18\x02 \x01(\x03R\aauditId\x12\x19\n" +
+	"\bevent_id\x18\x03 \x01(\x03R\aeventId\"\x9d\x01\n" +
 	"\x18DestroyServerHostRequest\x12\x1b\n" +
 	"\tserver_id\x18\x01 \x01(\tR\bserverId\x12#\n" +
 	"\rdelete_volume\x18\x02 \x01(\bR\fdeleteVolume\x12'\n" +
 	"\x0frelease_address\x18\x03 \x01(\bR\x0ereleaseAddress\x12\x16\n" +
-	"\x06reason\x18\x04 \x01(\tR\x06reason\"e\n" +
+	"\x06reason\x18\x04 \x01(\tR\x06reason\"\x80\x01\n" +
 	"\x19DestroyServerHostResponse\x12-\n" +
 	"\x04host\x18\x01 \x01(\v2\x19.gravel.hub.v1.ServerHostR\x04host\x12\x19\n" +
-	"\baudit_id\x18\x02 \x01(\x03R\aauditId2\x86\a\n" +
+	"\baudit_id\x18\x02 \x01(\x03R\aauditId\x12\x19\n" +
+	"\bevent_id\x18\x03 \x01(\x03R\aeventId2\xeb\a\n" +
 	"\x11ServerHostService\x12Z\n" +
 	"\rGetServerHost\x12#.gravel.hub.v1.GetServerHostRequest\x1a$.gravel.hub.v1.GetServerHostResponse\x12o\n" +
 	"\x14ListServerHostEvents\x12*.gravel.hub.v1.ListServerHostEventsRequest\x1a+.gravel.hub.v1.ListServerHostEventsResponse\x12o\n" +
 	"\x14SetServerHostDesired\x12*.gravel.hub.v1.SetServerHostDesiredRequest\x1a+.gravel.hub.v1.SetServerHostDesiredResponse\x12c\n" +
+	"\x10RebootServerHost\x12&.gravel.hub.v1.RebootServerHostRequest\x1a'.gravel.hub.v1.RebootServerHostResponse\x12c\n" +
 	"\x10ResizeServerHost\x12&.gravel.hub.v1.ResizeServerHostRequest\x1a'.gravel.hub.v1.ResizeServerHostResponse\x12l\n" +
 	"\x13UnpinServerHostSize\x12).gravel.hub.v1.UnpinServerHostSizeRequest\x1a*.gravel.hub.v1.UnpinServerHostSizeResponse\x12{\n" +
 	"\x18SetServerHostExpectation\x12..gravel.hub.v1.SetServerHostExpectationRequest\x1a/.gravel.hub.v1.SetServerHostExpectationResponse\x12{\n" +
@@ -1810,7 +2018,7 @@ func file_gravel_hub_v1_hosts_proto_rawDescGZIP() []byte {
 	return file_gravel_hub_v1_hosts_proto_rawDescData
 }
 
-var file_gravel_hub_v1_hosts_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
+var file_gravel_hub_v1_hosts_proto_msgTypes = make([]protoimpl.MessageInfo, 23)
 var file_gravel_hub_v1_hosts_proto_goTypes = []any{
 	(*ServerHost)(nil),                       // 0: gravel.hub.v1.ServerHost
 	(*HostTier)(nil),                         // 1: gravel.hub.v1.HostTier
@@ -1831,54 +2039,60 @@ var file_gravel_hub_v1_hosts_proto_goTypes = []any{
 	(*SnapshotServerHostVolumeRequest)(nil),  // 16: gravel.hub.v1.SnapshotServerHostVolumeRequest
 	(*VolumeSnapshot)(nil),                   // 17: gravel.hub.v1.VolumeSnapshot
 	(*SnapshotServerHostVolumeResponse)(nil), // 18: gravel.hub.v1.SnapshotServerHostVolumeResponse
-	(*DestroyServerHostRequest)(nil),         // 19: gravel.hub.v1.DestroyServerHostRequest
-	(*DestroyServerHostResponse)(nil),        // 20: gravel.hub.v1.DestroyServerHostResponse
-	(*timestamppb.Timestamp)(nil),            // 21: google.protobuf.Timestamp
-	(*Actor)(nil),                            // 22: gravel.hub.v1.Actor
+	(*RebootServerHostRequest)(nil),          // 19: gravel.hub.v1.RebootServerHostRequest
+	(*RebootServerHostResponse)(nil),         // 20: gravel.hub.v1.RebootServerHostResponse
+	(*DestroyServerHostRequest)(nil),         // 21: gravel.hub.v1.DestroyServerHostRequest
+	(*DestroyServerHostResponse)(nil),        // 22: gravel.hub.v1.DestroyServerHostResponse
+	(*timestamppb.Timestamp)(nil),            // 23: google.protobuf.Timestamp
+	(*Actor)(nil),                            // 24: gravel.hub.v1.Actor
 }
 var file_gravel_hub_v1_hosts_proto_depIdxs = []int32{
-	21, // 0: gravel.hub.v1.ServerHost.since:type_name -> google.protobuf.Timestamp
-	21, // 1: gravel.hub.v1.ServerHost.instance_created_at:type_name -> google.protobuf.Timestamp
+	23, // 0: gravel.hub.v1.ServerHost.since:type_name -> google.protobuf.Timestamp
+	23, // 1: gravel.hub.v1.ServerHost.instance_created_at:type_name -> google.protobuf.Timestamp
 	2,  // 2: gravel.hub.v1.ServerHost.sizes:type_name -> gravel.hub.v1.HostSize
 	1,  // 3: gravel.hub.v1.ServerHost.ladder:type_name -> gravel.hub.v1.HostTier
-	21, // 4: gravel.hub.v1.ServerHost.pending_since:type_name -> google.protobuf.Timestamp
-	21, // 5: gravel.hub.v1.ServerHost.last_resize_at:type_name -> google.protobuf.Timestamp
-	21, // 6: gravel.hub.v1.ServerHost.expected_until:type_name -> google.protobuf.Timestamp
-	21, // 7: gravel.hub.v1.HostEvent.at:type_name -> google.protobuf.Timestamp
+	23, // 4: gravel.hub.v1.ServerHost.pending_since:type_name -> google.protobuf.Timestamp
+	23, // 5: gravel.hub.v1.ServerHost.last_resize_at:type_name -> google.protobuf.Timestamp
+	23, // 6: gravel.hub.v1.ServerHost.expected_until:type_name -> google.protobuf.Timestamp
+	23, // 7: gravel.hub.v1.HostEvent.at:type_name -> google.protobuf.Timestamp
 	0,  // 8: gravel.hub.v1.GetServerHostResponse.host:type_name -> gravel.hub.v1.ServerHost
 	3,  // 9: gravel.hub.v1.ListServerHostEventsResponse.events:type_name -> gravel.hub.v1.HostEvent
-	22, // 10: gravel.hub.v1.SetServerHostDesiredRequest.on_behalf_of:type_name -> gravel.hub.v1.Actor
+	24, // 10: gravel.hub.v1.SetServerHostDesiredRequest.on_behalf_of:type_name -> gravel.hub.v1.Actor
 	0,  // 11: gravel.hub.v1.SetServerHostDesiredResponse.host:type_name -> gravel.hub.v1.ServerHost
 	0,  // 12: gravel.hub.v1.ResizeServerHostResponse.host:type_name -> gravel.hub.v1.ServerHost
 	0,  // 13: gravel.hub.v1.UnpinServerHostSizeResponse.host:type_name -> gravel.hub.v1.ServerHost
-	21, // 14: gravel.hub.v1.SetServerHostExpectationRequest.until:type_name -> google.protobuf.Timestamp
-	22, // 15: gravel.hub.v1.SetServerHostExpectationRequest.on_behalf_of:type_name -> gravel.hub.v1.Actor
+	23, // 14: gravel.hub.v1.SetServerHostExpectationRequest.until:type_name -> google.protobuf.Timestamp
+	24, // 15: gravel.hub.v1.SetServerHostExpectationRequest.on_behalf_of:type_name -> gravel.hub.v1.Actor
 	0,  // 16: gravel.hub.v1.SetServerHostExpectationResponse.host:type_name -> gravel.hub.v1.ServerHost
-	21, // 17: gravel.hub.v1.VolumeSnapshot.created_at:type_name -> google.protobuf.Timestamp
+	23, // 17: gravel.hub.v1.VolumeSnapshot.created_at:type_name -> google.protobuf.Timestamp
 	0,  // 18: gravel.hub.v1.SnapshotServerHostVolumeResponse.host:type_name -> gravel.hub.v1.ServerHost
 	17, // 19: gravel.hub.v1.SnapshotServerHostVolumeResponse.snapshot:type_name -> gravel.hub.v1.VolumeSnapshot
-	0,  // 20: gravel.hub.v1.DestroyServerHostResponse.host:type_name -> gravel.hub.v1.ServerHost
-	4,  // 21: gravel.hub.v1.ServerHostService.GetServerHost:input_type -> gravel.hub.v1.GetServerHostRequest
-	6,  // 22: gravel.hub.v1.ServerHostService.ListServerHostEvents:input_type -> gravel.hub.v1.ListServerHostEventsRequest
-	8,  // 23: gravel.hub.v1.ServerHostService.SetServerHostDesired:input_type -> gravel.hub.v1.SetServerHostDesiredRequest
-	10, // 24: gravel.hub.v1.ServerHostService.ResizeServerHost:input_type -> gravel.hub.v1.ResizeServerHostRequest
-	12, // 25: gravel.hub.v1.ServerHostService.UnpinServerHostSize:input_type -> gravel.hub.v1.UnpinServerHostSizeRequest
-	14, // 26: gravel.hub.v1.ServerHostService.SetServerHostExpectation:input_type -> gravel.hub.v1.SetServerHostExpectationRequest
-	16, // 27: gravel.hub.v1.ServerHostService.SnapshotServerHostVolume:input_type -> gravel.hub.v1.SnapshotServerHostVolumeRequest
-	19, // 28: gravel.hub.v1.ServerHostService.DestroyServerHost:input_type -> gravel.hub.v1.DestroyServerHostRequest
-	5,  // 29: gravel.hub.v1.ServerHostService.GetServerHost:output_type -> gravel.hub.v1.GetServerHostResponse
-	7,  // 30: gravel.hub.v1.ServerHostService.ListServerHostEvents:output_type -> gravel.hub.v1.ListServerHostEventsResponse
-	9,  // 31: gravel.hub.v1.ServerHostService.SetServerHostDesired:output_type -> gravel.hub.v1.SetServerHostDesiredResponse
-	11, // 32: gravel.hub.v1.ServerHostService.ResizeServerHost:output_type -> gravel.hub.v1.ResizeServerHostResponse
-	13, // 33: gravel.hub.v1.ServerHostService.UnpinServerHostSize:output_type -> gravel.hub.v1.UnpinServerHostSizeResponse
-	15, // 34: gravel.hub.v1.ServerHostService.SetServerHostExpectation:output_type -> gravel.hub.v1.SetServerHostExpectationResponse
-	18, // 35: gravel.hub.v1.ServerHostService.SnapshotServerHostVolume:output_type -> gravel.hub.v1.SnapshotServerHostVolumeResponse
-	20, // 36: gravel.hub.v1.ServerHostService.DestroyServerHost:output_type -> gravel.hub.v1.DestroyServerHostResponse
-	29, // [29:37] is the sub-list for method output_type
-	21, // [21:29] is the sub-list for method input_type
-	21, // [21:21] is the sub-list for extension type_name
-	21, // [21:21] is the sub-list for extension extendee
-	0,  // [0:21] is the sub-list for field type_name
+	24, // 20: gravel.hub.v1.RebootServerHostRequest.on_behalf_of:type_name -> gravel.hub.v1.Actor
+	0,  // 21: gravel.hub.v1.RebootServerHostResponse.host:type_name -> gravel.hub.v1.ServerHost
+	0,  // 22: gravel.hub.v1.DestroyServerHostResponse.host:type_name -> gravel.hub.v1.ServerHost
+	4,  // 23: gravel.hub.v1.ServerHostService.GetServerHost:input_type -> gravel.hub.v1.GetServerHostRequest
+	6,  // 24: gravel.hub.v1.ServerHostService.ListServerHostEvents:input_type -> gravel.hub.v1.ListServerHostEventsRequest
+	8,  // 25: gravel.hub.v1.ServerHostService.SetServerHostDesired:input_type -> gravel.hub.v1.SetServerHostDesiredRequest
+	19, // 26: gravel.hub.v1.ServerHostService.RebootServerHost:input_type -> gravel.hub.v1.RebootServerHostRequest
+	10, // 27: gravel.hub.v1.ServerHostService.ResizeServerHost:input_type -> gravel.hub.v1.ResizeServerHostRequest
+	12, // 28: gravel.hub.v1.ServerHostService.UnpinServerHostSize:input_type -> gravel.hub.v1.UnpinServerHostSizeRequest
+	14, // 29: gravel.hub.v1.ServerHostService.SetServerHostExpectation:input_type -> gravel.hub.v1.SetServerHostExpectationRequest
+	16, // 30: gravel.hub.v1.ServerHostService.SnapshotServerHostVolume:input_type -> gravel.hub.v1.SnapshotServerHostVolumeRequest
+	21, // 31: gravel.hub.v1.ServerHostService.DestroyServerHost:input_type -> gravel.hub.v1.DestroyServerHostRequest
+	5,  // 32: gravel.hub.v1.ServerHostService.GetServerHost:output_type -> gravel.hub.v1.GetServerHostResponse
+	7,  // 33: gravel.hub.v1.ServerHostService.ListServerHostEvents:output_type -> gravel.hub.v1.ListServerHostEventsResponse
+	9,  // 34: gravel.hub.v1.ServerHostService.SetServerHostDesired:output_type -> gravel.hub.v1.SetServerHostDesiredResponse
+	20, // 35: gravel.hub.v1.ServerHostService.RebootServerHost:output_type -> gravel.hub.v1.RebootServerHostResponse
+	11, // 36: gravel.hub.v1.ServerHostService.ResizeServerHost:output_type -> gravel.hub.v1.ResizeServerHostResponse
+	13, // 37: gravel.hub.v1.ServerHostService.UnpinServerHostSize:output_type -> gravel.hub.v1.UnpinServerHostSizeResponse
+	15, // 38: gravel.hub.v1.ServerHostService.SetServerHostExpectation:output_type -> gravel.hub.v1.SetServerHostExpectationResponse
+	18, // 39: gravel.hub.v1.ServerHostService.SnapshotServerHostVolume:output_type -> gravel.hub.v1.SnapshotServerHostVolumeResponse
+	22, // 40: gravel.hub.v1.ServerHostService.DestroyServerHost:output_type -> gravel.hub.v1.DestroyServerHostResponse
+	32, // [32:41] is the sub-list for method output_type
+	23, // [23:32] is the sub-list for method input_type
+	23, // [23:23] is the sub-list for extension type_name
+	23, // [23:23] is the sub-list for extension extendee
+	0,  // [0:23] is the sub-list for field type_name
 }
 
 func init() { file_gravel_hub_v1_hosts_proto_init() }
@@ -1893,7 +2107,7 @@ func file_gravel_hub_v1_hosts_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gravel_hub_v1_hosts_proto_rawDesc), len(file_gravel_hub_v1_hosts_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   21,
+			NumMessages:   23,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

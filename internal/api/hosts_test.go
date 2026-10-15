@@ -52,6 +52,10 @@ func TestHostServiceCallers(t *testing.T) {
 			_, err := c.SetServerHostDesired(ctx, connect.NewRequest(&hubv1.SetServerHostDesiredRequest{ServerId: "wd-1", Desired: "parked"}))
 			return err
 		},
+		"reboot": func(c hubv1connect.ServerHostServiceClient) error {
+			_, err := c.RebootServerHost(ctx, connect.NewRequest(&hubv1.RebootServerHostRequest{ServerId: "wd-1"}))
+			return err
+		},
 		"expect": func(c hubv1connect.ServerHostServiceClient) error {
 			_, err := c.SetServerHostExpectation(ctx, connect.NewRequest(&hubv1.SetServerHostExpectationRequest{ServerId: "wd-1", Players: 10, Until: timestamppb.New(time.Now().Add(time.Hour))}))
 			return err
@@ -79,15 +83,15 @@ func TestHostServiceCallers(t *testing.T) {
 		anon     = connect.CodeUnauthenticated
 	)
 	want := map[string]map[string]connect.Code{
-		"anonymous": {"get": anon, "park": anon, "expect": anon, "resize": anon, "unpin": anon, "snapshot": anon, "destroy": anon},
-		"member":    {"get": admitted, "park": denied, "expect": denied, "resize": denied, "unpin": denied, "snapshot": denied, "destroy": denied},
-		// Park, unpark and the expectation are an operator's (ADR-0027 §3): a moderator has none of it.
-		"moderator": {"get": admitted, "park": denied, "expect": denied, "resize": denied, "unpin": denied, "snapshot": denied, "destroy": denied},
-		"operator":  {"get": admitted, "park": admitted, "expect": admitted, "resize": denied, "unpin": denied, "snapshot": denied, "destroy": denied},
-		"owner":     {"get": admitted, "park": admitted, "expect": admitted, "resize": admitted, "unpin": admitted, "snapshot": admitted, "destroy": admitted},
-		"reader":    {"get": admitted, "park": denied, "expect": denied, "resize": denied, "unpin": denied, "snapshot": denied, "destroy": denied},
-		"bot":       {"get": denied, "park": denied, "expect": denied, "resize": denied, "unpin": denied, "snapshot": denied, "destroy": denied},
-		"operating": {"get": denied, "park": admitted, "expect": admitted, "resize": denied, "unpin": denied, "snapshot": denied, "destroy": denied},
+		"anonymous": {"get": anon, "park": anon, "reboot": anon, "expect": anon, "resize": anon, "unpin": anon, "snapshot": anon, "destroy": anon},
+		"member":    {"get": admitted, "park": denied, "reboot": denied, "expect": denied, "resize": denied, "unpin": denied, "snapshot": denied, "destroy": denied},
+		// Park, unpark, reboot and the expectation are an operator's (ADR-0027 §3): a moderator has none of it.
+		"moderator": {"get": admitted, "park": denied, "reboot": denied, "expect": denied, "resize": denied, "unpin": denied, "snapshot": denied, "destroy": denied},
+		"operator":  {"get": admitted, "park": admitted, "reboot": admitted, "expect": admitted, "resize": denied, "unpin": denied, "snapshot": denied, "destroy": denied},
+		"owner":     {"get": admitted, "park": admitted, "reboot": admitted, "expect": admitted, "resize": admitted, "unpin": admitted, "snapshot": admitted, "destroy": admitted},
+		"reader":    {"get": admitted, "park": denied, "reboot": denied, "expect": denied, "resize": denied, "unpin": denied, "snapshot": denied, "destroy": denied},
+		"bot":       {"get": denied, "park": denied, "reboot": denied, "expect": denied, "resize": denied, "unpin": denied, "snapshot": denied, "destroy": denied},
+		"operating": {"get": denied, "park": admitted, "reboot": admitted, "expect": admitted, "resize": denied, "unpin": denied, "snapshot": denied, "destroy": denied},
 	}
 	for who, c := range callers {
 		for name, f := range calls {

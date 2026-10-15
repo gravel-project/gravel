@@ -86,6 +86,7 @@ var kinds = []Kind{
 	{"action.host_snapshot", Notice, "someone snapshotted a parked server's volume"},
 	{"action.host_expect", Info, "someone said how many players to expect"},
 	{"action.host_destroy", Warning, "someone destroyed a parked server's remains"},
+	{"action.host_reboot", Notice, "someone rebooted a cloud-VM server's machine"},
 	{"action.lease_request", Info, "an app or a member asked for a lease"},
 	{"action.lease_release", Info, "an app or a member gave a lease back"},
 	// A server's health, from the monitor's polls (gravel#190): on a transition only.
@@ -103,6 +104,7 @@ var kinds = []Kind{
 	{"host.parked", Info, "the host is parked"},
 	{"host.resizing", Info, "the host is being resized"},
 	{"host.resized", Notice, "the host was resized and is running again"},
+	{"host.rebooting", Notice, "the host is being rebooted: its instance stopped and started again"},
 	{"host.destroying", Notice, "the host is being destroyed"},
 	{"host.failing", Warning, "a step on the host keeps failing; the hub retries"},
 	{"host.recovered", Info, "the host's failing step went through"},

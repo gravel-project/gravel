@@ -298,6 +298,38 @@ func TestHubCloudVMLifecycle(t *testing.T) {
 	if err != nil || unpinned.Msg.GetHost().GetPinnedSize() != "" {
 		t.Fatalf("unpin: %v %v", unpinned, err)
 	}
+
+	// Reboot (gravel#202): the same instance stopped and started again, back to running. The answer
+	// names the event the request wrote, and that event is in the log.
+	before, _ := p.Instances(ctx, cloud.Filter{})
+	rebooted, err := hosts.RebootServerHost(ctx, connect.NewRequest(&hubv1.RebootServerHostRequest{ServerId: "cs2-1", Force: true, Reason: "wedged"}))
+	if err != nil || rebooted.Msg.GetAuditId() == 0 || rebooted.Msg.GetEventId() == 0 {
+		t.Fatalf("reboot: %v %v", rebooted, err)
+	}
+	deadline = time.Now().Add(30 * time.Second)
+	for sawRebooting := false; ; {
+		got, err := hosts.GetServerHost(ctx, connect.NewRequest(&hubv1.GetServerHostRequest{ServerId: "cs2-1"}))
+		state := got.Msg.GetHost().GetState()
+		sawRebooting = sawRebooting || (err == nil && state != cloudvm.StateRunning)
+		if err == nil && sawRebooting && state == cloudvm.StateRunning {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("never rebooted: %v %v", got, err)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if after, _ := p.Instances(ctx, cloud.Filter{}); len(before) != 1 || len(after) != 1 || after[0].ID != before[0].ID {
+		t.Errorf("a reboot replaced the instance: %v → %v", before, after)
+	}
+	orgs := hubv1connect.NewOrganizationServiceClient(owned, base)
+	logged, err := orgs.ListEvents(ctx, connect.NewRequest(&hubv1.ListEventsRequest{AfterId: rebooted.Msg.GetEventId() - 1, Limit: 1}))
+	if err != nil || len(logged.Msg.GetEvents()) != 1 || logged.Msg.GetEvents()[0].GetId() != rebooted.Msg.GetEventId() || logged.Msg.GetEvents()[0].GetKind() != "action.host_reboot" {
+		t.Errorf("the reboot's event %d: %v %v", rebooted.Msg.GetEventId(), logged, err)
+	}
+	if parked.Msg.GetEventId() == 0 || parked.Msg.GetEventId() >= rebooted.Msg.GetEventId() {
+		t.Errorf("event ids: park %d, reboot %d", parked.Msg.GetEventId(), rebooted.Msg.GetEventId())
+	}
 	if _, err := hosts.UnpinServerHostSize(ctx, connect.NewRequest(&hubv1.UnpinServerHostSizeRequest{ServerId: "cs2-1"})); connect.CodeOf(err) != connect.CodeInvalidArgument {
 		t.Errorf("unpin with nothing pinned: %v", err)
 	}
@@ -341,7 +373,7 @@ func TestHubCloudVMLifecycle(t *testing.T) {
 	for _, e := range audit.Msg.GetEntries() {
 		actions = append(actions, e.GetAction()+":"+e.GetOutcome())
 	}
-	if strings.Join(actions, ",") != "host_expect:invalid,host_expect:accepted,host_expect:accepted,host_unpin:invalid,host_unpin:accepted,host_resize:accepted,host_resize:accepted,host_resize:invalid,host_snapshot:not_parked,host_unpark:accepted,host_snapshot:accepted,host_park:accepted,host_destroy:not_parked" {
+	if strings.Join(actions, ",") != "host_expect:invalid,host_expect:accepted,host_expect:accepted,host_unpin:invalid,host_reboot:accepted,host_unpin:accepted,host_resize:accepted,host_resize:accepted,host_resize:invalid,host_snapshot:not_parked,host_unpark:accepted,host_snapshot:accepted,host_park:accepted,host_destroy:not_parked" {
 		t.Errorf("audit %v", actions)
 	}
 

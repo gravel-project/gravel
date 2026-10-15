@@ -14,6 +14,7 @@ import { Access } from "./pages/Access";
 import { Events } from "./pages/Events";
 import { Fleet } from "./pages/Fleet";
 import { People } from "./pages/People";
+import { Server } from "./pages/Server";
 import { type Browser, BrowserProvider, useMe, useOrganization, windowBrowser } from "./session";
 import { TransportProvider } from "./transport";
 
@@ -66,8 +67,9 @@ function Shell() {
         <Frame org={org} me={me.me}>
           <Switch>
             <Route path="/">
-              <Fleet />
+              <Fleet me={me.me} />
             </Route>
+            <Route path="/servers/:id">{(params) => <Server id={params.id} me={me.me} />}</Route>
             <Route path="/events">
               <Events />
             </Route>

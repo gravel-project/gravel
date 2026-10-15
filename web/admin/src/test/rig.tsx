@@ -19,6 +19,8 @@ import {
   OrganizationService,
 } from "../gen/gravel/hub/v1/organization_pb";
 import { GameSchema, GetFleetSummaryResponseSchema, ServerSchema, ServerService } from "../gen/gravel/hub/v1/servers_pb";
+import { ServerHostSchema, ServerHostService } from "../gen/gravel/hub/v1/hosts_pb";
+import { ServerLeaseSchema, ServerLeaseService } from "../gen/gravel/hub/v1/leases_pb";
 import type { Browser } from "../session";
 
 export interface RigOptions {
@@ -44,6 +46,11 @@ export interface RigOptions {
   org?: MessageInitShape<typeof OrganizationSchema>;
   // refuse names the procedures that answer permission_denied ("listUsers", "setUserRole", …).
   refuse?: readonly string[];
+  // hosts are the cloud-VM servers' hosts by server id; a server without one is not a cloud-VM
+  // server (GetServerHost: not_found). The host actions change them.
+  hosts?: Record<string, MessageInitShape<typeof ServerHostSchema>>;
+  // leases are the live leases by server id.
+  leases?: Record<string, MessageInitShape<typeof ServerLeaseSchema>>;
 }
 
 // Call is one of the people actions as the page sent it.
@@ -60,7 +67,7 @@ export function member(fields: Member = {}): Member {
 }
 
 export function renderShell({ me, demo = false, path = "/", fleet = { totals: {} }, log = [], kinds = [], servers = [], games = [], poll = 0,
-  users = [], pageSize = 100, org = {}, refuse = [] }: RigOptions = {}) {
+  users = [], pageSize = 100, org = {}, refuse = [], hosts = {}, leases = {} }: RigOptions = {}) {
   // calls are the ListEvents requests, in order, for a test to check the cursors.
   const calls: ListEventsRequest[] = [];
   // actions are the people actions, in order; people and the organization are what they changed.
@@ -73,6 +80,20 @@ export function renderShell({ me, demo = false, path = "/", fleet = { totals: {}
       throw new ConnectError("not allowed to change that grant: only the owner changes an admin grant", Code.PermissionDenied);
     }
     actions.push({ method, req });
+  };
+  const hostRows = new Map(Object.entries(hosts).map(([id, h]) => [id, create(ServerHostSchema, { serverId: id, ...h })]));
+  const leaseRows = new Map(Object.entries(leases).map(([id, l]) => [id, create(ServerLeaseSchema, { serverId: id, ...l })]));
+  let nextEvent = 100n;
+  // hostAct records a host action, applies change to the host and answers it with an event id.
+  const hostAct = (method: string, req: { serverId: string }, change: (h: ReturnType<typeof create<typeof ServerHostSchema>>) => void = () => undefined) => {
+    act(method, req);
+    const h = hostRows.get(req.serverId);
+    if (!h) {
+      throw new ConnectError("not a cloud-VM server", Code.NotFound);
+    }
+    change(h);
+    nextEvent += 1n;
+    return { host: h, auditId: nextEvent - 90n, eventId: nextEvent };
   };
   const find = (id: string) => {
     const u = people.find((p) => p.id === id);
@@ -162,6 +183,67 @@ export function renderShell({ me, demo = false, path = "/", fleet = { totals: {}
       },
       listServers: () => ({ servers: servers.map((x) => create(ServerSchema, x)) }),
       listGames: () => ({ games: games.map((g) => create(GameSchema, g)) }),
+      getServerStatus: (req) => {
+        const s = servers.find((x) => x.id === req.serverId);
+        if (!s) {
+          throw new ConnectError("no such server", Code.NotFound);
+        }
+        return { server: create(ServerSchema, s) };
+      },
+    });
+    service(ServerHostService, {
+      getServerHost: (req) => {
+        const h = hostRows.get(req.serverId);
+        if (!h) {
+          throw new ConnectError("not a cloud-VM server", Code.NotFound);
+        }
+        return { host: h };
+      },
+      setServerHostDesired: (req) =>
+        hostAct("setServerHostDesired", req, (h) => {
+          h.desired = req.desired;
+          h.state = req.desired === "parked" ? "parking" : "creating";
+        }),
+      rebootServerHost: (req) =>
+        hostAct("rebootServerHost", req, (h) => {
+          h.state = "rebooting";
+        }),
+      setServerHostExpectation: (req) =>
+        hostAct("setServerHostExpectation", req, (h) => {
+          h.expectedPlayers = req.players;
+          h.expectedUntil = req.until;
+        }),
+      resizeServerHost: (req) =>
+        hostAct("resizeServerHost", req, (h) => {
+          h.targetSize = req.size;
+          h.pinnedSize = req.pin ? req.size : h.pinnedSize;
+        }),
+      unpinServerHostSize: (req) =>
+        hostAct("unpinServerHostSize", req, (h) => {
+          h.pinnedSize = "";
+        }),
+      snapshotServerHostVolume: (req) => ({ ...hostAct("snapshotServerHostVolume", req), snapshot: { name: req.name || req.serverId + "-data" } }),
+      destroyServerHost: (req) =>
+        hostAct("destroyServerHost", req, (h) => {
+          h.state = "destroying";
+        }),
+    });
+    service(ServerLeaseService, {
+      listServerLeases: (req) => {
+        const l = leaseRows.get(req.serverId);
+        return { leases: l ? [l] : [] };
+      },
+      releaseServerLease: (req) => {
+        act("releaseServerLease", req);
+        const [sid] = [...leaseRows.entries()].find(([, l]) => l.id === req.leaseId) ?? [];
+        if (sid === undefined) {
+          throw new ConnectError("no such lease", Code.NotFound);
+        }
+        const lease = leaseRows.get(sid);
+        leaseRows.delete(sid);
+        nextEvent += 1n;
+        return { lease, eventId: nextEvent };
+      },
     });
   });
   const left: string[] = [];
@@ -171,7 +253,7 @@ export function renderShell({ me, demo = false, path = "/", fleet = { totals: {}
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, refetchInterval: poll > 0 ? poll : false } } });
   const { hook } = memoryLocation({ path: here });
   const view = render(<App transport={transport} queryClient={queryClient} browser={browser} location={hook} />);
-  return { ...view, left, calls, actions, people, organization };
+  return { ...view, left, calls, actions, people, organization, hostRows };
 }
 
 // readLog answers ListEvents as the hub does (internal/api/events.go): after_id oldest first,

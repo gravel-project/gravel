@@ -248,6 +248,8 @@ func (t *tick) advance(ctx context.Context, h *Host) (bool, error) {
 		return t.park(ctx, h)
 	case StateResizing:
 		return t.resize(ctx, h)
+	case StateRebooting:
+		return t.reboot(ctx, h)
 	case StateDestroying:
 		return t.destroy(ctx, h)
 	}
@@ -669,6 +671,11 @@ func (t *tick) running(ctx context.Context, h *Host, want string) (bool, error) 
 		t.to(h, StateResizing, stepQuit, h.Size+" to "+h.TargetSize)
 		return true, nil
 	}
+	if h.Reboot {
+		h.Reboot = false
+		t.to(h, StateRebooting, stepQuit, "reboot")
+		return true, nil
+	}
 	t.rt.mu.Lock()
 	drift := t.now.Sub(t.rt.lastDrift) >= DriftEvery
 	if drift {
@@ -983,6 +990,43 @@ func (t *tick) resize(ctx context.Context, h *Host) (bool, error) {
 		return true, nil
 	}
 	return false, fmt.Errorf("cloudvm: unknown resizing step %q", h.Step)
+}
+
+// reboot stops the instance and starts it again (gravel#202): resize's steps without the resize.
+// The game is warned first; once started, the host boots as after any start.
+func (t *tick) reboot(ctx context.Context, h *Host) (bool, error) {
+	switch h.Step {
+	case stepQuit, "":
+		t.quit(ctx, h, "This server restarts in 10 seconds. Rejoin in a few minutes.")
+		h.Step = stepStop
+		return true, nil
+	case stepStop:
+		stopped, progressed, err := t.stop(ctx, h)
+		if err != nil || !stopped {
+			return progressed, err
+		}
+		if h.InstanceID == "" {
+			t.to(h, StateCreating, stepInstance, "recreate")
+			return true, nil
+		}
+		h.Step = stepStart
+		return true, nil
+	case stepStart:
+		op, err := t.p.StartInstance(ctx, h.InstanceID)
+		if err != nil {
+			return false, cloudErr(err)
+		}
+		if !op.Done() {
+			h.Operation = &op
+		}
+		h.Step = stepStarted
+		return true, nil
+	case stepStarted:
+		t.forgetGame()
+		t.to(h, StateBooting, stepResized, "")
+		return true, nil
+	}
+	return false, fmt.Errorf("cloudvm: unknown rebooting step %q", h.Step)
 }
 
 func (t *tick) destroy(ctx context.Context, h *Host) (bool, error) {

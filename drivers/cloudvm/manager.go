@@ -38,6 +38,7 @@ const (
 	StateParking    = "parking"
 	StateParked     = "parked"
 	StateResizing   = "resizing"
+	StateRebooting  = "rebooting"
 	StateDestroying = "destroying"
 )
 
@@ -149,6 +150,9 @@ type Intent struct {
 	ExpectedReason  string
 	// RequestAuditID is the audit row of the request the next transition carries out; 0 for none.
 	RequestAuditID int64
+	// Reboot is a reboot asked of a running host (gravel#202): the next tick stops its instance and
+	// starts it again, and clears it.
+	Reboot bool
 }
 
 // Host is the hub's record of one server's host (a server_hosts row).
@@ -642,6 +646,29 @@ func (m *Manager) Resize(ctx context.Context, id, size string, force, pin bool, 
 			h.PinnedSize = size
 		}
 		h.RequestAuditID = auditID
+		return nil
+	})
+}
+
+// Reboot asks a running host to stop its instance and start it again (gravel#202): the players
+// are warned as for a resize, and the game comes back as after any boot. With players on it
+// refuses unless force; a resize already asked for goes first.
+func (m *Manager) Reboot(ctx context.Context, id string, force bool, auditID int64) (Host, error) {
+	rt, _, ok := m.host(id)
+	if !ok {
+		return Host{}, ErrNoSuchHost
+	}
+	if rt.snapshot().State != StateRunning {
+		return Host{}, ErrNotRunning
+	}
+	if n, known := m.Players(id); !force && (n > 0 || !known) {
+		return Host{}, ErrPlayersOn
+	}
+	return m.request(ctx, id, func(h *Host, _ ServerSpec) error {
+		if h.State != StateRunning {
+			return ErrNotRunning
+		}
+		h.Reboot, h.RequestAuditID = true, auditID
 		return nil
 	})
 }

@@ -219,16 +219,25 @@ func TestHostsEndToEnd(t *testing.T) {
 	if _, err := r.hosts.Resize(ctx, owner, "htg-cs2-1", "dedicated-4", false, false, ""); !errors.Is(err, cloudvm.ErrPlayersOn) {
 		t.Errorf("resize with a player on: %v", err)
 	}
-	id, err := r.hosts.SetDesired(ctx, owner, "htg-cs2-1", cloudvm.DesiredParked, "nobody tonight")
+	// A reboot (gravel#202) refuses a player on too, and its refusal is recorded and logged.
+	if rb, err := r.hosts.Reboot(ctx, owner, "htg-cs2-1", false, ""); !errors.Is(err, cloudvm.ErrPlayersOn) || rb.EventID != serverstest.EventIDBase+rb.AuditID {
+		t.Errorf("reboot with a player on: %+v %v", rb, err)
+	}
+	done, err := r.hosts.SetDesired(ctx, owner, "htg-cs2-1", cloudvm.DesiredParked, "nobody tonight")
 	if err != nil {
 		t.Fatal(err)
+	}
+	id := done.AuditID
+	if done.EventID != serverstest.EventIDBase+id {
+		t.Errorf("the request's event: %+v", done)
 	}
 	if err := r.mgr.Tick(ctx, "htg-cs2-1"); err != nil {
 		t.Fatal(err)
 	}
 	entries := r.audit.Entries()
-	if len(entries) != 2 || entries[0].Action != ActionHostResize || entries[0].Outcome != OutcomePlayersOn ||
-		entries[1].Action != ActionHostPark || entries[1].Outcome != OutcomeAccepted || entries[1].ID != id || entries[1].Reason != "nobody tonight" {
+	if len(entries) != 3 || entries[0].Action != ActionHostResize || entries[0].Outcome != OutcomePlayersOn ||
+		entries[1].Action != ActionHostReboot || entries[1].Outcome != OutcomePlayersOn ||
+		entries[2].Action != ActionHostPark || entries[2].Outcome != OutcomeAccepted || entries[2].ID != id || entries[2].Reason != "nobody tonight" {
 		t.Errorf("audit %+v", entries)
 	}
 	ev, more, err := r.hosts.Events(ctx, "htg-cs2-1", 0, 2)
@@ -244,7 +253,7 @@ func TestHostsEndToEnd(t *testing.T) {
 	if _, err := r.hosts.Host(ctx, "nope"); !errors.Is(err, ErrNotCloudVM) {
 		t.Errorf("host of an unknown server: %v", err)
 	}
-	if n := len(r.audit.Entries()); n != 2 {
+	if n := len(r.audit.Entries()); n != 3 {
 		t.Errorf("refused-before-recording requests were recorded: %d entries", n)
 	}
 }

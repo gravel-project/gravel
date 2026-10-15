@@ -159,6 +159,7 @@ Public listener (`server.listen`), HTTP/1.1 and unencrypted HTTP/2 so gRPC works
 | `/gravel.hub.v1.IdentityService/GetProof` | `{"proof_id": "…"}` → `open`, `proven`, `taken`, `replaced` or `expired`, and the account once proven; a session only, the caller's own |
 | `/gravel.hub.v1.ServerLeaseService/RequestServerLease` | `{"pool": "pug", "holder_ref": "…", "expected_players": 10, "settings": {"start_map": "de_nuke"}, "plugins": ["matchzy"], "match_config": "<base64 JSON>"}` → the lease and how to join, password included ([Server leases](#server-leases-adr-0023)); an app with `servers:lease`, the owner or a moderator |
 | `/gravel.hub.v1.ServerLeaseService/WatchServerLease` | `{"lease_id": "…"}` → the lease at once and at every change, a heartbeat every 30 s, until it is over (server streaming); the lease's app, the owner or a moderator |
+| `/gravel.hub.v1.ServerHostService/…` (`SetServerHostDesired`, `RebootServerHost`, `SetServerHostExpectation`, `ResizeServerHost`, `UnpinServerHostSize`, `SnapshotServerHostVolume`, `DestroyServerHost`) and `ServerLeaseService/ReleaseServerLease` | each answers `audit_id` (its moderation-audit row) and `event_id` (the events log row it wrote, gravel#202), so a client can point at what happened; [Cloud-VM servers](#cloud-vm-servers-adr-0003) has what each does |
 | `/gravel.hub.v1.StatsService/GetMatchResult` | `{"id": "…"}` → a match plugin's series with its maps and each player's totals, named as on a board ([Match results](#match-results-adr-0024)); the same access as `GetBoard` |
 | `/gravel.hub.v1.IdentityService/Logout` | end the calling session and clear its cookie |
 | `/gravel.hub.v1.IdentityService/RevokeSessions` | log out everywhere; answers how many sessions ended and clears the cookie |
@@ -528,7 +529,7 @@ curl -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{
 | `identity:read` | `LookupUser`, `ListUsers`, `ListIdentityEvents`: members and their identities, for role sync |
 | `servers:read` | `ListServerPlayers`: who is on a server, for a live card (the rest of `ServerService` is public), and a server's shared join password in `ServerStatus.join` (`vm.share_password`, #180) |
 | `servers:moderate` | `ModerationService`: kick, ban, unban, message, broadcast and move players, list a server's bans, read the audit log |
-| `servers:operate` | `SetServerHostDesired` and `SetServerHostExpectation`: park and unpark a cloud-VM server, and say how many players to expect |
+| `servers:operate` | `SetServerHostDesired`, `RebootServerHost` and `SetServerHostExpectation`: park, unpark and reboot a cloud-VM server, and say how many players to expect |
 | `roles:grant` | `SetUserRole`, for moderator grants only: Discord role sync's ceiling ([Roles](#roles)) |
 | `events:read` | `ListEvents`: the events log, for a notifier or a dashboard of its own ([Events](#events-adr-0028)) |
 | `servers:lease` | `ServerLeaseService`: take a leasable server for a match and give it back ([Server leases](#server-leases-adr-0023)) |
@@ -844,6 +845,7 @@ twice.
 | `parking` | players warned, the game stopped, the instance stopped and, where a stopped instance bills (DigitalOcean), destroyed | `provisioning` |
 | `parked` | nothing: the volume and the reserved address stay; unparking makes a new instance on them | `parked` |
 | `resizing` | the game stopped, the instance stopped, resized (CPU and memory only: the root disk never changes, so the way back is open) and started | `provisioning` |
+| `rebooting` | players warned, the game stopped, the same instance stopped and started again (`RebootServerHost`, gravel#202): the disk, the volume and the address stay; then `booting` as after any start | `provisioning` |
 | `destroying` | the instance, then the volume and the address only when asked, then the firewall | `provisioning` |
 
 A step that fails keeps its state, shows a word (`error_code`: `cloud_failed`,
@@ -884,7 +886,10 @@ never starts a game on a file it couldn't check); while running it is logged and
 `idle`). The owner and moderators park and start a server (`SetServerHostDesired`, or the server
 page's "Server machine" section); the owner resizes it to a size the provider allows from its
 current one (`ResizeServerHost`; refused with players on unless `force`) and destroys a parked one
-(`DestroyServerHost`; the volume and the address stay unless asked). A resize disconnects everyone
+(`DestroyServerHost`; the volume and the address stay unless asked). An operator **reboots** a running
+one (`RebootServerHost`, servers:operate; refused with players on unless `force`): the players are
+warned, then the same instance stops and starts again, which clears a wedged game or machine
+without a new instance. A resize disconnects everyone
 for a few minutes (DigitalOcean's `c-2` to `c-4` and back: 2½ minutes each way, measured on HTG's
 server), and an owner's resize lasts until the host is parked: an unpark makes the instance at
 `vm.size` again.
@@ -1443,7 +1448,7 @@ read and goes in #199.
 | `identity:read` | `LookupUser`, `ListUsers`, `ListIdentityEvents`, `ListRoleGrants` | admins, moderators; apps |
 | `servers:read` | `ListServerPlayers`, `GetServerHost`, `ListServerHostEvents` | every member; apps |
 | `servers:moderate` | `ModerationService` | admins, moderators; apps |
-| `servers:operate` | `SetServerHostDesired`, `SetServerHostExpectation` (park, unpark, the expectation) | admins, operators; apps |
+| `servers:operate` | `SetServerHostDesired`, `RebootServerHost`, `SetServerHostExpectation` (park, unpark, reboot, the expectation) | admins, operators; apps |
 | `servers:lease` | `ServerLeaseService` | admins, operators, moderators; apps |
 | `servers:configure` | `ServerConfigService` | admins, operators; apps |
 | `servers:provision` | `ResizeServerHost`, `UnpinServerHostSize`, `SnapshotServerHostVolume`, `DestroyServerHost` | admins |
@@ -1536,6 +1541,7 @@ app with `events:read`.
 | `action.host_snapshot` | notice | Someone snapshotted a parked server's volume |
 | `action.host_expect` | info | Someone said how many players to expect |
 | `action.host_destroy` | warning | Someone destroyed a parked server's remains |
+| `action.host_reboot` | notice | Someone rebooted a cloud-VM server's machine |
 | `action.lease_request` | info | An app or a member asked for a lease |
 | `action.lease_release` | info | An app or a member gave a lease back |
 | `host.absent` | info | The host is gone |
@@ -1547,6 +1553,7 @@ app with `events:read`.
 | `host.parked` | info | The host is parked |
 | `host.resizing` | info | The host is being resized |
 | `host.resized` | notice | The host was resized and is running again |
+| `host.rebooting` | notice | The host is being rebooted: its instance stopped and started again |
 | `host.destroying` | notice | The host is being destroyed |
 | `host.failing` | warning | A step on the host keeps failing; the hub retries |
 | `host.recovered` | info | The host's failing step went through |
@@ -1643,8 +1650,8 @@ limit applies in front of all of it.
 
 `/admin` is the operators' dashboard: a React client of the same API as the pages, embedded in the
 binary ([ADR-0029](adr/0029-the-admin-dashboard-is-a-static-client-in-the-binary.md); the source is
-`web/admin/`). It is H1's in-progress surface: this version has the **Fleet**, **Events**, **People** and
-**Your access**; servers, settings and the rest arrive page by page.
+`web/admin/`). It is H1's in-progress surface: this version has the **Fleet** with each server's controls, the
+**Events**, **People** and **Your access**; settings and the rest arrive page by page.
 
 - **Fleet** (`/admin`, `servers:read`, which every member holds): what is up, who is playing, what
   is wrong, trouble first, from `GetFleetSummary` ([Servers](#servers-adr-0010), Fleet health). A
@@ -1668,6 +1675,18 @@ binary ([ADR-0029](adr/0029-the-admin-dashboard-is-a-static-client-in-the-binary
   severity, the server and the game sit above it; all of them live in the address
   (`/admin/events?server=htg-wardogs-1&severity=warning`), so a link opens the feed filtered. The
   page says **Stale** when its last poll failed or none has answered for 15 s.
+- **A server's controls** (`/admin/servers/{id}`, from a Fleet row's **Manage**, shown to whoever
+  holds `servers:operate`, `servers:provision` or `servers:lease` for the server's game; gravel#202):
+  the host (state and step, size and pin, address, the expectation, the month's cost) and what the
+  viewer may do to it, by capability for that game and by the host's state. With `servers:operate`:
+  **Start** a parked host; **Park**, **Reboot** (optionally with players on) and **Expect players**
+  on a running one. With `servers:provision`: **Resize** (and pin) and **Unpin** a running host,
+  **Snapshot the volume** and **Destroy** a parked one, each after typing the server's id. With
+  `servers:lease`: **Release** a live lease (asked first). A host between states offers nothing
+  until it settles; a moderator sees no buttons. Each action takes a reason for the audit log; the
+  outcome says what happened and links to its event (`event_id`) in the feed, and a refusal is
+  shown in the hub's words. A server outside the cloud-VM driver says so; moderation stays on its
+  member page.
 - **People** (`/admin/people`, `identity:read`: admins and moderators; and the member the owner
   nominated, whatever they hold): every member, 100 a page, with their accounts, when they joined
   and last logged in, and their roles, each grant named with its game. Every people action is here

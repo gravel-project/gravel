@@ -17,8 +17,8 @@ message ServerHost {
   string region = 4;
   // "running", "parked" or "absent" (destroyed).
   string desired = 5;
-  // "absent", "creating", "booting", "starting", "running", "parking", "parked", "resizing" or
-  // "destroying". running and parked are where a host rests; the others are transitions.
+  // "absent", "creating", "booting", "starting", "running", "parking", "parked", "resizing",
+  // "rebooting" or "destroying". running and parked are where a host rests; the others are transitions.
   string state = 6;
   // The step within a transition ("volume", "instance", "env", "game"); "" when settled.
   string step = 7;
@@ -140,6 +140,9 @@ message SetServerHostDesiredRequest {
 message SetServerHostDesiredResponse {
   ServerHost host = 1;
   int64 audit_id = 2;
+  // The events log row the request wrote (gravel#202), for a client to point at; 0 when it could
+  // not be recorded.
+  int64 event_id = 3;
 }
 
 message ResizeServerHostRequest {
@@ -157,6 +160,9 @@ message ResizeServerHostRequest {
 message ResizeServerHostResponse {
   ServerHost host = 1;
   int64 audit_id = 2;
+  // The events log row the request wrote (gravel#202), for a client to point at; 0 when it could
+  // not be recorded.
+  int64 event_id = 3;
 }
 
 message UnpinServerHostSizeRequest {
@@ -167,6 +173,9 @@ message UnpinServerHostSizeRequest {
 message UnpinServerHostSizeResponse {
   ServerHost host = 1;
   int64 audit_id = 2;
+  // The events log row the request wrote (gravel#202), for a client to point at; 0 when it could
+  // not be recorded.
+  int64 event_id = 3;
 }
 
 message SetServerHostExpectationRequest {
@@ -184,6 +193,9 @@ message SetServerHostExpectationRequest {
 message SetServerHostExpectationResponse {
   ServerHost host = 1;
   int64 audit_id = 2;
+  // The events log row the request wrote (gravel#202), for a client to point at; 0 when it could
+  // not be recorded.
+  int64 event_id = 3;
 }
 
 message SnapshotServerHostVolumeRequest {
@@ -209,6 +221,25 @@ message SnapshotServerHostVolumeResponse {
   ServerHost host = 1;
   int64 audit_id = 2;
   VolumeSnapshot snapshot = 3;
+  // The events log row the request wrote (gravel#202), for a client to point at; 0 when it could
+  // not be recorded.
+  int64 event_id = 4;
+}
+
+message RebootServerHostRequest {
+  string server_id = 1;
+  // Reboot with players on (they are warned first, as for a resize).
+  bool force = 2;
+  string reason = 3;
+  // Who the caller acts for, for an app (as SetServerHostDesired).
+  Actor on_behalf_of = 4;
+}
+
+message RebootServerHostResponse {
+  ServerHost host = 1;
+  int64 audit_id = 2;
+  // The events log row the request wrote; 0 when it could not be recorded.
+  int64 event_id = 3;
 }
 
 message DestroyServerHostRequest {
@@ -223,6 +254,9 @@ message DestroyServerHostRequest {
 message DestroyServerHostResponse {
   ServerHost host = 1;
   int64 audit_id = 2;
+  // The events log row the request wrote (gravel#202), for a client to point at; 0 when it could
+  // not be recorded.
+  int64 event_id = 3;
 }
 
 // ServerHostService looks after the VMs cloud-VM servers run on (ADR-0003). Every write is an
@@ -236,6 +270,10 @@ service ServerHostService {
   // SetServerHostDesired parks or unparks a host. The owner, a moderator, or an app with
   // servers:moderate (acting for itself or for a moderator).
   rpc SetServerHostDesired(SetServerHostDesiredRequest) returns (SetServerHostDesiredResponse);
+  // RebootServerHost stops a running host's instance and starts it again (gravel#202), warning the
+  // players first: servers:operate. failed_precondition when the host isn't running, or (without
+  // force) when players are on.
+  rpc RebootServerHost(RebootServerHostRequest) returns (RebootServerHostResponse);
   // ResizeServerHost moves a running host to another size now. The owner only;
   // failed_precondition with players on unless force.
   rpc ResizeServerHost(ResizeServerHostRequest) returns (ResizeServerHostResponse);

@@ -102,6 +102,8 @@ message ReleaseServerLeaseRequest {
 
 message ReleaseServerLeaseResponse {
   ServerLease lease = 1;
+  // The events log row the release wrote (gravel#202); 0 when it could not be recorded.
+  int64 event_id = 2;
 }
 
 message WatchServerLeaseRequest {

@@ -61,6 +61,7 @@ var memberProcedures = map[string]string{
 	hubv1connect.ServerHostServiceGetServerHostProcedure:             apps.ScopeServersRead,
 	hubv1connect.ServerHostServiceListServerHostEventsProcedure:      apps.ScopeServersRead,
 	hubv1connect.ServerHostServiceSetServerHostDesiredProcedure:      apps.ScopeServersOperate,
+	hubv1connect.ServerHostServiceRebootServerHostProcedure:          apps.ScopeServersOperate,
 	hubv1connect.ServerHostServiceSetServerHostExpectationProcedure:  apps.ScopeServersOperate,
 	// ResizeServerHost, UnpinServerHostSize, SnapshotServerHostVolume and DestroyServerHost are the owner's, in person, and stay out.
 	// StartProof and GetProof (gravel#5) are the member's, in person: an app never proves an account for them.

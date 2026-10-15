@@ -135,8 +135,8 @@ func TestALeaseTakesAServerAndGivesItBack(t *testing.T) {
 		t.Errorf("a second session: %v", err)
 	}
 	// Given back: parked, and the server's own password at its next start.
-	out, err := r.leases.Release(r.ctx, r.app, l.ID, "done early")
-	if err != nil || out.State != store.LeaseReleased || out.Password != "" || !strings.Contains(out.Reason, "released by its holder: done early") {
+	out, eventID, err := r.leases.Release(r.ctx, r.app, l.ID, "done early")
+	if err != nil || eventID <= serverstest.EventIDBase || out.State != store.LeaseReleased || out.Password != "" || !strings.Contains(out.Reason, "released by its holder: done early") {
 		t.Fatalf("release: %+v %v", out, err)
 	}
 	if h, _ := r.mgr.Host("htg-cs2-1"); h.Desired != cloudvm.DesiredParked || h.ExpectedPlayers != 0 {
@@ -145,7 +145,7 @@ func TestALeaseTakesAServerAndGivesItBack(t *testing.T) {
 	if spec := r.source(t); spec.JoinPassword != "join-pw" || spec.Settings["start_map"] == "de_nuke" || spec.ExtraEnv != nil {
 		t.Errorf("the spec after the release still has the lease: %q %v", spec.JoinPassword, spec.Settings)
 	}
-	if _, err := r.leases.Release(r.ctx, r.app, l.ID, ""); !errors.Is(err, ErrLeaseFinished) {
+	if _, _, err := r.leases.Release(r.ctx, r.app, l.ID, ""); !errors.Is(err, ErrLeaseFinished) {
 		t.Errorf("a second release: %v", err)
 	}
 	if e := r.audit.Entries(); len(e) != 2 || e[1].Action != ActionLeaseRelease {

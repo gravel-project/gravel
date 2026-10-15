@@ -80,13 +80,20 @@ func (s *Store) OnEvent(f func(kind string)) { s.onEvent = f }
 // unknown kind fails the transaction. An event whose (source, source_id) is already in the log is
 // skipped, so a replayed source writes nothing twice.
 func (s *Store) appendEvent(ctx context.Context, q rowQuerier, e Event) error {
+	_, err := s.appendEventID(ctx, q, e)
+	return err
+}
+
+// appendEventID is appendEvent, answering the event's id: 0 when the source row's event is in the
+// log already.
+func (s *Store) appendEventID(ctx context.Context, q rowQuerier, e Event) (int64, error) {
 	sev, err := events.SeverityOf(e.Kind)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	detail, err := json.Marshal(nonNilAnyMap(e.Detail))
 	if err != nil {
-		return fmt.Errorf("store: event detail: %w", err)
+		return 0, fmt.Errorf("store: event detail: %w", err)
 	}
 	var org *uuid.UUID
 	if e.OrganizationID != uuid.Nil {
@@ -106,15 +113,15 @@ func (s *Store) appendEvent(ctx context.Context, q rowQuerier, e Event) error {
 		org, e.At, e.Kind, string(sev), e.ActorUserID, e.ActorAppID, e.OnBehalfProvider, e.OnBehalfSubject, e.ServerID,
 		e.SubjectUserID, e.GameID, e.Summary, detail, e.Source, e.SourceID, e.RequestID).Scan(&id)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil // already in the log
+		return 0, nil // already in the log
 	}
 	if err != nil {
-		return fmt.Errorf("store: append event %s: %w", e.Kind, err)
+		return 0, fmt.Errorf("store: append event %s: %w", e.Kind, err)
 	}
 	if s.onEvent != nil {
 		s.onEvent(e.Kind)
 	}
-	return nil
+	return id, nil
 }
 
 // AppendEvent writes an event that has no source row of its own (a backup's status).

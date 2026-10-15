@@ -34,6 +34,12 @@ patch release is everything else.
 
 ### Added
 
+- **A server's controls in the admin dashboard** (#202, ADR-0027; H1, #182): `/admin/servers/{id}`, opened from a Fleet row's **Manage**.
+  - **Actions by capability × host state:** start, park, reboot and the expectation (`servers:operate`); resize and pin, unpin, snapshot and destroy (`servers:provision`), each after typing the server's id; release a live lease (`servers:lease`). A host between states offers nothing; a moderator sees no buttons; a server outside the cloud-VM driver says so. Rules in `web/admin/src/servers.ts`, mirroring the role bundles per game.
+  - **Outcome:** what happened, linked to its event in the feed; a refusal in the hub's words.
+  - **Reboot** (new): `ServerHostService.RebootServerHost` (`servers:operate`, members' tokens with that scope too; refused with players on unless `force`). The cloud-VM manager warns the players, stops the same instance gracefully and starts it again (state `rebooting`, then `booting`), with no new instance and no `cloud.Provider` change; the request is kept in `server_hosts.reboot` (migration **00030**, cost `scan server_hosts`: it also widens the state's CHECK), so a hub restart still carries it out. Event kinds `host.rebooting` and `action.host_reboot`.
+  - **`event_id`:** every `ServerHostService` change and `ReleaseServerLease` answers the id of the events log row it wrote (`store.FinishAuditEntry` returns it; `servers.Hosts` actions return `servers.Done{AuditID, EventID}`). The in-memory audit store now refuses an action whose event kind is not registered, as Postgres does, so a new action can't silently lose its event.
+
 - **People** in the admin dashboard (#203, ADR-0027; H1, #182): `/admin/people` has every people action, and the templ Members page is gone (`/members` redirects there; `/members/{id}` stays).
   - **Members and roles:** every member, 100 a page, with their accounts, joined and last login, and grants named by game; grant (role, every game or one) and revoke, offered as the granter rules allow (`web/admin/src/people.ts` mirrors `identity.SetRole`: roles:grant for the scope, admin grants only by the owner, nobody their own); the hub still decides every call.
   - **Accounts and sessions** (`members:manage`): add a local account with its set-password link, issue a reset link for a local account, log a member out everywhere (asked first). A one-time link is shown once, in the page's memory, with Copy and Done.

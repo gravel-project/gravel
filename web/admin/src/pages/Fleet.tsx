@@ -10,10 +10,12 @@ import { Link } from "wouter";
 
 import { noFilters, search } from "../events";
 import { ago, clock, duration, health, healthStyle, stale, trouble } from "../fleet";
+import type { User } from "../gen/gravel/hub/v1/identity_pb";
 import { type FleetAlarm, type FleetServer, type GetFleetSummaryResponse, ServerService } from "../gen/gravel/hub/v1/servers_pb";
+import { manages } from "../servers";
 import { useClient } from "../transport";
 
-export function Fleet() {
+export function Fleet({ me }: { me: User }) {
   const servers = useClient(ServerService);
   const q = useQuery({
     queryKey: ["fleet"],
@@ -30,7 +32,7 @@ export function Fleet() {
       {refused ? (
         <p>Your roles do not include seeing the fleet (servers:read). An owner or admin grants roles on the hub.</p>
       ) : q.data ? (
-        <Summary summary={q.data} />
+        <Summary summary={q.data} me={me} />
       ) : q.isError ? (
         <p role="alert">The hub did not answer: {ConnectError.from(q.error).rawMessage}. Trying again shortly.</p>
       ) : (
@@ -69,7 +71,7 @@ function AsOf({ summary, fetchedAt, now, failed }: { summary: GetFleetSummaryRes
   );
 }
 
-function Summary({ summary }: { summary: GetFleetSummaryResponse }) {
+function Summary({ summary, me }: { summary: GetFleetSummaryResponse; me: User }) {
   const now = summary.asOf ? timestampDate(summary.asOf) : new Date();
   const t = summary.totals;
   if (!t || t.servers === 0) {
@@ -110,7 +112,7 @@ function Summary({ summary }: { summary: GetFleetSummaryResponse }) {
         </h2>
         <ul className="border-t border-line">
           {summary.servers.map((s) => (
-            <Row key={s.id} server={s} now={now} />
+            <Row key={s.id} server={s} now={now} me={me} />
           ))}
         </ul>
       </section>
@@ -160,7 +162,7 @@ function Alarms({ alarms, now }: { alarms: FleetAlarm[]; now: Date }) {
   );
 }
 
-function Row({ server: s, now }: { server: FleetServer; now: Date }) {
+function Row({ server: s, now, me }: { server: FleetServer; now: Date; me: User }) {
   const h = healthStyle[health(s.health)];
   const held = s.healthSince ? duration(timestampDate(s.healthSince), now) : "";
   const host = [s.hostState && `host ${s.hostState}${s.hostErrorCode ? ` (${s.hostErrorCode})` : ""}`, s.leaseState && `lease ${s.leaseState}`].filter(Boolean);
@@ -204,6 +206,13 @@ function Row({ server: s, now }: { server: FleetServer; now: Date }) {
           s.health !== "idle" && <p>never answered</p>
         )}
         {host.length > 0 && <p>{host.join(" · ")}</p>}
+        {manages(me, s.gameId) && (
+          <p>
+            <Link href={`/servers/${encodeURIComponent(s.id)}`} className="text-accent underline" aria-label={`Manage ${s.name || s.id}`}>
+              Manage
+            </Link>
+          </p>
+        )}
       </div>
     </li>
   );

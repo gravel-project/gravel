@@ -14,7 +14,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file gravel/hub/v1/hosts.proto.
  */
 export const file_gravel_hub_v1_hosts: GenFile = /*@__PURE__*/
-  fileDesc("ChlncmF2ZWwvaHViL3YxL2hvc3RzLnByb3RvEg1ncmF2ZWwuaHViLnYxIqIHCgpTZXJ2ZXJIb3N0EhEKCXNlcnZlcl9pZBgBIAEoCRIQCghsb2NhdGlvbhgCIAEoCRIQCghwcm92aWRlchgDIAEoCRIOCgZyZWdpb24YBCABKAkSDwoHZGVzaXJlZBgFIAEoCRINCgVzdGF0ZRgGIAEoCRIMCgRzdGVwGAcgASgJEhIKCmVycm9yX2NvZGUYCCABKAkSEAoIYXR0ZW1wdHMYCSABKAUSKQoFc2luY2UYCiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEgwKBHNpemUYCyABKAkSEwoLdGFyZ2V0X3NpemUYDCABKAkSEAoIZGlza19naWIYDSABKAUSEgoKdm9sdW1lX2dpYhgOIAEoBRIPCgdhZGRyZXNzGA8gASgJEhgKEGFkZHJlc3NfcmVzZXJ2ZWQYECABKAgSGAoQaG91cmx5X3ByaWNlX3VzZBgRIAEoARIdChVydW5uaW5nX3NlY29uZHNfbW9udGgYEiABKAMSFgoObW9udGhfY29zdF91c2QYEyABKAESFAoMYm9vdF9zZWNvbmRzGBQgASgFEhUKDXJlYWR5X3NlY29uZHMYFSABKAUSNwoTaW5zdGFuY2VfY3JlYXRlZF9hdBgWIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASJgoFc2l6ZXMYFyADKAsyFy5ncmF2ZWwuaHViLnYxLkhvc3RTaXplEhoKEnBhcmtfYWZ0ZXJfc2Vjb25kcxgYIAEoAxIPCgdzY2FsaW5nGBkgASgIEicKBmxhZGRlchgaIAMoCzIXLmdyYXZlbC5odWIudjEuSG9zdFRpZXISFAoMdGllcl9wbGF5ZXJzGBsgASgFEhMKC3Bpbm5lZF9zaXplGBwgASgJEhQKDHBlbmRpbmdfc2l6ZRgdIAEoCRIWCg5wZW5kaW5nX3JlYXNvbhgeIAEoCRIxCg1wZW5kaW5nX3NpbmNlGB8gASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIyCg5sYXN0X3Jlc2l6ZV9hdBggIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASGAoQZXhwZWN0ZWRfcGxheWVycxghIAEoBRIyCg5leHBlY3RlZF91bnRpbBgiIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASFwoPZXhwZWN0ZWRfcmVhc29uGCMgASgJIkMKCEhvc3RUaWVyEgwKBHNpemUYASABKAkSDwoHcGxheWVycxgCIAEoBRIYChBwcmljZV9ob3VybHlfdXNkGAMgASgBIpkBCghIb3N0U2l6ZRIMCgRzbHVnGAEgASgJEg0KBXZjcHVzGAIgASgFEhIKCm1lbW9yeV9taWIYAyABKAUSEAoIZGlza19naWIYBCABKAUSGAoQcHJpY2VfaG91cmx5X3VzZBgFIAEoARIZChFwcmljZV9tb250aGx5X3VzZBgGIAEoARIVCg1kZWRpY2F0ZWRfY3B1GAcgASgIIqMBCglIb3N0RXZlbnQSCgoCaWQYASABKAMSJgoCYXQYAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhIKCmZyb21fc3RhdGUYAyABKAkSEAoIdG9fc3RhdGUYBCABKAkSDAoEc3RlcBgFIAEoCRIOCgZkZXRhaWwYBiABKAkSDAoEc2l6ZRgHIAEoCRIQCghhdWRpdF9pZBgIIAEoAyIpChRHZXRTZXJ2ZXJIb3N0UmVxdWVzdBIRCglzZXJ2ZXJfaWQYASABKAkiQAoVR2V0U2VydmVySG9zdFJlc3BvbnNlEicKBGhvc3QYASABKAsyGS5ncmF2ZWwuaHViLnYxLlNlcnZlckhvc3QiVwobTGlzdFNlcnZlckhvc3RFdmVudHNSZXF1ZXN0EhEKCXNlcnZlcl9pZBgBIAEoCRIRCglwYWdlX3NpemUYAiABKAUSEgoKcGFnZV90b2tlbhgDIAEoCSJhChxMaXN0U2VydmVySG9zdEV2ZW50c1Jlc3BvbnNlEigKBmV2ZW50cxgBIAMoCzIYLmdyYXZlbC5odWIudjEuSG9zdEV2ZW50EhcKD25leHRfcGFnZV90b2tlbhgCIAEoCSJ9ChtTZXRTZXJ2ZXJIb3N0RGVzaXJlZFJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJEg8KB2Rlc2lyZWQYAiABKAkSDgoGcmVhc29uGAMgASgJEioKDG9uX2JlaGFsZl9vZhgEIAEoCzIULmdyYXZlbC5odWIudjEuQWN0b3IiWQocU2V0U2VydmVySG9zdERlc2lyZWRSZXNwb25zZRInCgRob3N0GAEgASgLMhkuZ3JhdmVsLmh1Yi52MS5TZXJ2ZXJIb3N0EhAKCGF1ZGl0X2lkGAIgASgDImYKF1Jlc2l6ZVNlcnZlckhvc3RSZXF1ZXN0EhEKCXNlcnZlcl9pZBgBIAEoCRIMCgRzaXplGAIgASgJEg0KBWZvcmNlGAMgASgIEg4KBnJlYXNvbhgEIAEoCRILCgNwaW4YBSABKAgiVQoYUmVzaXplU2VydmVySG9zdFJlc3BvbnNlEicKBGhvc3QYASABKAsyGS5ncmF2ZWwuaHViLnYxLlNlcnZlckhvc3QSEAoIYXVkaXRfaWQYAiABKAMiPwoaVW5waW5TZXJ2ZXJIb3N0U2l6ZVJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJEg4KBnJlYXNvbhgCIAEoCSJYChtVbnBpblNlcnZlckhvc3RTaXplUmVzcG9uc2USJwoEaG9zdBgBIAEoCzIZLmdyYXZlbC5odWIudjEuU2VydmVySG9zdBIQCghhdWRpdF9pZBgCIAEoAyKsAQofU2V0U2VydmVySG9zdEV4cGVjdGF0aW9uUmVxdWVzdBIRCglzZXJ2ZXJfaWQYASABKAkSDwoHcGxheWVycxgCIAEoBRIpCgV1bnRpbBgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASDgoGcmVhc29uGAQgASgJEioKDG9uX2JlaGFsZl9vZhgFIAEoCzIULmdyYXZlbC5odWIudjEuQWN0b3IiXQogU2V0U2VydmVySG9zdEV4cGVjdGF0aW9uUmVzcG9uc2USJwoEaG9zdBgBIAEoCzIZLmdyYXZlbC5odWIudjEuU2VydmVySG9zdBIQCghhdWRpdF9pZBgCIAEoAyJSCh9TbmFwc2hvdFNlcnZlckhvc3RWb2x1bWVSZXF1ZXN0EhEKCXNlcnZlcl9pZBgBIAEoCRIMCgRuYW1lGAIgASgJEg4KBnJlYXNvbhgDIAEoCSKUAQoOVm9sdW1lU25hcHNob3QSCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRIOCgZyZWdpb24YAyABKAkSEAoIc2l6ZV9naWIYBCABKAESFgoObWluX3ZvbHVtZV9naWIYBSABKAUSLgoKY3JlYXRlZF9hdBgGIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAijgEKIFNuYXBzaG90U2VydmVySG9zdFZvbHVtZVJlc3BvbnNlEicKBGhvc3QYASABKAsyGS5ncmF2ZWwuaHViLnYxLlNlcnZlckhvc3QSEAoIYXVkaXRfaWQYAiABKAMSLwoIc25hcHNob3QYAyABKAsyHS5ncmF2ZWwuaHViLnYxLlZvbHVtZVNuYXBzaG90Im0KGERlc3Ryb3lTZXJ2ZXJIb3N0UmVxdWVzdBIRCglzZXJ2ZXJfaWQYASABKAkSFQoNZGVsZXRlX3ZvbHVtZRgCIAEoCBIXCg9yZWxlYXNlX2FkZHJlc3MYAyABKAgSDgoGcmVhc29uGAQgASgJIlYKGURlc3Ryb3lTZXJ2ZXJIb3N0UmVzcG9uc2USJwoEaG9zdBgBIAEoCzIZLmdyYXZlbC5odWIudjEuU2VydmVySG9zdBIQCghhdWRpdF9pZBgCIAEoAzKGBwoRU2VydmVySG9zdFNlcnZpY2USWgoNR2V0U2VydmVySG9zdBIjLmdyYXZlbC5odWIudjEuR2V0U2VydmVySG9zdFJlcXVlc3QaJC5ncmF2ZWwuaHViLnYxLkdldFNlcnZlckhvc3RSZXNwb25zZRJvChRMaXN0U2VydmVySG9zdEV2ZW50cxIqLmdyYXZlbC5odWIudjEuTGlzdFNlcnZlckhvc3RFdmVudHNSZXF1ZXN0GisuZ3JhdmVsLmh1Yi52MS5MaXN0U2VydmVySG9zdEV2ZW50c1Jlc3BvbnNlEm8KFFNldFNlcnZlckhvc3REZXNpcmVkEiouZ3JhdmVsLmh1Yi52MS5TZXRTZXJ2ZXJIb3N0RGVzaXJlZFJlcXVlc3QaKy5ncmF2ZWwuaHViLnYxLlNldFNlcnZlckhvc3REZXNpcmVkUmVzcG9uc2USYwoQUmVzaXplU2VydmVySG9zdBImLmdyYXZlbC5odWIudjEuUmVzaXplU2VydmVySG9zdFJlcXVlc3QaJy5ncmF2ZWwuaHViLnYxLlJlc2l6ZVNlcnZlckhvc3RSZXNwb25zZRJsChNVbnBpblNlcnZlckhvc3RTaXplEikuZ3JhdmVsLmh1Yi52MS5VbnBpblNlcnZlckhvc3RTaXplUmVxdWVzdBoqLmdyYXZlbC5odWIudjEuVW5waW5TZXJ2ZXJIb3N0U2l6ZVJlc3BvbnNlEnsKGFNldFNlcnZlckhvc3RFeHBlY3RhdGlvbhIuLmdyYXZlbC5odWIudjEuU2V0U2VydmVySG9zdEV4cGVjdGF0aW9uUmVxdWVzdBovLmdyYXZlbC5odWIudjEuU2V0U2VydmVySG9zdEV4cGVjdGF0aW9uUmVzcG9uc2USewoYU25hcHNob3RTZXJ2ZXJIb3N0Vm9sdW1lEi4uZ3JhdmVsLmh1Yi52MS5TbmFwc2hvdFNlcnZlckhvc3RWb2x1bWVSZXF1ZXN0Gi8uZ3JhdmVsLmh1Yi52MS5TbmFwc2hvdFNlcnZlckhvc3RWb2x1bWVSZXNwb25zZRJmChFEZXN0cm95U2VydmVySG9zdBInLmdyYXZlbC5odWIudjEuRGVzdHJveVNlcnZlckhvc3RSZXF1ZXN0GiguZ3JhdmVsLmh1Yi52MS5EZXN0cm95U2VydmVySG9zdFJlc3BvbnNlQjpaOGdpdGh1Yi5jb20vZ3JhdmVsLXByb2plY3QvZ3JhdmVsL2dlbi9ncmF2ZWwvaHViL3YxO2h1YnYxYgZwcm90bzM", [file_google_protobuf_timestamp, file_gravel_hub_v1_moderation]);
+  fileDesc("ChlncmF2ZWwvaHViL3YxL2hvc3RzLnByb3RvEg1ncmF2ZWwuaHViLnYxIqIHCgpTZXJ2ZXJIb3N0EhEKCXNlcnZlcl9pZBgBIAEoCRIQCghsb2NhdGlvbhgCIAEoCRIQCghwcm92aWRlchgDIAEoCRIOCgZyZWdpb24YBCABKAkSDwoHZGVzaXJlZBgFIAEoCRINCgVzdGF0ZRgGIAEoCRIMCgRzdGVwGAcgASgJEhIKCmVycm9yX2NvZGUYCCABKAkSEAoIYXR0ZW1wdHMYCSABKAUSKQoFc2luY2UYCiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEgwKBHNpemUYCyABKAkSEwoLdGFyZ2V0X3NpemUYDCABKAkSEAoIZGlza19naWIYDSABKAUSEgoKdm9sdW1lX2dpYhgOIAEoBRIPCgdhZGRyZXNzGA8gASgJEhgKEGFkZHJlc3NfcmVzZXJ2ZWQYECABKAgSGAoQaG91cmx5X3ByaWNlX3VzZBgRIAEoARIdChVydW5uaW5nX3NlY29uZHNfbW9udGgYEiABKAMSFgoObW9udGhfY29zdF91c2QYEyABKAESFAoMYm9vdF9zZWNvbmRzGBQgASgFEhUKDXJlYWR5X3NlY29uZHMYFSABKAUSNwoTaW5zdGFuY2VfY3JlYXRlZF9hdBgWIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASJgoFc2l6ZXMYFyADKAsyFy5ncmF2ZWwuaHViLnYxLkhvc3RTaXplEhoKEnBhcmtfYWZ0ZXJfc2Vjb25kcxgYIAEoAxIPCgdzY2FsaW5nGBkgASgIEicKBmxhZGRlchgaIAMoCzIXLmdyYXZlbC5odWIudjEuSG9zdFRpZXISFAoMdGllcl9wbGF5ZXJzGBsgASgFEhMKC3Bpbm5lZF9zaXplGBwgASgJEhQKDHBlbmRpbmdfc2l6ZRgdIAEoCRIWCg5wZW5kaW5nX3JlYXNvbhgeIAEoCRIxCg1wZW5kaW5nX3NpbmNlGB8gASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIyCg5sYXN0X3Jlc2l6ZV9hdBggIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASGAoQZXhwZWN0ZWRfcGxheWVycxghIAEoBRIyCg5leHBlY3RlZF91bnRpbBgiIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASFwoPZXhwZWN0ZWRfcmVhc29uGCMgASgJIkMKCEhvc3RUaWVyEgwKBHNpemUYASABKAkSDwoHcGxheWVycxgCIAEoBRIYChBwcmljZV9ob3VybHlfdXNkGAMgASgBIpkBCghIb3N0U2l6ZRIMCgRzbHVnGAEgASgJEg0KBXZjcHVzGAIgASgFEhIKCm1lbW9yeV9taWIYAyABKAUSEAoIZGlza19naWIYBCABKAUSGAoQcHJpY2VfaG91cmx5X3VzZBgFIAEoARIZChFwcmljZV9tb250aGx5X3VzZBgGIAEoARIVCg1kZWRpY2F0ZWRfY3B1GAcgASgIIqMBCglIb3N0RXZlbnQSCgoCaWQYASABKAMSJgoCYXQYAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhIKCmZyb21fc3RhdGUYAyABKAkSEAoIdG9fc3RhdGUYBCABKAkSDAoEc3RlcBgFIAEoCRIOCgZkZXRhaWwYBiABKAkSDAoEc2l6ZRgHIAEoCRIQCghhdWRpdF9pZBgIIAEoAyIpChRHZXRTZXJ2ZXJIb3N0UmVxdWVzdBIRCglzZXJ2ZXJfaWQYASABKAkiQAoVR2V0U2VydmVySG9zdFJlc3BvbnNlEicKBGhvc3QYASABKAsyGS5ncmF2ZWwuaHViLnYxLlNlcnZlckhvc3QiVwobTGlzdFNlcnZlckhvc3RFdmVudHNSZXF1ZXN0EhEKCXNlcnZlcl9pZBgBIAEoCRIRCglwYWdlX3NpemUYAiABKAUSEgoKcGFnZV90b2tlbhgDIAEoCSJhChxMaXN0U2VydmVySG9zdEV2ZW50c1Jlc3BvbnNlEigKBmV2ZW50cxgBIAMoCzIYLmdyYXZlbC5odWIudjEuSG9zdEV2ZW50EhcKD25leHRfcGFnZV90b2tlbhgCIAEoCSJ9ChtTZXRTZXJ2ZXJIb3N0RGVzaXJlZFJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJEg8KB2Rlc2lyZWQYAiABKAkSDgoGcmVhc29uGAMgASgJEioKDG9uX2JlaGFsZl9vZhgEIAEoCzIULmdyYXZlbC5odWIudjEuQWN0b3IiawocU2V0U2VydmVySG9zdERlc2lyZWRSZXNwb25zZRInCgRob3N0GAEgASgLMhkuZ3JhdmVsLmh1Yi52MS5TZXJ2ZXJIb3N0EhAKCGF1ZGl0X2lkGAIgASgDEhAKCGV2ZW50X2lkGAMgASgDImYKF1Jlc2l6ZVNlcnZlckhvc3RSZXF1ZXN0EhEKCXNlcnZlcl9pZBgBIAEoCRIMCgRzaXplGAIgASgJEg0KBWZvcmNlGAMgASgIEg4KBnJlYXNvbhgEIAEoCRILCgNwaW4YBSABKAgiZwoYUmVzaXplU2VydmVySG9zdFJlc3BvbnNlEicKBGhvc3QYASABKAsyGS5ncmF2ZWwuaHViLnYxLlNlcnZlckhvc3QSEAoIYXVkaXRfaWQYAiABKAMSEAoIZXZlbnRfaWQYAyABKAMiPwoaVW5waW5TZXJ2ZXJIb3N0U2l6ZVJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJEg4KBnJlYXNvbhgCIAEoCSJqChtVbnBpblNlcnZlckhvc3RTaXplUmVzcG9uc2USJwoEaG9zdBgBIAEoCzIZLmdyYXZlbC5odWIudjEuU2VydmVySG9zdBIQCghhdWRpdF9pZBgCIAEoAxIQCghldmVudF9pZBgDIAEoAyKsAQofU2V0U2VydmVySG9zdEV4cGVjdGF0aW9uUmVxdWVzdBIRCglzZXJ2ZXJfaWQYASABKAkSDwoHcGxheWVycxgCIAEoBRIpCgV1bnRpbBgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASDgoGcmVhc29uGAQgASgJEioKDG9uX2JlaGFsZl9vZhgFIAEoCzIULmdyYXZlbC5odWIudjEuQWN0b3IibwogU2V0U2VydmVySG9zdEV4cGVjdGF0aW9uUmVzcG9uc2USJwoEaG9zdBgBIAEoCzIZLmdyYXZlbC5odWIudjEuU2VydmVySG9zdBIQCghhdWRpdF9pZBgCIAEoAxIQCghldmVudF9pZBgDIAEoAyJSCh9TbmFwc2hvdFNlcnZlckhvc3RWb2x1bWVSZXF1ZXN0EhEKCXNlcnZlcl9pZBgBIAEoCRIMCgRuYW1lGAIgASgJEg4KBnJlYXNvbhgDIAEoCSKUAQoOVm9sdW1lU25hcHNob3QSCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRIOCgZyZWdpb24YAyABKAkSEAoIc2l6ZV9naWIYBCABKAESFgoObWluX3ZvbHVtZV9naWIYBSABKAUSLgoKY3JlYXRlZF9hdBgGIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAioAEKIFNuYXBzaG90U2VydmVySG9zdFZvbHVtZVJlc3BvbnNlEicKBGhvc3QYASABKAsyGS5ncmF2ZWwuaHViLnYxLlNlcnZlckhvc3QSEAoIYXVkaXRfaWQYAiABKAMSLwoIc25hcHNob3QYAyABKAsyHS5ncmF2ZWwuaHViLnYxLlZvbHVtZVNuYXBzaG90EhAKCGV2ZW50X2lkGAQgASgDIncKF1JlYm9vdFNlcnZlckhvc3RSZXF1ZXN0EhEKCXNlcnZlcl9pZBgBIAEoCRINCgVmb3JjZRgCIAEoCBIOCgZyZWFzb24YAyABKAkSKgoMb25fYmVoYWxmX29mGAQgASgLMhQuZ3JhdmVsLmh1Yi52MS5BY3RvciJnChhSZWJvb3RTZXJ2ZXJIb3N0UmVzcG9uc2USJwoEaG9zdBgBIAEoCzIZLmdyYXZlbC5odWIudjEuU2VydmVySG9zdBIQCghhdWRpdF9pZBgCIAEoAxIQCghldmVudF9pZBgDIAEoAyJtChhEZXN0cm95U2VydmVySG9zdFJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJEhUKDWRlbGV0ZV92b2x1bWUYAiABKAgSFwoPcmVsZWFzZV9hZGRyZXNzGAMgASgIEg4KBnJlYXNvbhgEIAEoCSJoChlEZXN0cm95U2VydmVySG9zdFJlc3BvbnNlEicKBGhvc3QYASABKAsyGS5ncmF2ZWwuaHViLnYxLlNlcnZlckhvc3QSEAoIYXVkaXRfaWQYAiABKAMSEAoIZXZlbnRfaWQYAyABKAMy6wcKEVNlcnZlckhvc3RTZXJ2aWNlEloKDUdldFNlcnZlckhvc3QSIy5ncmF2ZWwuaHViLnYxLkdldFNlcnZlckhvc3RSZXF1ZXN0GiQuZ3JhdmVsLmh1Yi52MS5HZXRTZXJ2ZXJIb3N0UmVzcG9uc2USbwoUTGlzdFNlcnZlckhvc3RFdmVudHMSKi5ncmF2ZWwuaHViLnYxLkxpc3RTZXJ2ZXJIb3N0RXZlbnRzUmVxdWVzdBorLmdyYXZlbC5odWIudjEuTGlzdFNlcnZlckhvc3RFdmVudHNSZXNwb25zZRJvChRTZXRTZXJ2ZXJIb3N0RGVzaXJlZBIqLmdyYXZlbC5odWIudjEuU2V0U2VydmVySG9zdERlc2lyZWRSZXF1ZXN0GisuZ3JhdmVsLmh1Yi52MS5TZXRTZXJ2ZXJIb3N0RGVzaXJlZFJlc3BvbnNlEmMKEFJlYm9vdFNlcnZlckhvc3QSJi5ncmF2ZWwuaHViLnYxLlJlYm9vdFNlcnZlckhvc3RSZXF1ZXN0GicuZ3JhdmVsLmh1Yi52MS5SZWJvb3RTZXJ2ZXJIb3N0UmVzcG9uc2USYwoQUmVzaXplU2VydmVySG9zdBImLmdyYXZlbC5odWIudjEuUmVzaXplU2VydmVySG9zdFJlcXVlc3QaJy5ncmF2ZWwuaHViLnYxLlJlc2l6ZVNlcnZlckhvc3RSZXNwb25zZRJsChNVbnBpblNlcnZlckhvc3RTaXplEikuZ3JhdmVsLmh1Yi52MS5VbnBpblNlcnZlckhvc3RTaXplUmVxdWVzdBoqLmdyYXZlbC5odWIudjEuVW5waW5TZXJ2ZXJIb3N0U2l6ZVJlc3BvbnNlEnsKGFNldFNlcnZlckhvc3RFeHBlY3RhdGlvbhIuLmdyYXZlbC5odWIudjEuU2V0U2VydmVySG9zdEV4cGVjdGF0aW9uUmVxdWVzdBovLmdyYXZlbC5odWIudjEuU2V0U2VydmVySG9zdEV4cGVjdGF0aW9uUmVzcG9uc2USewoYU25hcHNob3RTZXJ2ZXJIb3N0Vm9sdW1lEi4uZ3JhdmVsLmh1Yi52MS5TbmFwc2hvdFNlcnZlckhvc3RWb2x1bWVSZXF1ZXN0Gi8uZ3JhdmVsLmh1Yi52MS5TbmFwc2hvdFNlcnZlckhvc3RWb2x1bWVSZXNwb25zZRJmChFEZXN0cm95U2VydmVySG9zdBInLmdyYXZlbC5odWIudjEuRGVzdHJveVNlcnZlckhvc3RSZXF1ZXN0GiguZ3JhdmVsLmh1Yi52MS5EZXN0cm95U2VydmVySG9zdFJlc3BvbnNlQjpaOGdpdGh1Yi5jb20vZ3JhdmVsLXByb2plY3QvZ3JhdmVsL2dlbi9ncmF2ZWwvaHViL3YxO2h1YnYxYgZwcm90bzM", [file_google_protobuf_timestamp, file_gravel_hub_v1_moderation]);
 
 /**
  * ServerHost is the VM a cloud-VM server runs on (ADR-0003): what the hub wants of it, where it is,
@@ -53,8 +53,8 @@ export type ServerHost = Message<"gravel.hub.v1.ServerHost"> & {
   desired: string;
 
   /**
-   * "absent", "creating", "booting", "starting", "running", "parking", "parked", "resizing" or
-   * "destroying". running and parked are where a host rests; the others are transitions.
+   * "absent", "creating", "booting", "starting", "running", "parking", "parked", "resizing",
+   * "rebooting" or "destroying". running and parked are where a host rests; the others are transitions.
    *
    * @generated from field: string state = 6;
    */
@@ -524,6 +524,14 @@ export type SetServerHostDesiredResponse = Message<"gravel.hub.v1.SetServerHostD
    * @generated from field: int64 audit_id = 2;
    */
   auditId: bigint;
+
+  /**
+   * The events log row the request wrote (gravel#202), for a client to point at; 0 when it could
+   * not be recorded.
+   *
+   * @generated from field: int64 event_id = 3;
+   */
+  eventId: bigint;
 };
 
 /**
@@ -590,6 +598,14 @@ export type ResizeServerHostResponse = Message<"gravel.hub.v1.ResizeServerHostRe
    * @generated from field: int64 audit_id = 2;
    */
   auditId: bigint;
+
+  /**
+   * The events log row the request wrote (gravel#202), for a client to point at; 0 when it could
+   * not be recorded.
+   *
+   * @generated from field: int64 event_id = 3;
+   */
+  eventId: bigint;
 };
 
 /**
@@ -634,6 +650,14 @@ export type UnpinServerHostSizeResponse = Message<"gravel.hub.v1.UnpinServerHost
    * @generated from field: int64 audit_id = 2;
    */
   auditId: bigint;
+
+  /**
+   * The events log row the request wrote (gravel#202), for a client to point at; 0 when it could
+   * not be recorded.
+   *
+   * @generated from field: int64 event_id = 3;
+   */
+  eventId: bigint;
 };
 
 /**
@@ -701,6 +725,14 @@ export type SetServerHostExpectationResponse = Message<"gravel.hub.v1.SetServerH
    * @generated from field: int64 audit_id = 2;
    */
   auditId: bigint;
+
+  /**
+   * The events log row the request wrote (gravel#202), for a client to point at; 0 when it could
+   * not be recorded.
+   *
+   * @generated from field: int64 event_id = 3;
+   */
+  eventId: bigint;
 };
 
 /**
@@ -804,6 +836,14 @@ export type SnapshotServerHostVolumeResponse = Message<"gravel.hub.v1.SnapshotSe
    * @generated from field: gravel.hub.v1.VolumeSnapshot snapshot = 3;
    */
   snapshot?: VolumeSnapshot | undefined;
+
+  /**
+   * The events log row the request wrote (gravel#202), for a client to point at; 0 when it could
+   * not be recorded.
+   *
+   * @generated from field: int64 event_id = 4;
+   */
+  eventId: bigint;
 };
 
 /**
@@ -812,6 +852,71 @@ export type SnapshotServerHostVolumeResponse = Message<"gravel.hub.v1.SnapshotSe
  */
 export const SnapshotServerHostVolumeResponseSchema: GenMessage<SnapshotServerHostVolumeResponse> = /*@__PURE__*/
   messageDesc(file_gravel_hub_v1_hosts, 18);
+
+/**
+ * @generated from message gravel.hub.v1.RebootServerHostRequest
+ */
+export type RebootServerHostRequest = Message<"gravel.hub.v1.RebootServerHostRequest"> & {
+  /**
+   * @generated from field: string server_id = 1;
+   */
+  serverId: string;
+
+  /**
+   * Reboot with players on (they are warned first, as for a resize).
+   *
+   * @generated from field: bool force = 2;
+   */
+  force: boolean;
+
+  /**
+   * @generated from field: string reason = 3;
+   */
+  reason: string;
+
+  /**
+   * Who the caller acts for, for an app (as SetServerHostDesired).
+   *
+   * @generated from field: gravel.hub.v1.Actor on_behalf_of = 4;
+   */
+  onBehalfOf?: Actor | undefined;
+};
+
+/**
+ * Describes the message gravel.hub.v1.RebootServerHostRequest.
+ * Use `create(RebootServerHostRequestSchema)` to create a new message.
+ */
+export const RebootServerHostRequestSchema: GenMessage<RebootServerHostRequest> = /*@__PURE__*/
+  messageDesc(file_gravel_hub_v1_hosts, 19);
+
+/**
+ * @generated from message gravel.hub.v1.RebootServerHostResponse
+ */
+export type RebootServerHostResponse = Message<"gravel.hub.v1.RebootServerHostResponse"> & {
+  /**
+   * @generated from field: gravel.hub.v1.ServerHost host = 1;
+   */
+  host?: ServerHost | undefined;
+
+  /**
+   * @generated from field: int64 audit_id = 2;
+   */
+  auditId: bigint;
+
+  /**
+   * The events log row the request wrote; 0 when it could not be recorded.
+   *
+   * @generated from field: int64 event_id = 3;
+   */
+  eventId: bigint;
+};
+
+/**
+ * Describes the message gravel.hub.v1.RebootServerHostResponse.
+ * Use `create(RebootServerHostResponseSchema)` to create a new message.
+ */
+export const RebootServerHostResponseSchema: GenMessage<RebootServerHostResponse> = /*@__PURE__*/
+  messageDesc(file_gravel_hub_v1_hosts, 20);
 
 /**
  * @generated from message gravel.hub.v1.DestroyServerHostRequest
@@ -846,7 +951,7 @@ export type DestroyServerHostRequest = Message<"gravel.hub.v1.DestroyServerHostR
  * Use `create(DestroyServerHostRequestSchema)` to create a new message.
  */
 export const DestroyServerHostRequestSchema: GenMessage<DestroyServerHostRequest> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_hosts, 19);
+  messageDesc(file_gravel_hub_v1_hosts, 21);
 
 /**
  * @generated from message gravel.hub.v1.DestroyServerHostResponse
@@ -861,6 +966,14 @@ export type DestroyServerHostResponse = Message<"gravel.hub.v1.DestroyServerHost
    * @generated from field: int64 audit_id = 2;
    */
   auditId: bigint;
+
+  /**
+   * The events log row the request wrote (gravel#202), for a client to point at; 0 when it could
+   * not be recorded.
+   *
+   * @generated from field: int64 event_id = 3;
+   */
+  eventId: bigint;
 };
 
 /**
@@ -868,7 +981,7 @@ export type DestroyServerHostResponse = Message<"gravel.hub.v1.DestroyServerHost
  * Use `create(DestroyServerHostResponseSchema)` to create a new message.
  */
 export const DestroyServerHostResponseSchema: GenMessage<DestroyServerHostResponse> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_hosts, 20);
+  messageDesc(file_gravel_hub_v1_hosts, 22);
 
 /**
  * ServerHostService looks after the VMs cloud-VM servers run on (ADR-0003). Every write is an
@@ -908,6 +1021,18 @@ export const ServerHostService: GenService<{
     methodKind: "unary";
     input: typeof SetServerHostDesiredRequestSchema;
     output: typeof SetServerHostDesiredResponseSchema;
+  },
+  /**
+   * RebootServerHost stops a running host's instance and starts it again (gravel#202), warning the
+   * players first: servers:operate. failed_precondition when the host isn't running, or (without
+   * force) when players are on.
+   *
+   * @generated from rpc gravel.hub.v1.ServerHostService.RebootServerHost
+   */
+  rebootServerHost: {
+    methodKind: "unary";
+    input: typeof RebootServerHostRequestSchema;
+    output: typeof RebootServerHostResponseSchema;
   },
   /**
    * ResizeServerHost moves a running host to another size now. The owner only;

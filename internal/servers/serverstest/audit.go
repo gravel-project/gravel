@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/gravel-project/gravel/internal/events"
 	"github.com/gravel-project/gravel/internal/store"
 )
 
@@ -37,16 +38,24 @@ func (a *AuditStore) InsertAuditEntry(_ context.Context, e store.AuditEntry) (in
 	return e.ID, nil
 }
 
-// FinishAuditEntry sets an unfinished entry's outcome.
-func (a *AuditStore) FinishAuditEntry(_ context.Context, orgID uuid.UUID, id int64, outcome string, at time.Time) error {
+// FinishAuditEntry sets an unfinished entry's outcome and answers the id of the event it writes:
+// EventIDBase plus the entry's id, so a test tells an event id from an audit id.
+func (a *AuditStore) FinishAuditEntry(_ context.Context, orgID uuid.UUID, id int64, outcome string, at time.Time) (int64, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if id < 1 || int(id) > len(a.entries) || a.entries[id-1].OrganizationID != orgID || a.entries[id-1].Outcome != "" {
-		return store.ErrNotFound
+		return 0, store.ErrNotFound
+	}
+	// The real store writes the entry's event and refuses a kind the registry lacks: so does this.
+	if _, err := events.SeverityOf(store.AuditEventKind(a.entries[id-1].Action)); err != nil {
+		return 0, err
 	}
 	a.entries[id-1].Outcome, a.entries[id-1].FinishedAt = outcome, &at
-	return nil
+	return EventIDBase + id, nil
 }
+
+// EventIDBase is where the fake's event ids start (FinishAuditEntry).
+const EventIDBase = 9000
 
 // ListAuditEntries returns entries newest first.
 func (a *AuditStore) ListAuditEntries(_ context.Context, orgID uuid.UUID, f store.AuditFilter) ([]store.AuditEntry, error) {
