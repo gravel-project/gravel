@@ -34,6 +34,8 @@ patch release is everything else.
 
 ### Added
 
+- **The unplug test** (#198, [ADR-0025](docs/adr/0025-hub-as-a-product-the-unplug-test-tiers-and-personas.md); H1's gate, #182): `make unplug` and CI's `unplug` job run a hub with no provider, cloud or metrics store end to end, with every outbound dial off loopback refused and reported: the host's `gravel-hub migrate`, `servers apply` and `users create-local`, the member's password from the link, `gravel login --local`, `gravel claim`, a webhook notifier from `gravel settings apply`, a simulated server going up then down with its event, alarm and signed webhook delivery, `/admin` under the strict policy, `ListDashboards.available` false, and every API service routed. `docs/tiers.md` says what it runs.
+
 - **Player activity** (#208, [ADR-0035](docs/adr/0035-player-sessions-from-the-poll.md) proposed; H1, #182): when people play and who stopped.
   - **Sessions from the poll:** the recorder stitches each identity's sessions on each server from consecutive good polls (`player_sessions`, migration 00031): a poll extends the newest session whose last sighting is within three poll intervals and a half, and starts one otherwise, read from the store so a short hub restart carries sessions on. `gravel_stats_sessions_started_total{server}` on the Stats row.
   - **Personal data, kept like match rows:** `stats erase` re-keys sessions and their monthly rows (`EraseIdentityResponse.session_rows` and `activity_monthly_rows`; both erase commands print "N sessions, N activity monthly rows"); past `stats.raw_retention_months` the rollup moves sessions into `player_activity_monthly`.
@@ -280,6 +282,9 @@ patch release is everything else.
   - **Docs:** docs/hub.md (Demo hub), CLAUDE.md.
 
 ### Fixed
+
+- **The metrics service is routed** (#198): the public listener didn't forward `MetricsService`, so `/admin/metrics` (#204, unreleased) answered every call with 404 on a real hub; the dashboard's tests and the accessibility fixture mount their own router and couldn't see it.
+- **A hub with no cloud-VM server reaches nothing off its machine** (#198): the cloud-VM manager asked `https://1.1.1.1/cdn-cgi/trace` for the hub's public address on every pass, with no server to pin a firewall for; it now asks only while a cloud-VM server or host exists.
 
 - **Match results' players are erased and retired like every identity-linked row** (#216, ADR-0012, ADR-0024): `match_result_players` escaped both. `stats erase` now re-keys a player's result rows and blanks their in-game name, and `EraseIdentityResponse.result_rows`, `gravel stats erase` and `gravel-hub stats erase` count them ("N match result rows", before the ingest batches). The `stats_rollup` job anonymises the players of every series that ended before the raw retention cutoff, each with a random token of their own in that series, so the scoreboard stays and nobody is named; `gravel_stats_results_retired_total` (Stats row) counts the series.
 - A 52 MB `gravel-hub` binary was committed at the repository's root with #235; it is removed, and `.gitignore` keeps out the binaries `go build ./cmd/<name>` drops there. The blob stays in the history.

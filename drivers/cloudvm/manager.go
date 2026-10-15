@@ -337,7 +337,8 @@ func (m *Manager) Start() {
 
 func hostJob(id string) string { return "cloudvm_host:" + id }
 
-// Reconcile rereads the servers, loads the hosts once, refreshes the hub's egress, and starts a
+// Reconcile rereads the servers, loads the hosts once, refreshes the hub's egress while it has a
+// cloud-VM server or host, and starts a
 // job for every host that has work (a live server, or a removed one whose host still exists).
 func (m *Manager) Reconcile(ctx context.Context) error {
 	specs, err := m.src.CloudVMServers(ctx)
@@ -360,8 +361,15 @@ func (m *Manager) Reconcile(ctx context.Context) error {
 		m.loaded = true
 		m.mu.Unlock()
 	}
-	if err := m.refreshEgress(ctx, false); err != nil {
-		m.log.Warn("could not learn the hub's public address; the hosts' firewalls keep their last pin", "error", err.Error())
+	// The egress pins the hosts' firewalls, so only a hub with a cloud-VM server or host asks for
+	// it: one with none reaches nothing off its machine (the unplug test, gravel#198).
+	m.mu.Lock()
+	anyHost := len(m.hosts) > 0
+	m.mu.Unlock()
+	if len(specs) > 0 || anyHost {
+		if err := m.refreshEgress(ctx, false); err != nil {
+			m.log.Warn("could not learn the hub's public address; the hosts' firewalls keep their last pin", "error", err.Error())
+		}
 	}
 	now := m.opt.Now()
 	var start []string
