@@ -11,6 +11,7 @@ import type { Organization } from "./gen/gravel/hub/v1/organization_pb";
 import { type NavItem, visible } from "./nav";
 import { NotFound } from "./pages/NotFound";
 import { Access } from "./pages/Access";
+import { Activity } from "./pages/Activity";
 import { Events } from "./pages/Events";
 import { Fleet } from "./pages/Fleet";
 import { Apps } from "./pages/Apps";
@@ -91,6 +92,9 @@ function Shell() {
               >
                 <Metrics />
               </Suspense>
+            </Route>
+            <Route path="/activity">
+              <Activity />
             </Route>
             <Route path="/settings">
               <Settings />

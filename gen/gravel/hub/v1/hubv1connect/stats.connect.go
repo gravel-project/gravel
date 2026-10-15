@@ -68,6 +68,9 @@ const (
 	// StatsServiceEraseIdentityProcedure is the fully-qualified name of the StatsService's
 	// EraseIdentity RPC.
 	StatsServiceEraseIdentityProcedure = "/gravel.hub.v1.StatsService/EraseIdentity"
+	// StatsServiceGetActivityProcedure is the fully-qualified name of the StatsService's GetActivity
+	// RPC.
+	StatsServiceGetActivityProcedure = "/gravel.hub.v1.StatsService/GetActivity"
 )
 
 // StatsServiceClient is a client for the gravel.hub.v1.StatsService service.
@@ -108,6 +111,9 @@ type StatsServiceClient interface {
 	// EraseIdentity erases a player's identity from the stats (ADR-0012 §7), for a request the
 	// operator verified: stats:erase, in person only. The numbers stay, as a deleted player's.
 	EraseIdentity(context.Context, *connect.Request[v1.EraseIdentityRequest]) (*connect.Response[v1.EraseIdentityResponse], error)
+	// GetActivity is when people play and who stopped, over a window ending now (ADR-0035):
+	// stats:read held everywhere, in person. Players are shown as a board shows them.
+	GetActivity(context.Context, *connect.Request[v1.GetActivityRequest]) (*connect.Response[v1.GetActivityResponse], error)
 }
 
 // NewStatsServiceClient constructs a client for the gravel.hub.v1.StatsService service. By default,
@@ -193,6 +199,12 @@ func NewStatsServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(statsServiceMethods.ByName("EraseIdentity")),
 			connect.WithClientOptions(opts...),
 		),
+		getActivity: connect.NewClient[v1.GetActivityRequest, v1.GetActivityResponse](
+			httpClient,
+			baseURL+StatsServiceGetActivityProcedure,
+			connect.WithSchema(statsServiceMethods.ByName("GetActivity")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -210,6 +222,7 @@ type statsServiceClient struct {
 	getMatchResult        *connect.Client[v1.GetMatchResultRequest, v1.GetMatchResultResponse]
 	getMatchDemo          *connect.Client[v1.GetMatchDemoRequest, v1.GetMatchDemoResponse]
 	eraseIdentity         *connect.Client[v1.EraseIdentityRequest, v1.EraseIdentityResponse]
+	getActivity           *connect.Client[v1.GetActivityRequest, v1.GetActivityResponse]
 }
 
 // GetBoard calls gravel.hub.v1.StatsService.GetBoard.
@@ -272,6 +285,11 @@ func (c *statsServiceClient) EraseIdentity(ctx context.Context, req *connect.Req
 	return c.eraseIdentity.CallUnary(ctx, req)
 }
 
+// GetActivity calls gravel.hub.v1.StatsService.GetActivity.
+func (c *statsServiceClient) GetActivity(ctx context.Context, req *connect.Request[v1.GetActivityRequest]) (*connect.Response[v1.GetActivityResponse], error) {
+	return c.getActivity.CallUnary(ctx, req)
+}
+
 // StatsServiceHandler is an implementation of the gravel.hub.v1.StatsService service.
 type StatsServiceHandler interface {
 	// GetBoard ranks the players of a server, a game or the organization over a window. Public when
@@ -310,6 +328,9 @@ type StatsServiceHandler interface {
 	// EraseIdentity erases a player's identity from the stats (ADR-0012 §7), for a request the
 	// operator verified: stats:erase, in person only. The numbers stay, as a deleted player's.
 	EraseIdentity(context.Context, *connect.Request[v1.EraseIdentityRequest]) (*connect.Response[v1.EraseIdentityResponse], error)
+	// GetActivity is when people play and who stopped, over a window ending now (ADR-0035):
+	// stats:read held everywhere, in person. Players are shown as a board shows them.
+	GetActivity(context.Context, *connect.Request[v1.GetActivityRequest]) (*connect.Response[v1.GetActivityResponse], error)
 }
 
 // NewStatsServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -391,6 +412,12 @@ func NewStatsServiceHandler(svc StatsServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(statsServiceMethods.ByName("EraseIdentity")),
 		connect.WithHandlerOptions(opts...),
 	)
+	statsServiceGetActivityHandler := connect.NewUnaryHandler(
+		StatsServiceGetActivityProcedure,
+		svc.GetActivity,
+		connect.WithSchema(statsServiceMethods.ByName("GetActivity")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/gravel.hub.v1.StatsService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case StatsServiceGetBoardProcedure:
@@ -417,6 +444,8 @@ func NewStatsServiceHandler(svc StatsServiceHandler, opts ...connect.HandlerOpti
 			statsServiceGetMatchDemoHandler.ServeHTTP(w, r)
 		case StatsServiceEraseIdentityProcedure:
 			statsServiceEraseIdentityHandler.ServeHTTP(w, r)
+		case StatsServiceGetActivityProcedure:
+			statsServiceGetActivityHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -472,4 +501,8 @@ func (UnimplementedStatsServiceHandler) GetMatchDemo(context.Context, *connect.R
 
 func (UnimplementedStatsServiceHandler) EraseIdentity(context.Context, *connect.Request[v1.EraseIdentityRequest]) (*connect.Response[v1.EraseIdentityResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.StatsService.EraseIdentity is not implemented"))
+}
+
+func (UnimplementedStatsServiceHandler) GetActivity(context.Context, *connect.Request[v1.GetActivityRequest]) (*connect.Response[v1.GetActivityResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.StatsService.GetActivity is not implemented"))
 }

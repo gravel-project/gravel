@@ -14,7 +14,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file gravel/hub/v1/stats.proto.
  */
 export const file_gravel_hub_v1_stats: GenFile = /*@__PURE__*/
-  fileDesc("ChlncmF2ZWwvaHViL3YxL3N0YXRzLnByb3RvEg1ncmF2ZWwuaHViLnYxIp8BCgpCb2FyZEVudHJ5EgwKBHJhbmsYASABKAUSDAoEbmFtZRgCIAEoCRIUCgxwc2V1ZG9ueW1vdXMYAyABKAgSDwoHdXNlcl9pZBgEIAEoCRINCgVraWxscxgFIAEoBRIOCgZkZWF0aHMYBiABKAUSCgoCa2QYByABKAESEgoKc2Vjb25kc19vbhgIIAEoBRIPCgdtYXRjaGVzGAkgASgFIowBCg9HZXRCb2FyZFJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJEg8KB2dhbWVfaWQYAiABKAkSDgoGd2luZG93GAMgASgJEg4KBnNlYXNvbhgEIAEoCRIOCgZtZXRyaWMYBSABKAkSEQoJcGFnZV9zaXplGAYgASgFEhIKCnBhZ2VfdG9rZW4YByABKAkiqQEKEEdldEJvYXJkUmVzcG9uc2USKgoHZW50cmllcxgBIAMoCzIZLmdyYXZlbC5odWIudjEuQm9hcmRFbnRyeRIXCg9uZXh0X3BhZ2VfdG9rZW4YAiABKAkSKAoEZnJvbRgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASJgoCdG8YBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIskBCgxNYXRjaFN1bW1hcnkSCgoCaWQYASABKAkSEQoJc2VydmVyX2lkGAIgASgJEg8KB2dhbWVfaWQYAyABKAkSLgoKc3RhcnRlZF9hdBgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLAoIZW5kZWRfYXQYBSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEgsKA21hcBgGIAEoCRIPCgdwbGF5ZXJzGAcgASgFEg0KBWtpbGxzGAggASgFIk4KEkxpc3RNYXRjaGVzUmVxdWVzdBIRCglzZXJ2ZXJfaWQYASABKAkSEQoJcGFnZV9zaXplGAIgASgFEhIKCnBhZ2VfdG9rZW4YAyABKAkiXAoTTGlzdE1hdGNoZXNSZXNwb25zZRIsCgdtYXRjaGVzGAEgAygLMhsuZ3JhdmVsLmh1Yi52MS5NYXRjaFN1bW1hcnkSFwoPbmV4dF9wYWdlX3Rva2VuGAIgASgJIhUKE0dldEJvYXJkTmFtZVJlcXVlc3QiKQoUR2V0Qm9hcmROYW1lUmVzcG9uc2USEQoJc2hvd19uYW1lGAEgASgIIigKE1NldEJvYXJkTmFtZVJlcXVlc3QSEQoJc2hvd19uYW1lGAEgASgIIikKFFNldEJvYXJkTmFtZVJlc3BvbnNlEhEKCXNob3dfbmFtZRgBIAEoCCLRAQoNUHJvZmlsZVRvdGFscxIOCgZ3aW5kb3cYASABKAkSDgoGc2Vhc29uGAIgASgJEigKBGZyb20YAyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEiYKAnRvGAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBINCgVraWxscxgFIAEoBRIOCgZkZWF0aHMYBiABKAUSCgoCa2QYByABKAESEgoKc2Vjb25kc19vbhgIIAEoBRIPCgdtYXRjaGVzGAkgASgFIuUBCgtQbGF5ZXJNYXRjaBIQCghtYXRjaF9pZBgBIAEoCRIRCglzZXJ2ZXJfaWQYAiABKAkSEwoLc2VydmVyX25hbWUYAyABKAkSLgoKc3RhcnRlZF9hdBgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLAoIZW5kZWRfYXQYBSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEgsKA21hcBgGIAEoCRINCgVraWxscxgHIAEoBRIOCgZkZWF0aHMYCCABKAUSEgoKc2Vjb25kc19vbhgJIAEoBSIqChdHZXRNZW1iZXJQcm9maWxlUmVxdWVzdBIPCgd1c2VyX2lkGAEgASgJIvcBChhHZXRNZW1iZXJQcm9maWxlUmVzcG9uc2USDwoHdXNlcl9pZBgBIAEoCRIUCgxkaXNwbGF5X25hbWUYAiABKAkSEQoJc2hvd19uYW1lGAMgASgIEgwKBHNlbGYYBCABKAgSLAoGdG90YWxzGAUgAygLMhwuZ3JhdmVsLmh1Yi52MS5Qcm9maWxlVG90YWxzEioKBnJlY2VudBgGIAMoCzIaLmdyYXZlbC5odWIudjEuUGxheWVyTWF0Y2gSOQoNcGFydGljaXBhdGlvbhgHIAMoCzIiLmdyYXZlbC5odWIudjEuUGFydGljaXBhdGlvblRvdGFscyIzCg5QbGF5ZXJJZGVudGl0eRIQCghwcm92aWRlchgBIAEoCRIPCgdzdWJqZWN0GAIgASgJIvgBChJQYXJ0aWNpcGF0aW9uRXZlbnQSCwoDa2V5GAEgASgJEgwKBGtpbmQYAiABKAkSLwoIaWRlbnRpdHkYAyABKAsyHS5ncmF2ZWwuaHViLnYxLlBsYXllcklkZW50aXR5Eg8KB2dhbWVfaWQYBCABKAkSEQoJc2VydmVyX2lkGAUgASgJEg8KB3Nlc3Npb24YBiABKAkSLwoLb2NjdXJyZWRfYXQYByABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhgKEGR1cmF0aW9uX3NlY29uZHMYCCABKAUSFgoOc2NoZW1hX3ZlcnNpb24YCSABKAUiTwoaUmVjb3JkUGFydGljaXBhdGlvblJlcXVlc3QSMQoGZXZlbnRzGAEgAygLMiEuZ3JhdmVsLmh1Yi52MS5QYXJ0aWNpcGF0aW9uRXZlbnQiMwoTUGFydGljaXBhdGlvblJlc3VsdBILCgNrZXkYASABKAkSDwoHb3V0Y29tZRgCIAEoCSJSChtSZWNvcmRQYXJ0aWNpcGF0aW9uUmVzcG9uc2USMwoHcmVzdWx0cxgBIAMoCzIiLmdyYXZlbC5odWIudjEuUGFydGljaXBhdGlvblJlc3VsdCJ4ChJQYXJ0aWNpcGF0aW9uRW50cnkSDAoEcmFuaxgBIAEoBRIMCgRuYW1lGAIgASgJEhQKDHBzZXVkb255bW91cxgDIAEoCBIPCgd1c2VyX2lkGAQgASgJEg4KBmV2ZW50cxgFIAEoBRIPCgdzZWNvbmRzGAYgASgFIoQBChxHZXRQYXJ0aWNpcGF0aW9uQm9hcmRSZXF1ZXN0EgwKBGtpbmQYASABKAkSDwoHZ2FtZV9pZBgCIAEoCRIOCgZ3aW5kb3cYAyABKAkSDgoGc2Vhc29uGAQgASgJEhEKCXBhZ2Vfc2l6ZRgFIAEoBRISCgpwYWdlX3Rva2VuGAYgASgJItsBCh1HZXRQYXJ0aWNpcGF0aW9uQm9hcmRSZXNwb25zZRIyCgdlbnRyaWVzGAEgAygLMiEuZ3JhdmVsLmh1Yi52MS5QYXJ0aWNpcGF0aW9uRW50cnkSFwoPbmV4dF9wYWdlX3Rva2VuGAIgASgJEigKBGZyb20YAyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEiYKAnRvGAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIMCgRraW5kGAUgASgJEg0KBWtpbmRzGAYgAygJIrYBChNQYXJ0aWNpcGF0aW9uVG90YWxzEg4KBndpbmRvdxgBIAEoCRIOCgZzZWFzb24YAiABKAkSKAoEZnJvbRgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASJgoCdG8YBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEgwKBGtpbmQYBSABKAkSDgoGZXZlbnRzGAYgASgFEg8KB3NlY29uZHMYByABKAUiOQoURXJhc2VJZGVudGl0eVJlcXVlc3QSEAoIcHJvdmlkZXIYASABKAkSDwoHc3ViamVjdBgCIAEoCSLJAQoVRXJhc2VJZGVudGl0eVJlc3BvbnNlEhIKCm1hdGNoX3Jvd3MYASABKAUSFAoMbW9udGhseV9yb3dzGAIgASgFEhoKEnBhcnRpY2lwYXRpb25fcm93cxgDIAEoBRIiChpwYXJ0aWNpcGF0aW9uX21vbnRobHlfcm93cxgEIAEoBRIWCg5pbmdlc3RfYmF0Y2hlcxgFIAEoBRIZChFwc2V1ZG9ueW1fZGVsZXRlZBgGIAEoCBITCgtyZXN1bHRfcm93cxgHIAEoBSLwAgoLTWF0Y2hSZXN1bHQSCgoCaWQYASABKAkSEQoJc2VydmVyX2lkGAIgASgJEhAKCGxlYXNlX2lkGAMgASgJEhIKCnRlYW0xX25hbWUYBCABKAkSEgoKdGVhbTJfbmFtZRgFIAEoCRIQCghudW1fbWFwcxgGIAEoBRITCgt0ZWFtMV9zY29yZRgHIAEoBRITCgt0ZWFtMl9zY29yZRgIIAEoBRIOCgZ3aW5uZXIYCSABKAkSLgoKc3RhcnRlZF9hdBgKIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLAoIZW5kZWRfYXQYCyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEisKBG1hcHMYDCADKAsyHS5ncmF2ZWwuaHViLnYxLk1hdGNoUmVzdWx0TWFwEjEKB3BsYXllcnMYDSADKAsyIC5ncmF2ZWwuaHViLnYxLk1hdGNoUmVzdWx0UGxheWVyIuABCg5NYXRjaFJlc3VsdE1hcBISCgptYXBfbnVtYmVyGAEgASgFEhAKCG1hcF9uYW1lGAIgASgJEhMKC3RlYW0xX3Njb3JlGAMgASgFEhMKC3RlYW0yX3Njb3JlGAQgASgFEg4KBndpbm5lchgFIAEoCRIuCgpzdGFydGVkX2F0GAYgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIsCghlbmRlZF9hdBgHIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASEAoIaGFzX2RlbW8YCCABKAgi3wEKEU1hdGNoUmVzdWx0UGxheWVyEhIKCm1hcF9udW1iZXIYASABKAUSDAoEbmFtZRgCIAEoCRIUCgxwc2V1ZG9ueW1vdXMYAyABKAgSDwoHdXNlcl9pZBgEIAEoCRIMCgR0ZWFtGAUgASgJEg0KBWtpbGxzGAYgASgFEg4KBmRlYXRocxgHIAEoBRIPCgdhc3Npc3RzGAggASgFEg4KBmRhbWFnZRgJIAEoBRIWCg5oZWFkc2hvdF9raWxscxgKIAEoBRIMCgRtdnBzGAsgASgFEg0KBXNjb3JlGAwgASgFIpYBChdMaXN0TWF0Y2hSZXN1bHRzUmVxdWVzdBIRCglzZXJ2ZXJfaWQYASABKAkSEAoIbGVhc2VfaWQYAiABKAkSEgoKZW5kZWRfb25seRgDIAEoCBIvCgtlbmRlZF9hZnRlchgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASEQoJcGFnZV9zaXplGAUgASgFIkcKGExpc3RNYXRjaFJlc3VsdHNSZXNwb25zZRIrCgdyZXN1bHRzGAEgAygLMhouZ3JhdmVsLmh1Yi52MS5NYXRjaFJlc3VsdCIjChVHZXRNYXRjaFJlc3VsdFJlcXVlc3QSCgoCaWQYASABKAkiRAoWR2V0TWF0Y2hSZXN1bHRSZXNwb25zZRIqCgZyZXN1bHQYASABKAsyGi5ncmF2ZWwuaHViLnYxLk1hdGNoUmVzdWx0IjUKE0dldE1hdGNoRGVtb1JlcXVlc3QSCgoCaWQYASABKAkSEgoKbWFwX251bWJlchgCIAEoBSJTChRHZXRNYXRjaERlbW9SZXNwb25zZRILCgN1cmwYASABKAkSLgoKZXhwaXJlc19hdBgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAijAEKFkdldFNlc3Npb25SZWNhcFJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJEigKBGZyb20YAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEiYKAnRvGAMgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBINCgVmbG9vchgEIAEoBSK9AQoKUmVjYXBNYXRjaBIKCgJpZBgBIAEoCRIuCgpzdGFydGVkX2F0GAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIsCghlbmRlZF9hdBgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASCwoDbWFwGAQgASgJEicKBXRlYW1zGAUgAygLMhguZ3JhdmVsLmh1Yi52MS5UZWFtU2NvcmUSDwoHcGxheWVycxgGIAEoBSKgAgoXR2V0U2Vzc2lvblJlY2FwUmVzcG9uc2USKAoEZnJvbRgBIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASJgoCdG8YAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEg0KBWZsb29yGAMgASgFEhQKDHBlYWtfcGxheWVycxgEIAEoBRIPCgdtaW51dGVzGAUgASgFEhgKEG1pbnV0ZXNfYXRfZmxvb3IYBiABKAUSDwoHcGxheWVycxgHIAEoBRIqCgdtYXRjaGVzGAggAygLMhkuZ3JhdmVsLmh1Yi52MS5SZWNhcE1hdGNoEiYKA3RvcBgJIAMoCzIZLmdyYXZlbC5odWIudjEuQm9hcmRFbnRyeTKFCQoMU3RhdHNTZXJ2aWNlEksKCEdldEJvYXJkEh4uZ3JhdmVsLmh1Yi52MS5HZXRCb2FyZFJlcXVlc3QaHy5ncmF2ZWwuaHViLnYxLkdldEJvYXJkUmVzcG9uc2USVAoLTGlzdE1hdGNoZXMSIS5ncmF2ZWwuaHViLnYxLkxpc3RNYXRjaGVzUmVxdWVzdBoiLmdyYXZlbC5odWIudjEuTGlzdE1hdGNoZXNSZXNwb25zZRJXCgxHZXRCb2FyZE5hbWUSIi5ncmF2ZWwuaHViLnYxLkdldEJvYXJkTmFtZVJlcXVlc3QaIy5ncmF2ZWwuaHViLnYxLkdldEJvYXJkTmFtZVJlc3BvbnNlElcKDFNldEJvYXJkTmFtZRIiLmdyYXZlbC5odWIudjEuU2V0Qm9hcmROYW1lUmVxdWVzdBojLmdyYXZlbC5odWIudjEuU2V0Qm9hcmROYW1lUmVzcG9uc2USYwoQR2V0TWVtYmVyUHJvZmlsZRImLmdyYXZlbC5odWIudjEuR2V0TWVtYmVyUHJvZmlsZVJlcXVlc3QaJy5ncmF2ZWwuaHViLnYxLkdldE1lbWJlclByb2ZpbGVSZXNwb25zZRJsChNSZWNvcmRQYXJ0aWNpcGF0aW9uEikuZ3JhdmVsLmh1Yi52MS5SZWNvcmRQYXJ0aWNpcGF0aW9uUmVxdWVzdBoqLmdyYXZlbC5odWIudjEuUmVjb3JkUGFydGljaXBhdGlvblJlc3BvbnNlEnIKFUdldFBhcnRpY2lwYXRpb25Cb2FyZBIrLmdyYXZlbC5odWIudjEuR2V0UGFydGljaXBhdGlvbkJvYXJkUmVxdWVzdBosLmdyYXZlbC5odWIudjEuR2V0UGFydGljaXBhdGlvbkJvYXJkUmVzcG9uc2USYAoPR2V0U2Vzc2lvblJlY2FwEiUuZ3JhdmVsLmh1Yi52MS5HZXRTZXNzaW9uUmVjYXBSZXF1ZXN0GiYuZ3JhdmVsLmh1Yi52MS5HZXRTZXNzaW9uUmVjYXBSZXNwb25zZRJjChBMaXN0TWF0Y2hSZXN1bHRzEiYuZ3JhdmVsLmh1Yi52MS5MaXN0TWF0Y2hSZXN1bHRzUmVxdWVzdBonLmdyYXZlbC5odWIudjEuTGlzdE1hdGNoUmVzdWx0c1Jlc3BvbnNlEl0KDkdldE1hdGNoUmVzdWx0EiQuZ3JhdmVsLmh1Yi52MS5HZXRNYXRjaFJlc3VsdFJlcXVlc3QaJS5ncmF2ZWwuaHViLnYxLkdldE1hdGNoUmVzdWx0UmVzcG9uc2USVwoMR2V0TWF0Y2hEZW1vEiIuZ3JhdmVsLmh1Yi52MS5HZXRNYXRjaERlbW9SZXF1ZXN0GiMuZ3JhdmVsLmh1Yi52MS5HZXRNYXRjaERlbW9SZXNwb25zZRJaCg1FcmFzZUlkZW50aXR5EiMuZ3JhdmVsLmh1Yi52MS5FcmFzZUlkZW50aXR5UmVxdWVzdBokLmdyYXZlbC5odWIudjEuRXJhc2VJZGVudGl0eVJlc3BvbnNlQjpaOGdpdGh1Yi5jb20vZ3JhdmVsLXByb2plY3QvZ3JhdmVsL2dlbi9ncmF2ZWwvaHViL3YxO2h1YnYxYgZwcm90bzM", [file_google_protobuf_timestamp, file_gravel_hub_v1_servers]);
+  fileDesc("ChlncmF2ZWwvaHViL3YxL3N0YXRzLnByb3RvEg1ncmF2ZWwuaHViLnYxIp8BCgpCb2FyZEVudHJ5EgwKBHJhbmsYASABKAUSDAoEbmFtZRgCIAEoCRIUCgxwc2V1ZG9ueW1vdXMYAyABKAgSDwoHdXNlcl9pZBgEIAEoCRINCgVraWxscxgFIAEoBRIOCgZkZWF0aHMYBiABKAUSCgoCa2QYByABKAESEgoKc2Vjb25kc19vbhgIIAEoBRIPCgdtYXRjaGVzGAkgASgFIowBCg9HZXRCb2FyZFJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJEg8KB2dhbWVfaWQYAiABKAkSDgoGd2luZG93GAMgASgJEg4KBnNlYXNvbhgEIAEoCRIOCgZtZXRyaWMYBSABKAkSEQoJcGFnZV9zaXplGAYgASgFEhIKCnBhZ2VfdG9rZW4YByABKAkiqQEKEEdldEJvYXJkUmVzcG9uc2USKgoHZW50cmllcxgBIAMoCzIZLmdyYXZlbC5odWIudjEuQm9hcmRFbnRyeRIXCg9uZXh0X3BhZ2VfdG9rZW4YAiABKAkSKAoEZnJvbRgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASJgoCdG8YBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIskBCgxNYXRjaFN1bW1hcnkSCgoCaWQYASABKAkSEQoJc2VydmVyX2lkGAIgASgJEg8KB2dhbWVfaWQYAyABKAkSLgoKc3RhcnRlZF9hdBgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLAoIZW5kZWRfYXQYBSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEgsKA21hcBgGIAEoCRIPCgdwbGF5ZXJzGAcgASgFEg0KBWtpbGxzGAggASgFIk4KEkxpc3RNYXRjaGVzUmVxdWVzdBIRCglzZXJ2ZXJfaWQYASABKAkSEQoJcGFnZV9zaXplGAIgASgFEhIKCnBhZ2VfdG9rZW4YAyABKAkiXAoTTGlzdE1hdGNoZXNSZXNwb25zZRIsCgdtYXRjaGVzGAEgAygLMhsuZ3JhdmVsLmh1Yi52MS5NYXRjaFN1bW1hcnkSFwoPbmV4dF9wYWdlX3Rva2VuGAIgASgJIhUKE0dldEJvYXJkTmFtZVJlcXVlc3QiKQoUR2V0Qm9hcmROYW1lUmVzcG9uc2USEQoJc2hvd19uYW1lGAEgASgIIigKE1NldEJvYXJkTmFtZVJlcXVlc3QSEQoJc2hvd19uYW1lGAEgASgIIikKFFNldEJvYXJkTmFtZVJlc3BvbnNlEhEKCXNob3dfbmFtZRgBIAEoCCLRAQoNUHJvZmlsZVRvdGFscxIOCgZ3aW5kb3cYASABKAkSDgoGc2Vhc29uGAIgASgJEigKBGZyb20YAyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEiYKAnRvGAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBINCgVraWxscxgFIAEoBRIOCgZkZWF0aHMYBiABKAUSCgoCa2QYByABKAESEgoKc2Vjb25kc19vbhgIIAEoBRIPCgdtYXRjaGVzGAkgASgFIuUBCgtQbGF5ZXJNYXRjaBIQCghtYXRjaF9pZBgBIAEoCRIRCglzZXJ2ZXJfaWQYAiABKAkSEwoLc2VydmVyX25hbWUYAyABKAkSLgoKc3RhcnRlZF9hdBgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLAoIZW5kZWRfYXQYBSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEgsKA21hcBgGIAEoCRINCgVraWxscxgHIAEoBRIOCgZkZWF0aHMYCCABKAUSEgoKc2Vjb25kc19vbhgJIAEoBSIqChdHZXRNZW1iZXJQcm9maWxlUmVxdWVzdBIPCgd1c2VyX2lkGAEgASgJIvcBChhHZXRNZW1iZXJQcm9maWxlUmVzcG9uc2USDwoHdXNlcl9pZBgBIAEoCRIUCgxkaXNwbGF5X25hbWUYAiABKAkSEQoJc2hvd19uYW1lGAMgASgIEgwKBHNlbGYYBCABKAgSLAoGdG90YWxzGAUgAygLMhwuZ3JhdmVsLmh1Yi52MS5Qcm9maWxlVG90YWxzEioKBnJlY2VudBgGIAMoCzIaLmdyYXZlbC5odWIudjEuUGxheWVyTWF0Y2gSOQoNcGFydGljaXBhdGlvbhgHIAMoCzIiLmdyYXZlbC5odWIudjEuUGFydGljaXBhdGlvblRvdGFscyIzCg5QbGF5ZXJJZGVudGl0eRIQCghwcm92aWRlchgBIAEoCRIPCgdzdWJqZWN0GAIgASgJIvgBChJQYXJ0aWNpcGF0aW9uRXZlbnQSCwoDa2V5GAEgASgJEgwKBGtpbmQYAiABKAkSLwoIaWRlbnRpdHkYAyABKAsyHS5ncmF2ZWwuaHViLnYxLlBsYXllcklkZW50aXR5Eg8KB2dhbWVfaWQYBCABKAkSEQoJc2VydmVyX2lkGAUgASgJEg8KB3Nlc3Npb24YBiABKAkSLwoLb2NjdXJyZWRfYXQYByABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhgKEGR1cmF0aW9uX3NlY29uZHMYCCABKAUSFgoOc2NoZW1hX3ZlcnNpb24YCSABKAUiTwoaUmVjb3JkUGFydGljaXBhdGlvblJlcXVlc3QSMQoGZXZlbnRzGAEgAygLMiEuZ3JhdmVsLmh1Yi52MS5QYXJ0aWNpcGF0aW9uRXZlbnQiMwoTUGFydGljaXBhdGlvblJlc3VsdBILCgNrZXkYASABKAkSDwoHb3V0Y29tZRgCIAEoCSJSChtSZWNvcmRQYXJ0aWNpcGF0aW9uUmVzcG9uc2USMwoHcmVzdWx0cxgBIAMoCzIiLmdyYXZlbC5odWIudjEuUGFydGljaXBhdGlvblJlc3VsdCJ4ChJQYXJ0aWNpcGF0aW9uRW50cnkSDAoEcmFuaxgBIAEoBRIMCgRuYW1lGAIgASgJEhQKDHBzZXVkb255bW91cxgDIAEoCBIPCgd1c2VyX2lkGAQgASgJEg4KBmV2ZW50cxgFIAEoBRIPCgdzZWNvbmRzGAYgASgFIoQBChxHZXRQYXJ0aWNpcGF0aW9uQm9hcmRSZXF1ZXN0EgwKBGtpbmQYASABKAkSDwoHZ2FtZV9pZBgCIAEoCRIOCgZ3aW5kb3cYAyABKAkSDgoGc2Vhc29uGAQgASgJEhEKCXBhZ2Vfc2l6ZRgFIAEoBRISCgpwYWdlX3Rva2VuGAYgASgJItsBCh1HZXRQYXJ0aWNpcGF0aW9uQm9hcmRSZXNwb25zZRIyCgdlbnRyaWVzGAEgAygLMiEuZ3JhdmVsLmh1Yi52MS5QYXJ0aWNpcGF0aW9uRW50cnkSFwoPbmV4dF9wYWdlX3Rva2VuGAIgASgJEigKBGZyb20YAyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEiYKAnRvGAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIMCgRraW5kGAUgASgJEg0KBWtpbmRzGAYgAygJIrYBChNQYXJ0aWNpcGF0aW9uVG90YWxzEg4KBndpbmRvdxgBIAEoCRIOCgZzZWFzb24YAiABKAkSKAoEZnJvbRgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASJgoCdG8YBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEgwKBGtpbmQYBSABKAkSDgoGZXZlbnRzGAYgASgFEg8KB3NlY29uZHMYByABKAUiOQoURXJhc2VJZGVudGl0eVJlcXVlc3QSEAoIcHJvdmlkZXIYASABKAkSDwoHc3ViamVjdBgCIAEoCSL+AQoVRXJhc2VJZGVudGl0eVJlc3BvbnNlEhIKCm1hdGNoX3Jvd3MYASABKAUSFAoMbW9udGhseV9yb3dzGAIgASgFEhoKEnBhcnRpY2lwYXRpb25fcm93cxgDIAEoBRIiChpwYXJ0aWNpcGF0aW9uX21vbnRobHlfcm93cxgEIAEoBRIWCg5pbmdlc3RfYmF0Y2hlcxgFIAEoBRIZChFwc2V1ZG9ueW1fZGVsZXRlZBgGIAEoCBITCgtyZXN1bHRfcm93cxgHIAEoBRIUCgxzZXNzaW9uX3Jvd3MYCCABKAUSHQoVYWN0aXZpdHlfbW9udGhseV9yb3dzGAkgASgFIvACCgtNYXRjaFJlc3VsdBIKCgJpZBgBIAEoCRIRCglzZXJ2ZXJfaWQYAiABKAkSEAoIbGVhc2VfaWQYAyABKAkSEgoKdGVhbTFfbmFtZRgEIAEoCRISCgp0ZWFtMl9uYW1lGAUgASgJEhAKCG51bV9tYXBzGAYgASgFEhMKC3RlYW0xX3Njb3JlGAcgASgFEhMKC3RlYW0yX3Njb3JlGAggASgFEg4KBndpbm5lchgJIAEoCRIuCgpzdGFydGVkX2F0GAogASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIsCghlbmRlZF9hdBgLIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASKwoEbWFwcxgMIAMoCzIdLmdyYXZlbC5odWIudjEuTWF0Y2hSZXN1bHRNYXASMQoHcGxheWVycxgNIAMoCzIgLmdyYXZlbC5odWIudjEuTWF0Y2hSZXN1bHRQbGF5ZXIi4AEKDk1hdGNoUmVzdWx0TWFwEhIKCm1hcF9udW1iZXIYASABKAUSEAoIbWFwX25hbWUYAiABKAkSEwoLdGVhbTFfc2NvcmUYAyABKAUSEwoLdGVhbTJfc2NvcmUYBCABKAUSDgoGd2lubmVyGAUgASgJEi4KCnN0YXJ0ZWRfYXQYBiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEiwKCGVuZGVkX2F0GAcgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIQCghoYXNfZGVtbxgIIAEoCCLfAQoRTWF0Y2hSZXN1bHRQbGF5ZXISEgoKbWFwX251bWJlchgBIAEoBRIMCgRuYW1lGAIgASgJEhQKDHBzZXVkb255bW91cxgDIAEoCBIPCgd1c2VyX2lkGAQgASgJEgwKBHRlYW0YBSABKAkSDQoFa2lsbHMYBiABKAUSDgoGZGVhdGhzGAcgASgFEg8KB2Fzc2lzdHMYCCABKAUSDgoGZGFtYWdlGAkgASgFEhYKDmhlYWRzaG90X2tpbGxzGAogASgFEgwKBG12cHMYCyABKAUSDQoFc2NvcmUYDCABKAUilgEKF0xpc3RNYXRjaFJlc3VsdHNSZXF1ZXN0EhEKCXNlcnZlcl9pZBgBIAEoCRIQCghsZWFzZV9pZBgCIAEoCRISCgplbmRlZF9vbmx5GAMgASgIEi8KC2VuZGVkX2FmdGVyGAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIRCglwYWdlX3NpemUYBSABKAUiRwoYTGlzdE1hdGNoUmVzdWx0c1Jlc3BvbnNlEisKB3Jlc3VsdHMYASADKAsyGi5ncmF2ZWwuaHViLnYxLk1hdGNoUmVzdWx0IiMKFUdldE1hdGNoUmVzdWx0UmVxdWVzdBIKCgJpZBgBIAEoCSJEChZHZXRNYXRjaFJlc3VsdFJlc3BvbnNlEioKBnJlc3VsdBgBIAEoCzIaLmdyYXZlbC5odWIudjEuTWF0Y2hSZXN1bHQiNQoTR2V0TWF0Y2hEZW1vUmVxdWVzdBIKCgJpZBgBIAEoCRISCgptYXBfbnVtYmVyGAIgASgFIlMKFEdldE1hdGNoRGVtb1Jlc3BvbnNlEgsKA3VybBgBIAEoCRIuCgpleHBpcmVzX2F0GAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCKMAQoWR2V0U2Vzc2lvblJlY2FwUmVxdWVzdBIRCglzZXJ2ZXJfaWQYASABKAkSKAoEZnJvbRgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASJgoCdG8YAyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEg0KBWZsb29yGAQgASgFIr0BCgpSZWNhcE1hdGNoEgoKAmlkGAEgASgJEi4KCnN0YXJ0ZWRfYXQYAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEiwKCGVuZGVkX2F0GAMgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBILCgNtYXAYBCABKAkSJwoFdGVhbXMYBSADKAsyGC5ncmF2ZWwuaHViLnYxLlRlYW1TY29yZRIPCgdwbGF5ZXJzGAYgASgFIqACChdHZXRTZXNzaW9uUmVjYXBSZXNwb25zZRIoCgRmcm9tGAEgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBImCgJ0bxgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASDQoFZmxvb3IYAyABKAUSFAoMcGVha19wbGF5ZXJzGAQgASgFEg8KB21pbnV0ZXMYBSABKAUSGAoQbWludXRlc19hdF9mbG9vchgGIAEoBRIPCgdwbGF5ZXJzGAcgASgFEioKB21hdGNoZXMYCCADKAsyGS5ncmF2ZWwuaHViLnYxLlJlY2FwTWF0Y2gSJgoDdG9wGAkgAygLMhkuZ3JhdmVsLmh1Yi52MS5Cb2FyZEVudHJ5IiQKEkdldEFjdGl2aXR5UmVxdWVzdBIOCgZ3aW5kb3cYASABKAkiSAoMQWN0aXZpdHlIb3VyEgsKA2RheRgBIAEoBRIMCgRob3VyGAIgASgFEg8KB2F2ZXJhZ2UYAyABKAESDAoEcGVhaxgEIAEoBSJfCgxBY3Rpdml0eVdlZWsSKQoFc3RhcnQYASABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEg8KB3BsYXllcnMYAiABKAUSEwoLbmV3X3BsYXllcnMYAyABKAUirgEKDFF1aWV0UmVndWxhchIMCgRuYW1lGAEgASgJEhQKDHBzZXVkb255bW91cxgCIAEoCBIPCgd1c2VyX2lkGAMgASgJEhMKC2RheXNfYmVmb3JlGAQgASgFEi0KCWxhc3Rfc2VlbhgFIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASFgoObGFzdF9zZXJ2ZXJfaWQYBiABKAkSDQoFaG91cnMYByABKAEi7gMKE0dldEFjdGl2aXR5UmVzcG9uc2USDgoGd2luZG93GAEgASgJEigKBGZyb20YAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEiYKAnRvGAMgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIQCgh0aW1lem9uZRgEIAEoCRIqCgVob3VycxgFIAMoCzIbLmdyYXZlbC5odWIudjEuQWN0aXZpdHlIb3VyEhAKCHNlc3Npb25zGAYgASgFEg8KB3BsYXllcnMYByABKAUSHgoWbWVkaWFuX3Nlc3Npb25fc2Vjb25kcxgIIAEoBRIZChFyZXR1cm5pbmdfcGxheWVycxgJIAEoBRIYChBtZWFuX2FjdGl2ZV9kYXlzGAogASgBEhMKC25ld19wbGF5ZXJzGAsgASgFEhQKDGxvc3RfcGxheWVycxgMIAEoBRIqCgV3ZWVrcxgNIAMoCzIbLmdyYXZlbC5odWIudjEuQWN0aXZpdHlXZWVrEioKBXF1aWV0GA4gAygLMhsuZ3JhdmVsLmh1Yi52MS5RdWlldFJlZ3VsYXISFAoMcmVndWxhcl9kYXlzGA8gASgFEhUKDXJlZ3VsYXJfd2Vla3MYECABKAUSDwoHcGFydGlhbBgRIAEoCDLbCQoMU3RhdHNTZXJ2aWNlEksKCEdldEJvYXJkEh4uZ3JhdmVsLmh1Yi52MS5HZXRCb2FyZFJlcXVlc3QaHy5ncmF2ZWwuaHViLnYxLkdldEJvYXJkUmVzcG9uc2USVAoLTGlzdE1hdGNoZXMSIS5ncmF2ZWwuaHViLnYxLkxpc3RNYXRjaGVzUmVxdWVzdBoiLmdyYXZlbC5odWIudjEuTGlzdE1hdGNoZXNSZXNwb25zZRJXCgxHZXRCb2FyZE5hbWUSIi5ncmF2ZWwuaHViLnYxLkdldEJvYXJkTmFtZVJlcXVlc3QaIy5ncmF2ZWwuaHViLnYxLkdldEJvYXJkTmFtZVJlc3BvbnNlElcKDFNldEJvYXJkTmFtZRIiLmdyYXZlbC5odWIudjEuU2V0Qm9hcmROYW1lUmVxdWVzdBojLmdyYXZlbC5odWIudjEuU2V0Qm9hcmROYW1lUmVzcG9uc2USYwoQR2V0TWVtYmVyUHJvZmlsZRImLmdyYXZlbC5odWIudjEuR2V0TWVtYmVyUHJvZmlsZVJlcXVlc3QaJy5ncmF2ZWwuaHViLnYxLkdldE1lbWJlclByb2ZpbGVSZXNwb25zZRJsChNSZWNvcmRQYXJ0aWNpcGF0aW9uEikuZ3JhdmVsLmh1Yi52MS5SZWNvcmRQYXJ0aWNpcGF0aW9uUmVxdWVzdBoqLmdyYXZlbC5odWIudjEuUmVjb3JkUGFydGljaXBhdGlvblJlc3BvbnNlEnIKFUdldFBhcnRpY2lwYXRpb25Cb2FyZBIrLmdyYXZlbC5odWIudjEuR2V0UGFydGljaXBhdGlvbkJvYXJkUmVxdWVzdBosLmdyYXZlbC5odWIudjEuR2V0UGFydGljaXBhdGlvbkJvYXJkUmVzcG9uc2USYAoPR2V0U2Vzc2lvblJlY2FwEiUuZ3JhdmVsLmh1Yi52MS5HZXRTZXNzaW9uUmVjYXBSZXF1ZXN0GiYuZ3JhdmVsLmh1Yi52MS5HZXRTZXNzaW9uUmVjYXBSZXNwb25zZRJjChBMaXN0TWF0Y2hSZXN1bHRzEiYuZ3JhdmVsLmh1Yi52MS5MaXN0TWF0Y2hSZXN1bHRzUmVxdWVzdBonLmdyYXZlbC5odWIudjEuTGlzdE1hdGNoUmVzdWx0c1Jlc3BvbnNlEl0KDkdldE1hdGNoUmVzdWx0EiQuZ3JhdmVsLmh1Yi52MS5HZXRNYXRjaFJlc3VsdFJlcXVlc3QaJS5ncmF2ZWwuaHViLnYxLkdldE1hdGNoUmVzdWx0UmVzcG9uc2USVwoMR2V0TWF0Y2hEZW1vEiIuZ3JhdmVsLmh1Yi52MS5HZXRNYXRjaERlbW9SZXF1ZXN0GiMuZ3JhdmVsLmh1Yi52MS5HZXRNYXRjaERlbW9SZXNwb25zZRJaCg1FcmFzZUlkZW50aXR5EiMuZ3JhdmVsLmh1Yi52MS5FcmFzZUlkZW50aXR5UmVxdWVzdBokLmdyYXZlbC5odWIudjEuRXJhc2VJZGVudGl0eVJlc3BvbnNlElQKC0dldEFjdGl2aXR5EiEuZ3JhdmVsLmh1Yi52MS5HZXRBY3Rpdml0eVJlcXVlc3QaIi5ncmF2ZWwuaHViLnYxLkdldEFjdGl2aXR5UmVzcG9uc2VCOlo4Z2l0aHViLmNvbS9ncmF2ZWwtcHJvamVjdC9ncmF2ZWwvZ2VuL2dyYXZlbC9odWIvdjE7aHVidjFiBnByb3RvMw", [file_google_protobuf_timestamp, file_gravel_hub_v1_servers]);
 
 /**
  * BoardEntry is one player on a board. A player who has not linked the identity, or has not
@@ -985,6 +985,18 @@ export type EraseIdentityResponse = Message<"gravel.hub.v1.EraseIdentityResponse
    * @generated from field: int32 result_rows = 7;
    */
   resultRows: number;
+
+  /**
+   * Player sessions and their monthly rows (ADR-0035).
+   *
+   * @generated from field: int32 session_rows = 8;
+   */
+  sessionRows: number;
+
+  /**
+   * @generated from field: int32 activity_monthly_rows = 9;
+   */
+  activityMonthlyRows: number;
 };
 
 /**
@@ -1499,6 +1511,268 @@ export const GetSessionRecapResponseSchema: GenMessage<GetSessionRecapResponse> 
   messageDesc(file_gravel_hub_v1_stats, 36);
 
 /**
+ * @generated from message gravel.hub.v1.GetActivityRequest
+ */
+export type GetActivityRequest = Message<"gravel.hub.v1.GetActivityRequest"> & {
+  /**
+   * "7d", "30d" (the default, empty) or "90d", ending now.
+   *
+   * @generated from field: string window = 1;
+   */
+  window: string;
+};
+
+/**
+ * Describes the message gravel.hub.v1.GetActivityRequest.
+ * Use `create(GetActivityRequestSchema)` to create a new message.
+ */
+export const GetActivityRequestSchema: GenMessage<GetActivityRequest> = /*@__PURE__*/
+  messageDesc(file_gravel_hub_v1_stats, 37);
+
+/**
+ * ActivityHour is one hour of the week in the organization's timezone (stats.timezone).
+ *
+ * @generated from message gravel.hub.v1.ActivityHour
+ */
+export type ActivityHour = Message<"gravel.hub.v1.ActivityHour"> & {
+  /**
+   * 1 (Monday) to 7.
+   *
+   * @generated from field: int32 day = 1;
+   */
+  day: number;
+
+  /**
+   * 0 to 23.
+   *
+   * @generated from field: int32 hour = 2;
+   */
+  hour: number;
+
+  /**
+   * The players on in this hour of the week, on average over the window's weeks.
+   *
+   * @generated from field: double average = 3;
+   */
+  average: number;
+
+  /**
+   * The most on in any one such hour.
+   *
+   * @generated from field: int32 peak = 4;
+   */
+  peak: number;
+};
+
+/**
+ * Describes the message gravel.hub.v1.ActivityHour.
+ * Use `create(ActivityHourSchema)` to create a new message.
+ */
+export const ActivityHourSchema: GenMessage<ActivityHour> = /*@__PURE__*/
+  messageDesc(file_gravel_hub_v1_stats, 38);
+
+/**
+ * ActivityWeek is one week of the window, from its Monday in the organization's timezone.
+ *
+ * @generated from message gravel.hub.v1.ActivityWeek
+ */
+export type ActivityWeek = Message<"gravel.hub.v1.ActivityWeek"> & {
+  /**
+   * @generated from field: google.protobuf.Timestamp start = 1;
+   */
+  start?: Timestamp | undefined;
+
+  /**
+   * @generated from field: int32 players = 2;
+   */
+  players: number;
+
+  /**
+   * Players whose first session was that week.
+   *
+   * @generated from field: int32 new_players = 3;
+   */
+  newPlayers: number;
+};
+
+/**
+ * Describes the message gravel.hub.v1.ActivityWeek.
+ * Use `create(ActivityWeekSchema)` to create a new message.
+ */
+export const ActivityWeekSchema: GenMessage<ActivityWeek> = /*@__PURE__*/
+  messageDesc(file_gravel_hub_v1_stats, 39);
+
+/**
+ * QuietRegular is a regular before the window with no session in it, shown as a board shows a
+ * player: a member's name when they chose it, else a pseudonym.
+ *
+ * @generated from message gravel.hub.v1.QuietRegular
+ */
+export type QuietRegular = Message<"gravel.hub.v1.QuietRegular"> & {
+  /**
+   * @generated from field: string name = 1;
+   */
+  name: string;
+
+  /**
+   * @generated from field: bool pseudonymous = 2;
+   */
+  pseudonymous: boolean;
+
+  /**
+   * The member, when shown by name.
+   *
+   * @generated from field: string user_id = 3;
+   */
+  userId: string;
+
+  /**
+   * Days they played in the regulars' look-back.
+   *
+   * @generated from field: int32 days_before = 4;
+   */
+  daysBefore: number;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp last_seen = 5;
+   */
+  lastSeen?: Timestamp | undefined;
+
+  /**
+   * @generated from field: string last_server_id = 6;
+   */
+  lastServerId: string;
+
+  /**
+   * Hours they were on in the look-back.
+   *
+   * @generated from field: double hours = 7;
+   */
+  hours: number;
+};
+
+/**
+ * Describes the message gravel.hub.v1.QuietRegular.
+ * Use `create(QuietRegularSchema)` to create a new message.
+ */
+export const QuietRegularSchema: GenMessage<QuietRegular> = /*@__PURE__*/
+  messageDesc(file_gravel_hub_v1_stats, 40);
+
+/**
+ * @generated from message gravel.hub.v1.GetActivityResponse
+ */
+export type GetActivityResponse = Message<"gravel.hub.v1.GetActivityResponse"> & {
+  /**
+   * @generated from field: string window = 1;
+   */
+  window: string;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp from = 2;
+   */
+  from?: Timestamp | undefined;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp to = 3;
+   */
+  to?: Timestamp | undefined;
+
+  /**
+   * The IANA zone the hours, days and weeks are read in.
+   *
+   * @generated from field: string timezone = 4;
+   */
+  timezone: string;
+
+  /**
+   * All 168 hours of the week, Monday 00:00 first.
+   *
+   * @generated from field: repeated gravel.hub.v1.ActivityHour hours = 5;
+   */
+  hours: ActivityHour[];
+
+  /**
+   * Sessions started in the window, and the players who started them.
+   *
+   * @generated from field: int32 sessions = 6;
+   */
+  sessions: number;
+
+  /**
+   * @generated from field: int32 players = 7;
+   */
+  players: number;
+
+  /**
+   * @generated from field: int32 median_session_seconds = 8;
+   */
+  medianSessionSeconds: number;
+
+  /**
+   * Players who came on two days or more, and the players' mean days.
+   *
+   * @generated from field: int32 returning_players = 9;
+   */
+  returningPlayers: number;
+
+  /**
+   * @generated from field: double mean_active_days = 10;
+   */
+  meanActiveDays: number;
+
+  /**
+   * Players never seen before the window, and players on in the window of the same length before
+   * it who weren't on in this one.
+   *
+   * @generated from field: int32 new_players = 11;
+   */
+  newPlayers: number;
+
+  /**
+   * @generated from field: int32 lost_players = 12;
+   */
+  lostPlayers: number;
+
+  /**
+   * @generated from field: repeated gravel.hub.v1.ActivityWeek weeks = 13;
+   */
+  weeks: ActivityWeek[];
+
+  /**
+   * Regulars (on regular_days days or more in the regular_weeks weeks before the window) with no
+   * session in it, the most recently seen first; at most 50.
+   *
+   * @generated from field: repeated gravel.hub.v1.QuietRegular quiet = 14;
+   */
+  quiet: QuietRegular[];
+
+  /**
+   * @generated from field: int32 regular_days = 15;
+   */
+  regularDays: number;
+
+  /**
+   * @generated from field: int32 regular_weeks = 16;
+   */
+  regularWeeks: number;
+
+  /**
+   * The look-back reaches past stats.raw_retention_months, where only monthly totals are kept:
+   * the regulars and new players before the cutoff are incomplete.
+   *
+   * @generated from field: bool partial = 17;
+   */
+  partial: boolean;
+};
+
+/**
+ * Describes the message gravel.hub.v1.GetActivityResponse.
+ * Use `create(GetActivityResponseSchema)` to create a new message.
+ */
+export const GetActivityResponseSchema: GenMessage<GetActivityResponse> = /*@__PURE__*/
+  messageDesc(file_gravel_hub_v1_stats, 41);
+
+/**
  * first-party apps, on boards of its own (ADR-0014).
  *
  * @generated from service gravel.hub.v1.StatsService
@@ -1635,6 +1909,17 @@ export const StatsService: GenService<{
     methodKind: "unary";
     input: typeof EraseIdentityRequestSchema;
     output: typeof EraseIdentityResponseSchema;
+  },
+  /**
+   * GetActivity is when people play and who stopped, over a window ending now (ADR-0035):
+   * stats:read held everywhere, in person. Players are shown as a board shows them.
+   *
+   * @generated from rpc gravel.hub.v1.StatsService.GetActivity
+   */
+  getActivity: {
+    methodKind: "unary";
+    input: typeof GetActivityRequestSchema;
+    output: typeof GetActivityResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_gravel_hub_v1_stats, 0);

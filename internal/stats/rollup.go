@@ -30,9 +30,12 @@ type RollupStore interface {
 	RollUpParticipation(ctx context.Context, orgID uuid.UUID, timezone string, periods []store.Period) (int, error)
 	EraseIdentity(ctx context.Context, orgID uuid.UUID, key store.PlayerKey, token string, by store.Actor, at time.Time) (store.Erasure, error)
 	RetireResults(ctx context.Context, orgID uuid.UUID, cutoff time.Time) (store.Retired, error)
+	OldestRawSession(ctx context.Context, orgID uuid.UUID) (time.Time, error)
+	RollUpActivity(ctx context.Context, orgID uuid.UUID, timezone string, periods []store.Period) (int, error)
 }
 
-// Retention rolls a player's per-match rows, and participation events (ADR-0014), into monthly
+// Retention rolls a player's per-match rows, participation events (ADR-0014) and sessions
+// (ADR-0035) into monthly
 // totals once they pass the Organization settings' stats.raw_retention_months (ADR-0012 §6), so
 // no raw row is older than the window and the boards keep their numbers. Match results past the
 // same window keep their scoreboards with their players anonymised (ADR-0024, #216).
@@ -117,6 +120,10 @@ func (r *Retention) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	oldestSession, err := oldestOrZero(r.st.OldestRawSession(ctx, r.orgID))
+	if err != nil {
+		return err
+	}
 	loc := set.Location()
 	cutoff := Cutoff(r.now(), loc, set.RawRetentionMonthsOrDefault())
 	retired, err := r.st.RetireResults(ctx, r.orgID, cutoff)
@@ -129,12 +136,14 @@ func (r *Retention) Run(ctx context.Context) error {
 			"rows", retired.Rows, "before", cutoff.Format(time.DateOnly), "retention_months", set.RawRetentionMonthsOrDefault())
 	}
 	due := func(t time.Time) bool { return !t.IsZero() && t.Before(cutoff) }
-	if !due(oldestMatch) && !due(oldestPart) {
-		return nil
+	var oldest time.Time
+	for _, t := range []time.Time{oldestMatch, oldestPart, oldestSession} {
+		if due(t) && (oldest.IsZero() || t.Before(oldest)) {
+			oldest = t
+		}
 	}
-	oldest := oldestMatch
-	if !due(oldest) || (due(oldestPart) && oldestPart.Before(oldest)) {
-		oldest = oldestPart
+	if oldest.IsZero() {
+		return nil
 	}
 	periods, err := Periods(oldest, cutoff, loc, set.Seasons)
 	if err != nil {
@@ -152,11 +161,17 @@ func (r *Retention) Run(ctx context.Context) error {
 			return err
 		}
 	}
+	var sessions int
+	if due(oldestSession) {
+		if sessions, err = r.st.RollUpActivity(ctx, r.orgID, loc.String(), periods); err != nil {
+			return err
+		}
+	}
 	r.rows.Add(float64(got.Rows))
-	if got.Rows > 0 || moved > 0 {
+	if got.Rows > 0 || moved > 0 || sessions > 0 {
 		r.changes.Bump()
 		r.logger.InfoContext(ctx, "stats: rolled raw rows up into monthly totals", "matches", got.Matches, "rows", got.Rows,
-			"participation_events", moved, "before", cutoff.Format(time.DateOnly), "retention_months", set.RawRetentionMonthsOrDefault())
+			"participation_events", moved, "sessions", sessions, "before", cutoff.Format(time.DateOnly), "retention_months", set.RawRetentionMonthsOrDefault())
 	}
 	return nil
 }

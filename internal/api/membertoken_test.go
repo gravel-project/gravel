@@ -308,7 +308,7 @@ func TestEveryProcedureIsClassifiedForMemberTokens(t *testing.T) {
 		hubv1connect.ServerLeaseServiceRequestServerLeaseProcedure, hubv1connect.ServerLeaseServiceGetServerLeaseProcedure,
 		hubv1connect.ServerLeaseServiceListServerLeasesProcedure, hubv1connect.ServerLeaseServiceReleaseServerLeaseProcedure,
 		hubv1connect.ServerLeaseServiceWatchServerLeaseProcedure,
-		hubv1connect.MetricsServiceListDashboardsProcedure, hubv1connect.MetricsServiceQueryRangeProcedure,
+		hubv1connect.MetricsServiceListDashboardsProcedure, hubv1connect.MetricsServiceQueryRangeProcedure, hubv1connect.StatsServiceGetActivityProcedure,
 		hubv1connect.ServerHostServiceResizeServerHostProcedure, hubv1connect.ServerHostServiceUnpinServerHostSizeProcedure, hubv1connect.ServerHostServiceSnapshotServerHostVolumeProcedure, hubv1connect.ServerHostServiceDestroyServerHostProcedure,
 	}
 	seen := 0

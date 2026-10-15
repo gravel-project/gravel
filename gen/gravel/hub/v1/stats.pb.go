@@ -1795,9 +1795,12 @@ type EraseIdentityResponse struct {
 	IngestBatches            int32                  `protobuf:"varint,5,opt,name=ingest_batches,json=ingestBatches,proto3" json:"ingest_batches,omitempty"`
 	PseudonymDeleted         bool                   `protobuf:"varint,6,opt,name=pseudonym_deleted,json=pseudonymDeleted,proto3" json:"pseudonym_deleted,omitempty"`
 	// Match results' player rows (ADR-0024), one per map the identity played; their names blanked.
-	ResultRows    int32 `protobuf:"varint,7,opt,name=result_rows,json=resultRows,proto3" json:"result_rows,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	ResultRows int32 `protobuf:"varint,7,opt,name=result_rows,json=resultRows,proto3" json:"result_rows,omitempty"`
+	// Player sessions and their monthly rows (ADR-0035).
+	SessionRows         int32 `protobuf:"varint,8,opt,name=session_rows,json=sessionRows,proto3" json:"session_rows,omitempty"`
+	ActivityMonthlyRows int32 `protobuf:"varint,9,opt,name=activity_monthly_rows,json=activityMonthlyRows,proto3" json:"activity_monthly_rows,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *EraseIdentityResponse) Reset() {
@@ -1875,6 +1878,20 @@ func (x *EraseIdentityResponse) GetPseudonymDeleted() bool {
 func (x *EraseIdentityResponse) GetResultRows() int32 {
 	if x != nil {
 		return x.ResultRows
+	}
+	return 0
+}
+
+func (x *EraseIdentityResponse) GetSessionRows() int32 {
+	if x != nil {
+		return x.SessionRows
+	}
+	return 0
+}
+
+func (x *EraseIdentityResponse) GetActivityMonthlyRows() int32 {
+	if x != nil {
+		return x.ActivityMonthlyRows
 	}
 	return 0
 }
@@ -2843,6 +2860,465 @@ func (x *GetSessionRecapResponse) GetTop() []*BoardEntry {
 	return nil
 }
 
+type GetActivityRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// "7d", "30d" (the default, empty) or "90d", ending now.
+	Window        string `protobuf:"bytes,1,opt,name=window,proto3" json:"window,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetActivityRequest) Reset() {
+	*x = GetActivityRequest{}
+	mi := &file_gravel_hub_v1_stats_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetActivityRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetActivityRequest) ProtoMessage() {}
+
+func (x *GetActivityRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_stats_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetActivityRequest.ProtoReflect.Descriptor instead.
+func (*GetActivityRequest) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_stats_proto_rawDescGZIP(), []int{37}
+}
+
+func (x *GetActivityRequest) GetWindow() string {
+	if x != nil {
+		return x.Window
+	}
+	return ""
+}
+
+// ActivityHour is one hour of the week in the organization's timezone (stats.timezone).
+type ActivityHour struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// 1 (Monday) to 7.
+	Day int32 `protobuf:"varint,1,opt,name=day,proto3" json:"day,omitempty"`
+	// 0 to 23.
+	Hour int32 `protobuf:"varint,2,opt,name=hour,proto3" json:"hour,omitempty"`
+	// The players on in this hour of the week, on average over the window's weeks.
+	Average float64 `protobuf:"fixed64,3,opt,name=average,proto3" json:"average,omitempty"`
+	// The most on in any one such hour.
+	Peak          int32 `protobuf:"varint,4,opt,name=peak,proto3" json:"peak,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ActivityHour) Reset() {
+	*x = ActivityHour{}
+	mi := &file_gravel_hub_v1_stats_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ActivityHour) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ActivityHour) ProtoMessage() {}
+
+func (x *ActivityHour) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_stats_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ActivityHour.ProtoReflect.Descriptor instead.
+func (*ActivityHour) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_stats_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *ActivityHour) GetDay() int32 {
+	if x != nil {
+		return x.Day
+	}
+	return 0
+}
+
+func (x *ActivityHour) GetHour() int32 {
+	if x != nil {
+		return x.Hour
+	}
+	return 0
+}
+
+func (x *ActivityHour) GetAverage() float64 {
+	if x != nil {
+		return x.Average
+	}
+	return 0
+}
+
+func (x *ActivityHour) GetPeak() int32 {
+	if x != nil {
+		return x.Peak
+	}
+	return 0
+}
+
+// ActivityWeek is one week of the window, from its Monday in the organization's timezone.
+type ActivityWeek struct {
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Start   *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=start,proto3" json:"start,omitempty"`
+	Players int32                  `protobuf:"varint,2,opt,name=players,proto3" json:"players,omitempty"`
+	// Players whose first session was that week.
+	NewPlayers    int32 `protobuf:"varint,3,opt,name=new_players,json=newPlayers,proto3" json:"new_players,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ActivityWeek) Reset() {
+	*x = ActivityWeek{}
+	mi := &file_gravel_hub_v1_stats_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ActivityWeek) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ActivityWeek) ProtoMessage() {}
+
+func (x *ActivityWeek) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_stats_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ActivityWeek.ProtoReflect.Descriptor instead.
+func (*ActivityWeek) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_stats_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *ActivityWeek) GetStart() *timestamppb.Timestamp {
+	if x != nil {
+		return x.Start
+	}
+	return nil
+}
+
+func (x *ActivityWeek) GetPlayers() int32 {
+	if x != nil {
+		return x.Players
+	}
+	return 0
+}
+
+func (x *ActivityWeek) GetNewPlayers() int32 {
+	if x != nil {
+		return x.NewPlayers
+	}
+	return 0
+}
+
+// QuietRegular is a regular before the window with no session in it, shown as a board shows a
+// player: a member's name when they chose it, else a pseudonym.
+type QuietRegular struct {
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	Name         string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Pseudonymous bool                   `protobuf:"varint,2,opt,name=pseudonymous,proto3" json:"pseudonymous,omitempty"`
+	// The member, when shown by name.
+	UserId string `protobuf:"bytes,3,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	// Days they played in the regulars' look-back.
+	DaysBefore   int32                  `protobuf:"varint,4,opt,name=days_before,json=daysBefore,proto3" json:"days_before,omitempty"`
+	LastSeen     *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=last_seen,json=lastSeen,proto3" json:"last_seen,omitempty"`
+	LastServerId string                 `protobuf:"bytes,6,opt,name=last_server_id,json=lastServerId,proto3" json:"last_server_id,omitempty"`
+	// Hours they were on in the look-back.
+	Hours         float64 `protobuf:"fixed64,7,opt,name=hours,proto3" json:"hours,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *QuietRegular) Reset() {
+	*x = QuietRegular{}
+	mi := &file_gravel_hub_v1_stats_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QuietRegular) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QuietRegular) ProtoMessage() {}
+
+func (x *QuietRegular) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_stats_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QuietRegular.ProtoReflect.Descriptor instead.
+func (*QuietRegular) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_stats_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *QuietRegular) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *QuietRegular) GetPseudonymous() bool {
+	if x != nil {
+		return x.Pseudonymous
+	}
+	return false
+}
+
+func (x *QuietRegular) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *QuietRegular) GetDaysBefore() int32 {
+	if x != nil {
+		return x.DaysBefore
+	}
+	return 0
+}
+
+func (x *QuietRegular) GetLastSeen() *timestamppb.Timestamp {
+	if x != nil {
+		return x.LastSeen
+	}
+	return nil
+}
+
+func (x *QuietRegular) GetLastServerId() string {
+	if x != nil {
+		return x.LastServerId
+	}
+	return ""
+}
+
+func (x *QuietRegular) GetHours() float64 {
+	if x != nil {
+		return x.Hours
+	}
+	return 0
+}
+
+type GetActivityResponse struct {
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Window string                 `protobuf:"bytes,1,opt,name=window,proto3" json:"window,omitempty"`
+	From   *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=from,proto3" json:"from,omitempty"`
+	To     *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=to,proto3" json:"to,omitempty"`
+	// The IANA zone the hours, days and weeks are read in.
+	Timezone string `protobuf:"bytes,4,opt,name=timezone,proto3" json:"timezone,omitempty"`
+	// All 168 hours of the week, Monday 00:00 first.
+	Hours []*ActivityHour `protobuf:"bytes,5,rep,name=hours,proto3" json:"hours,omitempty"`
+	// Sessions started in the window, and the players who started them.
+	Sessions             int32 `protobuf:"varint,6,opt,name=sessions,proto3" json:"sessions,omitempty"`
+	Players              int32 `protobuf:"varint,7,opt,name=players,proto3" json:"players,omitempty"`
+	MedianSessionSeconds int32 `protobuf:"varint,8,opt,name=median_session_seconds,json=medianSessionSeconds,proto3" json:"median_session_seconds,omitempty"`
+	// Players who came on two days or more, and the players' mean days.
+	ReturningPlayers int32   `protobuf:"varint,9,opt,name=returning_players,json=returningPlayers,proto3" json:"returning_players,omitempty"`
+	MeanActiveDays   float64 `protobuf:"fixed64,10,opt,name=mean_active_days,json=meanActiveDays,proto3" json:"mean_active_days,omitempty"`
+	// Players never seen before the window, and players on in the window of the same length before
+	// it who weren't on in this one.
+	NewPlayers  int32           `protobuf:"varint,11,opt,name=new_players,json=newPlayers,proto3" json:"new_players,omitempty"`
+	LostPlayers int32           `protobuf:"varint,12,opt,name=lost_players,json=lostPlayers,proto3" json:"lost_players,omitempty"`
+	Weeks       []*ActivityWeek `protobuf:"bytes,13,rep,name=weeks,proto3" json:"weeks,omitempty"`
+	// Regulars (on regular_days days or more in the regular_weeks weeks before the window) with no
+	// session in it, the most recently seen first; at most 50.
+	Quiet        []*QuietRegular `protobuf:"bytes,14,rep,name=quiet,proto3" json:"quiet,omitempty"`
+	RegularDays  int32           `protobuf:"varint,15,opt,name=regular_days,json=regularDays,proto3" json:"regular_days,omitempty"`
+	RegularWeeks int32           `protobuf:"varint,16,opt,name=regular_weeks,json=regularWeeks,proto3" json:"regular_weeks,omitempty"`
+	// The look-back reaches past stats.raw_retention_months, where only monthly totals are kept:
+	// the regulars and new players before the cutoff are incomplete.
+	Partial       bool `protobuf:"varint,17,opt,name=partial,proto3" json:"partial,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetActivityResponse) Reset() {
+	*x = GetActivityResponse{}
+	mi := &file_gravel_hub_v1_stats_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetActivityResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetActivityResponse) ProtoMessage() {}
+
+func (x *GetActivityResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gravel_hub_v1_stats_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetActivityResponse.ProtoReflect.Descriptor instead.
+func (*GetActivityResponse) Descriptor() ([]byte, []int) {
+	return file_gravel_hub_v1_stats_proto_rawDescGZIP(), []int{41}
+}
+
+func (x *GetActivityResponse) GetWindow() string {
+	if x != nil {
+		return x.Window
+	}
+	return ""
+}
+
+func (x *GetActivityResponse) GetFrom() *timestamppb.Timestamp {
+	if x != nil {
+		return x.From
+	}
+	return nil
+}
+
+func (x *GetActivityResponse) GetTo() *timestamppb.Timestamp {
+	if x != nil {
+		return x.To
+	}
+	return nil
+}
+
+func (x *GetActivityResponse) GetTimezone() string {
+	if x != nil {
+		return x.Timezone
+	}
+	return ""
+}
+
+func (x *GetActivityResponse) GetHours() []*ActivityHour {
+	if x != nil {
+		return x.Hours
+	}
+	return nil
+}
+
+func (x *GetActivityResponse) GetSessions() int32 {
+	if x != nil {
+		return x.Sessions
+	}
+	return 0
+}
+
+func (x *GetActivityResponse) GetPlayers() int32 {
+	if x != nil {
+		return x.Players
+	}
+	return 0
+}
+
+func (x *GetActivityResponse) GetMedianSessionSeconds() int32 {
+	if x != nil {
+		return x.MedianSessionSeconds
+	}
+	return 0
+}
+
+func (x *GetActivityResponse) GetReturningPlayers() int32 {
+	if x != nil {
+		return x.ReturningPlayers
+	}
+	return 0
+}
+
+func (x *GetActivityResponse) GetMeanActiveDays() float64 {
+	if x != nil {
+		return x.MeanActiveDays
+	}
+	return 0
+}
+
+func (x *GetActivityResponse) GetNewPlayers() int32 {
+	if x != nil {
+		return x.NewPlayers
+	}
+	return 0
+}
+
+func (x *GetActivityResponse) GetLostPlayers() int32 {
+	if x != nil {
+		return x.LostPlayers
+	}
+	return 0
+}
+
+func (x *GetActivityResponse) GetWeeks() []*ActivityWeek {
+	if x != nil {
+		return x.Weeks
+	}
+	return nil
+}
+
+func (x *GetActivityResponse) GetQuiet() []*QuietRegular {
+	if x != nil {
+		return x.Quiet
+	}
+	return nil
+}
+
+func (x *GetActivityResponse) GetRegularDays() int32 {
+	if x != nil {
+		return x.RegularDays
+	}
+	return 0
+}
+
+func (x *GetActivityResponse) GetRegularWeeks() int32 {
+	if x != nil {
+		return x.RegularWeeks
+	}
+	return 0
+}
+
+func (x *GetActivityResponse) GetPartial() bool {
+	if x != nil {
+		return x.Partial
+	}
+	return false
+}
+
 var File_gravel_hub_v1_stats_proto protoreflect.FileDescriptor
 
 const file_gravel_hub_v1_stats_proto_rawDesc = "" +
@@ -2986,7 +3462,7 @@ const file_gravel_hub_v1_stats_proto_rawDesc = "" +
 	"\aseconds\x18\a \x01(\x05R\aseconds\"L\n" +
 	"\x14EraseIdentityRequest\x12\x1a\n" +
 	"\bprovider\x18\x01 \x01(\tR\bprovider\x12\x18\n" +
-	"\asubject\x18\x02 \x01(\tR\asubject\"\xbb\x02\n" +
+	"\asubject\x18\x02 \x01(\tR\asubject\"\x92\x03\n" +
 	"\x15EraseIdentityResponse\x12\x1d\n" +
 	"\n" +
 	"match_rows\x18\x01 \x01(\x05R\tmatchRows\x12!\n" +
@@ -2996,7 +3472,9 @@ const file_gravel_hub_v1_stats_proto_rawDesc = "" +
 	"\x0eingest_batches\x18\x05 \x01(\x05R\ringestBatches\x12+\n" +
 	"\x11pseudonym_deleted\x18\x06 \x01(\bR\x10pseudonymDeleted\x12\x1f\n" +
 	"\vresult_rows\x18\a \x01(\x05R\n" +
-	"resultRows\"\xe9\x03\n" +
+	"resultRows\x12!\n" +
+	"\fsession_rows\x18\b \x01(\x05R\vsessionRows\x122\n" +
+	"\x15activity_monthly_rows\x18\t \x01(\x05R\x13activityMonthlyRows\"\xe9\x03\n" +
 	"\vMatchResult\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\tserver_id\x18\x02 \x01(\tR\bserverId\x12\x19\n" +
@@ -3090,7 +3568,48 @@ const file_gravel_hub_v1_stats_proto_rawDesc = "" +
 	"\x10minutes_at_floor\x18\x06 \x01(\x05R\x0eminutesAtFloor\x12\x18\n" +
 	"\aplayers\x18\a \x01(\x05R\aplayers\x123\n" +
 	"\amatches\x18\b \x03(\v2\x19.gravel.hub.v1.RecapMatchR\amatches\x12+\n" +
-	"\x03top\x18\t \x03(\v2\x19.gravel.hub.v1.BoardEntryR\x03top2\x85\t\n" +
+	"\x03top\x18\t \x03(\v2\x19.gravel.hub.v1.BoardEntryR\x03top\",\n" +
+	"\x12GetActivityRequest\x12\x16\n" +
+	"\x06window\x18\x01 \x01(\tR\x06window\"b\n" +
+	"\fActivityHour\x12\x10\n" +
+	"\x03day\x18\x01 \x01(\x05R\x03day\x12\x12\n" +
+	"\x04hour\x18\x02 \x01(\x05R\x04hour\x12\x18\n" +
+	"\aaverage\x18\x03 \x01(\x01R\aaverage\x12\x12\n" +
+	"\x04peak\x18\x04 \x01(\x05R\x04peak\"{\n" +
+	"\fActivityWeek\x120\n" +
+	"\x05start\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x05start\x12\x18\n" +
+	"\aplayers\x18\x02 \x01(\x05R\aplayers\x12\x1f\n" +
+	"\vnew_players\x18\x03 \x01(\x05R\n" +
+	"newPlayers\"\xf5\x01\n" +
+	"\fQuietRegular\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\"\n" +
+	"\fpseudonymous\x18\x02 \x01(\bR\fpseudonymous\x12\x17\n" +
+	"\auser_id\x18\x03 \x01(\tR\x06userId\x12\x1f\n" +
+	"\vdays_before\x18\x04 \x01(\x05R\n" +
+	"daysBefore\x127\n" +
+	"\tlast_seen\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\blastSeen\x12$\n" +
+	"\x0elast_server_id\x18\x06 \x01(\tR\flastServerId\x12\x14\n" +
+	"\x05hours\x18\a \x01(\x01R\x05hours\"\xa7\x05\n" +
+	"\x13GetActivityResponse\x12\x16\n" +
+	"\x06window\x18\x01 \x01(\tR\x06window\x12.\n" +
+	"\x04from\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x04from\x12*\n" +
+	"\x02to\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x02to\x12\x1a\n" +
+	"\btimezone\x18\x04 \x01(\tR\btimezone\x121\n" +
+	"\x05hours\x18\x05 \x03(\v2\x1b.gravel.hub.v1.ActivityHourR\x05hours\x12\x1a\n" +
+	"\bsessions\x18\x06 \x01(\x05R\bsessions\x12\x18\n" +
+	"\aplayers\x18\a \x01(\x05R\aplayers\x124\n" +
+	"\x16median_session_seconds\x18\b \x01(\x05R\x14medianSessionSeconds\x12+\n" +
+	"\x11returning_players\x18\t \x01(\x05R\x10returningPlayers\x12(\n" +
+	"\x10mean_active_days\x18\n" +
+	" \x01(\x01R\x0emeanActiveDays\x12\x1f\n" +
+	"\vnew_players\x18\v \x01(\x05R\n" +
+	"newPlayers\x12!\n" +
+	"\flost_players\x18\f \x01(\x05R\vlostPlayers\x121\n" +
+	"\x05weeks\x18\r \x03(\v2\x1b.gravel.hub.v1.ActivityWeekR\x05weeks\x121\n" +
+	"\x05quiet\x18\x0e \x03(\v2\x1b.gravel.hub.v1.QuietRegularR\x05quiet\x12!\n" +
+	"\fregular_days\x18\x0f \x01(\x05R\vregularDays\x12#\n" +
+	"\rregular_weeks\x18\x10 \x01(\x05R\fregularWeeks\x12\x18\n" +
+	"\apartial\x18\x11 \x01(\bR\apartial2\xdb\t\n" +
 	"\fStatsService\x12K\n" +
 	"\bGetBoard\x12\x1e.gravel.hub.v1.GetBoardRequest\x1a\x1f.gravel.hub.v1.GetBoardResponse\x12T\n" +
 	"\vListMatches\x12!.gravel.hub.v1.ListMatchesRequest\x1a\".gravel.hub.v1.ListMatchesResponse\x12W\n" +
@@ -3103,7 +3622,8 @@ const file_gravel_hub_v1_stats_proto_rawDesc = "" +
 	"\x10ListMatchResults\x12&.gravel.hub.v1.ListMatchResultsRequest\x1a'.gravel.hub.v1.ListMatchResultsResponse\x12]\n" +
 	"\x0eGetMatchResult\x12$.gravel.hub.v1.GetMatchResultRequest\x1a%.gravel.hub.v1.GetMatchResultResponse\x12W\n" +
 	"\fGetMatchDemo\x12\".gravel.hub.v1.GetMatchDemoRequest\x1a#.gravel.hub.v1.GetMatchDemoResponse\x12Z\n" +
-	"\rEraseIdentity\x12#.gravel.hub.v1.EraseIdentityRequest\x1a$.gravel.hub.v1.EraseIdentityResponseB:Z8github.com/gravel-project/gravel/gen/gravel/hub/v1;hubv1b\x06proto3"
+	"\rEraseIdentity\x12#.gravel.hub.v1.EraseIdentityRequest\x1a$.gravel.hub.v1.EraseIdentityResponse\x12T\n" +
+	"\vGetActivity\x12!.gravel.hub.v1.GetActivityRequest\x1a\".gravel.hub.v1.GetActivityResponseB:Z8github.com/gravel-project/gravel/gen/gravel/hub/v1;hubv1b\x06proto3"
 
 var (
 	file_gravel_hub_v1_stats_proto_rawDescOnce sync.Once
@@ -3117,7 +3637,7 @@ func file_gravel_hub_v1_stats_proto_rawDescGZIP() []byte {
 	return file_gravel_hub_v1_stats_proto_rawDescData
 }
 
-var file_gravel_hub_v1_stats_proto_msgTypes = make([]protoimpl.MessageInfo, 37)
+var file_gravel_hub_v1_stats_proto_msgTypes = make([]protoimpl.MessageInfo, 42)
 var file_gravel_hub_v1_stats_proto_goTypes = []any{
 	(*BoardEntry)(nil),                    // 0: gravel.hub.v1.BoardEntry
 	(*GetBoardRequest)(nil),               // 1: gravel.hub.v1.GetBoardRequest
@@ -3156,80 +3676,94 @@ var file_gravel_hub_v1_stats_proto_goTypes = []any{
 	(*GetSessionRecapRequest)(nil),        // 34: gravel.hub.v1.GetSessionRecapRequest
 	(*RecapMatch)(nil),                    // 35: gravel.hub.v1.RecapMatch
 	(*GetSessionRecapResponse)(nil),       // 36: gravel.hub.v1.GetSessionRecapResponse
-	(*timestamppb.Timestamp)(nil),         // 37: google.protobuf.Timestamp
-	(*TeamScore)(nil),                     // 38: gravel.hub.v1.TeamScore
+	(*GetActivityRequest)(nil),            // 37: gravel.hub.v1.GetActivityRequest
+	(*ActivityHour)(nil),                  // 38: gravel.hub.v1.ActivityHour
+	(*ActivityWeek)(nil),                  // 39: gravel.hub.v1.ActivityWeek
+	(*QuietRegular)(nil),                  // 40: gravel.hub.v1.QuietRegular
+	(*GetActivityResponse)(nil),           // 41: gravel.hub.v1.GetActivityResponse
+	(*timestamppb.Timestamp)(nil),         // 42: google.protobuf.Timestamp
+	(*TeamScore)(nil),                     // 43: gravel.hub.v1.TeamScore
 }
 var file_gravel_hub_v1_stats_proto_depIdxs = []int32{
 	0,  // 0: gravel.hub.v1.GetBoardResponse.entries:type_name -> gravel.hub.v1.BoardEntry
-	37, // 1: gravel.hub.v1.GetBoardResponse.from:type_name -> google.protobuf.Timestamp
-	37, // 2: gravel.hub.v1.GetBoardResponse.to:type_name -> google.protobuf.Timestamp
-	37, // 3: gravel.hub.v1.MatchSummary.started_at:type_name -> google.protobuf.Timestamp
-	37, // 4: gravel.hub.v1.MatchSummary.ended_at:type_name -> google.protobuf.Timestamp
+	42, // 1: gravel.hub.v1.GetBoardResponse.from:type_name -> google.protobuf.Timestamp
+	42, // 2: gravel.hub.v1.GetBoardResponse.to:type_name -> google.protobuf.Timestamp
+	42, // 3: gravel.hub.v1.MatchSummary.started_at:type_name -> google.protobuf.Timestamp
+	42, // 4: gravel.hub.v1.MatchSummary.ended_at:type_name -> google.protobuf.Timestamp
 	3,  // 5: gravel.hub.v1.ListMatchesResponse.matches:type_name -> gravel.hub.v1.MatchSummary
-	37, // 6: gravel.hub.v1.ProfileTotals.from:type_name -> google.protobuf.Timestamp
-	37, // 7: gravel.hub.v1.ProfileTotals.to:type_name -> google.protobuf.Timestamp
-	37, // 8: gravel.hub.v1.PlayerMatch.started_at:type_name -> google.protobuf.Timestamp
-	37, // 9: gravel.hub.v1.PlayerMatch.ended_at:type_name -> google.protobuf.Timestamp
+	42, // 6: gravel.hub.v1.ProfileTotals.from:type_name -> google.protobuf.Timestamp
+	42, // 7: gravel.hub.v1.ProfileTotals.to:type_name -> google.protobuf.Timestamp
+	42, // 8: gravel.hub.v1.PlayerMatch.started_at:type_name -> google.protobuf.Timestamp
+	42, // 9: gravel.hub.v1.PlayerMatch.ended_at:type_name -> google.protobuf.Timestamp
 	10, // 10: gravel.hub.v1.GetMemberProfileResponse.totals:type_name -> gravel.hub.v1.ProfileTotals
 	11, // 11: gravel.hub.v1.GetMemberProfileResponse.recent:type_name -> gravel.hub.v1.PlayerMatch
 	22, // 12: gravel.hub.v1.GetMemberProfileResponse.participation:type_name -> gravel.hub.v1.ParticipationTotals
 	14, // 13: gravel.hub.v1.ParticipationEvent.identity:type_name -> gravel.hub.v1.PlayerIdentity
-	37, // 14: gravel.hub.v1.ParticipationEvent.occurred_at:type_name -> google.protobuf.Timestamp
+	42, // 14: gravel.hub.v1.ParticipationEvent.occurred_at:type_name -> google.protobuf.Timestamp
 	15, // 15: gravel.hub.v1.RecordParticipationRequest.events:type_name -> gravel.hub.v1.ParticipationEvent
 	17, // 16: gravel.hub.v1.RecordParticipationResponse.results:type_name -> gravel.hub.v1.ParticipationResult
 	19, // 17: gravel.hub.v1.GetParticipationBoardResponse.entries:type_name -> gravel.hub.v1.ParticipationEntry
-	37, // 18: gravel.hub.v1.GetParticipationBoardResponse.from:type_name -> google.protobuf.Timestamp
-	37, // 19: gravel.hub.v1.GetParticipationBoardResponse.to:type_name -> google.protobuf.Timestamp
-	37, // 20: gravel.hub.v1.ParticipationTotals.from:type_name -> google.protobuf.Timestamp
-	37, // 21: gravel.hub.v1.ParticipationTotals.to:type_name -> google.protobuf.Timestamp
-	37, // 22: gravel.hub.v1.MatchResult.started_at:type_name -> google.protobuf.Timestamp
-	37, // 23: gravel.hub.v1.MatchResult.ended_at:type_name -> google.protobuf.Timestamp
+	42, // 18: gravel.hub.v1.GetParticipationBoardResponse.from:type_name -> google.protobuf.Timestamp
+	42, // 19: gravel.hub.v1.GetParticipationBoardResponse.to:type_name -> google.protobuf.Timestamp
+	42, // 20: gravel.hub.v1.ParticipationTotals.from:type_name -> google.protobuf.Timestamp
+	42, // 21: gravel.hub.v1.ParticipationTotals.to:type_name -> google.protobuf.Timestamp
+	42, // 22: gravel.hub.v1.MatchResult.started_at:type_name -> google.protobuf.Timestamp
+	42, // 23: gravel.hub.v1.MatchResult.ended_at:type_name -> google.protobuf.Timestamp
 	26, // 24: gravel.hub.v1.MatchResult.maps:type_name -> gravel.hub.v1.MatchResultMap
 	27, // 25: gravel.hub.v1.MatchResult.players:type_name -> gravel.hub.v1.MatchResultPlayer
-	37, // 26: gravel.hub.v1.MatchResultMap.started_at:type_name -> google.protobuf.Timestamp
-	37, // 27: gravel.hub.v1.MatchResultMap.ended_at:type_name -> google.protobuf.Timestamp
-	37, // 28: gravel.hub.v1.ListMatchResultsRequest.ended_after:type_name -> google.protobuf.Timestamp
+	42, // 26: gravel.hub.v1.MatchResultMap.started_at:type_name -> google.protobuf.Timestamp
+	42, // 27: gravel.hub.v1.MatchResultMap.ended_at:type_name -> google.protobuf.Timestamp
+	42, // 28: gravel.hub.v1.ListMatchResultsRequest.ended_after:type_name -> google.protobuf.Timestamp
 	25, // 29: gravel.hub.v1.ListMatchResultsResponse.results:type_name -> gravel.hub.v1.MatchResult
 	25, // 30: gravel.hub.v1.GetMatchResultResponse.result:type_name -> gravel.hub.v1.MatchResult
-	37, // 31: gravel.hub.v1.GetMatchDemoResponse.expires_at:type_name -> google.protobuf.Timestamp
-	37, // 32: gravel.hub.v1.GetSessionRecapRequest.from:type_name -> google.protobuf.Timestamp
-	37, // 33: gravel.hub.v1.GetSessionRecapRequest.to:type_name -> google.protobuf.Timestamp
-	37, // 34: gravel.hub.v1.RecapMatch.started_at:type_name -> google.protobuf.Timestamp
-	37, // 35: gravel.hub.v1.RecapMatch.ended_at:type_name -> google.protobuf.Timestamp
-	38, // 36: gravel.hub.v1.RecapMatch.teams:type_name -> gravel.hub.v1.TeamScore
-	37, // 37: gravel.hub.v1.GetSessionRecapResponse.from:type_name -> google.protobuf.Timestamp
-	37, // 38: gravel.hub.v1.GetSessionRecapResponse.to:type_name -> google.protobuf.Timestamp
+	42, // 31: gravel.hub.v1.GetMatchDemoResponse.expires_at:type_name -> google.protobuf.Timestamp
+	42, // 32: gravel.hub.v1.GetSessionRecapRequest.from:type_name -> google.protobuf.Timestamp
+	42, // 33: gravel.hub.v1.GetSessionRecapRequest.to:type_name -> google.protobuf.Timestamp
+	42, // 34: gravel.hub.v1.RecapMatch.started_at:type_name -> google.protobuf.Timestamp
+	42, // 35: gravel.hub.v1.RecapMatch.ended_at:type_name -> google.protobuf.Timestamp
+	43, // 36: gravel.hub.v1.RecapMatch.teams:type_name -> gravel.hub.v1.TeamScore
+	42, // 37: gravel.hub.v1.GetSessionRecapResponse.from:type_name -> google.protobuf.Timestamp
+	42, // 38: gravel.hub.v1.GetSessionRecapResponse.to:type_name -> google.protobuf.Timestamp
 	35, // 39: gravel.hub.v1.GetSessionRecapResponse.matches:type_name -> gravel.hub.v1.RecapMatch
 	0,  // 40: gravel.hub.v1.GetSessionRecapResponse.top:type_name -> gravel.hub.v1.BoardEntry
-	1,  // 41: gravel.hub.v1.StatsService.GetBoard:input_type -> gravel.hub.v1.GetBoardRequest
-	4,  // 42: gravel.hub.v1.StatsService.ListMatches:input_type -> gravel.hub.v1.ListMatchesRequest
-	6,  // 43: gravel.hub.v1.StatsService.GetBoardName:input_type -> gravel.hub.v1.GetBoardNameRequest
-	8,  // 44: gravel.hub.v1.StatsService.SetBoardName:input_type -> gravel.hub.v1.SetBoardNameRequest
-	12, // 45: gravel.hub.v1.StatsService.GetMemberProfile:input_type -> gravel.hub.v1.GetMemberProfileRequest
-	16, // 46: gravel.hub.v1.StatsService.RecordParticipation:input_type -> gravel.hub.v1.RecordParticipationRequest
-	20, // 47: gravel.hub.v1.StatsService.GetParticipationBoard:input_type -> gravel.hub.v1.GetParticipationBoardRequest
-	34, // 48: gravel.hub.v1.StatsService.GetSessionRecap:input_type -> gravel.hub.v1.GetSessionRecapRequest
-	28, // 49: gravel.hub.v1.StatsService.ListMatchResults:input_type -> gravel.hub.v1.ListMatchResultsRequest
-	30, // 50: gravel.hub.v1.StatsService.GetMatchResult:input_type -> gravel.hub.v1.GetMatchResultRequest
-	32, // 51: gravel.hub.v1.StatsService.GetMatchDemo:input_type -> gravel.hub.v1.GetMatchDemoRequest
-	23, // 52: gravel.hub.v1.StatsService.EraseIdentity:input_type -> gravel.hub.v1.EraseIdentityRequest
-	2,  // 53: gravel.hub.v1.StatsService.GetBoard:output_type -> gravel.hub.v1.GetBoardResponse
-	5,  // 54: gravel.hub.v1.StatsService.ListMatches:output_type -> gravel.hub.v1.ListMatchesResponse
-	7,  // 55: gravel.hub.v1.StatsService.GetBoardName:output_type -> gravel.hub.v1.GetBoardNameResponse
-	9,  // 56: gravel.hub.v1.StatsService.SetBoardName:output_type -> gravel.hub.v1.SetBoardNameResponse
-	13, // 57: gravel.hub.v1.StatsService.GetMemberProfile:output_type -> gravel.hub.v1.GetMemberProfileResponse
-	18, // 58: gravel.hub.v1.StatsService.RecordParticipation:output_type -> gravel.hub.v1.RecordParticipationResponse
-	21, // 59: gravel.hub.v1.StatsService.GetParticipationBoard:output_type -> gravel.hub.v1.GetParticipationBoardResponse
-	36, // 60: gravel.hub.v1.StatsService.GetSessionRecap:output_type -> gravel.hub.v1.GetSessionRecapResponse
-	29, // 61: gravel.hub.v1.StatsService.ListMatchResults:output_type -> gravel.hub.v1.ListMatchResultsResponse
-	31, // 62: gravel.hub.v1.StatsService.GetMatchResult:output_type -> gravel.hub.v1.GetMatchResultResponse
-	33, // 63: gravel.hub.v1.StatsService.GetMatchDemo:output_type -> gravel.hub.v1.GetMatchDemoResponse
-	24, // 64: gravel.hub.v1.StatsService.EraseIdentity:output_type -> gravel.hub.v1.EraseIdentityResponse
-	53, // [53:65] is the sub-list for method output_type
-	41, // [41:53] is the sub-list for method input_type
-	41, // [41:41] is the sub-list for extension type_name
-	41, // [41:41] is the sub-list for extension extendee
-	0,  // [0:41] is the sub-list for field type_name
+	42, // 41: gravel.hub.v1.ActivityWeek.start:type_name -> google.protobuf.Timestamp
+	42, // 42: gravel.hub.v1.QuietRegular.last_seen:type_name -> google.protobuf.Timestamp
+	42, // 43: gravel.hub.v1.GetActivityResponse.from:type_name -> google.protobuf.Timestamp
+	42, // 44: gravel.hub.v1.GetActivityResponse.to:type_name -> google.protobuf.Timestamp
+	38, // 45: gravel.hub.v1.GetActivityResponse.hours:type_name -> gravel.hub.v1.ActivityHour
+	39, // 46: gravel.hub.v1.GetActivityResponse.weeks:type_name -> gravel.hub.v1.ActivityWeek
+	40, // 47: gravel.hub.v1.GetActivityResponse.quiet:type_name -> gravel.hub.v1.QuietRegular
+	1,  // 48: gravel.hub.v1.StatsService.GetBoard:input_type -> gravel.hub.v1.GetBoardRequest
+	4,  // 49: gravel.hub.v1.StatsService.ListMatches:input_type -> gravel.hub.v1.ListMatchesRequest
+	6,  // 50: gravel.hub.v1.StatsService.GetBoardName:input_type -> gravel.hub.v1.GetBoardNameRequest
+	8,  // 51: gravel.hub.v1.StatsService.SetBoardName:input_type -> gravel.hub.v1.SetBoardNameRequest
+	12, // 52: gravel.hub.v1.StatsService.GetMemberProfile:input_type -> gravel.hub.v1.GetMemberProfileRequest
+	16, // 53: gravel.hub.v1.StatsService.RecordParticipation:input_type -> gravel.hub.v1.RecordParticipationRequest
+	20, // 54: gravel.hub.v1.StatsService.GetParticipationBoard:input_type -> gravel.hub.v1.GetParticipationBoardRequest
+	34, // 55: gravel.hub.v1.StatsService.GetSessionRecap:input_type -> gravel.hub.v1.GetSessionRecapRequest
+	28, // 56: gravel.hub.v1.StatsService.ListMatchResults:input_type -> gravel.hub.v1.ListMatchResultsRequest
+	30, // 57: gravel.hub.v1.StatsService.GetMatchResult:input_type -> gravel.hub.v1.GetMatchResultRequest
+	32, // 58: gravel.hub.v1.StatsService.GetMatchDemo:input_type -> gravel.hub.v1.GetMatchDemoRequest
+	23, // 59: gravel.hub.v1.StatsService.EraseIdentity:input_type -> gravel.hub.v1.EraseIdentityRequest
+	37, // 60: gravel.hub.v1.StatsService.GetActivity:input_type -> gravel.hub.v1.GetActivityRequest
+	2,  // 61: gravel.hub.v1.StatsService.GetBoard:output_type -> gravel.hub.v1.GetBoardResponse
+	5,  // 62: gravel.hub.v1.StatsService.ListMatches:output_type -> gravel.hub.v1.ListMatchesResponse
+	7,  // 63: gravel.hub.v1.StatsService.GetBoardName:output_type -> gravel.hub.v1.GetBoardNameResponse
+	9,  // 64: gravel.hub.v1.StatsService.SetBoardName:output_type -> gravel.hub.v1.SetBoardNameResponse
+	13, // 65: gravel.hub.v1.StatsService.GetMemberProfile:output_type -> gravel.hub.v1.GetMemberProfileResponse
+	18, // 66: gravel.hub.v1.StatsService.RecordParticipation:output_type -> gravel.hub.v1.RecordParticipationResponse
+	21, // 67: gravel.hub.v1.StatsService.GetParticipationBoard:output_type -> gravel.hub.v1.GetParticipationBoardResponse
+	36, // 68: gravel.hub.v1.StatsService.GetSessionRecap:output_type -> gravel.hub.v1.GetSessionRecapResponse
+	29, // 69: gravel.hub.v1.StatsService.ListMatchResults:output_type -> gravel.hub.v1.ListMatchResultsResponse
+	31, // 70: gravel.hub.v1.StatsService.GetMatchResult:output_type -> gravel.hub.v1.GetMatchResultResponse
+	33, // 71: gravel.hub.v1.StatsService.GetMatchDemo:output_type -> gravel.hub.v1.GetMatchDemoResponse
+	24, // 72: gravel.hub.v1.StatsService.EraseIdentity:output_type -> gravel.hub.v1.EraseIdentityResponse
+	41, // 73: gravel.hub.v1.StatsService.GetActivity:output_type -> gravel.hub.v1.GetActivityResponse
+	61, // [61:74] is the sub-list for method output_type
+	48, // [48:61] is the sub-list for method input_type
+	48, // [48:48] is the sub-list for extension type_name
+	48, // [48:48] is the sub-list for extension extendee
+	0,  // [0:48] is the sub-list for field type_name
 }
 
 func init() { file_gravel_hub_v1_stats_proto_init() }
@@ -3244,7 +3778,7 @@ func file_gravel_hub_v1_stats_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gravel_hub_v1_stats_proto_rawDesc), len(file_gravel_hub_v1_stats_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   37,
+			NumMessages:   42,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

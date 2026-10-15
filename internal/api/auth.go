@@ -71,6 +71,7 @@ var memberProcedures = map[string]string{
 	// The operator's admin procedures (gravel#195: CreateApp, ListApps, RevokeApp, ExportServers, ApplyServers, CheckServers, EraseIdentity, RevokeUserSessions) are staff's, in person.
 	// ServerLeaseService (#20) is an app's (servers:lease) or a moderator's in person; a member's token never leases.
 	// MetricsService (gravel#204) is staff's, in person: metrics:read is no app scope.
+	// GetActivity (gravel#208) is staff's, in person: it lists regulars gone quiet, which no token reads.
 	hubv1connect.ServerConfigServiceGetServerConfigProcedure:   apps.ScopeServersConfigure,
 	hubv1connect.ServerConfigServicePlanServerConfigProcedure:  apps.ScopeServersConfigure,
 	hubv1connect.ServerConfigServiceApplyServerConfigProcedure: apps.ScopeServersConfigure,

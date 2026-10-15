@@ -13,6 +13,7 @@ import (
 	hubv1 "github.com/gravel-project/gravel/gen/gravel/hub/v1"
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
 	"github.com/gravel-project/gravel/internal/apps"
+	"github.com/gravel-project/gravel/internal/authz"
 	"github.com/gravel-project/gravel/internal/identity"
 	"github.com/gravel-project/gravel/internal/org"
 	"github.com/gravel-project/gravel/internal/stats"
@@ -30,6 +31,15 @@ type fakeStatsStore struct {
 	games       []string
 	members     map[store.PlayerKey]store.BoardMember
 	events      []store.ParticipationEvent
+	activity    store.Activity // PlayerActivity's answer
+	activityQ   store.ActivityQuery
+}
+
+func (f *fakeStatsStore) PlayerActivity(_ context.Context, q store.ActivityQuery) (store.Activity, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.activityQ = q
+	return f.activity, nil
 }
 
 func (f *fakeStatsStore) ShowNameOnBoards(_ context.Context, id uuid.UUID) (bool, error) {
@@ -152,5 +162,81 @@ func TestGetMemberProfileAccess(t *testing.T) {
 	}
 	if _, code := get(anon, ""); code != connect.CodeUnauthenticated {
 		t.Errorf("no id and no session: %v", code)
+	}
+}
+
+// GetActivity is staff's, in person, with stats:read everywhere: a member, a game's moderator and
+// an app are refused; the hours come as the whole week, averaged over the window's weeks; a
+// regular gone quiet is shown as a board shows them.
+func TestGetActivity(t *testing.T) {
+	r := newRig(t)
+	ctx := context.Background()
+	owner := r.user(t, "Olive", "300")
+	if _, err := r.org.Claim(ctx, r.token, store.Actor{UserID: &owner.ID}); err != nil {
+		t.Fatal(err)
+	}
+	mod := r.user(t, "Mo", "400")
+	r.grant(t, owner.ID, mod.ID, "moderator")
+	gameMod := r.user(t, "Gil", "500")
+	if _, err := r.ids.SetRole(ctx, authz.ForMember(owner.ID, true, nil), gameMod.ID, "moderator", "wardogs", true); err != nil {
+		t.Fatal(err)
+	}
+	member := r.user(t, "Ana", "100")
+	shown := store.PlayerKey{Provider: "steam", Subject: "76561190000000001"}
+	r.stats.members[shown] = store.BoardMember{UserID: member.ID, DisplayName: "Ana", ShowName: true}
+	last := time.Date(2026, 8, 30, 21, 0, 0, 0, time.UTC)
+	r.stats.activity = store.Activity{
+		Hours:    []store.ActivityHour{{Day: 3, Hour: 20, PlayerHours: 12, Peak: 5}},
+		Sessions: 40, Players: 9, MedianSeconds: 1830.4, Returning: 4, ActiveDays: 18, New: 3, Lost: 2,
+		Quiet: []store.QuietRegular{{Key: shown, DaysBefore: 6, LastSeen: last, LastServer: "wd-1", Seconds: 7200},
+			{Key: store.PlayerKey{Provider: "steam", Subject: "76561190000000002"}, DaysBefore: 4, LastSeen: last, LastServer: "wd-1", Seconds: 3600}},
+	}
+	clientOf := func(c *http.Client) hubv1connect.StatsServiceClient {
+		return hubv1connect.NewStatsServiceClient(c, r.srv.URL)
+	}
+	call := func(c hubv1connect.StatsServiceClient, window string) (*hubv1.GetActivityResponse, connect.Code) {
+		resp, err := c.GetActivity(ctx, connect.NewRequest(&hubv1.GetActivityRequest{Window: window}))
+		if err != nil {
+			return nil, connect.CodeOf(err)
+		}
+		return resp.Msg, 0
+	}
+	for name, c := range map[string]hubv1connect.StatsServiceClient{
+		"anonymous":      clientOf(http.DefaultClient),
+		"a member":       clientOf(cookieClient(http.DefaultClient, r.login(t, member.ID))),
+		"a game's staff": clientOf(cookieClient(http.DefaultClient, r.login(t, gameMod.ID))),
+		"an app":         clientOf(bearerClient(http.DefaultClient, r.bearer(t, "bot", apps.ScopeStatsRead))),
+	} {
+		if _, code := call(c, ""); code != connect.CodeUnauthenticated && code != connect.CodePermissionDenied {
+			t.Errorf("%s was answered: %v", name, code)
+		}
+	}
+	asMod := clientOf(cookieClient(http.DefaultClient, r.login(t, mod.ID)))
+	got, code := call(asMod, "")
+	if code != 0 {
+		t.Fatalf("a moderator: %v", code)
+	}
+	if got.GetWindow() != "30d" || len(got.GetHours()) != 168 || got.GetSessions() != 40 || got.GetPlayers() != 9 || got.GetMedianSessionSeconds() != 1830 ||
+		got.GetReturningPlayers() != 4 || got.GetMeanActiveDays() != 2 || got.GetNewPlayers() != 3 || got.GetLostPlayers() != 2 || got.GetRegularDays() != 4 {
+		t.Errorf("activity = %v", got)
+	}
+	if q := r.stats.activityQ; q.To.Sub(q.From) != 30*24*time.Hour || q.From.Sub(q.RegularFrom) != 8*7*24*time.Hour || q.RegularDays != 4 {
+		t.Errorf("query = %+v", q)
+	}
+	// Wednesday 20:00 is the 3rd day's 21st hour; a 30-day window holds it four or five times.
+	wed := got.GetHours()[2*24+20]
+	if wed.GetDay() != 3 || wed.GetHour() != 20 || wed.GetPeak() != 5 || (wed.GetAverage() != 3 && wed.GetAverage() != 2.4) {
+		t.Errorf("Wednesday 20:00 = %v", wed)
+	}
+	q := got.GetQuiet()
+	if len(q) != 2 || q[0].GetName() != "Ana" || q[0].GetPseudonymous() || q[0].GetUserId() != member.ID.String() || q[0].GetHours() != 2 ||
+		!q[0].GetLastSeen().AsTime().Equal(last) || q[0].GetLastServerId() != "wd-1" || !q[1].GetPseudonymous() || q[1].GetName() == "" || q[1].GetUserId() != "" {
+		t.Errorf("quiet = %v", q)
+	}
+	if _, code := call(asMod, "1y"); code != connect.CodeInvalidArgument {
+		t.Errorf("an unknown window: %v", code)
+	}
+	if got, code := call(asMod, "7d"); code != 0 || r.stats.activityQ.To.Sub(r.stats.activityQ.From) != 7*24*time.Hour || got.GetWindow() != "7d" {
+		t.Errorf("7d: %v %v", got, code)
 	}
 }
