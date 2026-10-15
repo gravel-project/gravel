@@ -68,7 +68,7 @@ const placed = new RegExp(
     [
       String.raw`notifiers${i}\.(name|kind|url|flavour|topic|to(${i})?|events\.min_severity|events\.kinds(${i})?)`,
       String.raw`discord\.(guild_id|mod_log|roles\.linked|roles\.providers\.(discord|steam))`,
-      String.raw`discord\.recognition(${i}(\.(role|rule|count))?)?`,
+      String.raw`discord\.recognition(${i}(\.(role|rule|count|min_members))?)?`,
       String.raw`discord\.server_cards(${i}(\.(server|channel|note))?)?`,
       String.raw`discord\.seeding(${i}(\.(server|channel|role|below|cooldown|note|${hours}))?)?`,
       String.raw`discord\.recaps(${i}(\.(server|channel|title|floor|note|${hours}))?)?`,

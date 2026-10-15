@@ -772,8 +772,11 @@ type DiscordRecognition struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Role  string                 `protobuf:"bytes,1,opt,name=role,proto3" json:"role,omitempty"`
 	// "first_members": the first count members by registration.
-	Rule          string `protobuf:"bytes,2,opt,name=rule,proto3" json:"rule,omitempty"`
-	Count         int32  `protobuf:"varint,3,opt,name=count,proto3" json:"count,omitempty"`
+	Rule  string `protobuf:"bytes,2,opt,name=rule,proto3" json:"rule,omitempty"`
+	Count int32  `protobuf:"varint,3,opt,name=count,proto3" json:"count,omitempty"`
+	// The rule stays off until the hub has this many registered members (gravel#181); 0 is no
+	// gate. A role given while it was on is never taken back.
+	MinMembers    int32 `protobuf:"varint,4,opt,name=min_members,json=minMembers,proto3" json:"min_members,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -825,6 +828,13 @@ func (x *DiscordRecognition) GetRule() string {
 func (x *DiscordRecognition) GetCount() int32 {
 	if x != nil {
 		return x.Count
+	}
+	return 0
+}
+
+func (x *DiscordRecognition) GetMinMembers() int32 {
+	if x != nil {
+		return x.MinMembers
 	}
 	return 0
 }
@@ -3851,11 +3861,13 @@ const file_gravel_hub_v1_organization_proto_rawDesc = "" +
 	"\tproviders\x18\x02 \x03(\v2*.gravel.hub.v1.DiscordRoles.ProvidersEntryR\tproviders\x1a<\n" +
 	"\x0eProvidersEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"R\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"s\n" +
 	"\x12DiscordRecognition\x12\x12\n" +
 	"\x04role\x18\x01 \x01(\tR\x04role\x12\x12\n" +
 	"\x04rule\x18\x02 \x01(\tR\x04rule\x12\x14\n" +
-	"\x05count\x18\x03 \x01(\x05R\x05count\"Y\n" +
+	"\x05count\x18\x03 \x01(\x05R\x05count\x12\x1f\n" +
+	"\vmin_members\x18\x04 \x01(\x05R\n" +
+	"minMembers\"Y\n" +
 	"\x11DiscordServerCard\x12\x16\n" +
 	"\x06server\x18\x01 \x01(\tR\x06server\x12\x18\n" +
 	"\achannel\x18\x02 \x01(\tR\achannel\x12\x12\n" +

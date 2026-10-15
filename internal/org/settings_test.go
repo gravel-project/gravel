@@ -173,8 +173,8 @@ func TestSettingsValidateDiscord(t *testing.T) {
 		{"unknown provider", Discord{GuildID: guild, Roles: DiscordRoles{Providers: map[string]string{"xbox": steam}}}, []string{"discord.roles.providers.xbox: \"xbox\" is not a provider"}},
 		{"duplicate role", Discord{GuildID: guild, Roles: DiscordRoles{Linked: linked, Providers: map[string]string{"steam": linked}}}, []string{"discord.roles.providers.steam: role " + linked + " is already mapped by discord.roles.linked"}},
 		{"@everyone", Discord{GuildID: guild, Roles: DiscordRoles{Linked: guild}}, []string{"@everyone"}},
-		{"bad recognition", Discord{GuildID: guild, Recognition: []Recognition{{Role: founders, Rule: "member_since", Count: 0}, {Role: steam, Rule: RuleFirstMembers, Count: MaxFirstMembers + 1}}},
-			[]string{"discord.recognition[0].rule: \"member_since\"", "discord.recognition[0].count: 0", "discord.recognition[1].count"}},
+		{"bad recognition", Discord{GuildID: guild, Recognition: []Recognition{{Role: founders, Rule: "member_since", Count: 0, MinMembers: -1}, {Role: steam, Rule: RuleFirstMembers, Count: MaxFirstMembers + 1}}},
+			[]string{"discord.recognition[0].rule: \"member_since\"", "discord.recognition[0].count: 0", "discord.recognition[1].count", "discord.recognition[0].min_members: -1"}},
 		{"cards without a guild", Discord{ServerCards: []ServerCard{{Server: "s", Channel: card}}}, []string{"discord.guild_id: required"}},
 		{"bad cards", Discord{GuildID: guild, ServerCards: []ServerCard{
 			{Server: "HTG Wardogs", Channel: "abc", Note: strings.Repeat("x", MaxCardNote+1)},

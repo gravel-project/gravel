@@ -133,6 +133,9 @@ export function Discord({ draft, edit, err, errIn }: { draft: OrganizationSettin
                 <Field id={id("count")} label="How many" error={err(p + ".count")}>
                   <Count id={id("count")} value={r.count} set={(v) => { setD((x) => { const y = x.recognition[i]; if (y) { y.count = v; } }); }} />
                 </Field>
+                <Field id={id("min")} label="Off until the hub has this many members" error={err(p + ".min_members")} hint="0 or empty: always on. Nobody loses the role once given.">
+                  <Count id={id("min")} value={r.minMembers} set={(v) => { setD((x) => { const y = x.recognition[i]; if (y) { y.minMembers = v; } }); }} />
+                </Field>
               </div>
             </Entry>
           );

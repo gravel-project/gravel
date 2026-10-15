@@ -4428,6 +4428,13 @@ components:
           type: integer
           title: count
           format: int32
+        minMembers:
+          type: integer
+          title: min_members
+          format: int32
+          description: |-
+            The rule stays off until the hub has this many registered members (gravel#181); 0 is no
+             gate. A role given while it was on is never taken back.
       title: DiscordRecognition
       additionalProperties: false
       description: 'DiscordRecognition is a role earned once and kept: role sync adds it and never removes it.'

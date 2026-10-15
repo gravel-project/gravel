@@ -101,6 +101,20 @@ func TestDesiredAndPlan(t *testing.T) {
 		t.Errorf("plan:\n got %v\nwant %v", got, want)
 	}
 
+	// A recognition rule gated on the community's size (gravel#181) earns nobody anything below its
+	// count of registered members, and hands out as before at it; four are registered.
+	for minMembers, wantAna := range map[int]bool{5: false, 4: true, 1: true} {
+		g := m
+		g.Recognition = []rolesync.Recognition{{Role: founders, Count: 2, MinMembers: minMembers}}
+		if got := rolesync.Desired(g, users)[11][founders]; got != wantAna {
+			t.Errorf("min_members %d: ana has founders %t, want %t", minMembers, got, wantAna)
+		}
+		// Gated or not, a member who already holds it keeps it: the plan never removes it.
+		if plan := rolesync.Plan(g, rolesync.Desired(g, users), []discord.Member{member(12, founders)}); slices.Contains(plan, rolesync.Change{User: 12, Role: founders}) {
+			t.Errorf("min_members %d: a recognition role was removed: %v", minMembers, plan)
+		}
+	}
+
 	// The provider roles follow any provider, Discord included: a role for every registered member.
 	m.Providers["discord"] = other
 	if d := rolesync.Desired(m, users); !d[12][other] {

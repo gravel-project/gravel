@@ -25,7 +25,7 @@ const discord: MessageInitShape<typeof DiscordSettingsSchema> = {
   guildId: id(0),
   modLog: id(1),
   roles: { linked: id(2), providers: { steam: id(3) } },
-  recognition: [{ role: id(4), rule: "first_members", count: 100 }],
+  recognition: [{ role: id(4), rule: "first_members", count: 100, minMembers: 250 }],
   serverCards: [{ server: "htg-wardogs-1", channel: id(5), note: "Matches start at 20 players." }],
   seeding: [{ server: "htg-wardogs-1", channel: id(6), role: id(7), below: 20, cooldown: "2h", callAtStart: true, note: "Join from the server browser", hours: [{ days: ["wed"], from: "18:00", to: "23:00" }] }],
   recaps: [{ server: "htg-wardogs-1", channel: id(8), title: "Wardogs Wednesday", floor: 20, note: "Thanks for coming", hours: [{ days: ["wed", "sat"], from: "22:00", to: "02:00" }] }],
@@ -74,6 +74,7 @@ describe("discord settings", () => {
     await screen.findByLabelText("HTG WARDOGS #1 (htg-wardogs-1)");
     expect(input("discord-provider-steam").value).toBe(id(3));
     expect(input("recognition-0-count").value).toBe("100");
+    expect(input("recognition-0-min").value).toBe("250");
     expect(input("seeding-0-cooldown").value).toBe("2h");
     expect(input("seeding-0-start").checked).toBe(true);
     expect(input("seeding-0-hours-0-wed").checked).toBe(true);
@@ -146,7 +147,7 @@ describe("discord settings", () => {
   it("puts every message about Discord in the form, under its field", async () => {
     const paths = [
       "discord.guild_id", "discord.mod_log", "discord.roles.linked", "discord.roles.providers.steam", "discord.roles.providers.discord",
-      "discord.recognition", "discord.recognition[0]", "discord.recognition[0].role", "discord.recognition[0].rule", "discord.recognition[0].count",
+      "discord.recognition", "discord.recognition[0]", "discord.recognition[0].role", "discord.recognition[0].rule", "discord.recognition[0].count", "discord.recognition[0].min_members",
       "discord.server_cards", "discord.server_cards[0].server", "discord.server_cards[0].channel", "discord.server_cards[0].note",
       "discord.seeding", "discord.seeding[0].server", "discord.seeding[0].channel", "discord.seeding[0].role", "discord.seeding[0].below",
       "discord.seeding[0].cooldown", "discord.seeding[0].note", "discord.seeding[0].hours", "discord.seeding[0].hours[0]",
