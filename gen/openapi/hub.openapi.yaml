@@ -4563,6 +4563,11 @@ components:
         pseudonymDeleted:
           type: boolean
           title: pseudonym_deleted
+        resultRows:
+          type: integer
+          title: result_rows
+          format: int32
+          description: Match results' player rows (ADR-0024), one per map the identity played; their names blanked.
       title: EraseIdentityResponse
       additionalProperties: false
       description: EraseIdentityResponse counts what the erasure re-keyed; it never repeats the identity.

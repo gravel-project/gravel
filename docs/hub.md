@@ -38,7 +38,7 @@ the others has a `gravel` command over the API that takes the same flags.
 | `gravel-hub servers apply <servers.yaml> [--dry-run]` | Validate a manifest, check each credential file is readable where it runs, and store it; prints each change. With `--dry-run`, exit 3 when something would change. A running hub picks it up within 30 s. The only way to add a location or a server, or change a file or an endpoint ([Admin procedures](#admin-procedures-adr-0031)). |
 | `gravel-hub servers check <servers.yaml>` | Validate a manifest with no configuration, no database and no secret: exit 0 with its summary, 1 with every problem named, 2 on a usage error. |
 | `gravel-hub ingest export --server ID [--after ID] [--limit N]` | Print a server's stored ingest batches, oldest first, one JSON object per line: a JSON body as JSON, anything else as base64 ([Ingestion](#ingestion-adr-0011)). They hold players' SteamIDs: redact before they leave the host. |
-| `gravel-hub stats erase --provider P --subject S` | Erase a player from the stats store ([Stats](#stats-adr-0012), Erasure): their identity becomes a random token in every stats table (participation included) and the stored ingest batches, their pseudonym is deleted, the numbers stay. For an operator acting on a request they have verified. Prints the counts, never the identity. Over the API: `StatsService.EraseIdentity` (`stats:erase`). |
+| `gravel-hub stats erase --provider P --subject S` | Erase a player from the stats store ([Stats](#stats-adr-0012), Erasure): their identity becomes a random token in every stats table (participation and match results included) and the stored ingest batches, their pseudonym is deleted, the numbers stay. For an operator acting on a request they have verified. Prints the counts, never the identity. Over the API: `StatsService.EraseIdentity` (`stats:erase`). |
 | `gravel-hub wardogs record --base-url URL [--token-file FILE] [--dir DIR]` | Record a War Dogs server's read-only answers as test fixtures in `<dir>/<build>/` (default `games/wardogs/testdata`), with people, addresses and secrets replaced (ADR-0010; `games/wardogs/README.md`). One token, never retried; without one, only the public routes. |
 | `gravel-hub demo wardogs-server --listen ADDR --token-file FILE [--profile FILE] [--seed N]` | Serve a simulated War Dogs server for a demo hub to poll ([Demo hub](#demo-hub-gravel112)). |
 | `gravel-hub demo seed [--days 90] [--members 40] [--seed N] [--profile FILE]` | Write made-up members, matches and moderation into a demo hub's database: only with `demo: true`, only into a database nobody signed in to and nothing was recorded in ([Demo hub](#demo-hub-gravel112)). |
@@ -1036,7 +1036,9 @@ An event for a series whose start never came starts it. A demo goes to the `demo
 404. Read them with `StatsService.ListMatchResults` (by server or lease, ended or not),
 `GetMatchResult` (players shown as on a board: an opted-in name, else a pseudonym) and
 `GetMatchDemo` (a 15-minute link), or on the page `/results/{id}`, under the same access as the
-boards. `gravel_match_events_total{event, result}` and `gravel_match_demos_total{result}` are on
+boards. A result's player rows are erased and retired like every identity-linked row: `stats erase`
+re-keys them, and past `stats.raw_retention_months` the retention job anonymises them
+([Stats](#stats-adr-0012), Retention). `gravel_match_events_total{event, result}` and `gravel_match_demos_total{result}` are on
 the Server leases row.
 
 ### Configuration and the hub's ban list
@@ -1195,11 +1197,16 @@ time counts the same before and after the rollup. (Week and month boards only ev
 raw rows.) The match itself stays (map, times, no personal data) and keeps its player count and
 kills for the match lists. A season added or moved after its months rolled up counts each period
 by its first day, and a period cut in one timezone keeps its dates if `stats.timezone` changes.
+The same job **retires match results** ([Match results](#match-results-adr-0024)) that ended before
+that day: each player of the series becomes `erased` and a random token of their own in that series
+(the same on each of its maps, unlinkable to any other series), and their in-game name is blanked.
+The scoreboard stays readable, shown as deleted players; nothing is deleted. A series that hasn't
+ended is never retired. `gravel_stats_results_retired_total` counts the series.
 
 **Erasure.** `gravel-hub stats erase --provider steam --subject <SteamID64>` replaces the identity
 with `erased` and a random token in `match_stats`, `stats_monthly`, `participation_events`,
-`participation_monthly` and the bodies of the stored ingest batches (their hashes recomputed), and
-deletes the pseudonym, in one transaction. The numbers
+`participation_monthly`, `match_result_players` (blanking the in-game name) and the bodies of the
+stored ingest batches (their hashes recomputed), and deletes the pseudonym, in one transaction. The numbers
 stay, shown as "Deleted player"; nothing maps the token back (a hash would not do: every SteamID can
 be tried). A player still on a server is recorded under their identity again from the next poll.
 The flow members start themselves comes with identity's erasure; this is the stats store's part.
@@ -2142,6 +2149,7 @@ and the digest-pin procedure.
 | `gravel_stats_rows_written_total` | counter | `server` | player rows written from polls | until someone is on |
 | `gravel_stats_record_errors_total` | counter | `server` | polls the stats store could not write | until one fails |
 | `gravel_stats_rolled_rows_total` | counter | | per-match rows rolled up into monthly totals past the retention window | |
+| `gravel_stats_results_retired_total` | counter | | match results past the retention window whose players were anonymised (#216) | |
 
 - **Secrets in logs:** the owner-claim token is the only secret the hub ever logs, once, at WARN.
   Provider secrets are logged by source only.

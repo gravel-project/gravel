@@ -54,8 +54,19 @@ func TestStatsErase(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// A two-map series the player played both maps of (ADR-0024): two result rows.
+	res, err := st.StartMatchResult(ctx, store.MatchResult{ID: uuid.New(), OrganizationID: o.ID, ServerID: "wd-1", Source: "matchzy", ExternalID: 7, NumMaps: 2, StartedAt: at})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for m := 1; m <= 2; m++ {
+		if err := st.ReplaceMatchResultPlayers(ctx, res.ID, m, []store.MatchResultPlayer{{Provider: "steam", Subject: subject, Name: "Jo", Team: "team1", Kills: m}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
 	code, out, errOut := run("stats", "erase", "--provider", "steam", "--subject", subject, "--config", cfgPath)
-	if code != 0 || !strings.Contains(out, "erased: 1 match rows, 0 monthly rows, 1 participation events, 0 participation monthly rows, 0 ingest batches re-keyed; pseudonym deleted: false") {
+	if code != 0 || !strings.Contains(out, "erased: 1 match rows, 0 monthly rows, 1 participation events, 0 participation monthly rows, 2 match result rows, 0 ingest batches re-keyed; pseudonym deleted: false") {
 		t.Fatalf("erase: %d %q %q", code, out, errOut)
 	}
 	if strings.Contains(out+errOut, subject) {

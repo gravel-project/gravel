@@ -104,12 +104,14 @@ type Erasure struct {
 	// participation_monthly (ADR-0014).
 	ParticipationRows        int
 	ParticipationMonthlyRows int
-	Pseudonym                bool
+	// ResultRows are match_result_players rows (ADR-0024), one per map the identity played.
+	ResultRows int
+	Pseudonym  bool
 }
 
 // EraseIdentity replaces an identity with (ErasedProvider, token) in match_stats, stats_monthly,
-// participation_events, participation_monthly and the bodies of the stored ingest batches, and
-// deletes its pseudonym, in one transaction. The
+// participation_events, participation_monthly, match_result_players (whose in-game name it blanks)
+// and the bodies of the stored ingest batches, and deletes its pseudonym, in one transaction. The
 // token must be random (a hash of a SteamID can be reversed by trying them all); the counts stay.
 // ingest_batches is re-keyed by replacing the subject wherever it appears in a body, which is how
 // a feed writes it.
@@ -145,6 +147,12 @@ func (s *Store) EraseIdentity(ctx context.Context, orgID uuid.UUID, key PlayerKe
 		return Erasure{}, fmt.Errorf("store: erase identity: participation_monthly: %w", err)
 	}
 	out.ParticipationMonthlyRows = int(tag.RowsAffected())
+	if tag, err = tx.Exec(ctx, `UPDATE match_result_players p SET provider = $4, subject = $5, name = ''
+		  FROM match_results r WHERE r.id = p.result_id AND r.organization_id = $1 AND p.provider = $2 AND p.subject = $3`,
+		orgID, key.Provider, key.Subject, ErasedProvider, token); err != nil {
+		return Erasure{}, fmt.Errorf("store: erase identity: match_result_players: %w", err)
+	}
+	out.ResultRows = int(tag.RowsAffected())
 	if tag, err = tx.Exec(ctx, `UPDATE ingest_batches
 		   SET body = convert_to(replace(convert_from(body, 'UTF8'), $2, $3), 'UTF8'),
 		       body_sha256 = sha256(convert_to(replace(convert_from(body, 'UTF8'), $2, $3), 'UTF8'))
@@ -162,12 +170,53 @@ func (s *Store) EraseIdentity(ctx context.Context, orgID uuid.UUID, key PlayerKe
 	if err := s.appendEvent(ctx, tx, by.event(Event{OrganizationID: orgID, At: at, Kind: "stats.erased",
 		Summary: "A player's identity was erased from the stats",
 		Detail: map[string]any{"provider": key.Provider, "match_rows": out.MatchRows, "monthly_rows": out.MonthlyRows,
-			"participation_rows": out.ParticipationRows, "ingest_batches": out.IngestBatches},
+			"participation_rows": out.ParticipationRows, "result_rows": out.ResultRows, "ingest_batches": out.IngestBatches},
 		Source: "stats.erase", SourceID: fmt.Sprintf("%s:%d", orgID, at.UnixMicro())})); err != nil {
 		return Erasure{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return Erasure{}, fmt.Errorf("store: erase identity: %w", err)
+	}
+	return out, nil
+}
+
+// Retired is what RetireResults anonymised.
+type Retired struct {
+	Results int // series whose players were re-keyed
+	Rows    int // match_result_players rows
+}
+
+// RetireResults anonymises the players of every series that ended before cutoff (ADR-0024 as
+// amended by #216): each player of a series gets (ErasedProvider, a random token of their own in
+// that series), the same on each of its maps and unlinkable to any other series, and their in-game
+// name is blanked. The scoreboard stays readable; nothing is deleted. A series that hasn't ended is
+// never retired, and a retired row is not touched again.
+func (s *Store) RetireResults(ctx context.Context, orgID uuid.UUID, cutoff time.Time) (Retired, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return Retired{}, fmt.Errorf("store: retire results: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	// One token per player per series, from Postgres' random UUIDs (gen_random_uuid, a CSPRNG).
+	if _, err := tx.Exec(ctx, `CREATE TEMP TABLE retiring ON COMMIT DROP AS
+		SELECT k.result_id, k.provider, k.subject, replace(gen_random_uuid()::text, '-', '') AS token
+		  FROM (SELECT DISTINCT p.result_id, p.provider, p.subject
+		          FROM match_result_players p JOIN match_results r ON r.id = p.result_id
+		         WHERE r.organization_id = $1 AND r.ended_at IS NOT NULL AND r.ended_at < $2 AND p.provider <> $3) k`,
+		orgID, cutoff, ErasedProvider); err != nil {
+		return Retired{}, fmt.Errorf("store: retire results: select: %w", err)
+	}
+	tag, err := tx.Exec(ctx, `UPDATE match_result_players p SET provider = $1, subject = t.token, name = ''
+		  FROM retiring t WHERE p.result_id = t.result_id AND p.provider = t.provider AND p.subject = t.subject`, ErasedProvider)
+	if err != nil {
+		return Retired{}, fmt.Errorf("store: retire results: %w", err)
+	}
+	out := Retired{Rows: int(tag.RowsAffected())}
+	if err := tx.QueryRow(ctx, `SELECT count(DISTINCT result_id) FROM retiring`).Scan(&out.Results); err != nil {
+		return Retired{}, fmt.Errorf("store: retire results: count: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Retired{}, fmt.Errorf("store: retire results: %w", err)
 	}
 	return out, nil
 }
