@@ -76,7 +76,7 @@ func TestRenderGolden(t *testing.T) {
 			}
 			want, err := os.ReadFile(golden)
 			if err != nil {
-				t.Fatalf("%v (run go test ./internal/hubvm -update to write it)", err)
+				t.Fatalf("%v (run go test ./hubvm -update to write it)", err)
 			}
 			if got != string(want) {
 				t.Errorf("%s differs from the rendered document (a deploy/quadlet or template change? rerun with -update and review the diff)\n%s", golden, firstDiff(string(want), got))

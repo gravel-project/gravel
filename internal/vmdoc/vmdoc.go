@@ -1,5 +1,5 @@
 // Package vmdoc renders the cloud-init document every VM gravel makes boots with: the hub's own
-// host (internal/hubvm, ADR-0020) and the hosts the cloud-VM driver runs game servers on
+// host (hubvm, ADR-0020) and the hosts the cloud-VM driver runs game servers on
 // (drivers/cloudvm, ADR-0003). The document is one shape for both: an admin user for the OS, a
 // rootless runtime user whose home is the data volume (formatted on its first boot only, with a
 // fixed uid and subordinate ids, so a replacement instance on the same volume comes back as it

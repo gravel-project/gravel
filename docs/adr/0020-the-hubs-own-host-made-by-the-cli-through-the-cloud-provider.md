@@ -31,7 +31,7 @@ What the clouds offer for it is the same set ADR-0003 relies on: an instance boo
 
 ## Consequences
 
-- New: `cmd/gravel` (released as an archive for Linux and macOS, no image), `internal/hubvm` (the document's templates and the create, status, destroy and allow-ssh steps), the `deploy` Go package (embeds the stock units), `cloud/`, `cloud/fake`, `cloud/cloudtest` and `cloud/digitalocean` (#35), `deploy/hub-vm.sh` with `make hub-vm` and the `hub-vm` CI job.
+- New: `cmd/gravel` (released as an archive for Linux and macOS, no image), `internal/hubvm` (the document's templates and the create, status, destroy and allow-ssh steps; public as `hubvm/` since #211, for a control plane to import), the `deploy` Go package (embeds the stock units), `cloud/`, `cloud/fake`, `cloud/cloudtest` and `cloud/digitalocean` (#35), `deploy/hub-vm.sh` with `make hub-vm` and the `hub-vm` CI job.
 - The stock units change with it: the hub's pin moves to the current release, and `gravel-cloudflared` reads its token from its secret's file instead of the environment and is pinned by digest.
 - Accepted costs: SSH host keys are trusted on first use, right after the instance is made; on DigitalOcean, cloud-init's own hostname step warns on Fedora (it runs before the system bus is up and its retry succeeds), so `create` treats cloud-init's "done with warnings" as ready and prints them; a replaced host has a new outbound address, so anything pinned to the old one (a game server's allow list) follows by hand until the hub re-pins it.
 - Not decided here: the stock profile's backups, bot and observability sets (a follow-on: the bucket, its credentials over SSH), and a local-VM provider so a closet machine is a `cloud.Provider` rather than a script.

@@ -61,10 +61,10 @@ Also, when they apply:
   another). No `style` prop
   and nothing inline: the hub's CSP refuses them, and lint and a test say so. A change to a
   `.proto` regenerates `web/admin/src/gen/` with `make generate`.
-- `make hub-vm` when the cloud-init document (`internal/vmdoc/templates/`, `internal/hubvm/templates/`), the stock
+- `make hub-vm` when the cloud-init document (`internal/vmdoc/templates/`, `hubvm/templates/`), the stock
   units (`deploy/quadlet/`) or `deploy/hub-vm.sh` change: a stock hub booted in a local KVM VM,
   then a new instance on the same data disk (needs qemu, `/dev/kvm`, genisoimage and ssh; CI's
-  `hub-vm` job runs it on every pull request). `go test ./internal/hubvm -update` rewrites the
+  `hub-vm` job runs it on every pull request). `go test ./hubvm -update` rewrites the
   document's golden files after an intended change.
 - `make game-vm` when the cloud-init document (`internal/vmdoc/templates/`), the cloud-VM driver's
   game units (`drivers/cloudvm/templates/`) or `deploy/game-vm.sh` change: a Counter-Strike 2 host

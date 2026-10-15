@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/gravel-project/gravel/internal/hubvm"
+	"github.com/gravel-project/gravel/hubvm"
 )
 
 func hubUsage(w io.Writer) {

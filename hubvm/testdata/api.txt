@@ -1,0 +1,84 @@
+const (
+	ProfileHost  = "host"
+	ProfileStock = "stock"
+)
+const (
+	DefaultUser       = vmdoc.DefaultUser
+	DefaultUID        = vmdoc.DefaultUID
+	DefaultSubIDStart = vmdoc.DefaultSubIDStart
+)
+const BaseTag = "gravel-hub"
+var BasePackages = append(slices.Clone(vmdoc.BasePackages[:1]), "git", "jq", vmdoc.BasePackages[1])
+func FirewallName(name string) string
+func Render(p Params) (string, error)
+func SSHSources(fw cloud.Firewall) []string
+func Tag(name string) string
+func ValidName(name string) error
+func VolumeName(name string) string
+type Action string
+const (
+	Unchanged Action = "unchanged"
+	Created   Action = "created"
+	Updated   Action = "updated"
+	Deleted   Action = "deleted"
+)
+type DestroyOptions struct {
+	DeleteVolume   bool
+	DeleteFirewall bool
+	DryRun         bool
+}
+type Kind string
+const (
+	KindFirewall Kind = "firewall"
+	KindVolume   Kind = "volume"
+	KindInstance Kind = "instance"
+)
+type Params struct {
+	Profile  string
+	Hostname string
+	SSHKeys []string
+	DataDevice    string
+	ExtraPackages []string
+	User       string
+	UID        int
+	SubIDStart int
+	Stock *StockParams
+}
+type Result struct {
+	Steps    []Step
+	Instance *cloud.Instance
+	Volume   *cloud.Volume
+	Firewall *cloud.Firewall
+	Recreated bool
+}
+func Create(ctx context.Context, p cloud.Provider, s Spec, dryRun bool) (Result, error)
+func Status(ctx context.Context, p cloud.Provider, name string) (Result, error)
+func (r Result) Changed() bool
+type Spec struct {
+	Name      string
+	Region    string
+	Size      string
+	Image     string
+	VolumeGiB int
+	SSHKeyName   string
+	SSHPublicKey string
+	SSHFrom    []string
+	Monitoring bool
+	Tags []string
+	Document Params
+}
+type Step struct {
+	Kind     Kind
+	Name     string
+	Action   Action
+	Detail   string
+	Resource string
+}
+func AllowSSH(ctx context.Context, p cloud.Provider, name string, cidrs []string, dryRun bool) (Step, error)
+func Destroy(ctx context.Context, p cloud.Provider, name string, o DestroyOptions) ([]Step, error)
+type StockParams struct {
+	PublicURL string
+	OrgName string
+	HubImage string
+	BehindTunnel bool
+}

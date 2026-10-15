@@ -7,7 +7,7 @@ import (
 
 	"github.com/gravel-project/gravel/cloud"
 	"github.com/gravel-project/gravel/cloud/fake"
-	"github.com/gravel-project/gravel/internal/hubvm"
+	"github.com/gravel-project/gravel/hubvm"
 )
 
 func (e *testEnv) createArgs(extra ...string) []string {

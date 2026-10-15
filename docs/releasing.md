@@ -30,13 +30,13 @@ breaking. The public surfaces:
 
 | Surface | Breaking when |
 |---|---|
-| Go packages a host imports: `discord/…` (the bot runtime, `cli`, `stock`, the modules, `hubclient`, `rolemeta`). `internal/` is not public | an exported name is removed, renamed or changes its signature or behaviour |
+| Go packages a host imports: `discord/…` (the bot runtime, `cli`, `stock`, the modules, `hubclient`, `rolemeta`); `hubvm` (a control plane's way to make hub hosts, pinned by `hubvm/testdata/api.txt`) and the `cloud` packages it takes (`cloud`, `cloud/digitalocean`). `internal/` is not public | an exported name is removed, renamed or changes its signature or behaviour |
 | The hub's API: `proto/gravel/hub/v1` (CI's `proto-breaking` guards the wire), the routes in `docs/hub.md` "Endpoints", `/oauth/token` | a procedure, field, route or scope goes or changes meaning |
 | Configuration: `hub.yaml` and `bot.yaml` (parsed strictly, so a removed key stops a host's start), the Organization settings document | a key is removed or renamed, a default changes what a host gets, a value is newly refused |
 | Metric names and labels (ADR-0009) | a series is renamed, loses a label or changes meaning; the dashboards change with it |
 | Deployment: quadlet unit, volume, network and secret names, compose service names, image names | a name a host's units or scripts use changes |
 | The database: migrations | a migration a host must run by hand, or one that can't be rolled back from |
-| The command lines of `gravel-hub`, `gravel-bot` and `gravel` | a command, flag or exit code a host's scripts rely on changes |
+| The command lines of `gravel-hub`, `gravel-bot` and `gravel`, and the fields of `gravel hub … --output json` (docs/cli.md "Machine-readable output") | a command, flag, exit code or JSON field a host's scripts rely on changes (a new field is not breaking) |
 | What `gravel hub` makes: its tags (`gravel-hub`, `gravel-hub:<name>`), resource names (`<name>-data`, `gravel-hub-<name>`), the runtime user, its uid and subordinate ids, the volume's mount point | a name or id a hub made by an earlier release would no longer be found by, or would not mount with |
 
 0.1.0 to 0.6.0 were cut as minors under strict SemVer, one per feature; the rule above applies

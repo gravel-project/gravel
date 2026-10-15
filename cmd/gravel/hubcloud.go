@@ -13,7 +13,7 @@ import (
 
 	"github.com/gravel-project/gravel/cloud"
 	"github.com/gravel-project/gravel/cloud/digitalocean"
-	"github.com/gravel-project/gravel/internal/hubvm"
+	"github.com/gravel-project/gravel/hubvm"
 	"github.com/gravel-project/gravel/internal/publicaddr"
 )
 
@@ -159,11 +159,18 @@ func hubCreate(ctx context.Context, args []string, stdout, stderr io.Writer) int
 	noWait := fs.Bool("no-wait", false, "return once the instance runs, without waiting for SSH and cloud-init")
 	tunnelTokenFile := fs.String("tunnel-token-file", "", "stock: a Cloudflare Tunnel token file (mode 0600) to install as the gravel-tunnel-token secret and start gravel-cloudflared")
 	timeout := fs.Duration("timeout", 30*time.Minute, "give up after this long")
+	tags := &stringList{}
+	fs.Var(tags, "tag", "a tag of your own for the instance and the volume, beside gravel's (repeatable; set when they are made)")
+	output := addOutputFlag(fs)
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
 	if *name == "" || *region == "" || *size == "" || fs.NArg() > 0 {
 		fmt.Fprintln(stderr, "usage: gravel hub create --name NAME --region REGION --size SIZE [--ssh-from CIDR | --ssh-from-here] [--profile host|stock] [flags]; gravel hub create -h lists them")
+		return 2
+	}
+	asJSON, ok := outputMode("hub create", *output, stderr)
+	if !ok {
 		return 2
 	}
 	if *tunnelTokenFile != "" && *doc.profile != hubvm.ProfileStock {
@@ -180,7 +187,20 @@ func hubCreate(ctx context.Context, args []string, stdout, stderr io.Writer) int
 	ctx, cancel := context.WithTimeout(ctx, *timeout)
 	defer cancel()
 
-	fail := func(err error) int { fmt.Fprintln(stderr, "gravel hub create:", err); return 1 }
+	out := createJSON{stepsJSON: newStepsJSON(*name, *dryRun, nil)}
+	// progress is where the lines a person watches go: stdout, or stderr when stdout is JSON.
+	progress := stdout
+	if asJSON {
+		progress = stderr
+	}
+	fail := func(err error) int {
+		fmt.Fprintln(stderr, "gravel hub create:", err)
+		if asJSON {
+			out.Error = err.Error()
+			writeJSON(stdout, out)
+		}
+		return 1
+	}
 	var tunnelToken string
 	if *tunnelTokenFile != "" {
 		t, err := readSecretFile(*tunnelTokenFile)
@@ -204,13 +224,19 @@ func hubCreate(ctx context.Context, args []string, stdout, stderr io.Writer) int
 	res, err := hubvm.Create(ctx, p, hubvm.Spec{
 		Name: *name, Region: *region, Size: *size, Image: *image, VolumeGiB: *volumeGiB,
 		SSHKeyName: "gravel-" + *name, SSHPublicKey: params.SSHKeys[0],
-		SSHFrom: cidrs, Monitoring: *monitoring, Document: params,
+		SSHFrom: cidrs, Monitoring: *monitoring, Document: params, Tags: *tags,
 	}, *dryRun)
-	printSteps(stdout, res.Steps, *dryRun)
+	out.stepsJSON, out.resourcesJSON, out.Recreated = newStepsJSON(*name, *dryRun, res.Steps), newResourcesJSON(res), res.Recreated
+	if !asJSON {
+		printSteps(stdout, res.Steps, *dryRun)
+	}
 	if err != nil {
 		return fail(err)
 	}
 	if *dryRun {
+		if asJSON {
+			writeJSON(stdout, out)
+		}
 		if res.Changed() {
 			return 3
 		}
@@ -222,9 +248,13 @@ func hubCreate(ctx context.Context, args []string, stdout, stderr io.Writer) int
 	}
 	created := slicesContainsCreated(res.Steps)
 	if res.Recreated {
-		fmt.Fprintln(stdout, "the new instance mounts the existing data volume: the hub comes back with its data")
+		fmt.Fprintln(progress, "the new instance mounts the existing data volume: the hub comes back with its data")
 	}
 	if *noWait {
+		if asJSON {
+			writeJSON(stdout, out)
+			return 0
+		}
 		fmt.Fprintf(stdout, "address %s (not waiting for cloud-init)\n", inst.PublicIPv4)
 		return 0
 	}
@@ -234,15 +264,21 @@ func hubCreate(ctx context.Context, args []string, stdout, stderr io.Writer) int
 		// address had, then trust the first one it shows (TOFU, right after we made it).
 		r.forget(ctx, inst.PublicIPv4)
 	}
-	fmt.Fprintf(stdout, "waiting for %s to finish booting (SSH, then cloud-init)\n", inst.PublicIPv4)
-	if err := waitReady(ctx, r, inst.PublicIPv4, stdout); err != nil {
+	fmt.Fprintf(progress, "waiting for %s to finish booting (SSH, then cloud-init)\n", inst.PublicIPv4)
+	if err := waitReady(ctx, r, inst.PublicIPv4, progress); err != nil {
 		return fail(err)
 	}
+	out.Ready = true
 	if tunnelToken != "" {
 		if err := installTunnel(ctx, r, inst.PublicIPv4, tunnelToken); err != nil {
 			return fail(err)
 		}
-		fmt.Fprintln(stdout, "tunnel: gravel-tunnel-token installed, gravel-cloudflared started")
+		out.TunnelInstalled = true
+		fmt.Fprintln(progress, "tunnel: gravel-tunnel-token installed, gravel-cloudflared started")
+	}
+	if asJSON {
+		writeJSON(stdout, out)
+		return 0
 	}
 	fmt.Fprintf(stdout, "ready: ssh %s@%s (OS maintenance: admin@%s)\n", hubvm.DefaultUser, inst.PublicIPv4, inst.PublicIPv4)
 	if *doc.profile == hubvm.ProfileStock {
@@ -319,14 +355,27 @@ func hubStatus(ctx context.Context, args []string, stdout, stderr io.Writer) int
 	conn := addConnFlags(fs)
 	name := fs.String("name", "", "the hub's name (required)")
 	noSSH := fs.Bool("no-ssh", false, "only ask the cloud; don't read the owner-claim token from the host")
+	output := addOutputFlag(fs)
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
 	if *name == "" || fs.NArg() > 0 {
-		fmt.Fprintln(stderr, "usage: gravel hub status --name NAME [--no-ssh]")
+		fmt.Fprintln(stderr, "usage: gravel hub status --name NAME [--no-ssh] [--output json]")
 		return 2
 	}
-	fail := func(err error) int { fmt.Fprintln(stderr, "gravel hub status:", err); return 1 }
+	asJSON, ok := outputMode("hub status", *output, stderr)
+	if !ok {
+		return 2
+	}
+	out := statusJSON{Hub: *name, Warnings: []string{}}
+	fail := func(err error) int {
+		fmt.Fprintln(stderr, "gravel hub status:", err)
+		if asJSON {
+			out.Error = err.Error()
+			writeJSON(stdout, out)
+		}
+		return 1
+	}
 	p, err := prov.open()
 	if err != nil {
 		return fail(err)
@@ -336,6 +385,13 @@ func hubStatus(ctx context.Context, args []string, stdout, stderr io.Writer) int
 	res, err := hubvm.Status(ctx, p, *name)
 	if err != nil {
 		return fail(err)
+	}
+	out.resourcesJSON = newResourcesJSON(res)
+	if asJSON {
+		// The text below runs into nothing; the deferred write, given the real stdout now, prints
+		// the document with whatever the claim read adds to it.
+		defer writeJSON(stdout, &out)
+		stdout = io.Discard
 	}
 	if res.Firewall != nil {
 		fmt.Fprintf(stdout, "firewall  %-28s SSH from %s\n", res.Firewall.Name, strings.Join(hubvm.SSHSources(*res.Firewall), ", "))
@@ -363,8 +419,10 @@ func hubStatus(ctx context.Context, args []string, stdout, stderr io.Writer) int
 	token, expires, err := claimToken(ctx, conn.remote(), in.PublicIPv4)
 	switch {
 	case err != nil:
+		out.Warnings = append(out.Warnings, fmt.Sprintf("could not read the hub's log over SSH: %v", err))
 		fmt.Fprintf(stdout, "hub       could not read the hub's log over SSH: %v\n", err)
 	case token != "":
+		out.Claim = &claimJSON{Token: token, ExpiresAt: expires}
 		fmt.Fprintf(stdout, "hub       unowned; claim token %s (expires %s): gravel login, then gravel claim TOKEN (or paste it on the account page)\n", token, expires)
 	}
 	return 0
@@ -413,18 +471,31 @@ func hubDestroy(ctx context.Context, args []string, stdout, stderr io.Writer) in
 	deleteFirewall := fs.Bool("delete-firewall", false, "also delete the firewall")
 	yes := fs.Bool("yes", false, "really destroy (required unless --dry-run)")
 	dryRun := fs.Bool("dry-run", false, "change nothing; say what would go (exit 3 when something would)")
+	output := addOutputFlag(fs)
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
 	if *name == "" || fs.NArg() > 0 {
-		fmt.Fprintln(stderr, "usage: gravel hub destroy --name NAME --yes [--delete-volume] [--delete-firewall] [--dry-run]")
+		fmt.Fprintln(stderr, "usage: gravel hub destroy --name NAME --yes [--delete-volume] [--delete-firewall] [--dry-run] [--output json]")
 		return 2
 	}
 	if !*yes && !*dryRun {
 		fmt.Fprintln(stderr, "gravel hub destroy: this takes the hub down; pass --yes (or --dry-run to see what would go)")
 		return 2
 	}
-	fail := func(err error) int { fmt.Fprintln(stderr, "gravel hub destroy:", err); return 1 }
+	asJSON, ok := outputMode("hub destroy", *output, stderr)
+	if !ok {
+		return 2
+	}
+	out := destroyJSON{stepsJSON: newStepsJSON(*name, *dryRun, nil), VolumeKept: !*deleteVolume}
+	fail := func(err error) int {
+		fmt.Fprintln(stderr, "gravel hub destroy:", err)
+		if asJSON {
+			out.Error = err.Error()
+			writeJSON(stdout, out)
+		}
+		return 1
+	}
 	p, err := prov.open()
 	if err != nil {
 		return fail(err)
@@ -432,10 +503,21 @@ func hubDestroy(ctx context.Context, args []string, stdout, stderr io.Writer) in
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Minute)
 	defer cancel()
 	steps, err := hubvm.Destroy(ctx, p, *name, hubvm.DestroyOptions{DeleteVolume: *deleteVolume, DeleteFirewall: *deleteFirewall, DryRun: *dryRun})
-	printSteps(stdout, steps, *dryRun)
+	out.stepsJSON = newStepsJSON(*name, *dryRun, steps)
 	if err != nil {
+		if !asJSON {
+			printSteps(stdout, steps, *dryRun)
+		}
 		return fail(err)
 	}
+	if asJSON {
+		writeJSON(stdout, out)
+		if *dryRun && len(steps) > 0 {
+			return 3
+		}
+		return 0
+	}
+	printSteps(stdout, steps, *dryRun)
 	if len(steps) == 0 {
 		fmt.Fprintln(stdout, "nothing to destroy")
 	}
@@ -454,14 +536,27 @@ func hubAllowSSH(ctx context.Context, args []string, stdout, stderr io.Writer) i
 	sshFrom := addSSHFromFlags(fs)
 	name := fs.String("name", "", "the hub's name (required)")
 	dryRun := fs.Bool("dry-run", false, "change nothing; say what would change (exit 3 when it would)")
+	output := addOutputFlag(fs)
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
 	if *name == "" || fs.NArg() > 0 {
-		fmt.Fprintln(stderr, "usage: gravel hub allow-ssh --name NAME (--ssh-from CIDR)... | --ssh-from-here")
+		fmt.Fprintln(stderr, "usage: gravel hub allow-ssh --name NAME (--ssh-from CIDR)... | --ssh-from-here [--output json]")
 		return 2
 	}
-	fail := func(err error) int { fmt.Fprintln(stderr, "gravel hub allow-ssh:", err); return 1 }
+	asJSON, ok := outputMode("hub allow-ssh", *output, stderr)
+	if !ok {
+		return 2
+	}
+	out := newStepsJSON(*name, *dryRun, nil)
+	fail := func(err error) int {
+		fmt.Fprintln(stderr, "gravel hub allow-ssh:", err)
+		if asJSON {
+			out.Error = err.Error()
+			writeJSON(stdout, out)
+		}
+		return 1
+	}
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
 	cidrs, err := sshFrom.cidrs(ctx)
@@ -476,7 +571,11 @@ func hubAllowSSH(ctx context.Context, args []string, stdout, stderr io.Writer) i
 	if err != nil {
 		return fail(err)
 	}
-	printSteps(stdout, []hubvm.Step{step}, *dryRun)
+	if out = newStepsJSON(*name, *dryRun, []hubvm.Step{step}); asJSON {
+		writeJSON(stdout, out)
+	} else {
+		printSteps(stdout, []hubvm.Step{step}, *dryRun)
+	}
 	if *dryRun && step.Action != hubvm.Unchanged {
 		return 3
 	}
