@@ -9,8 +9,9 @@ import (
 // with a type assertion, and a provider without it is costed from the hub's own records only.
 type Coster interface {
 	// MonthToDate is the cloud's bill for the current month so far, line by line, for the
-	// provider's project only: never another project's resources on a shared account. A token
-	// without the scope to read bills is ErrForbidden.
+	// provider's project, and the lines the cloud puts in no project (or its default one), marked
+	// Unassigned, since a cloud may bill a project's snapshots or addresses there; never another
+	// named project's. A token without the scope to read bills is ErrForbidden.
 	MonthToDate(ctx context.Context) (Bill, error)
 }
 
@@ -36,6 +37,9 @@ type BillLine struct {
 	Kind        string
 	Description string
 	USD         float64
+	// Unassigned: the cloud put the line in no project, or its default one, so it may be another
+	// use of the account's; a caller keeps it only when it knows the resource as its own.
+	Unassigned bool
 }
 
 // What a line is for.

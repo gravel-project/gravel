@@ -991,8 +991,11 @@ and admins). Two sources, side by side:
   hours, at start too) reads each cloud location's bill so far and keeps it as that day's snapshot
   (`cloud_bills`, replaced each run): on DigitalOcean the **invoice preview**, which DigitalOcean
   brings up to date once a night, so the figure lags a day ("as of" on the page). The preview is the
-  whole team's; the hub keeps only the items of the location's `project` (the default project when
-  it names none). It needs the token's **`billing:read`** scope, which DigitalOcean can't add to an
+  whole team's; the hub keeps the items of the location's `project` (the default project when it
+  names none), and the ones DigitalOcean puts in no project or the default one (it bills volume
+  snapshots and a Droplet's public IPv4 there) when the resource is one of the project's (a
+  Droplet's address, by the Droplet's id) or one of the hub's servers is their cause.
+  Another project's items and account-wide ones (taxes) are left out. It needs the token's **`billing:read`** scope, which DigitalOcean can't add to an
   existing token: make a new one and replace the location's token file. A billing token can read
   every project's bill on its team; the hub stores its own project's lines only.
 - **The hub's estimate**, always: each cloud-VM server's runs at the hourly price recorded as each

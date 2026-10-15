@@ -154,12 +154,16 @@ func (s *Service) snapshot(locationID string, bill cloud.Bill, hosts []store.Ser
 		out.GeneratedAt = &g
 	}
 	for _, l := range bill.Lines {
+		cause := Cause(l, hosts)
+		if l.Unassigned && cause == "" {
+			continue // in no project or the default one, and not one of the hub's: another use of the account's
+		}
 		kind := l.Kind
 		if !slices.Contains(cloud.CostKinds, kind) {
 			kind = cloud.CostOther
 		}
 		out.Lines = append(out.Lines, store.CloudBillLine{ResourceID: l.ResourceID, Name: l.Name, Product: l.Product, Kind: kind,
-			Description: l.Description, USD: l.USD, ServerID: Cause(l, hosts)})
+			Description: l.Description, USD: l.USD, ServerID: cause})
 	}
 	return out
 }

@@ -19,7 +19,7 @@ patch release is everything else.
 ### Added
 
 - Cloud spend (#207, ADR-0034, proposed; accepted when merged): what the cloud costs this month, by day and by cause, and where the month ends, at `/admin/spend` and `ServerHostService.GetSpend{month}` (`servers:provision` everywhere).
-  - **The cloud's own bill:** an optional cost reader beside the provider, `cloud.Coster` (`MonthToDate`), found by type assertion so no `cloud.Provider` implementer changes, with `cloud.ErrForbidden` for a token without the scope. DigitalOcean reads its invoice preview (generated daily), keeps only the location's project's items, maps each product to a kind (compute, storage, network, other) and takes the resource's name from the description; the emulator serves the preview. The fake has `SetBill`.
+  - **The cloud's own bill:** an optional cost reader beside the provider, `cloud.Coster` (`MonthToDate`), found by type assertion so no `cloud.Provider` implementer changes, with `cloud.ErrForbidden` for a token without the scope. DigitalOcean reads its invoice preview (generated daily) and keeps the location's project's items, plus, marked unassigned, the ones it bills in no project or the default one (volume snapshots, a Droplet's public IPv4), which the hub keeps only when one of its servers is their cause; never another project's. It maps each product to a kind (compute, storage, network, other) and takes the resource's name and id from the item, in the shapes Hidden Token Gaming's first real preview showed; the emulator serves the preview. The fake has `SetBill`.
   - **A snapshot a day:** the `cloud_spend` job (every 6 hours) keeps each cloud location's bill as the day's (migration 00033: `cloud_bills`, `cloud_bill_lines`), each line with its cause: the server whose instance or volume it is, by resource id or by gravel's names, so an instance parked away still counts.
   - **The hub's estimate beside it:** each cloud-VM server's compute from the host events at the prices recorded, day by day (`store.RunningCostByDay`), always, as a floor.
   - **The projection:** the month so far plus the last seven whole days' average for the days left, from the bill when there is one.
@@ -31,7 +31,7 @@ patch release is everything else.
 
 ### Fixed
 
-- ADR-0035 is marked accepted (it was merged with #257).
+- ADR-0035 is marked accepted (it was merged with #257), and ADR-0033 and ADR-0034 with theirs (#262, #264).
 
 ## [0.9.0] - 2026-10-15
 

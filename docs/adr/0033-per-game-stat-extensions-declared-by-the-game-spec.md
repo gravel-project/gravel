@@ -1,6 +1,6 @@
 # ADR-0033: Per-game stat extensions are declared by the Game spec
 
-**Status:** proposed (2026-10-15; accepted when John merges #206's pull request) · **Changes:** what a match result keeps per player and what a board returns; amends ADR-0024 (the five fixed CS2 columns become extensions), ADR-0012 §6 and §7 (results' extensions are rolled up and erased like match rows) and ADR-0010 §1 (the Game spec gains `stats`) · **Decided in:** John's design session *gravel — Design Session: Hub, Spines & Dashboard* (2026-10-10 to 12), Hidden Token Gaming's roadmap re-cut (handbook D35–D36), and John's two choices on 2026-10-15 (one generic map, not fixed columns; extension totals rolled up, not lost at retention) · **Built in:** #206 · **Part of:** H1 (#182)
+**Status:** accepted (2026-10-15, John; built in #206) · **Changes:** what a match result keeps per player and what a board returns; amends ADR-0024 (the five fixed CS2 columns become extensions), ADR-0012 §6 and §7 (results' extensions are rolled up and erased like match rows) and ADR-0010 §1 (the Game spec gains `stats`) · **Decided in:** John's design session *gravel — Design Session: Hub, Spines & Dashboard* (2026-10-10 to 12), Hidden Token Gaming's roadmap re-cut (handbook D35–D36), and John's two choices on 2026-10-15 (one generic map, not fixed columns; extension totals rolled up, not lost at retention) · **Built in:** #206 · **Part of:** H1 (#182)
 
 ## Context
 
