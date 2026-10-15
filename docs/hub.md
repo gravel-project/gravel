@@ -923,7 +923,8 @@ source. A snapshot holds whatever the volume does, the server's environment file
 included: keep it like the secrets, and delete it in the cloud when it is no longer wanted (it
 bills by the gigabyte every month). A seeded server's start finds that file is not its own and
 pushes its own (the environment check above). The provider's token needs DigitalOcean's
-`block_storage_snapshot` scope (create, read, delete).
+`block_storage_snapshot` scope (create, read, delete). Its `billing:read` scope is optional: with it
+the hub shows the cloud's own bill ([Cloud spend](#cloud-spend-adr-0034)).
 
 **Scaling (#37).** With `vm.scaling` the hub sizes the host to its room, walking a **ladder**
 one rung at a time: the Game spec's `cloudvm.ladder` (CS2: `c-2` for 10 players, `c-4` for 20),
@@ -979,6 +980,36 @@ as `make hub-vm` does for the hub's host), pushes the environment over SSH and c
 container runs as the runtime user; `drill-full` also lets the game download, answers RCON and
 pushes its log to a local listener, then proves a new instance on the same disk plays again with no
 push and no download.
+
+### Cloud spend (ADR-0034)
+
+What the cloud costs this month, by day and by cause, and where the month ends: `/admin/spend`, and
+`ServerHostService.GetSpend{month}` for a caller holding `servers:provision` everywhere (the owner
+and admins). Two sources, side by side:
+
+- **The cloud's own bill**, where a location's token may read it. The `cloud_spend` job (every 6
+  hours, at start too) reads each cloud location's bill so far and keeps it as that day's snapshot
+  (`cloud_bills`, replaced each run): on DigitalOcean the **invoice preview**, which DigitalOcean
+  brings up to date once a night, so the figure lags a day ("as of" on the page). The preview is the
+  whole team's; the hub keeps only the items of the location's `project` (the default project when
+  it names none). It needs the token's **`billing:read`** scope, which DigitalOcean can't add to an
+  existing token: make a new one and replace the location's token file. A billing token can read
+  every project's bill on its team; the hub stores its own project's lines only.
+- **The hub's estimate**, always: each cloud-VM server's runs at the hourly price recorded as each
+  began (the server page's "this month"), day by day in `stats.timezone`. It needs no scope and
+  works on any cloud, but it is a floor: compute only, and only what the hub ran.
+
+Each bill line has a **cause**: the server whose instance or volume it is, by the cloud's resource
+id or by gravel's names (a server's instance is its id, its volume `<id>-data`, a snapshot
+`<id>-data-…`), so an instance parked away last week still counts for its server. Anything else
+(the hub's own host, something made by hand) is shown by its name. Lines have a kind (compute,
+storage, network, other) by DigitalOcean's product name; a product the hub doesn't know is "other",
+never dropped. A day's billed spend is the difference between two days' snapshots. The
+**projection** is the month so far plus the average of the last seven whole days (fewer at the
+month's start; on the 1st, the rate so far) for each day left, from the bill when there is one,
+else the estimate. A location the hub can't read says why: no `billing:read`, a cloud with no bill
+the hub reads, a token file it couldn't read. With no cloud location the page says there's nothing
+to show.
 
 ### Server leases (ADR-0023)
 
@@ -1766,6 +1797,10 @@ page by page.
   columns, with the stats its spec declares as more columns (the unit in the heading, a dash read as
   "not reported" where a player has none), whether the boards are public, and the game's latest
   match results linking to their pages. The page draws whatever the hub declares; it knows no game.
+- **Spend** (`/admin/spend`, `servers:provision` everywhere: owner and admins; gravel#207, ADR-0034):
+  the month so far (the cloud's bill, or the hub's estimate where no bill can be read, which says
+  why), the projection for the month, the estimated compute, what each server and each uncaused
+  resource cost by kind, and each day with a bar; any of the last twelve months.
 - **Activity** (`/admin/activity`, `stats:read` everywhere; gravel#208, ADR-0035): when people play
   and who stopped, over the last 7, 30 or 90 days ([Player activity](#player-activity-adr-0035)):
   the players, sessions and median session, who came back and the mean days played, new and lost

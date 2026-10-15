@@ -236,6 +236,20 @@ type a11yHosts struct {
 	hubv1connect.UnimplementedServerHostServiceHandler
 }
 
+// GetSpend is /admin/spend (gravel#207): a billed month with a location that can't read its bill,
+// a server's kinds and an uncaused line, and days with and without a bill.
+func (a11yHosts) GetSpend(context.Context, *connect.Request[hubv1.GetSpendRequest]) (*connect.Response[hubv1.GetSpendResponse], error) {
+	return connect.NewResponse(&hubv1.GetSpendResponse{Month: "2026-10", Timezone: "America/Chicago", Current: true, Available: true, Billed: true,
+		BilledUsd: 49.4, BilledAsOf: timestamppb.New(time.Now().Add(-6 * time.Hour)), EstimatedUsd: 30, ProjectedUsd: 107.47, ProjectedFrom: "billed",
+		Locations: []*hubv1.SpendLocation{{Id: "do-sfo3", Provider: "digitalocean", Billed: true},
+			{Id: "do-nyc3", Provider: "digitalocean", Reason: "the location's token may not read the bill (it needs billing:read)"}},
+		Days: []*hubv1.SpendDay{{Date: "2026-10-13", BilledUsd: 3.8, HasBilled: true, EstimatedUsd: 2}, {Date: "2026-10-14", BilledUsd: 1.2, HasBilled: true, EstimatedUsd: 2},
+			{Date: "2026-10-15", EstimatedUsd: 1}},
+		Causes: []*hubv1.SpendCause{{ServerId: "htg-cs2-1", Kinds: map[string]float64{"compute": 32.5, "storage": 5.5}, BilledUsd: 38, EstimatedUsd: 30},
+			{Name: "htg-hub-1", Kinds: map[string]float64{"compute": 11.4}, BilledUsd: 11.4}},
+	}), nil
+}
+
 func (a11yHosts) GetServerHost(_ context.Context, req *connect.Request[hubv1.GetServerHostRequest]) (*connect.Response[hubv1.GetServerHostResponse], error) {
 	return connect.NewResponse(&hubv1.GetServerHostResponse{Host: &hubv1.ServerHost{ServerId: req.Msg.GetServerId(), State: "running", Desired: "running",
 		Size: "c-4", PinnedSize: "c-4", Address: "198.51.100.1", HourlyPriceUsd: 0.125, MonthCostUsd: 31.5,
@@ -625,11 +639,11 @@ func TestAccessibility(t *testing.T) {
 		"/fixture/server-moderator", "/fixture/server-host", "/fixture/server-host-parked", "/fixture/host-confirm", "/fixture/confirm", "/fixture/log", "/fixture/account-apps", "/fixture/consent",
 		"/fixture/account-proof", "/fixture/proof", "/fixture/proof-proven", "/fixture/host-expect", "/fixture/result",
 		"/fixture/login-local", "/fixture/register", "/fixture/account-local", "/fixture/reset",
-		"/admin", "/admin/events", "/admin/people", "/admin/servers/htg-cs2-1", "/admin/settings", "/admin/apps", "/admin/metrics", "/admin/stats", "/admin/activity", "/admin/access", "/admin/nowhere"}
+		"/admin", "/admin/events", "/admin/people", "/admin/servers/htg-cs2-1", "/admin/settings", "/admin/apps", "/admin/metrics", "/admin/stats", "/admin/activity", "/admin/spend", "/admin/access", "/admin/nowhere"}
 	// What each dashboard route shows once rendered in the browser.
-	adminRenders := map[string]string{"/admin": ">HTG WARDOGS | NA WEST | #1</a>", "/admin/events": ">HTG WARDOGS | NA WEST | #2 is down</p>", "/admin/people": ">Sam</a>", "/admin/servers/htg-cs2-1": ">Release the lease</button>", "/admin/settings": ">Save the settings</button>", "/admin/apps": ">HTG Bot</p>", "/admin/metrics": ">p95 latency by procedure</figcaption>", "/admin/stats": ">Damage (HP)</th>", "/admin/activity": ">Regulars gone quiet</h2>", "/admin/access": ">Your access</h1>", "/admin/nowhere": ">Not found</h1>"}
+	adminRenders := map[string]string{"/admin": ">HTG WARDOGS | NA WEST | #1</a>", "/admin/events": ">HTG WARDOGS | NA WEST | #2 is down</p>", "/admin/people": ">Sam</a>", "/admin/servers/htg-cs2-1": ">Release the lease</button>", "/admin/settings": ">Save the settings</button>", "/admin/apps": ">HTG Bot</p>", "/admin/metrics": ">p95 latency by procedure</figcaption>", "/admin/stats": ">Damage (HP)</th>", "/admin/activity": ">Regulars gone quiet</h2>", "/admin/spend": ">Day by day</h2>", "/admin/access": ">Your access</h1>", "/admin/nowhere": ">Not found</h1>"}
 	// The same, as text on the page, for the viewport script.
-	adminRenderText := map[string]string{"/admin": "HTG WARDOGS | NA WEST | #1", "/admin/events": "HTG WARDOGS | NA WEST | #2 is down", "/admin/people": "Add a local account", "/admin/servers/htg-cs2-1": "Release the lease", "/admin/settings": "Save the settings", "/admin/apps": "Register an app", "/admin/metrics": "p95 latency by procedure", "/admin/stats": "Latest results", "/admin/activity": "Regulars gone quiet", "/admin/access": "Your access"}
+	adminRenderText := map[string]string{"/admin": "HTG WARDOGS | NA WEST | #1", "/admin/events": "HTG WARDOGS | NA WEST | #2 is down", "/admin/people": "Add a local account", "/admin/servers/htg-cs2-1": "Release the lease", "/admin/settings": "Save the settings", "/admin/apps": "Register an app", "/admin/metrics": "p95 latency by procedure", "/admin/stats": "Latest results", "/admin/activity": "Regulars gone quiet", "/admin/spend": "What it’s for", "/admin/access": "Your access"}
 	// A fixture left out of the list would never be scanned and the run would still pass.
 	for path := range fixtures {
 		if !slices.Contains(paths, path) {
@@ -673,7 +687,7 @@ func TestAccessibility(t *testing.T) {
 		cmd := exec.CommandContext(ctx, "node", "../../web/admin/scripts/viewport.mjs", chrome,
 			srv.URL+"/admin", adminRenderText["/admin"], srv.URL+"/admin/events", adminRenderText["/admin/events"],
 			srv.URL+"/admin/people", adminRenderText["/admin/people"], srv.URL+"/admin/servers/htg-cs2-1", adminRenderText["/admin/servers/htg-cs2-1"], srv.URL+"/admin/settings", adminRenderText["/admin/settings"],
-			srv.URL+"/admin/apps", adminRenderText["/admin/apps"], srv.URL+"/admin/metrics", adminRenderText["/admin/metrics"], srv.URL+"/admin/stats", adminRenderText["/admin/stats"], srv.URL+"/admin/activity", adminRenderText["/admin/activity"], srv.URL+"/admin/access", adminRenderText["/admin/access"])
+			srv.URL+"/admin/apps", adminRenderText["/admin/apps"], srv.URL+"/admin/metrics", adminRenderText["/admin/metrics"], srv.URL+"/admin/stats", adminRenderText["/admin/stats"], srv.URL+"/admin/activity", adminRenderText["/admin/activity"], srv.URL+"/admin/spend", adminRenderText["/admin/spend"], srv.URL+"/admin/access", adminRenderText["/admin/access"])
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			t.Fatalf("the dashboard at phone and iPad sizes:\n%s", out)

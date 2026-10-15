@@ -60,6 +60,9 @@ const (
 	// ServerHostServiceDestroyServerHostProcedure is the fully-qualified name of the
 	// ServerHostService's DestroyServerHost RPC.
 	ServerHostServiceDestroyServerHostProcedure = "/gravel.hub.v1.ServerHostService/DestroyServerHost"
+	// ServerHostServiceGetSpendProcedure is the fully-qualified name of the ServerHostService's
+	// GetSpend RPC.
+	ServerHostServiceGetSpendProcedure = "/gravel.hub.v1.ServerHostService/GetSpend"
 )
 
 // ServerHostServiceClient is a client for the gravel.hub.v1.ServerHostService service.
@@ -93,6 +96,10 @@ type ServerHostServiceClient interface {
 	SnapshotServerHostVolume(context.Context, *connect.Request[v1.SnapshotServerHostVolumeRequest]) (*connect.Response[v1.SnapshotServerHostVolumeResponse], error)
 	// DestroyServerHost removes a parked host's remains. The owner only.
 	DestroyServerHost(context.Context, *connect.Request[v1.DestroyServerHostRequest]) (*connect.Response[v1.DestroyServerHostResponse], error)
+	// GetSpend is a month's cloud spend (ADR-0034): the cloud's own bill where the location's
+	// token may read it, the hub's compute estimate beside it, by day and by cause, and where the
+	// month ends. servers:provision held everywhere: the spend is the whole hub's.
+	GetSpend(context.Context, *connect.Request[v1.GetSpendRequest]) (*connect.Response[v1.GetSpendResponse], error)
 }
 
 // NewServerHostServiceClient constructs a client for the gravel.hub.v1.ServerHostService service.
@@ -160,6 +167,12 @@ func NewServerHostServiceClient(httpClient connect.HTTPClient, baseURL string, o
 			connect.WithSchema(serverHostServiceMethods.ByName("DestroyServerHost")),
 			connect.WithClientOptions(opts...),
 		),
+		getSpend: connect.NewClient[v1.GetSpendRequest, v1.GetSpendResponse](
+			httpClient,
+			baseURL+ServerHostServiceGetSpendProcedure,
+			connect.WithSchema(serverHostServiceMethods.ByName("GetSpend")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -174,6 +187,7 @@ type serverHostServiceClient struct {
 	setServerHostExpectation *connect.Client[v1.SetServerHostExpectationRequest, v1.SetServerHostExpectationResponse]
 	snapshotServerHostVolume *connect.Client[v1.SnapshotServerHostVolumeRequest, v1.SnapshotServerHostVolumeResponse]
 	destroyServerHost        *connect.Client[v1.DestroyServerHostRequest, v1.DestroyServerHostResponse]
+	getSpend                 *connect.Client[v1.GetSpendRequest, v1.GetSpendResponse]
 }
 
 // GetServerHost calls gravel.hub.v1.ServerHostService.GetServerHost.
@@ -221,6 +235,11 @@ func (c *serverHostServiceClient) DestroyServerHost(ctx context.Context, req *co
 	return c.destroyServerHost.CallUnary(ctx, req)
 }
 
+// GetSpend calls gravel.hub.v1.ServerHostService.GetSpend.
+func (c *serverHostServiceClient) GetSpend(ctx context.Context, req *connect.Request[v1.GetSpendRequest]) (*connect.Response[v1.GetSpendResponse], error) {
+	return c.getSpend.CallUnary(ctx, req)
+}
+
 // ServerHostServiceHandler is an implementation of the gravel.hub.v1.ServerHostService service.
 type ServerHostServiceHandler interface {
 	// GetServerHost is a server's host. A member, the owner, or an app with servers:read;
@@ -252,6 +271,10 @@ type ServerHostServiceHandler interface {
 	SnapshotServerHostVolume(context.Context, *connect.Request[v1.SnapshotServerHostVolumeRequest]) (*connect.Response[v1.SnapshotServerHostVolumeResponse], error)
 	// DestroyServerHost removes a parked host's remains. The owner only.
 	DestroyServerHost(context.Context, *connect.Request[v1.DestroyServerHostRequest]) (*connect.Response[v1.DestroyServerHostResponse], error)
+	// GetSpend is a month's cloud spend (ADR-0034): the cloud's own bill where the location's
+	// token may read it, the hub's compute estimate beside it, by day and by cause, and where the
+	// month ends. servers:provision held everywhere: the spend is the whole hub's.
+	GetSpend(context.Context, *connect.Request[v1.GetSpendRequest]) (*connect.Response[v1.GetSpendResponse], error)
 }
 
 // NewServerHostServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -315,6 +338,12 @@ func NewServerHostServiceHandler(svc ServerHostServiceHandler, opts ...connect.H
 		connect.WithSchema(serverHostServiceMethods.ByName("DestroyServerHost")),
 		connect.WithHandlerOptions(opts...),
 	)
+	serverHostServiceGetSpendHandler := connect.NewUnaryHandler(
+		ServerHostServiceGetSpendProcedure,
+		svc.GetSpend,
+		connect.WithSchema(serverHostServiceMethods.ByName("GetSpend")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/gravel.hub.v1.ServerHostService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ServerHostServiceGetServerHostProcedure:
@@ -335,6 +364,8 @@ func NewServerHostServiceHandler(svc ServerHostServiceHandler, opts ...connect.H
 			serverHostServiceSnapshotServerHostVolumeHandler.ServeHTTP(w, r)
 		case ServerHostServiceDestroyServerHostProcedure:
 			serverHostServiceDestroyServerHostHandler.ServeHTTP(w, r)
+		case ServerHostServiceGetSpendProcedure:
+			serverHostServiceGetSpendHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -378,4 +409,8 @@ func (UnimplementedServerHostServiceHandler) SnapshotServerHostVolume(context.Co
 
 func (UnimplementedServerHostServiceHandler) DestroyServerHost(context.Context, *connect.Request[v1.DestroyServerHostRequest]) (*connect.Response[v1.DestroyServerHostResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.ServerHostService.DestroyServerHost is not implemented"))
+}
+
+func (UnimplementedServerHostServiceHandler) GetSpend(context.Context, *connect.Request[v1.GetSpendRequest]) (*connect.Response[v1.GetSpendResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.ServerHostService.GetSpend is not implemented"))
 }

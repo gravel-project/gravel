@@ -24,7 +24,7 @@ import { AppSchema, AppService } from "../gen/gravel/hub/v1/apps_pb";
 import { MetricsDashboardSchema, MetricsSeriesSchema, MetricsService, type QueryRangeRequest } from "../gen/gravel/hub/v1/metrics_pb";
 import { GetActivityResponseSchema, GetBoardResponseSchema, MatchResultSchema, StatsService } from "../gen/gravel/hub/v1/stats_pb";
 import { GameSchema, GetFleetSummaryResponseSchema, ServerSchema, ServerService } from "../gen/gravel/hub/v1/servers_pb";
-import { ServerHostSchema, ServerHostService } from "../gen/gravel/hub/v1/hosts_pb";
+import { GetSpendResponseSchema, ServerHostSchema, ServerHostService } from "../gen/gravel/hub/v1/hosts_pb";
 import { ServerLeaseSchema, ServerLeaseService } from "../gen/gravel/hub/v1/leases_pb";
 import type { Browser } from "../session";
 
@@ -73,6 +73,8 @@ export interface RigOptions {
   // boards are GetBoard's answers by game id, or the error it throws; results ListMatchResults'.
   boards?: Record<string, MessageInitShape<typeof GetBoardResponseSchema>> | ConnectError;
   results?: MessageInitShape<typeof MatchResultSchema>[];
+  // spend is GetSpend's answer by month ("" this month), or the error it throws.
+  spend?: Record<string, MessageInitShape<typeof GetSpendResponseSchema>> | ConnectError;
 }
 
 // Call is one of the people actions as the page sent it.
@@ -90,7 +92,7 @@ export function member(fields: Member = {}): Member {
 
 export function renderShell({ me, demo = false, path = "/", fleet = { totals: {} }, log = [], kinds = [], servers = [], games = [], poll = 0,
   users = [], pageSize = 100, org = {}, refuse = [], hosts = {}, leases = {}, settings = { version: 1 }, apps = [], notifierErrors = {}, violations = [],
-  metricsStore = true, dashboards = [], panelSeries = {}, activity = {}, boards = {}, results = [] }: RigOptions = {}) {
+  metricsStore = true, dashboards = [], panelSeries = {}, activity = {}, boards = {}, results = [], spend = {} }: RigOptions = {}) {
   // queries are the QueryRange requests, in order.
   const queries: QueryRangeRequest[] = [];
   // calls are the ListEvents requests, in order, for a test to check the cursors.
@@ -277,6 +279,13 @@ export function renderShell({ me, demo = false, path = "/", fleet = { totals: {}
       },
     });
     service(ServerHostService, {
+      getSpend: (req) => {
+        actions.push({ method: "getSpend", req });
+        if (spend instanceof ConnectError) {
+          throw spend;
+        }
+        return create(GetSpendResponseSchema, spend[req.month] ?? {});
+      },
       getServerHost: (req) => {
         const h = hostRows.get(req.serverId);
         if (!h) {

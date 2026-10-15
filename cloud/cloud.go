@@ -32,6 +32,9 @@ var (
 	// ErrInvalid is a request the provider refused as malformed: a name the cloud does not accept,
 	// a size not offered in the region.
 	ErrInvalid = errors.New("cloud: invalid request")
+	// ErrForbidden is a call the token may not make: a scope it lacks (a bill without
+	// billing:read, ADR-0034).
+	ErrForbidden = errors.New("cloud: the token may not do this")
 )
 
 // Provider is one cloud. Every mutating call that the cloud carries out asynchronously returns an

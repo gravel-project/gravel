@@ -14,7 +14,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file gravel/hub/v1/hosts.proto.
  */
 export const file_gravel_hub_v1_hosts: GenFile = /*@__PURE__*/
-  fileDesc("ChlncmF2ZWwvaHViL3YxL2hvc3RzLnByb3RvEg1ncmF2ZWwuaHViLnYxIqIHCgpTZXJ2ZXJIb3N0EhEKCXNlcnZlcl9pZBgBIAEoCRIQCghsb2NhdGlvbhgCIAEoCRIQCghwcm92aWRlchgDIAEoCRIOCgZyZWdpb24YBCABKAkSDwoHZGVzaXJlZBgFIAEoCRINCgVzdGF0ZRgGIAEoCRIMCgRzdGVwGAcgASgJEhIKCmVycm9yX2NvZGUYCCABKAkSEAoIYXR0ZW1wdHMYCSABKAUSKQoFc2luY2UYCiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEgwKBHNpemUYCyABKAkSEwoLdGFyZ2V0X3NpemUYDCABKAkSEAoIZGlza19naWIYDSABKAUSEgoKdm9sdW1lX2dpYhgOIAEoBRIPCgdhZGRyZXNzGA8gASgJEhgKEGFkZHJlc3NfcmVzZXJ2ZWQYECABKAgSGAoQaG91cmx5X3ByaWNlX3VzZBgRIAEoARIdChVydW5uaW5nX3NlY29uZHNfbW9udGgYEiABKAMSFgoObW9udGhfY29zdF91c2QYEyABKAESFAoMYm9vdF9zZWNvbmRzGBQgASgFEhUKDXJlYWR5X3NlY29uZHMYFSABKAUSNwoTaW5zdGFuY2VfY3JlYXRlZF9hdBgWIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASJgoFc2l6ZXMYFyADKAsyFy5ncmF2ZWwuaHViLnYxLkhvc3RTaXplEhoKEnBhcmtfYWZ0ZXJfc2Vjb25kcxgYIAEoAxIPCgdzY2FsaW5nGBkgASgIEicKBmxhZGRlchgaIAMoCzIXLmdyYXZlbC5odWIudjEuSG9zdFRpZXISFAoMdGllcl9wbGF5ZXJzGBsgASgFEhMKC3Bpbm5lZF9zaXplGBwgASgJEhQKDHBlbmRpbmdfc2l6ZRgdIAEoCRIWCg5wZW5kaW5nX3JlYXNvbhgeIAEoCRIxCg1wZW5kaW5nX3NpbmNlGB8gASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIyCg5sYXN0X3Jlc2l6ZV9hdBggIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASGAoQZXhwZWN0ZWRfcGxheWVycxghIAEoBRIyCg5leHBlY3RlZF91bnRpbBgiIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASFwoPZXhwZWN0ZWRfcmVhc29uGCMgASgJIkMKCEhvc3RUaWVyEgwKBHNpemUYASABKAkSDwoHcGxheWVycxgCIAEoBRIYChBwcmljZV9ob3VybHlfdXNkGAMgASgBIpkBCghIb3N0U2l6ZRIMCgRzbHVnGAEgASgJEg0KBXZjcHVzGAIgASgFEhIKCm1lbW9yeV9taWIYAyABKAUSEAoIZGlza19naWIYBCABKAUSGAoQcHJpY2VfaG91cmx5X3VzZBgFIAEoARIZChFwcmljZV9tb250aGx5X3VzZBgGIAEoARIVCg1kZWRpY2F0ZWRfY3B1GAcgASgIIqMBCglIb3N0RXZlbnQSCgoCaWQYASABKAMSJgoCYXQYAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhIKCmZyb21fc3RhdGUYAyABKAkSEAoIdG9fc3RhdGUYBCABKAkSDAoEc3RlcBgFIAEoCRIOCgZkZXRhaWwYBiABKAkSDAoEc2l6ZRgHIAEoCRIQCghhdWRpdF9pZBgIIAEoAyIpChRHZXRTZXJ2ZXJIb3N0UmVxdWVzdBIRCglzZXJ2ZXJfaWQYASABKAkiQAoVR2V0U2VydmVySG9zdFJlc3BvbnNlEicKBGhvc3QYASABKAsyGS5ncmF2ZWwuaHViLnYxLlNlcnZlckhvc3QiVwobTGlzdFNlcnZlckhvc3RFdmVudHNSZXF1ZXN0EhEKCXNlcnZlcl9pZBgBIAEoCRIRCglwYWdlX3NpemUYAiABKAUSEgoKcGFnZV90b2tlbhgDIAEoCSJhChxMaXN0U2VydmVySG9zdEV2ZW50c1Jlc3BvbnNlEigKBmV2ZW50cxgBIAMoCzIYLmdyYXZlbC5odWIudjEuSG9zdEV2ZW50EhcKD25leHRfcGFnZV90b2tlbhgCIAEoCSJ9ChtTZXRTZXJ2ZXJIb3N0RGVzaXJlZFJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJEg8KB2Rlc2lyZWQYAiABKAkSDgoGcmVhc29uGAMgASgJEioKDG9uX2JlaGFsZl9vZhgEIAEoCzIULmdyYXZlbC5odWIudjEuQWN0b3IiawocU2V0U2VydmVySG9zdERlc2lyZWRSZXNwb25zZRInCgRob3N0GAEgASgLMhkuZ3JhdmVsLmh1Yi52MS5TZXJ2ZXJIb3N0EhAKCGF1ZGl0X2lkGAIgASgDEhAKCGV2ZW50X2lkGAMgASgDImYKF1Jlc2l6ZVNlcnZlckhvc3RSZXF1ZXN0EhEKCXNlcnZlcl9pZBgBIAEoCRIMCgRzaXplGAIgASgJEg0KBWZvcmNlGAMgASgIEg4KBnJlYXNvbhgEIAEoCRILCgNwaW4YBSABKAgiZwoYUmVzaXplU2VydmVySG9zdFJlc3BvbnNlEicKBGhvc3QYASABKAsyGS5ncmF2ZWwuaHViLnYxLlNlcnZlckhvc3QSEAoIYXVkaXRfaWQYAiABKAMSEAoIZXZlbnRfaWQYAyABKAMiPwoaVW5waW5TZXJ2ZXJIb3N0U2l6ZVJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJEg4KBnJlYXNvbhgCIAEoCSJqChtVbnBpblNlcnZlckhvc3RTaXplUmVzcG9uc2USJwoEaG9zdBgBIAEoCzIZLmdyYXZlbC5odWIudjEuU2VydmVySG9zdBIQCghhdWRpdF9pZBgCIAEoAxIQCghldmVudF9pZBgDIAEoAyKsAQofU2V0U2VydmVySG9zdEV4cGVjdGF0aW9uUmVxdWVzdBIRCglzZXJ2ZXJfaWQYASABKAkSDwoHcGxheWVycxgCIAEoBRIpCgV1bnRpbBgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASDgoGcmVhc29uGAQgASgJEioKDG9uX2JlaGFsZl9vZhgFIAEoCzIULmdyYXZlbC5odWIudjEuQWN0b3IibwogU2V0U2VydmVySG9zdEV4cGVjdGF0aW9uUmVzcG9uc2USJwoEaG9zdBgBIAEoCzIZLmdyYXZlbC5odWIudjEuU2VydmVySG9zdBIQCghhdWRpdF9pZBgCIAEoAxIQCghldmVudF9pZBgDIAEoAyJSCh9TbmFwc2hvdFNlcnZlckhvc3RWb2x1bWVSZXF1ZXN0EhEKCXNlcnZlcl9pZBgBIAEoCRIMCgRuYW1lGAIgASgJEg4KBnJlYXNvbhgDIAEoCSKUAQoOVm9sdW1lU25hcHNob3QSCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRIOCgZyZWdpb24YAyABKAkSEAoIc2l6ZV9naWIYBCABKAESFgoObWluX3ZvbHVtZV9naWIYBSABKAUSLgoKY3JlYXRlZF9hdBgGIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAioAEKIFNuYXBzaG90U2VydmVySG9zdFZvbHVtZVJlc3BvbnNlEicKBGhvc3QYASABKAsyGS5ncmF2ZWwuaHViLnYxLlNlcnZlckhvc3QSEAoIYXVkaXRfaWQYAiABKAMSLwoIc25hcHNob3QYAyABKAsyHS5ncmF2ZWwuaHViLnYxLlZvbHVtZVNuYXBzaG90EhAKCGV2ZW50X2lkGAQgASgDIncKF1JlYm9vdFNlcnZlckhvc3RSZXF1ZXN0EhEKCXNlcnZlcl9pZBgBIAEoCRINCgVmb3JjZRgCIAEoCBIOCgZyZWFzb24YAyABKAkSKgoMb25fYmVoYWxmX29mGAQgASgLMhQuZ3JhdmVsLmh1Yi52MS5BY3RvciJnChhSZWJvb3RTZXJ2ZXJIb3N0UmVzcG9uc2USJwoEaG9zdBgBIAEoCzIZLmdyYXZlbC5odWIudjEuU2VydmVySG9zdBIQCghhdWRpdF9pZBgCIAEoAxIQCghldmVudF9pZBgDIAEoAyJtChhEZXN0cm95U2VydmVySG9zdFJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJEhUKDWRlbGV0ZV92b2x1bWUYAiABKAgSFwoPcmVsZWFzZV9hZGRyZXNzGAMgASgIEg4KBnJlYXNvbhgEIAEoCSJoChlEZXN0cm95U2VydmVySG9zdFJlc3BvbnNlEicKBGhvc3QYASABKAsyGS5ncmF2ZWwuaHViLnYxLlNlcnZlckhvc3QSEAoIYXVkaXRfaWQYAiABKAMSEAoIZXZlbnRfaWQYAyABKAMy6wcKEVNlcnZlckhvc3RTZXJ2aWNlEloKDUdldFNlcnZlckhvc3QSIy5ncmF2ZWwuaHViLnYxLkdldFNlcnZlckhvc3RSZXF1ZXN0GiQuZ3JhdmVsLmh1Yi52MS5HZXRTZXJ2ZXJIb3N0UmVzcG9uc2USbwoUTGlzdFNlcnZlckhvc3RFdmVudHMSKi5ncmF2ZWwuaHViLnYxLkxpc3RTZXJ2ZXJIb3N0RXZlbnRzUmVxdWVzdBorLmdyYXZlbC5odWIudjEuTGlzdFNlcnZlckhvc3RFdmVudHNSZXNwb25zZRJvChRTZXRTZXJ2ZXJIb3N0RGVzaXJlZBIqLmdyYXZlbC5odWIudjEuU2V0U2VydmVySG9zdERlc2lyZWRSZXF1ZXN0GisuZ3JhdmVsLmh1Yi52MS5TZXRTZXJ2ZXJIb3N0RGVzaXJlZFJlc3BvbnNlEmMKEFJlYm9vdFNlcnZlckhvc3QSJi5ncmF2ZWwuaHViLnYxLlJlYm9vdFNlcnZlckhvc3RSZXF1ZXN0GicuZ3JhdmVsLmh1Yi52MS5SZWJvb3RTZXJ2ZXJIb3N0UmVzcG9uc2USYwoQUmVzaXplU2VydmVySG9zdBImLmdyYXZlbC5odWIudjEuUmVzaXplU2VydmVySG9zdFJlcXVlc3QaJy5ncmF2ZWwuaHViLnYxLlJlc2l6ZVNlcnZlckhvc3RSZXNwb25zZRJsChNVbnBpblNlcnZlckhvc3RTaXplEikuZ3JhdmVsLmh1Yi52MS5VbnBpblNlcnZlckhvc3RTaXplUmVxdWVzdBoqLmdyYXZlbC5odWIudjEuVW5waW5TZXJ2ZXJIb3N0U2l6ZVJlc3BvbnNlEnsKGFNldFNlcnZlckhvc3RFeHBlY3RhdGlvbhIuLmdyYXZlbC5odWIudjEuU2V0U2VydmVySG9zdEV4cGVjdGF0aW9uUmVxdWVzdBovLmdyYXZlbC5odWIudjEuU2V0U2VydmVySG9zdEV4cGVjdGF0aW9uUmVzcG9uc2USewoYU25hcHNob3RTZXJ2ZXJIb3N0Vm9sdW1lEi4uZ3JhdmVsLmh1Yi52MS5TbmFwc2hvdFNlcnZlckhvc3RWb2x1bWVSZXF1ZXN0Gi8uZ3JhdmVsLmh1Yi52MS5TbmFwc2hvdFNlcnZlckhvc3RWb2x1bWVSZXNwb25zZRJmChFEZXN0cm95U2VydmVySG9zdBInLmdyYXZlbC5odWIudjEuRGVzdHJveVNlcnZlckhvc3RSZXF1ZXN0GiguZ3JhdmVsLmh1Yi52MS5EZXN0cm95U2VydmVySG9zdFJlc3BvbnNlQjpaOGdpdGh1Yi5jb20vZ3JhdmVsLXByb2plY3QvZ3JhdmVsL2dlbi9ncmF2ZWwvaHViL3YxO2h1YnYxYgZwcm90bzM", [file_google_protobuf_timestamp, file_gravel_hub_v1_moderation]);
+  fileDesc("ChlncmF2ZWwvaHViL3YxL2hvc3RzLnByb3RvEg1ncmF2ZWwuaHViLnYxIqIHCgpTZXJ2ZXJIb3N0EhEKCXNlcnZlcl9pZBgBIAEoCRIQCghsb2NhdGlvbhgCIAEoCRIQCghwcm92aWRlchgDIAEoCRIOCgZyZWdpb24YBCABKAkSDwoHZGVzaXJlZBgFIAEoCRINCgVzdGF0ZRgGIAEoCRIMCgRzdGVwGAcgASgJEhIKCmVycm9yX2NvZGUYCCABKAkSEAoIYXR0ZW1wdHMYCSABKAUSKQoFc2luY2UYCiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEgwKBHNpemUYCyABKAkSEwoLdGFyZ2V0X3NpemUYDCABKAkSEAoIZGlza19naWIYDSABKAUSEgoKdm9sdW1lX2dpYhgOIAEoBRIPCgdhZGRyZXNzGA8gASgJEhgKEGFkZHJlc3NfcmVzZXJ2ZWQYECABKAgSGAoQaG91cmx5X3ByaWNlX3VzZBgRIAEoARIdChVydW5uaW5nX3NlY29uZHNfbW9udGgYEiABKAMSFgoObW9udGhfY29zdF91c2QYEyABKAESFAoMYm9vdF9zZWNvbmRzGBQgASgFEhUKDXJlYWR5X3NlY29uZHMYFSABKAUSNwoTaW5zdGFuY2VfY3JlYXRlZF9hdBgWIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASJgoFc2l6ZXMYFyADKAsyFy5ncmF2ZWwuaHViLnYxLkhvc3RTaXplEhoKEnBhcmtfYWZ0ZXJfc2Vjb25kcxgYIAEoAxIPCgdzY2FsaW5nGBkgASgIEicKBmxhZGRlchgaIAMoCzIXLmdyYXZlbC5odWIudjEuSG9zdFRpZXISFAoMdGllcl9wbGF5ZXJzGBsgASgFEhMKC3Bpbm5lZF9zaXplGBwgASgJEhQKDHBlbmRpbmdfc2l6ZRgdIAEoCRIWCg5wZW5kaW5nX3JlYXNvbhgeIAEoCRIxCg1wZW5kaW5nX3NpbmNlGB8gASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIyCg5sYXN0X3Jlc2l6ZV9hdBggIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASGAoQZXhwZWN0ZWRfcGxheWVycxghIAEoBRIyCg5leHBlY3RlZF91bnRpbBgiIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASFwoPZXhwZWN0ZWRfcmVhc29uGCMgASgJIkMKCEhvc3RUaWVyEgwKBHNpemUYASABKAkSDwoHcGxheWVycxgCIAEoBRIYChBwcmljZV9ob3VybHlfdXNkGAMgASgBIpkBCghIb3N0U2l6ZRIMCgRzbHVnGAEgASgJEg0KBXZjcHVzGAIgASgFEhIKCm1lbW9yeV9taWIYAyABKAUSEAoIZGlza19naWIYBCABKAUSGAoQcHJpY2VfaG91cmx5X3VzZBgFIAEoARIZChFwcmljZV9tb250aGx5X3VzZBgGIAEoARIVCg1kZWRpY2F0ZWRfY3B1GAcgASgIIqMBCglIb3N0RXZlbnQSCgoCaWQYASABKAMSJgoCYXQYAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhIKCmZyb21fc3RhdGUYAyABKAkSEAoIdG9fc3RhdGUYBCABKAkSDAoEc3RlcBgFIAEoCRIOCgZkZXRhaWwYBiABKAkSDAoEc2l6ZRgHIAEoCRIQCghhdWRpdF9pZBgIIAEoAyIpChRHZXRTZXJ2ZXJIb3N0UmVxdWVzdBIRCglzZXJ2ZXJfaWQYASABKAkiQAoVR2V0U2VydmVySG9zdFJlc3BvbnNlEicKBGhvc3QYASABKAsyGS5ncmF2ZWwuaHViLnYxLlNlcnZlckhvc3QiVwobTGlzdFNlcnZlckhvc3RFdmVudHNSZXF1ZXN0EhEKCXNlcnZlcl9pZBgBIAEoCRIRCglwYWdlX3NpemUYAiABKAUSEgoKcGFnZV90b2tlbhgDIAEoCSJhChxMaXN0U2VydmVySG9zdEV2ZW50c1Jlc3BvbnNlEigKBmV2ZW50cxgBIAMoCzIYLmdyYXZlbC5odWIudjEuSG9zdEV2ZW50EhcKD25leHRfcGFnZV90b2tlbhgCIAEoCSJ9ChtTZXRTZXJ2ZXJIb3N0RGVzaXJlZFJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJEg8KB2Rlc2lyZWQYAiABKAkSDgoGcmVhc29uGAMgASgJEioKDG9uX2JlaGFsZl9vZhgEIAEoCzIULmdyYXZlbC5odWIudjEuQWN0b3IiawocU2V0U2VydmVySG9zdERlc2lyZWRSZXNwb25zZRInCgRob3N0GAEgASgLMhkuZ3JhdmVsLmh1Yi52MS5TZXJ2ZXJIb3N0EhAKCGF1ZGl0X2lkGAIgASgDEhAKCGV2ZW50X2lkGAMgASgDImYKF1Jlc2l6ZVNlcnZlckhvc3RSZXF1ZXN0EhEKCXNlcnZlcl9pZBgBIAEoCRIMCgRzaXplGAIgASgJEg0KBWZvcmNlGAMgASgIEg4KBnJlYXNvbhgEIAEoCRILCgNwaW4YBSABKAgiZwoYUmVzaXplU2VydmVySG9zdFJlc3BvbnNlEicKBGhvc3QYASABKAsyGS5ncmF2ZWwuaHViLnYxLlNlcnZlckhvc3QSEAoIYXVkaXRfaWQYAiABKAMSEAoIZXZlbnRfaWQYAyABKAMiPwoaVW5waW5TZXJ2ZXJIb3N0U2l6ZVJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJEg4KBnJlYXNvbhgCIAEoCSJqChtVbnBpblNlcnZlckhvc3RTaXplUmVzcG9uc2USJwoEaG9zdBgBIAEoCzIZLmdyYXZlbC5odWIudjEuU2VydmVySG9zdBIQCghhdWRpdF9pZBgCIAEoAxIQCghldmVudF9pZBgDIAEoAyKsAQofU2V0U2VydmVySG9zdEV4cGVjdGF0aW9uUmVxdWVzdBIRCglzZXJ2ZXJfaWQYASABKAkSDwoHcGxheWVycxgCIAEoBRIpCgV1bnRpbBgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASDgoGcmVhc29uGAQgASgJEioKDG9uX2JlaGFsZl9vZhgFIAEoCzIULmdyYXZlbC5odWIudjEuQWN0b3IibwogU2V0U2VydmVySG9zdEV4cGVjdGF0aW9uUmVzcG9uc2USJwoEaG9zdBgBIAEoCzIZLmdyYXZlbC5odWIudjEuU2VydmVySG9zdBIQCghhdWRpdF9pZBgCIAEoAxIQCghldmVudF9pZBgDIAEoAyJSCh9TbmFwc2hvdFNlcnZlckhvc3RWb2x1bWVSZXF1ZXN0EhEKCXNlcnZlcl9pZBgBIAEoCRIMCgRuYW1lGAIgASgJEg4KBnJlYXNvbhgDIAEoCSKUAQoOVm9sdW1lU25hcHNob3QSCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRIOCgZyZWdpb24YAyABKAkSEAoIc2l6ZV9naWIYBCABKAESFgoObWluX3ZvbHVtZV9naWIYBSABKAUSLgoKY3JlYXRlZF9hdBgGIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAioAEKIFNuYXBzaG90U2VydmVySG9zdFZvbHVtZVJlc3BvbnNlEicKBGhvc3QYASABKAsyGS5ncmF2ZWwuaHViLnYxLlNlcnZlckhvc3QSEAoIYXVkaXRfaWQYAiABKAMSLwoIc25hcHNob3QYAyABKAsyHS5ncmF2ZWwuaHViLnYxLlZvbHVtZVNuYXBzaG90EhAKCGV2ZW50X2lkGAQgASgDIncKF1JlYm9vdFNlcnZlckhvc3RSZXF1ZXN0EhEKCXNlcnZlcl9pZBgBIAEoCRINCgVmb3JjZRgCIAEoCBIOCgZyZWFzb24YAyABKAkSKgoMb25fYmVoYWxmX29mGAQgASgLMhQuZ3JhdmVsLmh1Yi52MS5BY3RvciJnChhSZWJvb3RTZXJ2ZXJIb3N0UmVzcG9uc2USJwoEaG9zdBgBIAEoCzIZLmdyYXZlbC5odWIudjEuU2VydmVySG9zdBIQCghhdWRpdF9pZBgCIAEoAxIQCghldmVudF9pZBgDIAEoAyJtChhEZXN0cm95U2VydmVySG9zdFJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJEhUKDWRlbGV0ZV92b2x1bWUYAiABKAgSFwoPcmVsZWFzZV9hZGRyZXNzGAMgASgIEg4KBnJlYXNvbhgEIAEoCSJoChlEZXN0cm95U2VydmVySG9zdFJlc3BvbnNlEicKBGhvc3QYASABKAsyGS5ncmF2ZWwuaHViLnYxLlNlcnZlckhvc3QSEAoIYXVkaXRfaWQYAiABKAMSEAoIZXZlbnRfaWQYAyABKAMiIAoPR2V0U3BlbmRSZXF1ZXN0Eg0KBW1vbnRoGAEgASgJIvYCChBHZXRTcGVuZFJlc3BvbnNlEg0KBW1vbnRoGAEgASgJEhAKCHRpbWV6b25lGAIgASgJEg8KB2N1cnJlbnQYAyABKAgSEQoJYXZhaWxhYmxlGAQgASgIEi8KCWxvY2F0aW9ucxgFIAMoCzIcLmdyYXZlbC5odWIudjEuU3BlbmRMb2NhdGlvbhIOCgZiaWxsZWQYBiABKAgSEgoKYmlsbGVkX3VzZBgHIAEoARIwCgxiaWxsZWRfYXNfb2YYCCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhUKDWVzdGltYXRlZF91c2QYCSABKAESFQoNcHJvamVjdGVkX3VzZBgKIAEoARIWCg5wcm9qZWN0ZWRfZnJvbRgLIAEoCRIlCgRkYXlzGAwgAygLMhcuZ3JhdmVsLmh1Yi52MS5TcGVuZERheRIpCgZjYXVzZXMYDSADKAsyGS5ncmF2ZWwuaHViLnYxLlNwZW5kQ2F1c2UiegoNU3BlbmRMb2NhdGlvbhIKCgJpZBgBIAEoCRIQCghwcm92aWRlchgCIAEoCRIOCgZiaWxsZWQYAyABKAgSDgoGcmVhc29uGAQgASgJEisKB3JlYWRfYXQYBSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIlcKCFNwZW5kRGF5EgwKBGRhdGUYASABKAkSEgoKYmlsbGVkX3VzZBgCIAEoARISCgpoYXNfYmlsbGVkGAMgASgIEhUKDWVzdGltYXRlZF91c2QYBCABKAEiuwEKClNwZW5kQ2F1c2USEQoJc2VydmVyX2lkGAEgASgJEgwKBG5hbWUYAiABKAkSMwoFa2luZHMYAyADKAsyJC5ncmF2ZWwuaHViLnYxLlNwZW5kQ2F1c2UuS2luZHNFbnRyeRISCgpiaWxsZWRfdXNkGAQgASgBEhUKDWVzdGltYXRlZF91c2QYBSABKAEaLAoKS2luZHNFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAE6AjgBMrgIChFTZXJ2ZXJIb3N0U2VydmljZRJaCg1HZXRTZXJ2ZXJIb3N0EiMuZ3JhdmVsLmh1Yi52MS5HZXRTZXJ2ZXJIb3N0UmVxdWVzdBokLmdyYXZlbC5odWIudjEuR2V0U2VydmVySG9zdFJlc3BvbnNlEm8KFExpc3RTZXJ2ZXJIb3N0RXZlbnRzEiouZ3JhdmVsLmh1Yi52MS5MaXN0U2VydmVySG9zdEV2ZW50c1JlcXVlc3QaKy5ncmF2ZWwuaHViLnYxLkxpc3RTZXJ2ZXJIb3N0RXZlbnRzUmVzcG9uc2USbwoUU2V0U2VydmVySG9zdERlc2lyZWQSKi5ncmF2ZWwuaHViLnYxLlNldFNlcnZlckhvc3REZXNpcmVkUmVxdWVzdBorLmdyYXZlbC5odWIudjEuU2V0U2VydmVySG9zdERlc2lyZWRSZXNwb25zZRJjChBSZWJvb3RTZXJ2ZXJIb3N0EiYuZ3JhdmVsLmh1Yi52MS5SZWJvb3RTZXJ2ZXJIb3N0UmVxdWVzdBonLmdyYXZlbC5odWIudjEuUmVib290U2VydmVySG9zdFJlc3BvbnNlEmMKEFJlc2l6ZVNlcnZlckhvc3QSJi5ncmF2ZWwuaHViLnYxLlJlc2l6ZVNlcnZlckhvc3RSZXF1ZXN0GicuZ3JhdmVsLmh1Yi52MS5SZXNpemVTZXJ2ZXJIb3N0UmVzcG9uc2USbAoTVW5waW5TZXJ2ZXJIb3N0U2l6ZRIpLmdyYXZlbC5odWIudjEuVW5waW5TZXJ2ZXJIb3N0U2l6ZVJlcXVlc3QaKi5ncmF2ZWwuaHViLnYxLlVucGluU2VydmVySG9zdFNpemVSZXNwb25zZRJ7ChhTZXRTZXJ2ZXJIb3N0RXhwZWN0YXRpb24SLi5ncmF2ZWwuaHViLnYxLlNldFNlcnZlckhvc3RFeHBlY3RhdGlvblJlcXVlc3QaLy5ncmF2ZWwuaHViLnYxLlNldFNlcnZlckhvc3RFeHBlY3RhdGlvblJlc3BvbnNlEnsKGFNuYXBzaG90U2VydmVySG9zdFZvbHVtZRIuLmdyYXZlbC5odWIudjEuU25hcHNob3RTZXJ2ZXJIb3N0Vm9sdW1lUmVxdWVzdBovLmdyYXZlbC5odWIudjEuU25hcHNob3RTZXJ2ZXJIb3N0Vm9sdW1lUmVzcG9uc2USZgoRRGVzdHJveVNlcnZlckhvc3QSJy5ncmF2ZWwuaHViLnYxLkRlc3Ryb3lTZXJ2ZXJIb3N0UmVxdWVzdBooLmdyYXZlbC5odWIudjEuRGVzdHJveVNlcnZlckhvc3RSZXNwb25zZRJLCghHZXRTcGVuZBIeLmdyYXZlbC5odWIudjEuR2V0U3BlbmRSZXF1ZXN0Gh8uZ3JhdmVsLmh1Yi52MS5HZXRTcGVuZFJlc3BvbnNlQjpaOGdpdGh1Yi5jb20vZ3JhdmVsLXByb2plY3QvZ3JhdmVsL2dlbi9ncmF2ZWwvaHViL3YxO2h1YnYxYgZwcm90bzM", [file_google_protobuf_timestamp, file_gravel_hub_v1_moderation]);
 
 /**
  * ServerHost is the VM a cloud-VM server runs on (ADR-0003): what the hub wants of it, where it is,
@@ -984,6 +984,241 @@ export const DestroyServerHostResponseSchema: GenMessage<DestroyServerHostRespon
   messageDesc(file_gravel_hub_v1_hosts, 22);
 
 /**
+ * @generated from message gravel.hub.v1.GetSpendRequest
+ */
+export type GetSpendRequest = Message<"gravel.hub.v1.GetSpendRequest"> & {
+  /**
+   * "YYYY-MM"; empty for this month.
+   *
+   * @generated from field: string month = 1;
+   */
+  month: string;
+};
+
+/**
+ * Describes the message gravel.hub.v1.GetSpendRequest.
+ * Use `create(GetSpendRequestSchema)` to create a new message.
+ */
+export const GetSpendRequestSchema: GenMessage<GetSpendRequest> = /*@__PURE__*/
+  messageDesc(file_gravel_hub_v1_hosts, 23);
+
+/**
+ * @generated from message gravel.hub.v1.GetSpendResponse
+ */
+export type GetSpendResponse = Message<"gravel.hub.v1.GetSpendResponse"> & {
+  /**
+   * "YYYY-MM", in timezone (the Organization settings' stats.timezone).
+   *
+   * @generated from field: string month = 1;
+   */
+  month: string;
+
+  /**
+   * @generated from field: string timezone = 2;
+   */
+  timezone: string;
+
+  /**
+   * The month holds now: projected_usd is a projection, not the month's total.
+   *
+   * @generated from field: bool current = 3;
+   */
+  current: boolean;
+
+  /**
+   * The hub has a cloud location (none: there is no cloud spend to show).
+   *
+   * @generated from field: bool available = 4;
+   */
+  available: boolean;
+
+  /**
+   * @generated from field: repeated gravel.hub.v1.SpendLocation locations = 5;
+   */
+  locations: SpendLocation[];
+
+  /**
+   * The month so far by the bills, as of billed_as_of (they lag a day); billed is whether any
+   * location's bill was read this month.
+   *
+   * @generated from field: bool billed = 6;
+   */
+  billed: boolean;
+
+  /**
+   * @generated from field: double billed_usd = 7;
+   */
+  billedUsd: number;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp billed_as_of = 8;
+   */
+  billedAsOf?: Timestamp | undefined;
+
+  /**
+   * The hub's estimate: its cloud-VM servers' compute at the prices recorded (a floor).
+   *
+   * @generated from field: double estimated_usd = 9;
+   */
+  estimatedUsd: number;
+
+  /**
+   * Where the month ends: from the bills when there are any, else the estimate
+   * (projected_from "billed" or "estimated"); the month's total once it ended.
+   *
+   * @generated from field: double projected_usd = 10;
+   */
+  projectedUsd: number;
+
+  /**
+   * @generated from field: string projected_from = 11;
+   */
+  projectedFrom: string;
+
+  /**
+   * Each day of the month up to today.
+   *
+   * @generated from field: repeated gravel.hub.v1.SpendDay days = 12;
+   */
+  days: SpendDay[];
+
+  /**
+   * Each server's part, then each uncaused bill line's, largest first.
+   *
+   * @generated from field: repeated gravel.hub.v1.SpendCause causes = 13;
+   */
+  causes: SpendCause[];
+};
+
+/**
+ * Describes the message gravel.hub.v1.GetSpendResponse.
+ * Use `create(GetSpendResponseSchema)` to create a new message.
+ */
+export const GetSpendResponseSchema: GenMessage<GetSpendResponse> = /*@__PURE__*/
+  messageDesc(file_gravel_hub_v1_hosts, 24);
+
+/**
+ * SpendLocation is what the hub last found of a cloud location's bill.
+ *
+ * @generated from message gravel.hub.v1.SpendLocation
+ */
+export type SpendLocation = Message<"gravel.hub.v1.SpendLocation"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string provider = 2;
+   */
+  provider: string;
+
+  /**
+   * @generated from field: bool billed = 3;
+   */
+  billed: boolean;
+
+  /**
+   * Why not, when not: the token may not read bills, the cloud has none the hub can read, …
+   *
+   * @generated from field: string reason = 4;
+   */
+  reason: string;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp read_at = 5;
+   */
+  readAt?: Timestamp | undefined;
+};
+
+/**
+ * Describes the message gravel.hub.v1.SpendLocation.
+ * Use `create(SpendLocationSchema)` to create a new message.
+ */
+export const SpendLocationSchema: GenMessage<SpendLocation> = /*@__PURE__*/
+  messageDesc(file_gravel_hub_v1_hosts, 25);
+
+/**
+ * SpendDay is one day: the bills' figure for it (when two days' snapshots tell it) and the
+ * estimate of its compute.
+ *
+ * @generated from message gravel.hub.v1.SpendDay
+ */
+export type SpendDay = Message<"gravel.hub.v1.SpendDay"> & {
+  /**
+   * "YYYY-MM-DD".
+   *
+   * @generated from field: string date = 1;
+   */
+  date: string;
+
+  /**
+   * @generated from field: double billed_usd = 2;
+   */
+  billedUsd: number;
+
+  /**
+   * @generated from field: bool has_billed = 3;
+   */
+  hasBilled: boolean;
+
+  /**
+   * @generated from field: double estimated_usd = 4;
+   */
+  estimatedUsd: number;
+};
+
+/**
+ * Describes the message gravel.hub.v1.SpendDay.
+ * Use `create(SpendDaySchema)` to create a new message.
+ */
+export const SpendDaySchema: GenMessage<SpendDay> = /*@__PURE__*/
+  messageDesc(file_gravel_hub_v1_hosts, 26);
+
+/**
+ * SpendCause is one server's part of the month, or one bill line no server is the cause of.
+ *
+ * @generated from message gravel.hub.v1.SpendCause
+ */
+export type SpendCause = Message<"gravel.hub.v1.SpendCause"> & {
+  /**
+   * The server; empty for an uncaused line, which name names.
+   *
+   * @generated from field: string server_id = 1;
+   */
+  serverId: string;
+
+  /**
+   * @generated from field: string name = 2;
+   */
+  name: string;
+
+  /**
+   * The billed USD by kind: "compute", "storage", "network", "other".
+   *
+   * @generated from field: map<string, double> kinds = 3;
+   */
+  kinds: { [key: string]: number };
+
+  /**
+   * @generated from field: double billed_usd = 4;
+   */
+  billedUsd: number;
+
+  /**
+   * @generated from field: double estimated_usd = 5;
+   */
+  estimatedUsd: number;
+};
+
+/**
+ * Describes the message gravel.hub.v1.SpendCause.
+ * Use `create(SpendCauseSchema)` to create a new message.
+ */
+export const SpendCauseSchema: GenMessage<SpendCause> = /*@__PURE__*/
+  messageDesc(file_gravel_hub_v1_hosts, 27);
+
+/**
  * ServerHostService looks after the VMs cloud-VM servers run on (ADR-0003). Every write is an
  * audit-log row; the host's state machine carries it out, and its transitions name the row.
  *
@@ -1090,6 +1325,18 @@ export const ServerHostService: GenService<{
     methodKind: "unary";
     input: typeof DestroyServerHostRequestSchema;
     output: typeof DestroyServerHostResponseSchema;
+  },
+  /**
+   * GetSpend is a month's cloud spend (ADR-0034): the cloud's own bill where the location's
+   * token may read it, the hub's compute estimate beside it, by day and by cause, and where the
+   * month ends. servers:provision held everywhere: the spend is the whole hub's.
+   *
+   * @generated from rpc gravel.hub.v1.ServerHostService.GetSpend
+   */
+  getSpend: {
+    methodKind: "unary";
+    input: typeof GetSpendRequestSchema;
+    output: typeof GetSpendResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_gravel_hub_v1_hosts, 0);

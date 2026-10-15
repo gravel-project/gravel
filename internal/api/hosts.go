@@ -18,6 +18,7 @@ import (
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
 	"github.com/gravel-project/gravel/internal/authz"
 	"github.com/gravel-project/gravel/internal/servers"
+	"github.com/gravel-project/gravel/internal/spend"
 )
 
 // HostServer serves gravel.hub.v1.ServerHostService (ADR-0003): reads with servers:read (every
@@ -28,6 +29,7 @@ type HostServer struct {
 	hosts  *servers.Hosts
 	access *Access
 	logger *slog.Logger
+	spend  *spend.Service // the cloud spend (ADR-0034); nil: none
 }
 
 // NewHostServer wires the service.
@@ -338,4 +340,44 @@ func decodeHostEventToken(token string) (int64, error) {
 		return 0, bad
 	}
 	return id, nil
+}
+
+// WithSpend serves GetSpend from the cloud spend (ADR-0034); without it GetSpend is unimplemented.
+func (s *HostServer) WithSpend(sp *spend.Service) *HostServer {
+	s.spend = sp
+	return s
+}
+
+// GetSpend is a month's cloud spend (ADR-0034): servers:provision held everywhere, since the
+// spend is the whole hub's and a game-scoped grant sees one game's servers only.
+func (s *HostServer) GetSpend(ctx context.Context, req *connect.Request[hubv1.GetSpendRequest]) (*connect.Response[hubv1.GetSpendResponse], error) {
+	if _, err := s.access.Require(ctx, authz.ServersProvision, authz.Target{}); err != nil {
+		return nil, err
+	}
+	if s.spend == nil {
+		return nil, connect.NewError(connect.CodeUnimplemented, errors.New("this hub keeps no cloud spend"))
+	}
+	r, err := s.spend.Report(ctx, req.Msg.GetMonth())
+	if errors.Is(err, spend.ErrInvalidMonth) {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("month is YYYY-MM"))
+	}
+	if err != nil {
+		return nil, mapError(ctx, s.logger, err)
+	}
+	out := &hubv1.GetSpendResponse{Month: r.Month.Format("2006-01"), Timezone: r.Zone, Current: r.Current, Billed: r.Billed, BilledUsd: r.BilledUSD,
+		EstimatedUsd: r.EstimatedUSD, ProjectedUsd: r.ProjectedUSD, ProjectedFrom: r.ProjectedFrom,
+		Available: len(r.Locations) > 0 || r.Billed || r.EstimatedUSD > 0}
+	if !r.BilledAsOf.IsZero() {
+		out.BilledAsOf = timestamppb.New(r.BilledAsOf)
+	}
+	for _, l := range r.Locations {
+		out.Locations = append(out.Locations, &hubv1.SpendLocation{Id: l.ID, Provider: l.Provider, Billed: l.Billed, Reason: l.Reason, ReadAt: timestamppb.New(l.ReadAt)})
+	}
+	for _, d := range r.Days {
+		out.Days = append(out.Days, &hubv1.SpendDay{Date: d.Date.Format(time.DateOnly), BilledUsd: d.BilledUSD, HasBilled: d.HasBilled, EstimatedUsd: d.EstimatedUSD})
+	}
+	for _, c := range r.Causes {
+		out.Causes = append(out.Causes, &hubv1.SpendCause{ServerId: c.ServerID, Name: c.Name, Kinds: c.Kinds, BilledUsd: c.BilledUSD, EstimatedUsd: c.EstimatedUSD})
+	}
+	return connect.NewResponse(out), nil
 }
