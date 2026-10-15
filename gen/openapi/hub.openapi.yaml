@@ -863,6 +863,88 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.UnlinkIdentityResponse'
+  /gravel.hub.v1.MetricsService/ListDashboards:
+    post:
+      tags:
+        - gravel.hub.v1.MetricsService
+      summary: ListDashboards
+      description: ListDashboards is the dashboards and whether a store is configured.
+      operationId: gravel.hub.v1.MetricsService.ListDashboards
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.ListDashboardsRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.ListDashboardsResponse'
+  /gravel.hub.v1.MetricsService/QueryRange:
+    post:
+      tags:
+        - gravel.hub.v1.MetricsService
+      summary: QueryRange
+      description: |-
+        QueryRange is one panel's series over a range: the hub expands the panel's own expressions
+         ($job from hub.yaml, every instance, $__rate_interval from the step) and asks the store's
+         /api/v1/query_range. not_found for a panel the hub doesn't define; failed_precondition with no
+         store; unavailable when the store doesn't answer in metrics.timeout.
+      operationId: gravel.hub.v1.MetricsService.QueryRange
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.QueryRangeRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.QueryRangeResponse'
   /gravel.hub.v1.ModerationService/BanPlayer:
     post:
       tags:
@@ -3236,6 +3318,10 @@ components:
           description: Deserialized error detail payload. The 'type' field indicates the schema. This field is for easier debugging and should not be relied upon for application logic.
       additionalProperties: true
       description: Contains an arbitrary serialized message along with a @type that describes the type of the serialized message, with an additional debug field for ConnectRPC error details.
+    google.protobuf.Duration:
+      type: string
+      format: duration
+      description: A signed duration in seconds, with up to nine fractional digits and an `s` suffix (for example, `3s` or `-0.001s`).
     google.protobuf.Timestamp:
       type: string
       examples:
@@ -5644,6 +5730,26 @@ components:
           description: Empty on the last page.
       title: ListAuditLogResponse
       additionalProperties: false
+    gravel.hub.v1.ListDashboardsRequest:
+      type: object
+      title: ListDashboardsRequest
+      additionalProperties: false
+    gravel.hub.v1.ListDashboardsResponse:
+      type: object
+      properties:
+        available:
+          type: boolean
+          title: available
+          description: |-
+            Whether the hub has a metrics store to read (hub.yaml metrics.query_url); without one the
+             dashboards are listed and QueryRange answers failed_precondition.
+        dashboards:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.MetricsDashboard'
+          title: dashboards
+      title: ListDashboardsResponse
+      additionalProperties: false
     gravel.hub.v1.ListEventKindsRequest:
       type: object
       title: ListEventKindsRequest
@@ -6256,6 +6362,144 @@ components:
           format: int64
       title: MessagePlayerResponse
       additionalProperties: false
+    gravel.hub.v1.MetricsDashboard:
+      type: object
+      properties:
+        uid:
+          type: string
+          title: uid
+          description: '"gravel-hub", "gravel-bot".'
+        title:
+          type: string
+          title: title
+        description:
+          type: string
+          title: description
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.MetricsRow'
+          title: rows
+      title: MetricsDashboard
+      additionalProperties: false
+      description: |-
+        MetricsDashboard is one of gravel's operator dashboards (ADR-0009, ADR-0030): the same
+         definition the generated Grafana JSON comes from, as the admin dashboard draws it.
+    gravel.hub.v1.MetricsPanel:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+          description: 'Stable within a hub version: "r2p3" (row 2, panel 3).'
+        title:
+          type: string
+          title: title
+        description:
+          type: string
+          title: description
+        kind:
+          type: string
+          title: kind
+          description: '"stat" or "timeseries".'
+        unit:
+          type: string
+          title: unit
+          description: 'Grafana''s unit names: "s", "bytes", "percentunit", "reqps", "short", "".'
+        width:
+          type: integer
+          title: width
+          format: int32
+          description: Width on a 24-column grid, as the Grafana dashboard lays it out.
+        thresholds:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.MetricsThreshold'
+          title: thresholds
+          description: The thresholds, ascending; the first's value is the base. Colours are Grafana's names.
+        mappings:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.MetricsValueMap'
+          title: mappings
+          description: A stat's value → text and colour.
+        optional:
+          type: string
+          title: optional
+          description: Why the panel may have no data on a healthy hub (a feature not configured); empty otherwise.
+      title: MetricsPanel
+      additionalProperties: false
+      description: |-
+        MetricsPanel is one panel: what QueryRange takes to draw it, and how to draw it. Its PromQL
+         stays on the hub: a client names the panel, never an expression.
+    gravel.hub.v1.MetricsRow:
+      type: object
+      properties:
+        title:
+          type: string
+          title: title
+        panels:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.MetricsPanel'
+          title: panels
+      title: MetricsRow
+      additionalProperties: false
+    gravel.hub.v1.MetricsSeries:
+      type: object
+      properties:
+        name:
+          type: string
+          title: name
+          description: The panel target's legend with the series' labels in it ("{{server}}" → "htg-cs2-1").
+        labels:
+          type: object
+          title: labels
+          additionalProperties:
+            type: string
+            title: value
+        times:
+          type: array
+          items:
+            type: string
+            format: int64
+          title: times
+          description: Unix milliseconds and values, the same length; a gap has no point.
+        values:
+          type: array
+          items:
+            type: number
+            format: double
+          title: values
+      title: MetricsSeries
+      additionalProperties: false
+      description: 'MetricsSeries is one line of a panel: its legend, its labels and its points.'
+    gravel.hub.v1.MetricsThreshold:
+      type: object
+      properties:
+        value:
+          type: number
+          title: value
+          format: double
+        color:
+          type: string
+          title: color
+      title: MetricsThreshold
+      additionalProperties: false
+    gravel.hub.v1.MetricsValueMap:
+      type: object
+      properties:
+        value:
+          type: string
+          title: value
+        text:
+          type: string
+          title: text
+        color:
+          type: string
+          title: color
+      title: MetricsValueMap
+      additionalProperties: false
     gravel.hub.v1.MovePlayerRequest:
       type: object
       properties:
@@ -6838,6 +7082,47 @@ components:
       description: |-
         ProfileTotals is a member's totals over one window: "all", "week", "month", or "season" with
          season naming one running now. from and to are unset for all time.
+    gravel.hub.v1.QueryRangeRequest:
+      type: object
+      properties:
+        dashboardUid:
+          type: string
+          title: dashboard_uid
+        panelId:
+          type: string
+          title: panel_id
+        start:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: start
+        end:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: end
+        step:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Duration'
+          title: step
+          description: |-
+            The resolution; at least 15s, and at most 11,000 points across the range (the hub widens a
+             finer step). The range is at most 30 days.
+      title: QueryRangeRequest
+      additionalProperties: false
+    gravel.hub.v1.QueryRangeResponse:
+      type: object
+      properties:
+        series:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.MetricsSeries'
+          title: series
+        step:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Duration'
+          title: step
+          description: The step the hub used, after widening.
+      title: QueryRangeResponse
+      additionalProperties: false
     gravel.hub.v1.RebootServerHostRequest:
       type: object
       properties:
@@ -8233,6 +8518,11 @@ tags:
        password, settings, plugin set and match config, started and sized for the players expected, and
        parked and given back after (ADR-0023). An app with servers:lease, the owner or a moderator; an
        app sees and releases only its own leases. Every request and release is an audit-log row.
+  - name: gravel.hub.v1.MetricsService
+    description: |-
+      MetricsService serves the operator dashboards in the hub (ADR-0030, gravel#204): their
+       definitions, and their series read from the hub's metrics store, which the hub proxies and never
+       keeps. metrics:read.
   - name: gravel.hub.v1.OrganizationService
     description: OrganizationService reads the built-in organization and claims its ownership once.
   - name: gravel.hub.v1.ServerService

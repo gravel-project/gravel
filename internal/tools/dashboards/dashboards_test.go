@@ -21,6 +21,7 @@ import (
 	"github.com/gravel-project/gravel/discord/bot/stock"
 	"github.com/gravel-project/gravel/discord/hubclient"
 	"github.com/gravel-project/gravel/internal/config"
+	"github.com/gravel-project/gravel/internal/dashboards"
 	"github.com/gravel-project/gravel/internal/hub"
 	"github.com/gravel-project/gravel/internal/store/storetest"
 )
@@ -36,7 +37,7 @@ func TestShippedDashboardsAreGenerated(t *testing.T) {
 	if err := gen(dir); err != nil {
 		t.Fatal(err)
 	}
-	for _, d := range dashboards() {
+	for _, d := range dashboards.All() {
 		want, _ := os.ReadFile(filepath.Join(dir, d.UID+".json"))
 		got, err := os.ReadFile(filepath.Join(shipped, d.UID+".json"))
 		if err != nil || !bytes.Equal(got, want) {
@@ -98,7 +99,7 @@ func TestDashboardsMatchTheMetrics(t *testing.T) {
 	for _, d := range ds {
 		for _, p := range d.Panels {
 			for _, tg := range p.Targets {
-				for _, n := range metricNames(tg.Expr) {
+				for _, n := range dashboards.MetricNames(tg.Expr) {
 					queried[n] = d.UID + " / " + p.Title
 					if _, ok := registered[n]; !ok {
 						t.Errorf("%s / %s reads %s, which neither the hub nor the bot registers", d.UID, p.Title, n)
@@ -123,11 +124,11 @@ func TestDashboardsMatchTheMetrics(t *testing.T) {
 }
 
 func TestMetricNamesAndExpand(t *testing.T) {
-	got := metricNames(`histogram_quantile(0.95, sum by (le) (rate(gravel_http_request_duration_seconds_bucket{job="$job"}[$__rate_interval]))) / gravel_users_total + gravel_x_seconds_sum`)
+	got := dashboards.MetricNames(`histogram_quantile(0.95, sum by (le) (rate(gravel_http_request_duration_seconds_bucket{job="$job"}[$__rate_interval]))) / gravel_users_total + gravel_x_seconds_sum`)
 	if strings.Join(got, ",") != "gravel_http_request_duration_seconds,gravel_users_total,gravel_x_seconds" {
 		t.Errorf("names: %v", got)
 	}
-	e := expand(`rate(x{job="$job", instance=~"$instance"}[$__rate_interval])`, map[string]string{"job": "gravel-hub", "instance": ".+"})
+	e := dashboards.Expand(`rate(x{job="$job", instance=~"$instance"}[$__rate_interval])`, map[string]string{"job": "gravel-hub", "instance": ".+"})
 	if e != `rate(x{job="gravel-hub", instance=~".+"}[5m])` {
 		t.Errorf("expand: %s", e)
 	}
@@ -239,16 +240,16 @@ func TestCheck(t *testing.T) {
 	}
 }
 
-// job and instance are the scrape target's labels, which sel already pins; a metric's own label of
+// job and instance are the scrape target's labels, which dashboards.Sel already pins; a metric's own label of
 // that name is stored as exported_job. A panel that groups, labels or matches by job otherwise
 // collapses every series into the scrape job (#114).
 func TestPanelsUseExportedJob(t *testing.T) {
-	for _, d := range dashboards() {
+	for _, d := range dashboards.All() {
 		for _, r := range d.Rows {
 			for _, p := range r.Panels {
 				for _, tg := range p.Targets {
 					// exported_job is the right label; mask it so its "job" doesn't count.
-					expr := strings.ReplaceAll(strings.ReplaceAll(tg.Expr, sel, ""), "exported_job", "exported_JOB")
+					expr := strings.ReplaceAll(strings.ReplaceAll(tg.Expr, dashboards.Sel, ""), "exported_job", "exported_JOB")
 					legend := strings.ReplaceAll(tg.Legend, "exported_job", "exported_JOB")
 					for _, bad := range []string{"by (job", "by(job", ", job)", ", job,", "job=", "job!", "{{job}}"} {
 						if strings.Contains(expr, bad) || strings.Contains(legend, bad) {

@@ -39,6 +39,7 @@ import (
 	"github.com/gravel-project/gravel/internal/apps"
 	"github.com/gravel-project/gravel/internal/backup"
 	"github.com/gravel-project/gravel/internal/config"
+	"github.com/gravel-project/gravel/internal/dashboards"
 	"github.com/gravel-project/gravel/internal/httpx"
 	"github.com/gravel-project/gravel/internal/identity"
 	"github.com/gravel-project/gravel/internal/identity/proof"
@@ -49,6 +50,7 @@ import (
 	"github.com/gravel-project/gravel/internal/notify"
 	"github.com/gravel-project/gravel/internal/objectstore"
 	"github.com/gravel-project/gravel/internal/org"
+	"github.com/gravel-project/gravel/internal/promquery"
 	"github.com/gravel-project/gravel/internal/publicaddr"
 	"github.com/gravel-project/gravel/internal/ratelimit"
 	"github.com/gravel-project/gravel/internal/results"
@@ -129,6 +131,8 @@ type Hub struct {
 	localLogins *prometheus.CounterVec
 	// passwordResets counts password links by result (gravel#187).
 	passwordResets *prometheus.CounterVec
+	// metricsQueries counts the admin dashboard's metrics queries by result (gravel#204).
+	metricsQueries *prometheus.CounterVec
 	// eventsTotal counts events appended to the events log by kind (ADR-0028).
 	eventsTotal *prometheus.CounterVec
 	api         *http.ServeMux
@@ -310,7 +314,10 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 	h.oauthAuthorizations = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "gravel_oauth_authorizations_total", Help: "Requests at the authorization endpoint by result (issued, denied, rejected, error).",
 	}, []string{"result"})
-	h.registry.MustRegister(buildInfo, h.authTotal, h.limitedTotal, h.oauthAuthorizations, h.localLogins, h.passwordResets, backup.NewCollector(cfg.Backup.StatusFile, st, logger), newStatsCollector(st, providerNames, logger))
+	h.metricsQueries = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "gravel_metrics_queries_total", Help: "The admin dashboard's metrics queries the hub ran against its metrics store, by result: ok, unavailable, refused, too_large, no_store.",
+	}, []string{"result"})
+	h.registry.MustRegister(buildInfo, h.authTotal, h.limitedTotal, h.oauthAuthorizations, h.localLogins, h.passwordResets, h.metricsQueries, backup.NewCollector(cfg.Backup.StatusFile, st, logger), newStatsCollector(st, providerNames, logger))
 	// First-party apps (ADR-0008, ADR-0015): app tokens live apps.token_ttl, members' tokens an hour.
 	h.apps = apps.New(st, o.ID, cfg.Apps.TokenTTL, logger, apps.WithMetrics(h.registry))
 	h.metrics = httpx.NewMetrics(h.registry)
@@ -594,6 +601,8 @@ func (h *Hub) buildAPI() *http.ServeMux {
 	moderation := api.NewModerationServer(h.moderation, access, h.ids, h.logger)
 	mux.Handle(hubv1connect.NewModerationServiceHandler(moderation, interceptors))
 	mux.Handle(hubv1connect.NewServerHostServiceHandler(api.NewHostServer(h.hosts, access, h.logger), interceptors))
+	mux.Handle(hubv1connect.NewMetricsServiceHandler(api.NewMetricsServer(dashboards.All(), h.cfg.Metrics, h.metricsStore(),
+		access, func(r string) { h.metricsQueries.WithLabelValues(r).Inc() }, h.logger), interceptors))
 	mux.Handle(hubv1connect.NewServerLeaseServiceHandler(api.NewLeaseServer(h.leases, access, h.logger), interceptors))
 	mux.Handle(hubv1connect.NewServerConfigServiceHandler(api.NewConfigServer(h.moderation, access, h.logger), interceptors))
 	statsAPI := api.NewStatsServer(h.stats, h.participation, access, h.ids, h.logger)
@@ -710,6 +719,20 @@ func (h *Hub) buildInternal() http.Handler {
 // healthz says the process runs, and what it is (gravel#214): the version, the image its
 // deployment names with that image's digest, and the SHA-256 of the executable itself, which is
 // true however the hub was deployed.
+// metricsStore is the store the operator dashboards read (gravel#204), nil when hub.yaml names none.
+func (h *Hub) metricsStore() api.Querier {
+	m := h.cfg.Metrics
+	if !m.Configured() {
+		return nil
+	}
+	c, err := promquery.New(m.QueryURL, m.BearerToken, &http.Client{Timeout: m.QueryTimeout()})
+	if err != nil { // config.Validate checked the address
+		h.logger.Error("the metrics store's address is unusable", "error", err.Error())
+		return nil
+	}
+	return c
+}
+
 func (h *Hub) healthz(w http.ResponseWriter, _ *http.Request) {
 	body := map[string]string{"status": "ok", "version": h.version, "binary_sha256": binarySHA256()}
 	if h.image != "" {

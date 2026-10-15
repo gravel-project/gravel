@@ -119,6 +119,12 @@ notify:                          # the notifiers' secrets and the mail server; w
     password_file: /run/secrets/gravel-smtp-password   # or GRAVEL_SMTP_PASSWORD
     from: hub@example.com
     tls: starttls                # starttls (the default) · implicit · none (a relay on the loopback interface only, without a username)
+metrics:                         # the store /admin/metrics reads (ADR-0030); omit it and the page says how to add one
+  query_url: http://127.0.0.1:8428   # a Prometheus-compatible store that scrapes the hub: VictoriaMetrics, or Prometheus (:9090)
+  bearer_token_file: /run/secrets/gravel-metrics-token   # optional, or GRAVEL_METRICS_BEARER_TOKEN
+  hub_job: gravel-hub            # the scrape jobs' names, what the dashboards' $job selects (these are the defaults)
+  bot_job: gravel-bot
+  timeout: 10s                   # one query against the store
 ```
 
 **Secrets.** Eight, each with the same precedence: the environment variable, then the `*_file`
@@ -159,6 +165,7 @@ Public listener (`server.listen`), HTTP/1.1 and unencrypted HTTP/2 so gRPC works
 | `/gravel.hub.v1.IdentityService/GetProof` | `{"proof_id": "…"}` → `open`, `proven`, `taken`, `replaced` or `expired`, and the account once proven; a session only, the caller's own |
 | `/gravel.hub.v1.ServerLeaseService/RequestServerLease` | `{"pool": "pug", "holder_ref": "…", "expected_players": 10, "settings": {"start_map": "de_nuke"}, "plugins": ["matchzy"], "match_config": "<base64 JSON>"}` → the lease and how to join, password included ([Server leases](#server-leases-adr-0023)); an app with `servers:lease`, the owner or a moderator |
 | `/gravel.hub.v1.ServerLeaseService/WatchServerLease` | `{"lease_id": "…"}` → the lease at once and at every change, a heartbeat every 30 s, until it is over (server streaming); the lease's app, the owner or a moderator |
+| `/gravel.hub.v1.MetricsService/ListDashboards`, `QueryRange` | the operator dashboards' definitions and whether a store is configured; `{"dashboard_uid": "gravel-hub", "panel_id": "r2p0", "start", "end", "step"}` → that panel's series from the store, the hub's own expressions only (ADR-0030); `metrics:read`, in person; `failed_precondition` with no store, `unavailable` when it doesn't answer |
 | `/gravel.hub.v1.ServerHostService/…` (`SetServerHostDesired`, `RebootServerHost`, `SetServerHostExpectation`, `ResizeServerHost`, `UnpinServerHostSize`, `SnapshotServerHostVolume`, `DestroyServerHost`) and `ServerLeaseService/ReleaseServerLease` | each answers `audit_id` (its moderation-audit row) and `event_id` (the events log row it wrote, gravel#202), so a client can point at what happened; [Cloud-VM servers](#cloud-vm-servers-adr-0003) has what each does |
 | `/gravel.hub.v1.StatsService/GetMatchResult` | `{"id": "…"}` → a match plugin's series with its maps and each player's totals, named as on a board ([Match results](#match-results-adr-0024)); the same access as `GetBoard` |
 | `/gravel.hub.v1.IdentityService/Logout` | end the calling session and clear its cookie |
@@ -1651,7 +1658,7 @@ limit applies in front of all of it.
 `/admin` is the operators' dashboard: a React client of the same API as the pages, embedded in the
 binary ([ADR-0029](adr/0029-the-admin-dashboard-is-a-static-client-in-the-binary.md); the source is
 `web/admin/`). It is H1's in-progress surface: this version has the **Fleet** with each server's controls, the
-**Events**, **People**, **Settings**, **Apps** and **Your access**; dashboards and the rest arrive
+**Events**, **People**, **Metrics**, **Settings**, **Apps** and **Your access**; the rest arrives
 page by page.
 
 - **Fleet** (`/admin`, `servers:read`, which every member holds): what is up, who is playing, what
@@ -1688,6 +1695,12 @@ page by page.
   outcome says what happened and links to its event (`event_id`) in the feed, and a refusal is
   shown in the hub's words. A server outside the cloud-VM driver says so; moderation stays on its
   member page.
+- **Metrics** (`/admin/metrics`, `metrics:read`: operators, admins; gravel#204, ADR-0030): the hub's
+  and the bot's operator dashboards, the same panels as the Grafana ones, from the store
+  `metrics.query_url` names ([Observability](#observability)). A range from the last hour to the
+  last 30 days, about 240 points a line, refreshed every 30 s; stat tiles coloured by their
+  thresholds; time series drawn with uPlot, each line's latest value said in words too. Without a
+  store it says how to configure one.
 - **Settings** (`/admin/settings`, `settings:write`; gravel#205): the Organization settings without a
   YAML file. A form for the **notifiers** (add, edit, pause, remove; each kind says where its secret
   lives in hub.yaml; **Send a test** once saved), **Discord**'s server, linked role and mod-log
@@ -2061,6 +2074,12 @@ and the digest-pin procedure.
   gravel adds is below; the Go (`go_*`) and process (`process_*`) collectors come on top. Label
   values are bounded: none comes from a request unless the hub knows it. The `gravel hub`
   dashboard shows every one of them (ADR-0009, `deploy/README.md` "Dashboards").
+- **Dashboards in the hub** (ADR-0030, gravel#204): the admin dashboard's **Metrics** page draws the
+  same panels from the store `metrics.query_url` names, through `MetricsService`: the hub runs a
+  panel's own expressions with its own `$job` and keeps nothing. A Prometheus-compatible store that
+  scrapes the hub's internal listener is all it needs: VictoriaMetrics (`victoria-metrics
+  -promscrape.config=deploy/observability/prometheus/quadlet.yml`, one process) or Prometheus.
+  Grafana is optional (ADR-0009).
 - **Secrets in logs:** the owner-claim token is the only secret the hub ever logs, once, at WARN.
   Provider secrets are logged by source only.
 - **Panics** become a 500 and an error log line with the stack; the server stays up.

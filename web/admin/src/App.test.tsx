@@ -40,7 +40,7 @@ describe("the shell", () => {
     expect(roles.getAllByRole("listitem").map((li) => li.textContent)).toEqual(["owner, everywhere", "admin, everywhere", "moderator, for cs2"]);
     expect(screen.getByText("members:manage")).toBeTruthy();
     const nav = screen.getByRole("navigation", { name: "Admin" });
-    expect(within(nav).getAllByRole("link").map((a) => a.textContent)).toEqual(["Fleet", "Events", "People", "Settings", "Apps", "Your access"]);
+    expect(within(nav).getAllByRole("link").map((a) => a.textContent)).toEqual(["Fleet", "Events", "People", "Metrics", "Settings", "Apps", "Your access"]);
     expect(await axe(container)).toHaveNoViolations();
   });
 

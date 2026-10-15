@@ -47,7 +47,7 @@ podman rm -f gravel-test-pg
 Also, when they apply:
 
 - `make generate` after editing a `.proto` file, a `.templ` page or the dashboard definitions
-  (`internal/tools/dashboards/defs.go`). The generated code is committed and CI fails on drift.
+  (`internal/dashboards/defs.go`). The generated code is committed and CI fails on drift.
 - `make a11y` when a page or the admin dashboard changes (axe over the pages and `/admin`; needs
   Chrome).
 - `make admin-check` while working on the admin dashboard (`web/admin/`, [ADR-0029](docs/adr/0029-the-admin-dashboard-is-a-static-client-in-the-binary.md)):

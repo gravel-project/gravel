@@ -8,6 +8,7 @@ package config
 
 import (
 	"bytes"
+	"cmp"
 	"errors"
 	"fmt"
 	"io"
@@ -35,6 +36,7 @@ const (
 	EnvLeaseKey            = "GRAVEL_LEASE_KEY"
 	EnvDemosAccessKey      = "GRAVEL_DEMOS_ACCESS_KEY"
 	EnvDemosSecretKey      = "GRAVEL_DEMOS_SECRET_KEY"
+	EnvMetricsBearerToken  = "GRAVEL_METRICS_BEARER_TOKEN"
 )
 
 // Migration policies.
@@ -60,11 +62,45 @@ type Config struct {
 	Leases       Leases       `yaml:"leases"`
 	Demos        Demos        `yaml:"demos"`
 	Notify       Notify       `yaml:"notify"`
+	Metrics      Metrics      `yaml:"metrics"`
 	// Demo marks a demo hub (gravel#112): every page says its members, matches and stats are
 	// made up, and `gravel-hub demo seed` may write fake history into its database. A hub without
 	// it refuses to start on a database that holds demo members.
 	Demo bool `yaml:"demo"`
 }
+
+// Metrics is where the hub reads the series its operator dashboards show (ADR-0030, gravel#204):
+// a Prometheus-compatible store that scrapes the hub and the bot (Prometheus, VictoriaMetrics). The
+// hub only reads it, through MetricsService, and only the dashboards' own expressions. Empty
+// QueryURL means none is configured, and /admin/metrics says so.
+type Metrics struct {
+	// QueryURL is the store's base address, http(s); the hub calls <QueryURL>/api/v1/query_range.
+	QueryURL string `yaml:"query_url"`
+	// BearerTokenFile holds a token the hub sends as Authorization: Bearer (or GRAVEL_METRICS_BEARER_TOKEN);
+	// optional, for a store behind an authenticating proxy.
+	BearerTokenFile string `yaml:"bearer_token_file"`
+	BearerToken     string `yaml:"-"`
+	// HubJob and BotJob are the scrape jobs' names, what the dashboards' $job selects:
+	// gravel-hub and gravel-bot by default, as deploy/observability scrapes them.
+	HubJob string `yaml:"hub_job"`
+	BotJob string `yaml:"bot_job"`
+	// Timeout bounds one query against the store (10s when unset).
+	Timeout time.Duration `yaml:"timeout"`
+}
+
+// Configured reports whether the hub has a metrics store to read.
+func (m Metrics) Configured() bool { return m.QueryURL != "" }
+
+// Job is the scrape job of a dashboard's binary: "hub" or "bot".
+func (m Metrics) Job(binary string) string {
+	if binary == "bot" {
+		return cmp.Or(m.BotJob, "gravel-bot")
+	}
+	return cmp.Or(m.HubJob, "gravel-hub")
+}
+
+// QueryTimeout is Timeout, or 10s.
+func (m Metrics) QueryTimeout() time.Duration { return cmp.Or(m.Timeout, 10*time.Second) }
 
 // Cloud is what the cloud-VM driver (ADR-0003) needs from the hub's own configuration.
 type Cloud struct {
@@ -354,6 +390,11 @@ func (c *Config) resolveSecrets(env Env) error {
 			return err
 		}
 	}
+	if c.Metrics.Configured() {
+		if c.Metrics.BearerToken, _, err = resolveSecret(env, EnvMetricsBearerToken, c.Metrics.BearerTokenFile, "", "metrics.bearer_token"); err != nil {
+			return err
+		}
+	}
 	return c.Notify.resolveSecrets(env)
 }
 
@@ -383,6 +424,15 @@ func (c Config) Validate() error {
 
 	if c.Version != CurrentVersion {
 		bad("version: got %d, this hub reads version %d", c.Version, CurrentVersion)
+	}
+	if m := c.Metrics; m.QueryURL != "" {
+		u, err := url.Parse(m.QueryURL)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+			bad("metrics.query_url: %q must be an http(s) address with no user, query or fragment (the token goes in bearer_token_file)", m.QueryURL)
+		}
+		if m.Timeout < 0 || m.Timeout > time.Minute {
+			bad("metrics.timeout: %s, between 0 (10s) and 1m", m.Timeout)
+		}
 	}
 	if d := c.Demos; d.Enabled() {
 		if d.Endpoint == "" || d.Region == "" || d.AccessKey == "" || d.SecretKey == "" {
