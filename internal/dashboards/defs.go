@@ -432,6 +432,18 @@ func Bot() Dashboard {
 					Thresholds:  []Step{{Color: "green"}, {Value: 300, Color: "orange"}, {Value: 900, Color: "red"}},
 					Targets:     []Target{{Expr: `time() - max(gravel_bot_match_results_last_success_timestamp_seconds{` + Sel + `})`}}},
 			}},
+			{Title: "Events feed", Panels: []Panel{
+				{Title: "Since the last events pass", Kind: "stat", Unit: "s", Width: 6, Optional: "the events feed is off",
+					Description: "A pass that posted every event the settings' filter takes (or found no channel set; gravel#200). Orange after two minutes, red after ten: Discord refusing or the hub away keeps this growing.",
+					Thresholds:  []Step{{Color: "green"}, {Value: 120, Color: "orange"}, {Value: 600, Color: "red"}},
+					Targets:     []Target{{Expr: `time() - max(gravel_bot_events_last_success_timestamp_seconds{` + Sel + `})`}}},
+				{Title: "Events posted", Kind: "timeseries", Width: 9, Optional: "the events feed is off or nothing passed its filter in the range",
+					Description: "posted: an event copied to the channel; forbidden: the bot may not read or post there; error: Discord failed, retried at the next pass.",
+					Targets:     []Target{{Expr: `sum by (result) (increase(gravel_bot_events_posts_total{` + Sel + `}[$__rate_interval]))`, Legend: "{{result}}"}}},
+				{Title: "Restart and Park from Discord", Kind: "timeseries", Width: 9, Optional: "nobody used the buttons in the range",
+					Description: "Confirmed clicks by action and outcome: ok; refused (the hub said no: not an operator of the game, the host busy); failed (the hub could not be reached). Each one the hub took is in its audit log and events.",
+					Targets:     []Target{{Expr: `sum by (action, outcome) (increase(gravel_bot_events_actions_total{` + Sel + `}[$__rate_interval]))`, Legend: "{{action}} {{outcome}}"}}},
+			}},
 			{Title: "Moderation command", Panels: []Panel{
 				{Title: "Moderation commands", Kind: "timeseries", Width: 24, Optional: "the moderation command is off or nobody used it in the range",
 					Description: "Actions moderators confirmed from Discord, by action and result: ok; refused (the hub said no: not a moderator, the player left, not offered); failed (the hub could not be reached); cancelled; expired (a confirmation answered after two minutes). Every confirmed action is also in the hub's audit log.",

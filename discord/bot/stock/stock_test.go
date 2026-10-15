@@ -88,4 +88,11 @@ func TestModules(t *testing.T) {
 	if got := names(cfg); got != "core,moderation,modlog,seeding,presence,recaps,streams,news,matchresults" {
 		t.Errorf("match results on: %s", got)
 	}
+	if bot.Default().Events.Enabled {
+		t.Error("the events feed is off by default")
+	}
+	cfg.Events.Enabled = true
+	if got := names(cfg); got != "core,moderation,modlog,seeding,presence,recaps,streams,news,matchresults,events" {
+		t.Errorf("events on: %s", got)
+	}
 }

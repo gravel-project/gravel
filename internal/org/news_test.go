@@ -35,7 +35,7 @@ func TestSettingsValidateNews(t *testing.T) {
 		d    Discord
 		want []string
 	}{
-		{"without a guild", Discord{News: htgNews()}, []string{"discord.guild_id: required when roles are mapped, server cards placed, seeding set, presence placed, recaps set, streams placed, news listed or match results placed"}},
+		{"without a guild", Discord{News: htgNews()}, []string{"discord.guild_id: required when roles are mapped, server cards placed, seeding set, presence placed, recaps set, streams placed, news listed, match results or the events feed placed"}},
 		{"app id", with(func(n *News) { n.Feeds[0].AppID = 0 }), []string{"discord.news.feeds[0].app_id: 0 is not a Steam app id"}},
 		{"negative app id", with(func(n *News) { n.Feeds[0].AppID = -730 }), []string{"discord.news.feeds[0].app_id: -730 is not a Steam app id"}},
 		{"huge app id", with(func(n *News) { n.Feeds[0].AppID = 1 << 40 }), []string{"discord.news.feeds[0].app_id"}},

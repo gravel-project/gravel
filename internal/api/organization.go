@@ -325,6 +325,9 @@ func settingsToProto(set org.Settings, at time.Time) *hubv1.OrganizationSettings
 		if r := d.MatchResults; !r.IsZero() {
 			p.Discord.MatchResults = &hubv1.DiscordMatchResults{Channel: r.Channel, Servers: r.Servers}
 		}
+		if e := d.Events; !e.IsZero() {
+			p.Discord.Events = &hubv1.DiscordEvents{Channel: e.Channel, MinSeverity: e.MinSeverity, Kinds: e.Kinds}
+		}
 		if pr := d.Presence; !pr.IsZero() {
 			p.Discord.Presence = &hubv1.DiscordPresence{Channel: pr.Channel, Note: pr.Note}
 			for _, g := range pr.Games {
@@ -415,6 +418,9 @@ func settingsFromProto(p *hubv1.OrganizationSettings) org.Settings {
 	}
 	if r := d.GetMatchResults(); r != nil {
 		set.Discord.MatchResults = org.MatchResults{Channel: r.GetChannel(), Servers: r.GetServers()}
+	}
+	if e := d.GetEvents(); e != nil {
+		set.Discord.Events = org.DiscordEvents{Channel: e.GetChannel(), MinSeverity: e.GetMinSeverity(), Kinds: e.GetKinds()}
 	}
 	if pr := d.GetPresence(); pr != nil {
 		set.Discord.Presence = org.Presence{Channel: pr.GetChannel(), Note: pr.GetNote()}

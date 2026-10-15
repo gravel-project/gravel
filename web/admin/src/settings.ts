@@ -76,6 +76,7 @@ const placed = new RegExp(
       String.raw`discord\.streams\.(channel|role|note|streamers(${i}(\.(platform|login|label))?)?)`,
       String.raw`discord\.news\.feeds(${i}(\.(app_id|channel|label|color|feeds(${i})?))?)?`,
       String.raw`discord\.match_results\.(channel|servers(${i})?)`,
+      String.raw`discord\.events\.(channel|min_severity|kinds(${i})?)`,
       String.raw`stats\.public`,
       String.raw`local_accounts\.(registration|min_password_length)`,
     ].join("|") +

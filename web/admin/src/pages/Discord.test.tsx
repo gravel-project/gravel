@@ -33,6 +33,7 @@ const discord: MessageInitShape<typeof DiscordSettingsSchema> = {
   streams: { channel: id(11), role: id(12), note: "Go say hi", streamers: [{ platform: "twitch", login: "hiddentoken", label: "HTG" }, { platform: "kick", login: "hidden-token" }] },
   news: { feeds: [{ appId: 730, channel: id(13), label: "Counter-Strike 2", feeds: ["steam_community_announcements"], color: 0xde9b35 }] },
   matchResults: { channel: id(14), servers: ["htg-cs2-1", "htg-old-1"] },
+  events: { channel: id(15), minSeverity: "notice", kinds: ["server", "host.failing"] },
 };
 
 const full: MessageInitShape<typeof OrganizationSettingsSchema> = { version: 1, stats: { timezone: "America/Chicago" }, discord };
@@ -82,6 +83,8 @@ describe("discord settings", () => {
     expect(input("news-0-color").value).toBe("#de9b35");
     expect(input("results-server-htg-cs2-1").checked).toBe(true);
     expect(input("results-server-htg-wardogs-1").checked).toBe(false);
+    expect(input("events-kinds").value).toBe("server, host.failing");
+    expect(screen.getByLabelText<HTMLSelectElement>("Post from").value).toBe("notice");
     expect(screen.getByLabelText("htg-old-1 (not a server on this hub)")).toHaveProperty("checked", true);
     expect(screen.getAllByText("Weekly hours, in America/Chicago")).toHaveLength(2);
   });
@@ -114,6 +117,8 @@ describe("discord settings", () => {
     fireEvent.click(input("results-server-htg-cs2-1"));
     fireEvent.change(input("streamer-0-platform"), { target: { value: "kick" } });
     fireEvent.click(input("news-0-color-own"));
+    fireEvent.change(screen.getByLabelText("Post from"), { target: { value: "critical" } });
+    fireEvent.change(input("events-kinds"), { target: { value: "backup, server," } });
     fireEvent.click(within(f).getByRole("button", { name: "Add a streamer" }));
     fireEvent.change(input("streamer-2-login"), { target: { value: "jomkz" } });
     fireEvent.click(within(f).getByRole("button", { name: "Save the settings" }));
@@ -123,6 +128,7 @@ describe("discord settings", () => {
     expect(d?.matchResults?.servers).toEqual(["htg-old-1", "htg-wardogs-1"]);
     expect(d?.streams?.streamers.map((x) => [x.platform, x.login])).toEqual([["kick", "hiddentoken"], ["kick", "hidden-token"], ["twitch", "jomkz"]]);
     expect(d?.news?.feeds[0]?.color).toBe(0);
+    expect(d?.events).toMatchObject({ channel: id(15), minSeverity: "critical", kinds: ["backup", "server"] });
   });
 
   it("keeps each entry's typed text when an earlier one is removed", async () => {
@@ -154,6 +160,7 @@ describe("discord settings", () => {
       "discord.news.feeds", "discord.news.feeds[0]", "discord.news.feeds[0].app_id", "discord.news.feeds[0].channel", "discord.news.feeds[0].label",
       "discord.news.feeds[0].feeds[0]", "discord.news.feeds[0].color",
       "discord.match_results.channel", "discord.match_results.servers", "discord.match_results.servers[1]",
+      "discord.events.channel", "discord.events.min_severity", "discord.events.kinds", "discord.events.kinds[1]",
     ];
     for (const p of paths) {
       expect(isPlaced(p), p).toBe(true);
@@ -177,5 +184,14 @@ describe("discord settings", () => {
     const f = await form();
     fireEvent.click(within(f).getByRole("button", { name: "Save the settings" }));
     expect((await within(f).findByText(/The hub refused the settings/)).parentElement?.textContent).toContain("theme.dark.accent: not a colour");
+  });
+
+  it("saves the default severity as empty", async () => {
+    const { actions } = renderShell({ me: owner, path: "/settings", settings: full, servers, games });
+    const f = await form();
+    fireEvent.change(screen.getByLabelText("Post from"), { target: { value: "warning" } });
+    fireEvent.click(within(f).getByRole("button", { name: "Save the settings" }));
+    await screen.findByText("Saved. Everyone sees the change at their next page.");
+    expect(saved(actions).discord?.events?.minSeverity).toBe("");
   });
 });

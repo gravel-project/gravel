@@ -44,7 +44,8 @@ func TestOrganizationSettings(t *testing.T) {
 				Streamers: []*hubv1.DiscordStreamer{{Platform: "twitch", Login: "hiddentoken", Label: "Hidden Token"}, {Platform: "kick", Login: "hiddentoken"}}},
 			News: &hubv1.DiscordNews{Feeds: []*hubv1.DiscordNewsFeed{{AppId: 730, Channel: "1300000000000000105", Label: "Counter-Strike 2", Color: 0xde9b35},
 				{AppId: 271590, Channel: "1300000000000000105", Label: "Grand Theft Auto V", Feeds: []string{"steam_community_announcements", "steam_updates"}}}},
-			MatchResults: &hubv1.DiscordMatchResults{Channel: "1300000000000000106", Servers: []string{"htg-cs2-1"}}},
+			MatchResults: &hubv1.DiscordMatchResults{Channel: "1300000000000000106", Servers: []string{"htg-cs2-1"}},
+			Events:       &hubv1.DiscordEvents{Channel: "1300000000000000300", MinSeverity: "notice", Kinds: []string{"server", "host.failing"}}},
 		Stats:         &hubv1.StatsSettings{MinMatches: 5, Timezone: "America/Chicago", RawRetentionMonths: 6, Seasons: []*hubv1.StatsSeason{{Name: "Season 02", Game: "wardogs", From: "2026-10-15", To: "2027-01-15"}}},
 		LocalAccounts: &hubv1.LocalAccountsSettings{Registration: "open", MinPasswordLength: 16},
 		Events:        &hubv1.EventsSettings{RetentionDays: 90},
@@ -111,6 +112,9 @@ func TestOrganizationSettings(t *testing.T) {
 	}
 	if !proto.Equal(d.GetMatchResults(), want.GetDiscord().GetMatchResults()) {
 		t.Errorf("match results read back: %v", d.GetMatchResults())
+	}
+	if !proto.Equal(d.GetEvents(), want.GetDiscord().GetEvents()) || d.GetEvents().GetMinSeverity() != "notice" {
+		t.Errorf("events feed read back: %v", d.GetEvents())
 	}
 	if st := got.Msg.GetSettings().GetStats(); st.GetMinMatches() != 5 || st.GetRawRetentionMonths() != 6 || st.GetTimezone() != "America/Chicago" || len(st.GetSeasons()) != 1 || st.GetSeasons()[0].GetGame() != "wardogs" || st.GetPublic() {
 		t.Errorf("stats read back: %v", st)

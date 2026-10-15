@@ -92,6 +92,7 @@ func (a11yOrg) GetOrganizationSettings(context.Context, *connect.Request[hubv1.G
 				Streamers: []*hubv1.DiscordStreamer{{Platform: "twitch", Login: "hiddentoken", Label: "HTG"}, {Platform: "kick", Login: "hidden-token"}}},
 			News:         &hubv1.DiscordNews{Feeds: []*hubv1.DiscordNewsFeed{{AppId: 730, Channel: "1150000000000000013", Label: "Counter-Strike 2", Color: 0xde9b35}}},
 			MatchResults: &hubv1.DiscordMatchResults{Channel: "1150000000000000014", Servers: []string{"htg-cs2-1"}},
+			Events:       &hubv1.DiscordEvents{Channel: "1150000000000000015", MinSeverity: "notice", Kinds: []string{"server", "host.failing"}},
 		},
 		Stats:         &hubv1.StatsSettings{Public: true},
 		LocalAccounts: &hubv1.LocalAccountsSettings{Registration: "closed"},

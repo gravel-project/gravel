@@ -73,6 +73,9 @@ news:                            # Steam announcements, off by default (below); 
 match_results:                   # finished match results, off by default (below); the channel is the Organization settings' discord.match_results
   enabled: false
   interval: 1m                   # how often the hub is asked for finished results; at least 30s
+events:                          # the hub's events log, with Restart and Park, off by default (below); the channel is the Organization settings' discord.events
+  enabled: false
+  interval: 15s                  # how often the log is read; at least 5s
 server:
   listen: 127.0.0.1:8081         # /interactions, /healthz, /readyz; put TLS termination in front
   internal_listen: 127.0.0.1:9091   # /metrics; keep it off the public network
@@ -241,6 +244,40 @@ and nothing is skipped. The audit log stays the record; this is a copy of it in 
 The bot's app needs **`servers:moderate`** (reading the audit log), and in the channel **View
 Channel, Send Messages and Read Message History**. Metrics: `gravel_bot_modlog_posts_total{result}`
 (`posted`, `forbidden`, `error`) and `gravel_bot_modlog_last_success_timestamp_seconds`.
+
+### Events (`discord/modules/events`)
+
+Mirrors the hub's events log ([docs/hub.md](hub.md) "Events") into the channel the Organization
+settings name: `discord.events {channel, min_severity, kinds}`, warning and above of every kind by
+default. The bot is one consumer of the log, like a notifier. One message per event, in order, with
+how bad it is, the summary, the server, who acted, a link to the event in the admin dashboard
+(`hub.public_url`) and a footer `-# event <id> · <kind> · <time>`:
+
+```text
+🟠 **Warning** · HTG CS2 #1 stopped answering its polls · [events](<https://hub.example.org/admin/events?server=htg-cs2-1>)
+-# event 4182 · server.unreachable · Oct 15, 20:00 UTC
+```
+
+A `server.unreachable` or `host.failing` event about a server whose machine gravel runs (a
+cloud-VM server) carries **Restart** and **Park** buttons. A click asks the clicker privately to
+confirm; the confirmed action goes to the hub (`RebootServerHost`, or `SetServerHostDesired`
+`parked`) on behalf of the clicker's Discord account, and the hub admits it only when that member
+holds `servers:operate` for the server's game, the same rule as the dashboard's. Anyone else is told
+so, privately, and nothing happens. The bot keeps no state for it: the server and the action are in
+the button.
+
+Every `interval`, a pass reads the settings and the log after the last event posted. At start, or
+when the channel changes, it finds its place from the footer of its own newest posts among the
+channel's 100 newest messages; with none there it starts at the log's head, so turning it on never
+floods the channel with history. A Discord refusal or failure is counted, logged and retried next
+pass. With no channel set the module is idle and says so once.
+
+The bot's app needs **`events:read`**, and for the buttons **`servers:read`** (whether a server's
+machine is gravel's) and **`servers:operate`**; without `servers:read` events post without buttons.
+In the channel: **View Channel, Send Messages and Read Message History**. Keep the channel to staff.
+Metrics: `gravel_bot_events_posts_total{result}` (`posted`, `forbidden`, `error`),
+`gravel_bot_events_actions_total{action,outcome}` and `gravel_bot_events_last_success_timestamp_seconds`,
+on the bot dashboard's Events feed row.
 
 ### Seeding (`discord/modules/seeding`)
 
@@ -770,6 +807,9 @@ of them (ADR-0009, `deploy/README.md` "Dashboards").
 | `gravel_bot_news_posts_total` | counter | `app` (the Steam app id), `result` (`posted`, `failed`) | Steam announcements posted, and the posts Discord refused or failed (retried next pass) | news off (0 for each listed app from its first pass) |
 | `gravel_bot_news_last_success_timestamp_seconds` | gauge | `app` | when the last pass in which Steam answered, every channel of the app was read and every post went through completed | news off, or until the app's first such pass |
 | `gravel_bot_match_results_total` | counter | `result` (`posted`, `error`) | match results posted, and the failures of the hub, the channel or a post (retried next pass) | match results off (0 from the start) |
+| `gravel_bot_events_posts_total` | counter | `result` (`posted`, `forbidden`, `error`) | events posted to the events channel, and Discord's refusals and failures (retried next pass) | the events feed off |
+| `gravel_bot_events_actions_total` | counter | `action` (`restart`, `park`), `outcome` (`ok`, `refused`, `failed`) | Restart and Park confirmed from the events channel | nobody clicked |
+| `gravel_bot_events_last_success_timestamp_seconds` | gauge | | when the last pass that posted everything completed (an idle pass counts) | the events feed off |
 | `gravel_bot_match_results_last_success_timestamp_seconds` | gauge | | when the last pass in which the hub answered, the channel was read and every post went through completed (an idle pass counts) | match results off (0 until the first such pass) |
 
 ## Tests

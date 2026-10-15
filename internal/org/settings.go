@@ -22,6 +22,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/gravel-project/gravel/discord/seedhours"
+	"github.com/gravel-project/gravel/internal/events"
 	"github.com/gravel-project/gravel/internal/store"
 )
 
@@ -273,7 +274,34 @@ type Discord struct {
 	// MatchResults places the match results (discord/modules/matchresults, ADR-0024): each finished
 	// series a server's match plugin reported, posted once in a channel.
 	MatchResults MatchResults `json:"match_results,omitzero" yaml:"match_results,omitempty"`
+	// Events mirrors the events log into a channel (discord/modules/events, gravel#200): each
+	// event the filter takes, posted once, with Restart and Park on a cloud-VM server's trouble.
+	Events DiscordEvents `json:"events,omitzero" yaml:"events,omitempty"`
 }
+
+// DiscordEvents places the events feed: the events at MinSeverity or above (warning when empty)
+// and of Kinds (kinds or groups; none is every kind), posted in Channel. Empty is no feed.
+type DiscordEvents struct {
+	Channel     string   `json:"channel,omitempty" yaml:"channel,omitempty"`
+	MinSeverity string   `json:"min_severity,omitempty" yaml:"min_severity,omitempty"`
+	Kinds       []string `json:"kinds,omitempty" yaml:"kinds,omitempty"`
+}
+
+// IsZero reports whether no feed is placed.
+func (e DiscordEvents) IsZero() bool {
+	return e.Channel == "" && e.MinSeverity == "" && len(e.Kinds) == 0
+}
+
+// MinSeverityOrDefault is the lowest severity the feed posts.
+func (e DiscordEvents) MinSeverityOrDefault() string {
+	if e.MinSeverity == "" {
+		return string(DefaultNotifierSeverity)
+	}
+	return e.MinSeverity
+}
+
+// MaxDiscordEventKinds bounds discord.events.kinds.
+const MaxDiscordEventKinds = 20
 
 // MatchResults places the finished match results: each one posted once in Channel, for the listed
 // servers or, when none is listed, every server. Empty is no posts.
@@ -537,7 +565,7 @@ var MappedProviders = []string{"discord", "steam"}
 // IsZero reports whether nothing is set.
 func (d Discord) IsZero() bool {
 	return d.GuildID == "" && d.Roles.IsZero() && len(d.Recognition) == 0 && len(d.ServerCards) == 0 && d.ModLog == "" && len(d.Seeding) == 0 &&
-		d.Presence.IsZero() && len(d.Recaps) == 0 && d.Streams.IsZero() && d.News.IsZero() && d.MatchResults.IsZero()
+		d.Presence.IsZero() && len(d.Recaps) == 0 && d.Streams.IsZero() && d.News.IsZero() && d.MatchResults.IsZero() && d.Events.IsZero()
 }
 
 // IsZero reports whether no role is mapped.
@@ -795,7 +823,7 @@ func validateDiscord(d Discord, bad func(string, ...any)) {
 		return
 	}
 	if d.GuildID == "" {
-		bad("discord.guild_id: required when roles are mapped, server cards placed, seeding set, presence placed, recaps set, streams placed, news listed or match results placed")
+		bad("discord.guild_id: required when roles are mapped, server cards placed, seeding set, presence placed, recaps set, streams placed, news listed, match results or the events feed placed")
 	} else if !snowflakeOK(d.GuildID) {
 		bad("discord.guild_id: %q is not a Discord id", d.GuildID)
 	}
@@ -868,6 +896,27 @@ func validateDiscord(d Discord, bad func(string, ...any)) {
 	validateStreams(d, bad)
 	validateNews(d.News, bad)
 	validateMatchResults(d.MatchResults, bad)
+	validateDiscordEvents(d.Events, bad)
+}
+
+func validateDiscordEvents(e DiscordEvents, bad func(string, ...any)) {
+	if e.IsZero() {
+		return
+	}
+	if !snowflakeOK(e.Channel) {
+		bad("discord.events.channel: %q is not a Discord id", e.Channel)
+	}
+	if e.MinSeverity != "" && events.Rank(events.Severity(e.MinSeverity)) < 0 {
+		bad("discord.events.min_severity: %q is not info, notice, warning or critical", e.MinSeverity)
+	}
+	if len(e.Kinds) > MaxDiscordEventKinds {
+		bad("discord.events.kinds: %d kinds, at most %d", len(e.Kinds), MaxDiscordEventKinds)
+	}
+	for i, k := range e.Kinds {
+		if !kindOrGroup(k) {
+			bad("discord.events.kinds[%d]: %q is neither an event kind nor a group of them (docs/hub.md, Events)", i, k)
+		}
+	}
 }
 
 func validateMatchResults(r MatchResults, bad func(string, ...any)) {

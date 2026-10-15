@@ -186,6 +186,18 @@ message DiscordSettings {
   DiscordNews news = 10;
   // The finished match results (the matchresults module, ADR-0024); unset is none.
   DiscordMatchResults match_results = 11;
+  // The events feed (the events module, gravel#200); unset is none.
+  DiscordEvents events = 12;
+}
+
+// The events log mirrored into a channel: each event the filter takes, posted once, with Restart
+// and Park buttons on a cloud-VM server's trouble.
+message DiscordEvents {
+  string channel = 1;
+  // "info", "notice", "warning" or "critical"; empty is "warning".
+  string min_severity = 2;
+  // Kinds ("server.unreachable") or groups ("server"); none is every kind. At most 20.
+  repeated string kinds = 3;
 }
 
 // Match results: each finished series a server's match plugin reported, posted once in the

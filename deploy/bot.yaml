@@ -68,6 +68,10 @@ match_results:                   # each finished match result in the Organizatio
   enabled: false
   interval: 1m                   # at least 30s
 
+events:                          # the hub's events log in the Organization settings' discord.events channel, with Restart and Park for operators;
+  enabled: false                 # events:read, and servers:read and servers:operate for the buttons
+  interval: 15s                  # at least 5s
+
 server:
   listen: 0.0.0.0:8081           # /interactions, /healthz, /readyz
   internal_listen: 0.0.0.0:9091  # /metrics

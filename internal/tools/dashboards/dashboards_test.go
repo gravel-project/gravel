@@ -73,6 +73,7 @@ func TestDashboardsMatchTheMetrics(t *testing.T) {
 	bcfg.Streams.Enabled = true      // likewise
 	bcfg.News.Enabled = true         // likewise
 	bcfg.MatchResults.Enabled = true // likewise
+	bcfg.Events.Enabled = true       // likewise
 	bcfg.Hub.URL, bcfg.Hub.PublicURL, bcfg.Hub.ClientID, bcfg.Hub.ClientSecret = "http://hub.invalid:8080", "https://app.example.com", "gravel_x", "s"
 	hc, err := hubclient.New(hubclient.Config{URL: bcfg.Hub.URL, ClientID: bcfg.Hub.ClientID, ClientSecret: bcfg.Hub.ClientSecret})
 	if err != nil {
