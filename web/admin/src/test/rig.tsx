@@ -21,6 +21,7 @@ import {
   OrganizationSettingsSchema,
 } from "../gen/gravel/hub/v1/organization_pb";
 import { AppSchema, AppService } from "../gen/gravel/hub/v1/apps_pb";
+import { MetricsDashboardSchema, MetricsSeriesSchema, MetricsService, type QueryRangeRequest } from "../gen/gravel/hub/v1/metrics_pb";
 import { GameSchema, GetFleetSummaryResponseSchema, ServerSchema, ServerService } from "../gen/gravel/hub/v1/servers_pb";
 import { ServerHostSchema, ServerHostService } from "../gen/gravel/hub/v1/hosts_pb";
 import { ServerLeaseSchema, ServerLeaseService } from "../gen/gravel/hub/v1/leases_pb";
@@ -59,6 +60,11 @@ export interface RigOptions {
   apps?: MessageInitShape<typeof AppSchema>[];
   // notifierErrors are TestNotifier's answers by name: "" delivered, else why not.
   notifierErrors?: Record<string, string>;
+  // metrics: whether a store is configured, the dashboards, and each panel's series (or the error
+  // QueryRange throws) by panel id.
+  metricsStore?: boolean;
+  dashboards?: MessageInitShape<typeof MetricsDashboardSchema>[];
+  panelSeries?: Record<string, MessageInitShape<typeof MetricsSeriesSchema>[] | ConnectError>;
 }
 
 // Call is one of the people actions as the page sent it.
@@ -75,7 +81,10 @@ export function member(fields: Member = {}): Member {
 }
 
 export function renderShell({ me, demo = false, path = "/", fleet = { totals: {} }, log = [], kinds = [], servers = [], games = [], poll = 0,
-  users = [], pageSize = 100, org = {}, refuse = [], hosts = {}, leases = {}, settings = { version: 1 }, apps = [], notifierErrors = {} }: RigOptions = {}) {
+  users = [], pageSize = 100, org = {}, refuse = [], hosts = {}, leases = {}, settings = { version: 1 }, apps = [], notifierErrors = {},
+  metricsStore = true, dashboards = [], panelSeries = {} }: RigOptions = {}) {
+  // queries are the QueryRange requests, in order.
+  const queries: QueryRangeRequest[] = [];
   // calls are the ListEvents requests, in order, for a test to check the cursors.
   const calls: ListEventsRequest[] = [];
   // actions are the people actions, in order; people and the organization are what they changed.
@@ -296,6 +305,17 @@ export function renderShell({ me, demo = false, path = "/", fleet = { totals: {}
           h.state = "destroying";
         }),
     });
+    service(MetricsService, {
+      listDashboards: () => ({ available: metricsStore, dashboards: dashboards.map((d) => create(MetricsDashboardSchema, d)) }),
+      queryRange: (req) => {
+        queries.push(req);
+        const s = panelSeries[req.panelId] ?? [];
+        if (s instanceof ConnectError) {
+          throw s;
+        }
+        return { series: s.map((x) => create(MetricsSeriesSchema, x)), step: req.step };
+      },
+    });
     service(AppService, {
       listApps: () => ({ apps: appRows }),
       createApp: (req) => {
@@ -339,7 +359,7 @@ export function renderShell({ me, demo = false, path = "/", fleet = { totals: {}
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, refetchInterval: poll > 0 ? poll : false } } });
   const { hook } = memoryLocation({ path: here });
   const view = render(<App transport={transport} queryClient={queryClient} browser={browser} location={hook} />);
-  return { ...view, left, calls, actions, people, organization, hostRows, store };
+  return { ...view, left, calls, actions, people, organization, hostRows, store, queries };
 }
 
 // readLog answers ListEvents as the hub does (internal/api/events.go): after_id oldest first,

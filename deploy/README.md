@@ -127,7 +127,7 @@ runs through `/bin/sh -c`, and distroless has no shell, so it reports unhealthy 
 
 gravel ships Prometheus and Grafana with a dashboard each for the hub and the bot (ADR-0009). All
 of it lives in `observability/`: the scrape configs, Grafana's provisioning, and the dashboards,
-which are generated from `internal/tools/dashboards` by `make generate` and read-only in Grafana.
+which are generated from the definitions in `internal/dashboards` by `make generate` and read-only in Grafana.
 
 - **Development:** `make up-observability` is `make up` plus the `observability` profile:
   Grafana on <http://127.0.0.1:3000> (admin; the password is in `secrets/grafana-admin-password`)
@@ -140,6 +140,10 @@ which are generated from `internal/tools/dashboards` by `make generate` and read
   asks Grafana for every panel's data and fails on an empty panel that isn't marked optional
   (each optional panel says why it may be empty). `make observability-check` does it against a
   throwaway hub in a pod; CI runs it on every PR.
+- **In the hub, without Grafana** (ADR-0030): the admin dashboard's Metrics page draws the same
+  panels. Point `hub.yaml` at the store that scrapes the hub, `metrics: {query_url:
+  http://127.0.0.1:9092}` for the development Prometheus above, or the Prometheus or
+  VictoriaMetrics in production. The hub only reads it, and only these dashboards' queries.
 
 Neither Prometheus's data nor Grafana's state is backed up: the first is 30 days of history, the
 second only the admin user, since everything shown is provisioned.

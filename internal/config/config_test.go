@@ -409,3 +409,33 @@ func TestCloudEgress(t *testing.T) {
 		}
 	}
 }
+
+// The metrics store /admin/metrics reads (gravel#204): optional; an address, a token from a file,
+// the scrape jobs' names and a bounded timeout.
+func TestMetrics(t *testing.T) {
+	cfg, err := Parse(strings.NewReader(minimal), noEnv())
+	if err != nil || cfg.Metrics.Configured() || cfg.Metrics.Job("hub") != "gravel-hub" || cfg.Metrics.Job("bot") != "gravel-bot" || cfg.Metrics.QueryTimeout() != 10*time.Second {
+		t.Fatalf("none: %+v %v", cfg.Metrics, err)
+	}
+	env := Env{
+		LookupEnv: func(string) (string, bool) { return "", false },
+		ReadFile:  func(p string) ([]byte, error) { return []byte("tok\n"), nil },
+	}
+	cfg, err = Parse(strings.NewReader(minimal+"metrics:\n  query_url: https://vm.example.org/select/0/prometheus\n  bearer_token_file: /run/secrets/vm\n  hub_job: htg-hub\n  timeout: 5s\n"), env)
+	if err != nil || !cfg.Metrics.Configured() || cfg.Metrics.BearerToken != "tok" || cfg.Metrics.Job("hub") != "htg-hub" || cfg.Metrics.Job("bot") != "gravel-bot" || cfg.Metrics.QueryTimeout() != 5*time.Second {
+		t.Errorf("configured: %+v %v", cfg.Metrics, err)
+	}
+	for name, doc := range map[string]string{
+		"a user in the address": "metrics:\n  query_url: https://me:pw@vm.example.org\n",
+		"a query":               "metrics:\n  query_url: http://vm:8428?x=1\n",
+		"not http":              "metrics:\n  query_url: vm:8428\n",
+		"a long timeout":        "metrics:\n  query_url: http://vm:8428\n  timeout: 2m\n",
+	} {
+		if _, err := Parse(strings.NewReader(minimal+doc), noEnv()); err == nil || !strings.Contains(err.Error(), "metrics.") {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	if _, err := Parse(strings.NewReader(minimal+"metrics:\n  bearer_token_file: /run/secrets/vm\n"), noEnv()); err != nil {
+		t.Errorf("a token file without a store is not read: %v", err)
+	}
+}

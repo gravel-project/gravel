@@ -87,8 +87,12 @@ func (s *MetricsServer) ListDashboards(ctx context.Context, _ *connect.Request[h
 		for i, r := range d.Rows {
 			mr := &hubv1.MetricsRow{Title: r.Title}
 			for j, p := range r.Panels {
+				w := p.Width
+				if w == 0 { // as the Grafana JSON lays an unsized panel out
+					w = 6
+				}
 				mp := &hubv1.MetricsPanel{Id: panelID(i, j), Title: p.Title, Description: p.Description, Kind: p.Kind, Unit: p.Unit,
-					Width: int32(max(p.Width, 6)), Optional: p.Optional} //nolint:gosec // a grid width
+					Width: int32(w), Optional: p.Optional} //nolint:gosec // a grid width
 				for _, t := range p.Thresholds {
 					mp.Thresholds = append(mp.Thresholds, &hubv1.MetricsThreshold{Value: t.Value, Color: t.Color})
 				}

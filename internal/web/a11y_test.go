@@ -2,6 +2,7 @@ package web_test
 
 import (
 	"context"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -82,6 +83,46 @@ func (a11yOrg) GetOrganizationSettings(context.Context, *connect.Request[hubv1.G
 		Stats:         &hubv1.StatsSettings{Public: true},
 		LocalAccounts: &hubv1.LocalAccountsSettings{Registration: "closed"},
 	}}), nil
+}
+
+// a11yMetrics is /admin/metrics (gravel#204): a stat and two time series with a few lines each,
+// over the last six hours, so the charts draw and are scanned.
+type a11yMetrics struct {
+	hubv1connect.UnimplementedMetricsServiceHandler
+}
+
+func (a11yMetrics) ListDashboards(context.Context, *connect.Request[hubv1.ListDashboardsRequest]) (*connect.Response[hubv1.ListDashboardsResponse], error) {
+	return connect.NewResponse(&hubv1.ListDashboardsResponse{Available: true, Dashboards: []*hubv1.MetricsDashboard{
+		{Uid: "gravel-hub", Title: "gravel hub", Rows: []*hubv1.MetricsRow{
+			{Title: "Overview", Panels: []*hubv1.MetricsPanel{
+				{Id: "r0p0", Title: "Up", Kind: "stat", Width: 4, Mappings: []*hubv1.MetricsValueMap{{Value: "1", Text: "Up", Color: "green"}}},
+				{Id: "r0p1", Title: "Requests", Kind: "timeseries", Unit: "reqps", Width: 20},
+			}},
+			{Title: "API", Panels: []*hubv1.MetricsPanel{{Id: "r1p0", Title: "p95 latency by procedure", Kind: "timeseries", Unit: "s", Width: 24}}},
+		}},
+		{Uid: "gravel-bot", Title: "gravel bot"},
+	}}), nil
+}
+
+func (a11yMetrics) QueryRange(_ context.Context, req *connect.Request[hubv1.QueryRangeRequest]) (*connect.Response[hubv1.QueryRangeResponse], error) {
+	end := time.Now()
+	line := func(name string, base, amp float64) *hubv1.MetricsSeries {
+		s := &hubv1.MetricsSeries{Name: name}
+		for i := range 240 {
+			at := end.Add(-time.Duration(240-i) * 90 * time.Second)
+			s.Times = append(s.Times, at.UnixMilli())
+			s.Values = append(s.Values, base+amp*math.Sin(float64(i)/20))
+		}
+		return s
+	}
+	switch req.Msg.GetPanelId() {
+	case "r0p0":
+		return connect.NewResponse(&hubv1.QueryRangeResponse{Series: []*hubv1.MetricsSeries{{Name: "hub:9090", Times: []int64{end.UnixMilli()}, Values: []float64{1}}}}), nil
+	case "r0p1":
+		return connect.NewResponse(&hubv1.QueryRangeResponse{Series: []*hubv1.MetricsSeries{line("pages", 4, 1.5), line("api", 9, 3)}}), nil
+	}
+	return connect.NewResponse(&hubv1.QueryRangeResponse{Series: []*hubv1.MetricsSeries{
+		line("/gravel.hub.v1.ServerService/ListServers", 0.012, 0.004), line("/gravel.hub.v1.IdentityService/GetMe", 0.006, 0.002)}}), nil
 }
 
 type a11yApps struct {
@@ -478,6 +519,7 @@ func TestAccessibility(t *testing.T) {
 	mux.Handle(hubv1connect.NewServerServiceHandler(a11yFleet{}))
 	mux.Handle(hubv1connect.NewServerHostServiceHandler(a11yHosts{}))
 	mux.Handle(hubv1connect.NewAppServiceHandler(a11yApps{}))
+	mux.Handle(hubv1connect.NewMetricsServiceHandler(a11yMetrics{}))
 	mux.Handle(hubv1connect.NewServerLeaseServiceHandler(a11yLeases{}))
 	for path, build := range fixtures {
 		mux.HandleFunc("GET "+path, func(w http.ResponseWriter, r *http.Request) {
@@ -518,11 +560,11 @@ func TestAccessibility(t *testing.T) {
 		"/fixture/server-moderator", "/fixture/server-host", "/fixture/server-host-parked", "/fixture/host-confirm", "/fixture/confirm", "/fixture/log", "/fixture/account-apps", "/fixture/consent",
 		"/fixture/account-proof", "/fixture/proof", "/fixture/proof-proven", "/fixture/host-expect", "/fixture/result",
 		"/fixture/login-local", "/fixture/register", "/fixture/account-local", "/fixture/reset",
-		"/admin", "/admin/events", "/admin/people", "/admin/servers/htg-cs2-1", "/admin/settings", "/admin/apps", "/admin/access", "/admin/nowhere"}
+		"/admin", "/admin/events", "/admin/people", "/admin/servers/htg-cs2-1", "/admin/settings", "/admin/apps", "/admin/metrics", "/admin/access", "/admin/nowhere"}
 	// What each dashboard route shows once rendered in the browser.
-	adminRenders := map[string]string{"/admin": ">HTG WARDOGS | NA WEST | #1</a>", "/admin/events": ">HTG WARDOGS | NA WEST | #2 is down</p>", "/admin/people": ">Sam</a>", "/admin/servers/htg-cs2-1": ">Release the lease</button>", "/admin/settings": ">Save the settings</button>", "/admin/apps": ">HTG Bot</p>", "/admin/access": ">Your access</h1>", "/admin/nowhere": ">Not found</h1>"}
+	adminRenders := map[string]string{"/admin": ">HTG WARDOGS | NA WEST | #1</a>", "/admin/events": ">HTG WARDOGS | NA WEST | #2 is down</p>", "/admin/people": ">Sam</a>", "/admin/servers/htg-cs2-1": ">Release the lease</button>", "/admin/settings": ">Save the settings</button>", "/admin/apps": ">HTG Bot</p>", "/admin/metrics": ">p95 latency by procedure</figcaption>", "/admin/access": ">Your access</h1>", "/admin/nowhere": ">Not found</h1>"}
 	// The same, as text on the page, for the viewport script.
-	adminRenderText := map[string]string{"/admin": "HTG WARDOGS | NA WEST | #1", "/admin/events": "HTG WARDOGS | NA WEST | #2 is down", "/admin/people": "Add a local account", "/admin/servers/htg-cs2-1": "Release the lease", "/admin/settings": "Save the settings", "/admin/apps": "Register an app", "/admin/access": "Your access"}
+	adminRenderText := map[string]string{"/admin": "HTG WARDOGS | NA WEST | #1", "/admin/events": "HTG WARDOGS | NA WEST | #2 is down", "/admin/people": "Add a local account", "/admin/servers/htg-cs2-1": "Release the lease", "/admin/settings": "Save the settings", "/admin/apps": "Register an app", "/admin/metrics": "p95 latency by procedure", "/admin/access": "Your access"}
 	// A fixture left out of the list would never be scanned and the run would still pass.
 	for path := range fixtures {
 		if !slices.Contains(paths, path) {
@@ -566,7 +608,7 @@ func TestAccessibility(t *testing.T) {
 		cmd := exec.CommandContext(ctx, "node", "../../web/admin/scripts/viewport.mjs", chrome,
 			srv.URL+"/admin", adminRenderText["/admin"], srv.URL+"/admin/events", adminRenderText["/admin/events"],
 			srv.URL+"/admin/people", adminRenderText["/admin/people"], srv.URL+"/admin/servers/htg-cs2-1", adminRenderText["/admin/servers/htg-cs2-1"], srv.URL+"/admin/settings", adminRenderText["/admin/settings"],
-			srv.URL+"/admin/apps", adminRenderText["/admin/apps"], srv.URL+"/admin/access", adminRenderText["/admin/access"])
+			srv.URL+"/admin/apps", adminRenderText["/admin/apps"], srv.URL+"/admin/metrics", adminRenderText["/admin/metrics"], srv.URL+"/admin/access", adminRenderText["/admin/access"])
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			t.Fatalf("the dashboard at phone and iPad sizes:\n%s", out)

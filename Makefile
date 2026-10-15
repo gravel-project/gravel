@@ -248,7 +248,7 @@ quadlet-install-observability: ## Copy Prometheus, Grafana, their configuration 
 	@echo "observability units installed; then: systemctl --user start gravel-prometheus gravel-grafana (Grafana on http://127.0.0.1:3000)"
 
 .PHONY: dashboards
-dashboards: ## Regenerate the Grafana dashboards from internal/tools/dashboards
+dashboards: ## Regenerate the Grafana dashboards from internal/dashboards
 	go run ./internal/tools/dashboards gen
 
 .PHONY: observability-check

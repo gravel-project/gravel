@@ -34,6 +34,11 @@ patch release is everything else.
 
 ### Added
 
+- **Operator dashboards in the hub** (#204, [ADR-0030](docs/adr/0030-operator-dashboards-in-the-hub-through-a-query-proxy.md); H1, #182; closes #154): `/admin/metrics` draws the hub's and the bot's panels from the store `hub.yaml metrics.query_url` names (VictoriaMetrics or Prometheus), with no Grafana needed.
+  - **The hub proxies, never stores:** `MetricsService.ListDashboards` and `QueryRange` (`metrics:read`). A caller names a panel, never PromQL; the hub expands the panel's own expressions (`$job` from `metrics.hub_job`/`bot_job`, every instance, `$__rate_interval`), bounded (steps from 15 s, at most 11,000 points, 30 days, 500 lines, 8 MiB, `metrics.timeout` 10 s). `gravel_metrics_queries_total{result}` counts them, on the hub dashboard's API row.
+  - **One set of definitions:** the dashboards' Go definitions moved to `internal/dashboards`; the Grafana JSON is generated from them as before (`internal/tools/dashboards`), unchanged but for the new panel.
+  - **The page:** a tab per dashboard, a range picker, stat tiles coloured by thresholds and mappings, uPlot time series that follow the theme (each line's latest value also in text); without a store, how to configure one.
+
 - **Settings and Apps in the admin dashboard** (#205, ADR-0007, ADR-0028; H1, #182): a notifier can be added and tested from the browser.
   - **`/admin/settings`:** forms for the notifiers (with **Send a test**), Discord's server, linked role and mod-log channel (with how to connect Discord when it isn't), public leaderboards and local accounts; a YAML tab for the whole document (check, what would change, save). The rest of Discord stays in the YAML tab for now.
   - **`/admin/apps`:** register an app (scopes in words, `host:` scopes, redirect addresses), its secret shown once; list; revoke.
