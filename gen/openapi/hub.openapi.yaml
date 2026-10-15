@@ -4245,6 +4245,27 @@ components:
              not be recorded.
       title: DestroyServerHostResponse
       additionalProperties: false
+    gravel.hub.v1.DiscordEvents:
+      type: object
+      properties:
+        channel:
+          type: string
+          title: channel
+        minSeverity:
+          type: string
+          title: min_severity
+          description: '"info", "notice", "warning" or "critical"; empty is "warning".'
+        kinds:
+          type: array
+          items:
+            type: string
+          title: kinds
+          description: Kinds ("server.unreachable") or groups ("server"); none is every kind. At most 20.
+      title: DiscordEvents
+      additionalProperties: false
+      description: |-
+        The events log mirrored into a channel: each event the filter takes, posted once, with Restart
+         and Park buttons on a cloud-VM server's trouble.
     gravel.hub.v1.DiscordMatchResults:
       type: object
       properties:
@@ -4559,6 +4580,11 @@ components:
             - $ref: '#/components/schemas/gravel.hub.v1.DiscordMatchResults'
           title: match_results
           description: The finished match results (the matchresults module, ADR-0024); unset is none.
+        events:
+          allOf:
+            - $ref: '#/components/schemas/gravel.hub.v1.DiscordEvents'
+          title: events
+          description: The events feed (the events module, gravel#200); unset is none.
       title: DiscordSettings
       additionalProperties: false
       description: |-

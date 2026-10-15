@@ -11,6 +11,7 @@ import (
 	"github.com/gravel-project/gravel/discord/bot"
 	"github.com/gravel-project/gravel/discord/hubclient"
 	"github.com/gravel-project/gravel/discord/modules/core"
+	"github.com/gravel-project/gravel/discord/modules/events"
 	"github.com/gravel-project/gravel/discord/modules/linkedroles"
 	"github.com/gravel-project/gravel/discord/modules/matchresults"
 	"github.com/gravel-project/gravel/discord/modules/moderation"
@@ -71,6 +72,9 @@ func Modules(cfg bot.Config, hub *hubclient.Client) []bot.Module {
 	}
 	if cfg.MatchResults.Enabled {
 		mods = append(mods, matchresults.New(hub, matchresults.Config{Interval: cfg.MatchResults.Interval, PublicURL: cfg.Hub.PublicURL}))
+	}
+	if cfg.Events.Enabled {
+		mods = append(mods, events.New(hub, events.Config{Interval: cfg.Events.Interval, PublicURL: cfg.Hub.PublicURL}))
 	}
 	return mods
 }

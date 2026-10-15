@@ -8,6 +8,7 @@ import { useState } from "react";
 
 import {
   type DiscordSeedingHours,
+  DiscordEventsSchema,
   DiscordMatchResultsSchema,
   DiscordNewsFeedSchema,
   DiscordNewsSchema,
@@ -71,6 +72,7 @@ export function Discord({ draft, edit, err, errIn }: { draft: OrganizationSettin
   const streams = d.streams ?? create(DiscordStreamsSchema, {});
   const news = d.news ?? create(DiscordNewsSchema, {});
   const results = d.matchResults ?? create(DiscordMatchResultsSchema, {});
+  const feed = d.events ?? create(DiscordEventsSchema, {});
   return (
     <Section id="discord" title="Discord">
       {d.guildId === "" && (
@@ -366,6 +368,34 @@ export function Discord({ draft, edit, err, errIn }: { draft: OrganizationSettin
           max={max.feeds}
           add={() => { setD((x) => { const n = x.news ?? create(DiscordNewsSchema, {}); n.feeds.push(create(DiscordNewsFeedSchema, {})); x.news = n; }); }}
         />
+      </Part>
+
+      <Part
+        id="discord-events"
+        title="Events feed"
+        intro="The hub’s events log in a channel: each event the filter takes, posted once. A cloud-VM server’s trouble carries Restart and Park, which work for operators of its game. Leave the channel empty for no feed."
+      >
+        {(() => {
+          const setE = (change: (y: typeof feed) => void) => { setD((x) => { const y = x.events ?? create(DiscordEventsSchema, {}); change(y); x.events = y; }); };
+          return (
+            <div className="grid items-start gap-3 sm:grid-cols-3">
+              <Field id="events-channel" label="Channel id" error={err("discord.events.channel")} hint="Staff only, such as #infra-alerts">
+                <Snowflake id="events-channel" value={feed.channel} set={(v) => { setE((y) => { y.channel = v; }); }} />
+              </Field>
+              <Field id="events-severity" label="Post from" error={err("discord.events.min_severity")}>
+                <select id="events-severity" className={field} value={feed.minSeverity || "warning"} onChange={(e) => { setE((y) => { y.minSeverity = e.target.value === "warning" ? "" : e.target.value; }); }}>
+                  <option value="info">info and above: everything</option>
+                  <option value="notice">notice and above</option>
+                  <option value="warning">warning and above</option>
+                  <option value="critical">critical only</option>
+                </select>
+              </Field>
+              <Field id="events-kinds" label="Only these kinds or groups (empty for all)" error={errIn("discord.events.kinds")} hint="server, host.failing, backup">
+                <ListInput id="events-kinds" value={feed.kinds} set={(v) => { setE((y) => { y.kinds = v; }); }} />
+              </Field>
+            </div>
+          );
+        })()}
       </Part>
 
       <Part id="discord-results" title="Match results" intro="Each finished series a server’s match plugin reports, posted once. Leave the channel empty for no posts.">

@@ -58,8 +58,11 @@ type Config struct {
 	News        News        `yaml:"news"`
 	// MatchResults posts each finished match result (discord/modules/matchresults, ADR-0024).
 	MatchResults MatchResults `yaml:"match_results"`
-	Server       Server       `yaml:"server"`
-	Log          Log          `yaml:"log"`
+	// Events mirrors the hub's events log into a channel, with Restart and Park on a cloud-VM
+	// server's trouble (discord/modules/events, gravel#200).
+	Events Events `yaml:"events"`
+	Server Server `yaml:"server"`
+	Log    Log    `yaml:"log"`
 }
 
 // RoleSync runs the role-sync reconciler (discord/modules/rolesync). What it maps lives in the
@@ -217,6 +220,19 @@ type MatchResults struct {
 // and a channel read when a result is new.
 const MinMatchResultsInterval = 30 * time.Second
 
+// Events mirrors the hub's events log into the channel the Organization settings name
+// (discord.events; discord/modules/events, gravel#200), with buttons that restart or park a
+// cloud-VM server for an operator. Off by default: the bot's app needs events:read, and
+// servers:read and servers:operate for the buttons.
+type Events struct {
+	Enabled bool `yaml:"enabled"`
+	// Interval is how often the log is read: the longest an event waits for its post.
+	Interval time.Duration `yaml:"interval"`
+}
+
+// MinEventsInterval is the events feed's floor: each pass is one or two hub calls.
+const MinEventsInterval = 5 * time.Second
+
 // Discord is the application the bot runs as.
 type Discord struct {
 	// ApplicationID and PublicKey come from the Developer Portal; the key verifies HTTP
@@ -293,6 +309,7 @@ func Default() Config {
 		Streams:      Streams{Interval: time.Minute},
 		News:         News{Interval: 15 * time.Minute},
 		MatchResults: MatchResults{Interval: time.Minute},
+		Events:       Events{Interval: 15 * time.Second},
 		Server:       Server{Listen: "127.0.0.1:8081", InternalListen: "127.0.0.1:9091", ShutdownTimeout: 15 * time.Second},
 		Log:          Log{Level: "info", Format: "json"},
 	}
@@ -453,6 +470,9 @@ func (c Config) Validate() error {
 	}
 	if c.MatchResults.Interval < MinMatchResultsInterval {
 		bad("match_results.interval: %s is shorter than %s", c.MatchResults.Interval, MinMatchResultsInterval)
+	}
+	if c.Events.Interval < MinEventsInterval {
+		bad("events.interval: %s is shorter than %s", c.Events.Interval, MinEventsInterval)
 	}
 	for _, p := range []struct {
 		name string

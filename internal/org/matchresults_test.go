@@ -37,7 +37,7 @@ func TestSettingsValidateMatchResults(t *testing.T) {
 		d    Discord
 		want []string
 	}{
-		{"without a guild", Discord{MatchResults: htgMatchResults()}, []string{"discord.guild_id: required when roles are mapped, server cards placed, seeding set, presence placed, recaps set, streams placed, news listed or match results placed"}},
+		{"without a guild", Discord{MatchResults: htgMatchResults()}, []string{"discord.guild_id: required when roles are mapped, server cards placed, seeding set, presence placed, recaps set, streams placed, news listed, match results or the events feed placed"}},
 		{"channel", with(func(r *MatchResults) { r.Channel = "#results" }), []string{`discord.match_results.channel: "#results" is not a Discord id`}},
 		{"servers without a channel", with(func(r *MatchResults) { r.Channel = "" }), []string{`discord.match_results.channel: "" is not a Discord id`}},
 		{"server id", with(func(r *MatchResults) { r.Servers[1] = "HTG CS2" }), []string{`discord.match_results.servers[1]: "HTG CS2" is not a server id`}},

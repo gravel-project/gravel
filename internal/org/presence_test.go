@@ -38,7 +38,7 @@ func TestSettingsValidatePresence(t *testing.T) {
 		d    Discord
 		want []string
 	}{
-		{"without a guild", Discord{Presence: htgPresence()}, []string{"discord.guild_id: required when roles are mapped, server cards placed, seeding set, presence placed, recaps set, streams placed, news listed or match results placed"}},
+		{"without a guild", Discord{Presence: htgPresence()}, []string{"discord.guild_id: required when roles are mapped, server cards placed, seeding set, presence placed, recaps set, streams placed, news listed, match results or the events feed placed"}},
 		{"channel", with(func(p *Presence) { p.Channel = "#whos-playing" }), []string{`discord.presence.channel: "#whos-playing" is not a Discord id`}},
 		{"no channel", with(func(p *Presence) { p.Channel = "" }), []string{`discord.presence.channel: "" is not a Discord id`}},
 		{"note", with(func(p *Presence) { p.Note = strings.Repeat("x", MaxPresenceNote+1) }), []string{"discord.presence.note: one line of at most 200 characters"}},

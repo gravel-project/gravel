@@ -336,6 +336,10 @@ discord:                     # what the bot manages (docs/bot.md); ids as quoted
   match_results:             # each finished match result, posted once (docs/bot.md "Match results", ADR-0024)
     channel: "…"             # the bot needs View Channel, Send Messages, Read Message History
     servers: [htg-cs2-1]     # optional: the servers whose results are posted, at most 50; every server's when empty
+  events:                    # the events log in a staff channel, with Restart and Park for operators (docs/bot.md "Events", gravel#200)
+    channel: "…"             # the bot needs View Channel, Send Messages, Read Message History
+    min_severity: warning    # optional: info, notice, warning (when empty) or critical
+    kinds: [server, host.failing, backup]   # optional: kinds or groups, at most 20; every kind when empty
   presence:                  # the "who's playing now" card (docs/bot.md "Presence"); counts only, nothing stored
     channel: "…"             # where the card lives; the bot needs View Channel, Send Messages, Read Message History
     note: Counts members who share their activity on Discord.   # optional, one line of at most 200 characters
@@ -1751,7 +1755,8 @@ page by page.
   **recognition** roles, **server cards**, **seeding** rules and **session recaps** (each with its
   weekly hours: the days a window starts on, from and to, in `stats.timezone`), **who's playing
   now**, **go-live posts** (Twitch and Kick streamers), **Steam news** feeds (with an optional
-  colour) and **match results** (the servers ticked, or every server). Servers are picked from the
+  colour), **match results** (the servers ticked, or every server) and the **events feed** (its
+  channel, lowest severity and kinds; gravel#200). Servers are picked from the
   hub's own list and a presence key is suggested from its games; a server the hub doesn't list
   stays as it is, named as such. Each list stops adding at the hub's limit. The **YAML** tab holds
   the whole document, for what the form doesn't edit (the theme, navigation, games, seasons): check

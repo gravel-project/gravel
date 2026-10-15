@@ -115,6 +115,13 @@ func (c *Client) Stats() hubv1connect.StatsServiceClient {
 	return hubv1connect.NewStatsServiceClient(c.http, c.cfg.URL)
 }
 
+// Hosts is the ServerHostService client, authenticated as the app: a cloud-VM server's host
+// (servers:read), and parking, starting and rebooting it for the member the app acts for
+// (servers:operate, on_behalf_of; gravel#200).
+func (c *Client) Hosts() hubv1connect.ServerHostServiceClient {
+	return hubv1connect.NewServerHostServiceClient(c.http, c.cfg.URL)
+}
+
 // Token returns a bearer token, fetching or refreshing one when needed.
 func (c *Client) Token(ctx context.Context) (string, error) {
 	c.mu.Lock()
