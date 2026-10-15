@@ -85,6 +85,22 @@ type rollupStore struct {
 
 	retireCutoff time.Time
 	retired      store.Retired
+
+	oldestSession  time.Time
+	sessionPeriods []store.Period
+	sessionsMoved  int
+}
+
+func (r *rollupStore) OldestRawSession(context.Context, uuid.UUID) (time.Time, error) {
+	if r.oldestSession.IsZero() {
+		return time.Time{}, store.ErrNotFound
+	}
+	return r.oldestSession, nil
+}
+
+func (r *rollupStore) RollUpActivity(_ context.Context, _ uuid.UUID, _ string, periods []store.Period) (int, error) {
+	r.sessionPeriods = periods
+	return r.sessionsMoved, nil
 }
 
 func (r *rollupStore) RetireResults(_ context.Context, _ uuid.UUID, cutoff time.Time) (store.Retired, error) {
@@ -191,6 +207,20 @@ func TestRetentionRun(t *testing.T) {
 		t.Errorf("moving participation did not bump the change counter: %d", changes.Seen())
 	}
 
+	// Only sessions are old (ADR-0035): they roll from their own oldest month, the rest don't.
+	st = &rollupStore{oldest: recent, oldestSession: time.Date(2026, 3, 3, 0, 0, 0, 0, time.UTC), sessionsMoved: 8}
+	r, _ = newRun(st)
+	seen := changes.Seen()
+	if err := r.Run(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if st.periods != nil || st.partPeriods != nil || len(st.sessionPeriods) != 2 || st.sessionPeriods[0].From.Format(time.DateOnly) != "2026-03-01" {
+		t.Errorf("sessions only: matches %v, participation %v, sessions %v", st.periods, st.partPeriods, st.sessionPeriods)
+	}
+	if changes.Seen() != seen+1 {
+		t.Errorf("moving sessions did not bump the change counter")
+	}
+
 	// Both: the periods start at the older of the two, and both roll over the same periods.
 	st = &rollupStore{oldest: time.Date(2026, 3, 9, 0, 0, 0, 0, time.UTC), oldestPart: time.Date(2026, 1, 9, 0, 0, 0, 0, time.UTC)}
 	r, _ = newRun(st)
@@ -200,7 +230,7 @@ func TestRetentionRun(t *testing.T) {
 	if len(st.periods) != 4 || len(st.partPeriods) != 4 || st.periods[0].From.Format(time.DateOnly) != "2026-01-01" {
 		t.Errorf("both: matches %v, participation %v", st.periods, st.partPeriods)
 	}
-	if changes.Seen() != 2 {
+	if changes.Seen() != 3 { // the matches, participation and sessions cases above
 		t.Errorf("a rollup that moved nothing bumped the change counter: %d", changes.Seen())
 	}
 }

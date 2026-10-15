@@ -28,6 +28,16 @@ const SourceServerAdapter = "server_adapter"
 // hub was down, a poll failed) adds nothing rather than guessing.
 const maxGap = time.Minute
 
+// SessionGap is how long after the poll that last saw a player a later poll still carries their
+// session on (ADR-0035): two missed polls and a half-interval's jitter. A longer gap (they left,
+// the hub was down longer) starts a new session.
+func SessionGap(interval time.Duration) time.Duration {
+	if interval <= 0 {
+		interval = servers.DefaultPollInterval
+	}
+	return 3*interval + interval/2
+}
+
 // recordTimeout bounds one observation's writes; the poll is waiting.
 const recordTimeout = 5 * time.Second
 
@@ -40,6 +50,8 @@ type Store interface {
 	SaveMatchPlayers(ctx context.Context, players []store.MatchPlayer) error
 	RecordOccupancy(ctx context.Context, orgID uuid.UUID, serverID string, minute time.Time, fewest, most int) error
 	SetMatchTeams(ctx context.Context, matchID int64, teams []store.TeamScore) error
+	RecordSessions(ctx context.Context, orgID uuid.UUID, serverID, gameID string, at, since time.Time, keys []store.PlayerKey) (int, error)
+	PlayerActivity(ctx context.Context, q store.ActivityQuery) (store.Activity, error)
 	SessionRecap(ctx context.Context, q store.RecapQuery) (store.Recap, error)
 	Board(ctx context.Context, q store.BoardQuery) ([]store.BoardRow, error)
 	ListMatches(ctx context.Context, orgID uuid.UUID, serverID string, beforeID int64, limit int) ([]store.MatchSummary, error)
@@ -65,9 +77,10 @@ type Recorder struct {
 	mu      sync.Mutex
 	servers map[string]*serverState
 
-	matches *prometheus.CounterVec
-	rows    *prometheus.CounterVec
-	errs    *prometheus.CounterVec
+	matches  *prometheus.CounterVec
+	rows     *prometheus.CounterVec
+	errs     *prometheus.CounterVec
+	sessions *prometheus.CounterVec
 }
 
 // serverState is what the recorder holds between one server's polls.
@@ -105,8 +118,10 @@ func NewRecorder(st Store, orgID uuid.UUID, changes *Changes, reg prometheus.Reg
 		matches: prometheus.NewCounterVec(prometheus.CounterOpts{Name: "gravel_stats_matches_total", Help: "Matches the stats store started, by server and game."}, []string{"server", "game"}),
 		rows:    prometheus.NewCounterVec(prometheus.CounterOpts{Name: "gravel_stats_rows_written_total", Help: "Player rows the stats store wrote from polls, by server."}, []string{"server"}),
 		errs:    prometheus.NewCounterVec(prometheus.CounterOpts{Name: "gravel_stats_record_errors_total", Help: "Polls the stats store could not record, by server."}, []string{"server"}),
+		sessions: prometheus.NewCounterVec(prometheus.CounterOpts{Name: "gravel_stats_sessions_started_total",
+			Help: "Player sessions started from polls (ADR-0035), by server: a player came on, or came back after more than two missed polls."}, []string{"server"}),
 	}
-	reg.MustRegister(r.matches, r.rows, r.errs)
+	reg.MustRegister(r.matches, r.rows, r.errs, r.sessions)
 	return r
 }
 
@@ -152,6 +167,17 @@ func (r *Recorder) record(ctx context.Context, s *serverState, srv servers.Serve
 	}
 	if err := r.occupancy(ctx, s, srv.ID, now, max(o.Status.Players, len(present))); err != nil {
 		return err
+	}
+	if len(present) > 0 {
+		keys := make([]store.PlayerKey, 0, len(present))
+		for k := range present {
+			keys = append(keys, k)
+		}
+		started, err := r.st.RecordSessions(ctx, r.orgID, srv.ID, srv.Game, now, now.Add(-SessionGap(time.Duration(srv.PollInterval))), keys)
+		if err != nil {
+			return err
+		}
+		r.sessions.WithLabelValues(srv.ID).Add(float64(started))
 	}
 
 	// The server emptied: its match is over.

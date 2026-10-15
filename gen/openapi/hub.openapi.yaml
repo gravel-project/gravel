@@ -2802,6 +2802,47 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.EraseIdentityResponse'
+  /gravel.hub.v1.StatsService/GetActivity:
+    post:
+      tags:
+        - gravel.hub.v1.StatsService
+      summary: GetActivity
+      description: |-
+        GetActivity is when people play and who stopped, over a window ending now (ADR-0035):
+         stats:read held everywhere, in person. Players are shown as a board shows them.
+      operationId: gravel.hub.v1.StatsService.GetActivity
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.GetActivityRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.GetActivityResponse'
   /gravel.hub.v1.StatsService/GetBoard:
     post:
       tags:
@@ -3342,6 +3383,51 @@ components:
           title: organization
       title: AcceptOwnershipResponse
       additionalProperties: false
+    gravel.hub.v1.ActivityHour:
+      type: object
+      properties:
+        day:
+          type: integer
+          title: day
+          format: int32
+          description: 1 (Monday) to 7.
+        hour:
+          type: integer
+          title: hour
+          format: int32
+          description: 0 to 23.
+        average:
+          type: number
+          title: average
+          format: double
+          description: The players on in this hour of the week, on average over the window's weeks.
+        peak:
+          type: integer
+          title: peak
+          format: int32
+          description: The most on in any one such hour.
+      title: ActivityHour
+      additionalProperties: false
+      description: ActivityHour is one hour of the week in the organization's timezone (stats.timezone).
+    gravel.hub.v1.ActivityWeek:
+      type: object
+      properties:
+        start:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: start
+        players:
+          type: integer
+          title: players
+          format: int32
+        newPlayers:
+          type: integer
+          title: new_players
+          format: int32
+          description: Players whose first session was that week.
+      title: ActivityWeek
+      additionalProperties: false
+      description: ActivityWeek is one week of the window, from its Monday in the organization's timezone.
     gravel.hub.v1.Actor:
       type: object
       properties:
@@ -4568,6 +4654,15 @@ components:
           title: result_rows
           format: int32
           description: Match results' player rows (ADR-0024), one per map the identity played; their names blanked.
+        sessionRows:
+          type: integer
+          title: session_rows
+          format: int32
+          description: Player sessions and their monthly rows (ADR-0035).
+        activityMonthlyRows:
+          type: integer
+          title: activity_monthly_rows
+          format: int32
       title: EraseIdentityResponse
       additionalProperties: false
       description: EraseIdentityResponse counts what the erasure re-keyed; it never repeats the identity.
@@ -4975,6 +5070,101 @@ components:
       description: |-
         GameTheme is a game's overlay on the organization's theme, applied to the game's pages: a
          server of the game, its moderation pages, and a board scoped to the game or one of its servers.
+    gravel.hub.v1.GetActivityRequest:
+      type: object
+      properties:
+        window:
+          type: string
+          title: window
+          description: '"7d", "30d" (the default, empty) or "90d", ending now.'
+      title: GetActivityRequest
+      additionalProperties: false
+    gravel.hub.v1.GetActivityResponse:
+      type: object
+      properties:
+        window:
+          type: string
+          title: window
+        from:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: from
+        to:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: to
+        timezone:
+          type: string
+          title: timezone
+          description: The IANA zone the hours, days and weeks are read in.
+        hours:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.ActivityHour'
+          title: hours
+          description: All 168 hours of the week, Monday 00:00 first.
+        sessions:
+          type: integer
+          title: sessions
+          format: int32
+          description: Sessions started in the window, and the players who started them.
+        players:
+          type: integer
+          title: players
+          format: int32
+        medianSessionSeconds:
+          type: integer
+          title: median_session_seconds
+          format: int32
+        returningPlayers:
+          type: integer
+          title: returning_players
+          format: int32
+          description: Players who came on two days or more, and the players' mean days.
+        meanActiveDays:
+          type: number
+          title: mean_active_days
+          format: double
+        newPlayers:
+          type: integer
+          title: new_players
+          format: int32
+          description: |-
+            Players never seen before the window, and players on in the window of the same length before
+             it who weren't on in this one.
+        lostPlayers:
+          type: integer
+          title: lost_players
+          format: int32
+        weeks:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.ActivityWeek'
+          title: weeks
+        quiet:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.QuietRegular'
+          title: quiet
+          description: |-
+            Regulars (on regular_days days or more in the regular_weeks weeks before the window) with no
+             session in it, the most recently seen first; at most 50.
+        regularDays:
+          type: integer
+          title: regular_days
+          format: int32
+        regularWeeks:
+          type: integer
+          title: regular_weeks
+          format: int32
+        partial:
+          type: boolean
+          title: partial
+          description: |-
+            The look-back reaches past stats.raw_retention_months, where only monthly totals are kept:
+             the regulars and new players before the cutoff are incomplete.
+      title: GetActivityResponse
+      additionalProperties: false
     gravel.hub.v1.GetBoardNameRequest:
       type: object
       title: GetBoardNameRequest
@@ -7128,6 +7318,41 @@ components:
           description: The step the hub used, after widening.
       title: QueryRangeResponse
       additionalProperties: false
+    gravel.hub.v1.QuietRegular:
+      type: object
+      properties:
+        name:
+          type: string
+          title: name
+        pseudonymous:
+          type: boolean
+          title: pseudonymous
+        userId:
+          type: string
+          title: user_id
+          description: The member, when shown by name.
+        daysBefore:
+          type: integer
+          title: days_before
+          format: int32
+          description: Days they played in the regulars' look-back.
+        lastSeen:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: last_seen
+        lastServerId:
+          type: string
+          title: last_server_id
+        hours:
+          type: number
+          title: hours
+          format: double
+          description: Hours they were on in the look-back.
+      title: QuietRegular
+      additionalProperties: false
+      description: |-
+        QuietRegular is a regular before the window with no session in it, shown as a board shows a
+         player: a member's name when they chose it, else a pseudonym.
     gravel.hub.v1.RebootServerHostRequest:
       type: object
       properties:

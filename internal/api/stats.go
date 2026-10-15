@@ -354,3 +354,39 @@ func (s *StatsServer) GetParticipationBoard(ctx context.Context, req *connect.Re
 	}
 	return connect.NewResponse(resp), nil
 }
+
+// GetActivity is when people play and who stopped (ADR-0035): stats:read held everywhere, in
+// person. A game-scoped grant isn't enough: the activity is the whole hub's.
+func (s *StatsServer) GetActivity(ctx context.Context, req *connect.Request[hubv1.GetActivityRequest]) (*connect.Response[hubv1.GetActivityResponse], error) {
+	if _, err := s.access.Require(ctx, authz.StatsRead, authz.Target{}); err != nil {
+		return nil, err
+	}
+	if _, err := sessionCaller(ctx); err != nil {
+		return nil, err
+	}
+	a, err := s.boards.Activity(ctx, req.Msg.GetWindow())
+	if err != nil {
+		return nil, s.mapError(ctx, err)
+	}
+	out := &hubv1.GetActivityResponse{Window: a.Window, From: timestamppb.New(a.From), To: timestamppb.New(a.To), Timezone: a.Timezone,
+		Sessions: int32(a.Sessions), Players: int32(a.Players), MedianSessionSeconds: int32(a.MedianSession.Seconds()), //nolint:gosec // counts
+		ReturningPlayers: int32(a.Returning), MeanActiveDays: a.MeanDays, NewPlayers: int32(a.New), LostPlayers: int32(a.Lost), //nolint:gosec // counts
+		RegularDays: int32(a.RegularDays), RegularWeeks: int32(a.RegularWeeks), Partial: a.Rolled} //nolint:gosec // small constants
+	for d := range a.Hours {
+		for h, c := range a.Hours[d] {
+			out.Hours = append(out.Hours, &hubv1.ActivityHour{Day: int32(d + 1), Hour: int32(h), Average: c.Average, Peak: int32(c.Peak)}) //nolint:gosec // small counts
+		}
+	}
+	for _, w := range a.Weeks {
+		out.Weeks = append(out.Weeks, &hubv1.ActivityWeek{Start: timestamppb.New(w.Start), Players: int32(w.Players), NewPlayers: int32(w.New)}) //nolint:gosec // counts
+	}
+	for _, q := range a.Quiet {
+		m := &hubv1.QuietRegular{Name: q.Name, Pseudonymous: q.Pseudonymous, DaysBefore: int32(q.DaysBefore), LastSeen: timestamppb.New(q.LastSeen), //nolint:gosec // counts
+			LastServerId: q.LastServer, Hours: q.Hours}
+		if q.UserID != uuid.Nil {
+			m.UserId = q.UserID.String()
+		}
+		out.Quiet = append(out.Quiet, m)
+	}
+	return connect.NewResponse(out), nil
+}

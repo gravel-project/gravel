@@ -38,7 +38,7 @@ the others has a `gravel` command over the API that takes the same flags.
 | `gravel-hub servers apply <servers.yaml> [--dry-run]` | Validate a manifest, check each credential file is readable where it runs, and store it; prints each change. With `--dry-run`, exit 3 when something would change. A running hub picks it up within 30 s. The only way to add a location or a server, or change a file or an endpoint ([Admin procedures](#admin-procedures-adr-0031)). |
 | `gravel-hub servers check <servers.yaml>` | Validate a manifest with no configuration, no database and no secret: exit 0 with its summary, 1 with every problem named, 2 on a usage error. |
 | `gravel-hub ingest export --server ID [--after ID] [--limit N]` | Print a server's stored ingest batches, oldest first, one JSON object per line: a JSON body as JSON, anything else as base64 ([Ingestion](#ingestion-adr-0011)). They hold players' SteamIDs: redact before they leave the host. |
-| `gravel-hub stats erase --provider P --subject S` | Erase a player from the stats store ([Stats](#stats-adr-0012), Erasure): their identity becomes a random token in every stats table (participation and match results included) and the stored ingest batches, their pseudonym is deleted, the numbers stay. For an operator acting on a request they have verified. Prints the counts, never the identity. Over the API: `StatsService.EraseIdentity` (`stats:erase`). |
+| `gravel-hub stats erase --provider P --subject S` | Erase a player from the stats store ([Stats](#stats-adr-0012), Erasure): their identity becomes a random token in every stats table (participation, match results and sessions included) and the stored ingest batches, their pseudonym is deleted, the numbers stay. For an operator acting on a request they have verified. Prints the counts, never the identity. Over the API: `StatsService.EraseIdentity` (`stats:erase`). |
 | `gravel-hub wardogs record --base-url URL [--token-file FILE] [--dir DIR]` | Record a War Dogs server's read-only answers as test fixtures in `<dir>/<build>/` (default `games/wardogs/testdata`), with people, addresses and secrets replaced (ADR-0010; `games/wardogs/README.md`). One token, never retried; without one, only the public routes. |
 | `gravel-hub demo wardogs-server --listen ADDR --token-file FILE [--profile FILE] [--seed N]` | Serve a simulated War Dogs server for a demo hub to poll ([Demo hub](#demo-hub-gravel112)). |
 | `gravel-hub demo seed [--days 90] [--members 40] [--seed N] [--profile FILE]` | Write made-up members, matches and moderation into a demo hub's database: only with `demo: true`, only into a database nobody signed in to and nothing was recorded in ([Demo hub](#demo-hub-gravel112)). |
@@ -179,6 +179,7 @@ Public listener (`server.listen`), HTTP/1.1 and unencrypted HTTP/2 so gRPC works
 | `/gravel.hub.v1.AppService/CreateApp`, `ListApps`, `RevokeApp` | register an app (`{"name", "scopes", "redirect_uris"}` → the app and its secret, once), list them, revoke one; `apps:manage` ([Admin procedures](#admin-procedures-adr-0031)) |
 | `/gravel.hub.v1.OrganizationService/ExportSettings`, `CheckSettings`, `ApplySettings` | the settings as a YAML manifest; `{"manifest": "…", "dry_run": true}` → the top-level sections that differ and the summary; `settings:write`, in person; a manifest that matches the stored settings writes nothing |
 | `/gravel.hub.v1.ServerService/ExportServers`, `CheckServers`, `ApplyServers` | the servers manifest as YAML; `{"manifest": "…", "dry_run": true}` → the changes; `servers:manage`, never a file or where a secret goes |
+| `/gravel.hub.v1.StatsService/GetActivity` | `{"window": "30d"}` → the window's hours of the week, sessions, returning, new and lost players, weeks and regulars gone quiet ([Player activity](#player-activity-adr-0035)); `stats:read` everywhere, in person |
 | `/gravel.hub.v1.StatsService/EraseIdentity` | `{"provider": "steam", "subject": "…"}` → what was re-keyed; `stats:erase`, in person |
 | `/gravel.hub.v1.IdentityService/RevokeUserSessions` | `{"user_id": "…"}` → log a member out everywhere, with the tokens apps hold for them; `members:manage` |
 | `/gravel.hub.v1.IdentityService/ListRoleGrants` | `{"user_id": "…"}` (or `{}` for everyone) → who holds which role where; `identity:read` |
@@ -1205,14 +1206,15 @@ ended is never retired. `gravel_stats_results_retired_total` counts the series.
 
 **Erasure.** `gravel-hub stats erase --provider steam --subject <SteamID64>` replaces the identity
 with `erased` and a random token in `match_stats`, `stats_monthly`, `participation_events`,
-`participation_monthly`, `match_result_players` (blanking the in-game name) and the bodies of the
-stored ingest batches (their hashes recomputed), and deletes the pseudonym, in one transaction. The numbers
+`participation_monthly`, `match_result_players` (blanking the in-game name), `player_sessions`,
+`player_activity_monthly` and the bodies of the stored ingest batches (their hashes recomputed), and deletes the pseudonym, in one transaction. The numbers
 stay, shown as "Deleted player"; nothing maps the token back (a hash would not do: every SteamID can
 be tried). A player still on a server is recorded under their identity again from the next poll.
 The flow members start themselves comes with identity's erasure; this is the stats store's part.
 
 Metrics: `gravel_stats_matches_total{server,game}`, `gravel_stats_rows_written_total{server}`,
-`gravel_stats_record_errors_total{server}`, `gravel_stats_rolled_rows_total`, and the rollup job's
+`gravel_stats_sessions_started_total{server}`, `gravel_stats_record_errors_total{server}`,
+`gravel_stats_rolled_rows_total`, `gravel_stats_results_retired_total`, and the rollup job's
 `gravel_hub_job_last_success_timestamp_seconds{job="stats_rollup"}` (stored by Prometheus as
 `exported_job`, since the scrape's own `job` label wins), on the hub dashboard's Stats row.
 
@@ -1289,6 +1291,32 @@ curl -s -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
 Metric: `gravel_participation_events_total{kind,outcome}` (`recorded`, `duplicate`, `invalid`; every
 event of a refused request is `invalid`, under kind `invalid` when its kind is malformed), on the hub
 dashboard's Stats row.
+
+### Player activity (ADR-0035)
+
+When people play and who stopped, from **sessions** the recorder stitches on every good poll: a
+session is one identity on one server, from the poll that first saw them to the poll that last did.
+A poll extends an identity's newest session on the server when its last sighting is within three
+poll intervals and a half (up to two missed polls), and starts one otherwise. The stitching reads
+the store, so a hub restart shorter than that carries sessions on. Sessions are keyed by the
+provider identity (`player_sessions`) and are personal data: `stats erase` re-keys them, and past
+`stats.raw_retention_months` the rollup moves them into `player_activity_monthly` (sessions, seconds
+and active days per identity, server and period). A server whose status names no identities
+records none.
+
+`StatsService.GetActivity{window}` (`stats:read` held everywhere, in person; a game's staff and apps
+are refused) reads a window ending now, `7d`, `30d` (the default) or `90d`, in `stats.timezone`:
+
+- every hour of the week: the players on in it, averaged over the window's weeks, and the most in one;
+- the sessions started, the players who started them, and the median session;
+- the players who came back on another day, and the mean days played;
+- **new** players (never seen before the window, in a session or a rolled-up month) and **lost**
+  ones (on in the window of the same length before it, not in this one), and each week's players;
+- **regulars gone quiet**: on 4 days or more in the 8 weeks before the window and not once in it,
+  the most recently seen first, at most 50, shown as the boards show players (a member's name when
+  they chose it, else a pseudonym). An erased identity is never listed.
+
+`/admin/activity` draws it. Metric: `gravel_stats_sessions_started_total{server}` on the Stats row.
 
 ## Demo hub (gravel#112)
 
@@ -1466,7 +1494,7 @@ read and goes in #199.
 | `servers:lease` | `ServerLeaseService` | admins, operators, moderators; apps |
 | `servers:configure` | `ServerConfigService` | admins, operators; apps |
 | `servers:provision` | `ResizeServerHost`, `UnpinServerHostSize`, `SnapshotServerHostVolume`, `DestroyServerHost` | admins |
-| `stats:read` | the boards, match lists and match results while stats are private | admins, operators, moderators; apps |
+| `stats:read` | the boards, match lists and match results while stats are private; held everywhere and in person, player activity | admins, operators, moderators; apps |
 | `participation:write` | `RecordParticipation` | apps only |
 | `roles:grant` | `SetUserRole` | admins; apps (moderator only) |
 | `members:manage` | `CreateLocalAccount`, `IssuePasswordReset`, `RevokeUserSessions` | admins |
@@ -1665,7 +1693,7 @@ limit applies in front of all of it.
 `/admin` is the operators' dashboard: a React client of the same API as the pages, embedded in the
 binary ([ADR-0029](adr/0029-the-admin-dashboard-is-a-static-client-in-the-binary.md); the source is
 `web/admin/`). It is H1's in-progress surface: this version has the **Fleet** with each server's controls, the
-**Events**, **People**, **Metrics**, **Settings**, **Apps** and **Your access**; the rest arrives
+**Events**, **People**, **Metrics**, **Activity**, **Settings**, **Apps** and **Your access**; the rest arrives
 page by page.
 
 - **Fleet** (`/admin`, `servers:read`, which every member holds): what is up, who is playing, what
@@ -1708,6 +1736,12 @@ page by page.
   last 30 days, about 240 points a line, refreshed every 30 s; stat tiles coloured by their
   thresholds; time series drawn with uPlot, each line's latest value said in words too. Without a
   store it says how to configure one.
+- **Activity** (`/admin/activity`, `stats:read` everywhere; gravel#208, ADR-0035): when people play
+  and who stopped, over the last 7, 30 or 90 days ([Player activity](#player-activity-adr-0035)):
+  the players, sessions and median session, who came back and the mean days played, new and lost
+  players; a heatmap of the week's hours in `stats.timezone` (each cell the players on in that hour
+  on average, its tint deeper as it's busier, the three busiest hours said in words); each week's
+  players; and the regulars gone quiet, a member's name linking to their page.
 - **Settings** (`/admin/settings`, `settings:write`; gravel#205, #253): the Organization settings
   without a YAML file. A form for the **notifiers** (add, edit, pause, remove; each kind says where
   its secret lives in hub.yaml; **Send a test** once saved), all of **Discord** (and how to connect
@@ -2147,6 +2181,7 @@ and the digest-pin procedure.
 | `gravel_cloudvm_volume_snapshots_total` | counter | `server`, `result` (`ok`, `error`) | snapshots of a parked host's volume the owner asked for (#166) | until the first |
 | `gravel_stats_matches_total` | counter | `server`, `game` | matches the stats store started (ADR-0012) | until the first match |
 | `gravel_stats_rows_written_total` | counter | `server` | player rows written from polls | until someone is on |
+| `gravel_stats_sessions_started_total` | counter | `server` | player sessions started from polls (ADR-0035) | until someone comes on |
 | `gravel_stats_record_errors_total` | counter | `server` | polls the stats store could not write | until one fails |
 | `gravel_stats_rolled_rows_total` | counter | | per-match rows rolled up into monthly totals past the retention window | |
 | `gravel_stats_results_retired_total` | counter | | match results past the retention window whose players were anonymised (#216) | |

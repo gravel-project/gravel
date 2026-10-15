@@ -259,6 +259,9 @@ message EraseIdentityResponse {
   bool pseudonym_deleted = 6;
   // Match results' player rows (ADR-0024), one per map the identity played; their names blanked.
   int32 result_rows = 7;
+  // Player sessions and their monthly rows (ADR-0035).
+  int32 session_rows = 8;
+  int32 activity_monthly_rows = 9;
 }
 
 // first-party apps, on boards of its own (ADR-0014).
@@ -299,6 +302,9 @@ service StatsService {
   // EraseIdentity erases a player's identity from the stats (ADR-0012 §7), for a request the
   // operator verified: stats:erase, in person only. The numbers stay, as a deleted player's.
   rpc EraseIdentity(EraseIdentityRequest) returns (EraseIdentityResponse);
+  // GetActivity is when people play and who stopped, over a window ending now (ADR-0035):
+  // stats:read held everywhere, in person. Players are shown as a board shows them.
+  rpc GetActivity(GetActivityRequest) returns (GetActivityResponse);
 }
 
 // MatchResult is one series a server's match plugin ran.
@@ -419,4 +425,74 @@ message GetSessionRecapResponse {
   repeated RecapMatch matches = 8;
   // The players with the most kills in those matches, at most five, each with a kill.
   repeated BoardEntry top = 9;
+}
+
+message GetActivityRequest {
+  // "7d", "30d" (the default, empty) or "90d", ending now.
+  string window = 1;
+}
+
+// ActivityHour is one hour of the week in the organization's timezone (stats.timezone).
+message ActivityHour {
+  // 1 (Monday) to 7.
+  int32 day = 1;
+  // 0 to 23.
+  int32 hour = 2;
+  // The players on in this hour of the week, on average over the window's weeks.
+  double average = 3;
+  // The most on in any one such hour.
+  int32 peak = 4;
+}
+
+// ActivityWeek is one week of the window, from its Monday in the organization's timezone.
+message ActivityWeek {
+  google.protobuf.Timestamp start = 1;
+  int32 players = 2;
+  // Players whose first session was that week.
+  int32 new_players = 3;
+}
+
+// QuietRegular is a regular before the window with no session in it, shown as a board shows a
+// player: a member's name when they chose it, else a pseudonym.
+message QuietRegular {
+  string name = 1;
+  bool pseudonymous = 2;
+  // The member, when shown by name.
+  string user_id = 3;
+  // Days they played in the regulars' look-back.
+  int32 days_before = 4;
+  google.protobuf.Timestamp last_seen = 5;
+  string last_server_id = 6;
+  // Hours they were on in the look-back.
+  double hours = 7;
+}
+
+message GetActivityResponse {
+  string window = 1;
+  google.protobuf.Timestamp from = 2;
+  google.protobuf.Timestamp to = 3;
+  // The IANA zone the hours, days and weeks are read in.
+  string timezone = 4;
+  // All 168 hours of the week, Monday 00:00 first.
+  repeated ActivityHour hours = 5;
+  // Sessions started in the window, and the players who started them.
+  int32 sessions = 6;
+  int32 players = 7;
+  int32 median_session_seconds = 8;
+  // Players who came on two days or more, and the players' mean days.
+  int32 returning_players = 9;
+  double mean_active_days = 10;
+  // Players never seen before the window, and players on in the window of the same length before
+  // it who weren't on in this one.
+  int32 new_players = 11;
+  int32 lost_players = 12;
+  repeated ActivityWeek weeks = 13;
+  // Regulars (on regular_days days or more in the regular_weeks weeks before the window) with no
+  // session in it, the most recently seen first; at most 50.
+  repeated QuietRegular quiet = 14;
+  int32 regular_days = 15;
+  int32 regular_weeks = 16;
+  // The look-back reaches past stats.raw_retention_months, where only monthly totals are kept:
+  // the regulars and new players before the cutoff are incomplete.
+  bool partial = 17;
 }

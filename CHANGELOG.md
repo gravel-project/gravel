@@ -34,6 +34,12 @@ patch release is everything else.
 
 ### Added
 
+- **Player activity** (#208, [ADR-0035](docs/adr/0035-player-sessions-from-the-poll.md) proposed; H1, #182): when people play and who stopped.
+  - **Sessions from the poll:** the recorder stitches each identity's sessions on each server from consecutive good polls (`player_sessions`, migration 00031): a poll extends the newest session whose last sighting is within three poll intervals and a half, and starts one otherwise, read from the store so a short hub restart carries sessions on. `gravel_stats_sessions_started_total{server}` on the Stats row.
+  - **Personal data, kept like match rows:** `stats erase` re-keys sessions and their monthly rows (`EraseIdentityResponse.session_rows` and `activity_monthly_rows`; both erase commands print "N sessions, N activity monthly rows"); past `stats.raw_retention_months` the rollup moves sessions into `player_activity_monthly`.
+  - **`StatsService.GetActivity{window}`** (`stats:read` everywhere, in person): the week's hours averaged over a 7, 30 or 90-day window, sessions and the median session, returning, new and lost players, each week's players, and the regulars gone quiet (on 4 days or more in the 8 weeks before, not once since), shown as the boards show players.
+  - **`/admin/activity`:** the numbers, a heatmap of the week's hours with the busiest said in words, the weeks, and the regulars gone quiet.
+
 - **Operator dashboards in the hub** (#204, [ADR-0030](docs/adr/0030-operator-dashboards-in-the-hub-through-a-query-proxy.md) accepted; H1, #182; closes #154): `/admin/metrics` draws the hub's and the bot's panels from the store `hub.yaml metrics.query_url` names (VictoriaMetrics or Prometheus), with no Grafana needed.
   - **The hub proxies, never stores:** `MetricsService.ListDashboards` and `QueryRange` (`metrics:read`). A caller names a panel, never PromQL; the hub expands the panel's own expressions (`$job` from `metrics.hub_job`/`bot_job`, every instance, `$__rate_interval`), bounded (steps from 15 s, at most 11,000 points, 30 days, 500 lines, 8 MiB, `metrics.timeout` 10 s). `gravel_metrics_queries_total{result}` counts them, on the hub dashboard's API row.
   - **One set of definitions:** the dashboards' Go definitions moved to `internal/dashboards`; the Grafana JSON is generated from them as before (`internal/tools/dashboards`), unchanged but for the new panel.

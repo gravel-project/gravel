@@ -65,8 +65,13 @@ func TestStatsErase(t *testing.T) {
 		}
 	}
 
+	// A session the poll stitched (ADR-0035).
+	if _, err := st.RecordSessions(ctx, o.ID, "wd-1", "wardogs", at, at.Add(-time.Minute), []store.PlayerKey{{Provider: "steam", Subject: subject}}); err != nil {
+		t.Fatal(err)
+	}
+
 	code, out, errOut := run("stats", "erase", "--provider", "steam", "--subject", subject, "--config", cfgPath)
-	if code != 0 || !strings.Contains(out, "erased: 1 match rows, 0 monthly rows, 1 participation events, 0 participation monthly rows, 2 match result rows, 0 ingest batches re-keyed; pseudonym deleted: false") {
+	if code != 0 || !strings.Contains(out, "erased: 1 match rows, 0 monthly rows, 1 participation events, 0 participation monthly rows, 2 match result rows, 1 sessions, 0 activity monthly rows, 0 ingest batches re-keyed; pseudonym deleted: false") {
 		t.Fatalf("erase: %d %q %q", code, out, errOut)
 	}
 	if strings.Contains(out+errOut, subject) {

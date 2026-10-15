@@ -321,7 +321,7 @@ func (h *fakeHub) EraseIdentity(_ context.Context, req *connect.Request[hubv1.Er
 		return nil, err
 	}
 	h.record("EraseIdentity %s %s", req.Msg.GetProvider(), req.Msg.GetSubject())
-	return connect.NewResponse(&hubv1.EraseIdentityResponse{MatchRows: 12, MonthlyRows: 3, ParticipationRows: 4, ResultRows: 5, IngestBatches: 2, PseudonymDeleted: true}), nil
+	return connect.NewResponse(&hubv1.EraseIdentityResponse{MatchRows: 12, MonthlyRows: 3, ParticipationRows: 4, ResultRows: 5, SessionRows: 6, ActivityMonthlyRows: 1, IngestBatches: 2, PseudonymDeleted: true}), nil
 }
 
 func (h *fakeHub) TestNotifier(_ context.Context, req *connect.Request[hubv1.TestNotifierRequest]) (*connect.Response[hubv1.TestNotifierResponse], error) {
@@ -504,7 +504,7 @@ func TestServersManifest(t *testing.T) {
 func TestStatsEraseAndNotifiers(t *testing.T) {
 	h := adminHub(t)
 	out, _ := adminRun(t, exitOK, "", "stats", "erase", "--provider", "steam", "--subject", "76561190000000001")
-	if out != "erased: 12 match rows, 3 monthly rows, 4 participation events, 0 participation monthly rows, 5 match result rows, 2 ingest batches re-keyed; pseudonym deleted: true\n" ||
+	if out != "erased: 12 match rows, 3 monthly rows, 4 participation events, 0 participation monthly rows, 5 match result rows, 6 sessions, 1 activity monthly rows, 2 ingest batches re-keyed; pseudonym deleted: true\n" ||
 		h.adm.calls[0] != "EraseIdentity steam 76561190000000001" {
 		t.Errorf("erase: %q (%q)", out, h.adm.calls)
 	}

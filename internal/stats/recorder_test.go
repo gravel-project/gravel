@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -29,6 +30,37 @@ type memStore struct {
 	fail       bool
 	occupancy  map[time.Time][2]int // minute → fewest, most
 	teams      map[int64][]store.TeamScore
+	sessions   []memSession
+}
+
+// memSession is one stitched session, as RecordSessions writes it.
+type memSession struct {
+	server     string
+	key        store.PlayerKey
+	start, end time.Time
+}
+
+func (m *memStore) RecordSessions(_ context.Context, _ uuid.UUID, serverID, _ string, at, since time.Time, keys []store.PlayerKey) (int, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.fail {
+		return 0, errors.New("store down")
+	}
+	started := 0
+	for _, k := range keys {
+		extended := false
+		for i := range m.sessions {
+			ss := &m.sessions[i]
+			if ss.server == serverID && ss.key == k && !ss.end.Before(since) && !ss.end.After(at) {
+				ss.end, extended = at, true
+			}
+		}
+		if !extended {
+			m.sessions = append(m.sessions, memSession{server: serverID, key: k, start: at, end: at})
+			started++
+		}
+	}
+	return started, nil
 }
 
 func (m *memStore) RecordOccupancy(_ context.Context, _ uuid.UUID, _ string, minute time.Time, fewest, most int) error {
@@ -287,5 +319,44 @@ func TestRecorderCountsItsWrites(t *testing.T) {
 	r.Observe(ctx, srv, obs(45*time.Second, 0)) // empties: the match ends
 	if c.Seen() != 3 {
 		t.Errorf("a match's end was not counted: %d", c.Seen())
+	}
+}
+
+// Sessions are stitched from the polls (ADR-0035): two missed polls carry a session on, a third
+// ends it; a hub restart within the gap carries on, a longer one splits; an empty poll writes
+// nothing; each server keeps its own; and every new session is counted.
+func TestRecorderStitchesSessions(t *testing.T) {
+	st := newMemStore()
+	ctx := context.Background()
+	r := newRecorder(st)
+	at := func(s int) time.Duration { return time.Duration(s) * time.Second }
+	r.Observe(ctx, srv, obs(at(0), 0, player("1", 0, 0)))
+	r.Observe(ctx, srv, obs(at(15), 0, player("1", 0, 0), player("2", 0, 0)))
+	r.Observe(ctx, srv, obs(at(60), 0, player("1", 0, 0))) // 1 missed two polls (30, 45): carried on
+	r = newRecorder(st)                                    // the hub restarted within the gap
+	r.Observe(ctx, srv, obs(at(105), 0, player("1", 0, 0), player("2", 0, 0)))
+	r.Observe(ctx, srv, obs(at(120), 0))                    // empty: nothing written
+	r.Observe(ctx, srv, obs(at(300), 0, player("1", 0, 0))) // a long gap: a new session
+	other := servers.Server{ID: "wd-2", Game: "wardogs", Trust: servers.TrustOfficial, PollInterval: servers.Duration(time.Minute)}
+	r.Observe(ctx, other, servers.Observation{ServerID: "wd-2", ObservedAt: t0.Add(at(300)), Players: []drivers.Player{player("1", 0, 0)}})
+	r.Observe(ctx, other, servers.Observation{ServerID: "wd-2", ObservedAt: t0.Add(at(500)), Players: []drivers.Player{player("1", 0, 0)}}) // within 3.5 minutes
+
+	type span struct {
+		server, subject string
+		from, to        int
+	}
+	var got []span
+	for _, s := range st.sessions {
+		got = append(got, span{s.server, s.key.Subject, int(s.start.Sub(t0).Seconds()), int(s.end.Sub(t0).Seconds())})
+	}
+	want := []span{{"wd-1", "1", 0, 105}, {"wd-1", "2", 15, 15}, {"wd-1", "2", 105, 105}, {"wd-1", "1", 300, 300}, {"wd-2", "1", 300, 500}}
+	if !slices.Equal(got, want) {
+		t.Errorf("sessions = %v\nwant       %v", got, want)
+	}
+	if n := testutil.ToFloat64(r.sessions.WithLabelValues("wd-1")); n != 2 {
+		t.Errorf("sessions started on wd-1 since the restart = %v, want 2", n)
+	}
+	if SessionGap(0) != 52500*time.Millisecond || SessionGap(time.Minute) != 210*time.Second {
+		t.Errorf("gaps = %v, %v", SessionGap(0), SessionGap(time.Minute))
 	}
 }

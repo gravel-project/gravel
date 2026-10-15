@@ -817,8 +817,9 @@ func statsErase(ctx context.Context, args []string, stdout, stderr io.Writer) in
 		return c.fail(stderr, a.name, err)
 	}
 	m := res.Msg
-	fmt.Fprintf(stdout, "erased: %d match rows, %d monthly rows, %d participation events, %d participation monthly rows, %d match result rows, %d ingest batches re-keyed; pseudonym deleted: %t\n",
-		m.GetMatchRows(), m.GetMonthlyRows(), m.GetParticipationRows(), m.GetParticipationMonthlyRows(), m.GetResultRows(), m.GetIngestBatches(), m.GetPseudonymDeleted())
+	fmt.Fprintf(stdout, "erased: %d match rows, %d monthly rows, %d participation events, %d participation monthly rows, %d match result rows, %d sessions, %d activity monthly rows, %d ingest batches re-keyed; pseudonym deleted: %t\n",
+		m.GetMatchRows(), m.GetMonthlyRows(), m.GetParticipationRows(), m.GetParticipationMonthlyRows(), m.GetResultRows(), m.GetSessionRows(), m.GetActivityMonthlyRows(),
+		m.GetIngestBatches(), m.GetPseudonymDeleted())
 	return exitOK
 }
 

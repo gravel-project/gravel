@@ -4470,6 +4470,71 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
+      "description": "A player came on a server, or came back after more than two missed polls (ADR-0035). The sessions feed /admin/activity. No data is expected when nobody came on a server in the range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gravelOptional": "nobody came on a server in the range",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 190
+      },
+      "id": 77,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (server) (increase(gravel_stats_sessions_started_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "{{server}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Player sessions started",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
       "description": "The stats store could not write a poll (the database); the next poll records from the store, so only that poll's time on is lost. No data is expected when every poll was recorded in the range.",
       "fieldConfig": {
         "defaults": {
@@ -4500,10 +4565,10 @@
       "gridPos": {
         "h": 8,
         "w": 8,
-        "x": 16,
-        "y": 190
+        "x": 0,
+        "y": 198
       },
-      "id": 77,
+      "id": 78,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4564,10 +4629,10 @@
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 0,
+        "x": 8,
         "y": 198
       },
-      "id": 78,
+      "id": 79,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4628,10 +4693,10 @@
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 12,
-        "y": 198
+        "x": 0,
+        "y": 206
       },
-      "id": 79,
+      "id": 80,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4685,10 +4750,10 @@
       "gridPos": {
         "h": 4,
         "w": 12,
-        "x": 0,
+        "x": 12,
         "y": 206
       },
-      "id": 80,
+      "id": 81,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -4753,9 +4818,9 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 210
+        "y": 214
       },
-      "id": 81,
+      "id": 82,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4788,9 +4853,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 218
+        "y": 222
       },
-      "id": 82,
+      "id": 83,
       "panels": [],
       "title": "Ingestion",
       "type": "row"
@@ -4832,9 +4897,9 @@
         "h": 4,
         "w": 8,
         "x": 0,
-        "y": 219
+        "y": 223
       },
-      "id": 83,
+      "id": 84,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -4900,9 +4965,9 @@
         "h": 8,
         "w": 16,
         "x": 8,
-        "y": 219
+        "y": 223
       },
-      "id": 84,
+      "id": 85,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4935,9 +5000,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 227
+        "y": 231
       },
-      "id": 85,
+      "id": 86,
       "panels": [],
       "title": "Background jobs",
       "type": "row"
@@ -4977,9 +5042,9 @@
         "h": 8,
         "w": 16,
         "x": 0,
-        "y": 228
+        "y": 232
       },
-      "id": 86,
+      "id": 87,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5034,9 +5099,9 @@
         "h": 4,
         "w": 8,
         "x": 16,
-        "y": 228
+        "y": 232
       },
-      "id": 87,
+      "id": 88,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -5072,9 +5137,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 236
+        "y": 240
       },
-      "id": 88,
+      "id": 89,
       "panels": [],
       "title": "Events",
       "type": "row"
@@ -5115,9 +5180,9 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 237
+        "y": 241
       },
-      "id": 89,
+      "id": 90,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5180,9 +5245,9 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 245
+        "y": 249
       },
-      "id": 90,
+      "id": 91,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5245,9 +5310,9 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 245
+        "y": 249
       },
-      "id": 91,
+      "id": 92,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5280,9 +5345,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 253
+        "y": 257
       },
-      "id": 92,
+      "id": 93,
       "panels": [],
       "title": "Runtime",
       "type": "row"
@@ -5321,9 +5386,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 254
+        "y": 258
       },
-      "id": 93,
+      "id": 94,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5384,9 +5449,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 254
+        "y": 258
       },
-      "id": 94,
+      "id": 95,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5447,9 +5512,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 254
+        "y": 258
       },
-      "id": 95,
+      "id": 96,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5510,9 +5575,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 262
+        "y": 266
       },
-      "id": 96,
+      "id": 97,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5573,9 +5638,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 262
+        "y": 266
       },
-      "id": 97,
+      "id": 98,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5636,9 +5701,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 262
+        "y": 266
       },
-      "id": 98,
+      "id": 99,
       "options": {
         "legend": {
           "displayMode": "list",
