@@ -212,6 +212,20 @@ backup: ## Take a base backup of the compose stack's Postgres into the local sto
 backup-drill: build postgres-image ## The restore drill: archive, back up, restore to a point in time, verify, timed (podman)
 	HUB=$(BIN)/gravel-hub IMAGE=$(POSTGRES_IMAGE_REPO):$(IMAGE_TAG) $(CURDIR)/deploy/backup-drill.sh
 
+.PHONY: compose-check
+compose-check: ## The Compose tier (gravel#210): its pins are the quadlets', it's complete, and Compose reads it
+	go test ./deploy -run 'TestCompose' -count=1
+	@if docker compose version >/dev/null 2>&1; then \
+	  tmp="$$(mktemp -d)"; cp -r $(CURDIR)/deploy/compose $(CURDIR)/deploy/observability "$$tmp/"; \
+	  (cd "$$tmp/compose" && ./init.sh check.example >/dev/null && \
+	   COMPOSE_PROFILES=https,tunnel,backups,bot,observability docker compose config --quiet) && echo "compose.yaml OK"; \
+	  status=$$?; rm -rf "$$tmp"; exit $$status; \
+	else echo "docker compose not found: compose.yaml not read (CI reads it)"; fi
+
+.PHONY: compose-drill
+compose-drill: ## The Compose tier end to end: a fresh stack, a local account, the hub claimed (docker compose; COMPOSE= for another)
+	$(CURDIR)/deploy/compose-drill.sh
+
 .PHONY: quadlet-check
 quadlet-check: ## Dry-run the quadlet units: the base set, with the backup drop-ins, with the observability set
 	@[[ -n "$(QUADLET)" ]] || { echo "quadlet generator not found (install podman)"; exit 1; }

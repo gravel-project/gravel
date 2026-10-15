@@ -1,0 +1,28 @@
+# The hub's configuration on a Compose box (tier 2, gravel#210): the template init.sh writes
+# local/hub.yaml from, with this box's domain and the client address header its ingress sets.
+# Edit local/hub.yaml afterwards (docs/hub.md has every key); this file stays the template.
+version: 1
+organization:
+  name: My gravel hub
+server:
+  listen: 0.0.0.0:8080          # reached only by Caddy or cloudflared on the Compose network
+  internal_listen: 0.0.0.0:9090 # /metrics and pprof; published on 127.0.0.1 only
+  # Caddy overwrites X-Real-IP with the member's address; behind the tunnel init.sh writes
+  # CF-Connecting-IP, which Cloudflare sets. Trusted as given: nothing else reaches the listener.
+  client_ip_header: X-Real-IP
+database:
+  url_file: /run/secrets/gravel-db-url
+  migrate: auto
+log:
+  level: info
+  format: json
+backup:
+  status_file: /var/lib/gravel/backup/status.json
+auth:
+  base_url: https://hub.example.com
+  # Usernames and passwords, with no Discord or Steam application needed (ADR-0026): the owner's
+  # account is made from this box (deploy/README.md). Turn on discord/steam here when you have them.
+  local:
+    enabled: true
+stats:
+  pseudonym_key_file: /run/secrets/gravel-stats-pseudonym-key

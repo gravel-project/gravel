@@ -25,7 +25,7 @@ Smallest to largest. The single-machine tier always stays viable.
 | Tier | Where | How it runs | Status |
 |---|---|---|---|
 | **1 · A single machine** | Your own box, or a local VM | The quadlet units in `deploy/quadlet/` as rootless systemd user units; the backup set, the bot and the observability set are opt-ins ([deploy/README.md](../deploy/README.md)). `make up` is the development stack | In |
-| **2 · Compose on a cloud box** | A rented VM you install on yourself | A production Compose file with the quadlets' digest pins and secrets from files; `docker compose up` on a fresh box gives a working hub with a local owner | #210 (H1) |
+| **2 · Compose on a cloud box** | A rented VM you install on yourself | A production Compose file with the quadlets' digest pins and secrets from files; `docker compose up` on a fresh box gives a working hub with a local owner, behind Caddy's HTTPS or a Cloudflare Tunnel ([deploy/README.md](../deploy/README.md)) | In (#210) |
 | **3 · A cloud VM the CLI makes** | A Droplet, DigitalOcean first | `gravel hub create --profile stock` makes the host through a cloud provider and installs tier 1's units on it; `destroy` then `create` replaces the host with its data intact ([cli.md](cli.md), [ADR-0020](adr/0020-the-hubs-own-host-made-by-the-cli-through-the-cloud-provider.md)) | In |
 | **4 · A Kubernetes cluster** | Kind locally; a managed cluster; OpenShift | The operator projects hub resources into the cluster and Agones runs the managed servers; Helm and OLM packaging ([ADR-0001](adr/0001-hub-first-kubernetes-later.md)) | K1, after P5 (#21, #9) |
 

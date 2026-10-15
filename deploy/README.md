@@ -1,15 +1,17 @@
-# Deploying the hub with podman
+# Deploying the hub
 
-Two ways to run the hub, both rootless podman on Fedora (the quadlets run anywhere with systemd and
-podman 4.5 or later):
+Three ways to run the hub, from a laptop to a production box (the tiers are in
+[docs/tiers.md](../docs/tiers.md)):
 
-| | Development | Production |
-|---|---|---|
-| Files | `compose.yaml`, `hub.yaml` | `quadlet/*` |
-| Start | `make up` | `systemctl --user start gravel-hub` |
-| Secrets | `dev-secrets.sh` generates them into podman's secret store | `podman secret create` from your own files |
-| Image | `localhost/gravel-hub:dev` and `localhost/gravel-postgres:dev`, built by `make image` and `make postgres-image` | `ghcr.io/gravel-project/gravel-hub` and, with backups, `ghcr.io/gravel-project/gravel-postgres`, pinned by digest, signatures verified |
-| Backups | always on, into a local S3 store (`store`); `make backup` takes a base backup; `make backup-drill` restores one | `deploy/quadlet/backup/`: drop-ins, a nightly timer, a real bucket (ADR-0006) |
+| | Development | Compose on a cloud box (tier 2) | Quadlets on one machine (tiers 1 and 3) |
+|---|---|---|---|
+| Files | `compose.yaml`, `hub.yaml` | `compose/` | `quadlet/*` |
+| Runs on | rootless podman (`podman compose`) | Docker with Compose, or podman | rootless podman under systemd (Fedora, podman 4.5 or later) |
+| Start | `make up` | `./init.sh <domain>`, then `docker compose up -d` | `systemctl --user start gravel-hub` |
+| Secrets | `dev-secrets.sh` generates them into podman's secret store | `init.sh` writes them as files under `compose/local/secrets/` | `podman secret create` from your own files |
+| Image | `localhost/gravel-hub:dev`, built by `make image` | the quadlets' release images, pinned by the same digests | `ghcr.io/gravel-project/gravel-hub`, pinned by digest, signatures verified |
+| HTTPS | none (127.0.0.1) | Caddy, with a Let's Encrypt certificate; or a Cloudflare Tunnel | a Cloudflare Tunnel (`gravel-cloudflared`) |
+| Backups | always on, into a local S3 store | the `backups` profile: WAL archiving and a nightly base backup to your bucket | `quadlet/backup/`: drop-ins, a nightly timer, a real bucket (ADR-0006) |
 
 Secrets are never bind-mounted: podman copies each secret into the container's tmpfs, so SELinux
 labels and file ownership on the host don't matter and nothing readable is left in a working tree.
@@ -42,6 +44,52 @@ printf '%s' '<steam web api key>' | podman secret create gravel-steam-api-key - 
 set `auth.discord.enabled: true` with your `client_id` (and `auth.steam.enabled: true`) in
 `deploy/hub.yaml`, uncomment the two secrets in `compose.yaml`, and `make up`. The owner-claim
 token the hub logs is pasted on the account page after the first login (`docs/hub.md`).
+
+## Compose on a cloud box (tier 2)
+
+For a rented VM you install on yourself (gravel#210): a production Compose project with the
+quadlets' images, pinned by the same digests (`make compose-check` holds them equal), HTTPS from
+Caddy, and a local owner, with no Discord, Steam or cloud configured. `make compose-drill` is the
+whole path below, end to end; CI runs it.
+
+1. Install Docker with its Compose plugin (or podman with `podman compose`) and copy this
+   repository's `deploy/` to the box (a clone is simplest: `compose/` reads `observability/` beside
+   it).
+2. Point a DNS record for the hub's name at the box, and open ports 80 and 443.
+3. Prepare it: `cd deploy/compose && ./init.sh hub.example.com`. It writes `local/hub.yaml` (the
+   domain, local accounts on), the secrets under `local/secrets/` (a database password, the stats
+   pseudonym key and the rest, generated; never overwritten on a second run) and `.env` (the domain
+   and `COMPOSE_PROFILES=https`). Keep `local/` and `.env`: they are this box's.
+4. `docker compose up -d`. Caddy gets the certificate on the first request to the name.
+5. Make the owner. The hub logged a one-time claim token
+   (`docker compose logs hub | grep unowned`; a restart mints a new one). Make yourself a local
+   account and set its password from the link it prints (`owner`, `admin` and a few other names
+   are reserved):
+
+   ```sh
+   docker compose exec hub /ko-app/gravel-hub users create-local --username jo --config /etc/gravel/hub.yaml
+   ```
+
+   then claim the hub: on the account page (paste the token), or with the CLI,
+   `gravel login --local --hub https://hub.example.com` and `gravel claim --hub https://hub.example.com <token>`.
+
+**Profiles** (`COMPOSE_PROFILES` in `.env`, comma-separated):
+
+| Profile | What it adds | You provide |
+|---|---|---|
+| `https` | Caddy on 80 and 443, the certificate for `GRAVEL_DOMAIN` | DNS and open ports |
+| `tunnel` | a Cloudflare Tunnel instead of Caddy: no open port | `./init.sh --tunnel <domain>`, the tunnel's token in `local/secrets/tunnel-token`, its public hostname pointing at `http://hub:8080` |
+| `backups` | WAL archiving and a base backup every night at 03:00 UTC (ADR-0006) | `GRAVEL_WAL_ARCHIVE=on`, `GRAVEL_BACKUP_S3_PREFIX`, `GRAVEL_BACKUP_ENDPOINT`, `GRAVEL_BACKUP_REGION` in `.env`; the bucket's credentials file in `local/secrets/backup-credentials` |
+| `bot` | the Discord bot with the stock modules (docs/bot.md) | `local/bot.yaml`, `local/secrets/bot-discord-token` and `bot-hub-client-secret` |
+| `observability` | Prometheus and Grafana with gravel's dashboards, on 127.0.0.1 | nothing (Grafana's admin password is generated) |
+
+The secrets are files: Compose outside Swarm mounts each into its container's `/run/secrets` with
+the file's own mode, so `init.sh` keeps them readable inside a directory only you may enter, and
+labels it for containers where SELinux is on (Fedora, RHEL). The hub reads the member's address
+from the header the ingress sets (`X-Real-IP`, which Caddy overwrites; `CF-Connecting-IP` behind
+the tunnel), so nothing but Caddy or cloudflared may reach it: the hub publishes only its metrics
+port, on 127.0.0.1. To upgrade, update the repository and `docker compose up -d`: the pins move
+with each release (Upgrading, below), and migrations run at start.
 
 ## Production: quadlet units
 

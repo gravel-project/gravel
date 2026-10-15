@@ -180,6 +180,18 @@ jobs:
       - run: sudo apt-get update -q && sudo apt-get install -y -q podman
       - run: make backup-drill
 
+  compose:
+    # The Compose tier (gravel#210): the pins, the file as Compose reads it, and the drill, a fresh
+    # stack behind Caddy with a local owner who claims the hub, on the runner's Docker.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - run: make compose-check
+      - run: make compose-drill
+
   observability:
     runs-on: ubuntu-latest
     steps:
@@ -315,7 +327,7 @@ jobs:
   # when deploy/postgres/ changed in the push. latest and the version tags stay with release.yml.
   publish:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [go, lint, admin, vuln, proto, quadlet, image, integration, unplug, backup, observability, a11y, hub-vm, release-config]
+    needs: [go, lint, admin, vuln, proto, quadlet, image, integration, unplug, backup, compose, observability, a11y, hub-vm, release-config]
     runs-on: ubuntu-latest
     permissions:
       contents: read

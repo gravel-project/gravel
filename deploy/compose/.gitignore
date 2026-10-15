@@ -1,0 +1,3 @@
+# What init.sh writes: this box's config, secrets and Compose settings.
+/local/
+/.env
