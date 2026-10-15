@@ -28,6 +28,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/gravel-project/gravel/internal/dashboards"
 )
 
 const defaultDir = "deploy/observability/grafana/dashboards"
@@ -94,8 +96,8 @@ func gen(out string) error {
 	if err := os.MkdirAll(out, 0o755); err != nil {
 		return err
 	}
-	for _, d := range dashboards() {
-		b, err := json.MarshalIndent(d.render(), "", "  ")
+	for _, d := range dashboards.All() {
+		b, err := json.MarshalIndent(d.Grafana(), "", "  ")
 		if err != nil {
 			return err
 		}
@@ -121,7 +123,7 @@ func rules(dir string, w io.Writer) error {
 		for _, p := range d.Panels {
 			for _, t := range p.Targets {
 				name := ruleName.ReplaceAllString(strings.ToLower(fmt.Sprintf("dashboard_%s_%d_%s", d.UID, p.ID, t.RefID)), "_")
-				expr, _ := json.Marshal(expand(t.Expr, vars)) // a JSON string is a valid YAML scalar
+				expr, _ := json.Marshal(dashboards.Expand(t.Expr, vars)) // a JSON string is a valid YAML scalar
 				fmt.Fprintf(w, "      - record: %s\n        expr: %s\n", name, expr)
 			}
 		}
@@ -267,7 +269,7 @@ func (c checker) panelHasData(ctx context.Context, dsUID string, p filePanel, va
 			"from": "now-15m", "to": "now",
 			"queries": []any{map[string]any{
 				"refId": t.RefID, "datasource": map[string]any{"type": "prometheus", "uid": dsUID},
-				"expr": expand(t.Expr, vars), "instant": true, "range": false,
+				"expr": dashboards.Expand(t.Expr, vars), "instant": true, "range": false,
 			}},
 		}
 		var resp struct {
