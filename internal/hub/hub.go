@@ -290,9 +290,22 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 			}
 			return identity.LocalPolicy{RegistrationOpen: set.LocalAccounts.Open(), MinPasswordLength: set.LocalAccounts.MinPasswordLength}, nil
 		}), identity.WithPasswordLinks(st, func(result string) { h.passwordResets.WithLabelValues(result).Inc() }))
+		// The hub mails members (gravel#234) through the notifiers' mail server, with links on the
+		// origin members reach it at.
+		switch smtp := cfg.Notify.SMTP; {
+		case smtp.Enabled() && cfg.Auth.BaseURL != "":
+			m, err := notify.NewMailer(notify.SMTP{Host: smtp.Host, Port: smtp.PortOrDefault(), Username: smtp.Username, Password: smtp.Password, From: smtp.From, TLS: smtp.TLSMode()})
+			if err != nil {
+				st.Close()
+				return nil, fmt.Errorf("hub: %w", err)
+			}
+			idOpts = append(idOpts, identity.WithMail(m, st, cfg.Auth.BaseURL))
+		case smtp.Enabled():
+			logger.Warn("local accounts get no mailed password links: set auth.base_url, the origin the links point at")
+		}
 	}
 	h.passwordResets = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "gravel_password_resets_total", Help: "Password links (set and reset) by result: issued, used, invalid (an unknown, used or expired link), refused (a password the rules turned down).",
+		Name: "gravel_password_resets_total", Help: "Password links (set and reset) by result: issued (by staff or the host), mailed (to a member who asked, gravel#234), mail_failed (the mail server refused it), mail_limited (the account's hourly limit), used, invalid (an unknown, used or expired link), refused (a password the rules turned down).",
 	}, []string{"result"})
 	h.ids = identity.New(st, o.ID, regs, cfg.Auth.AttemptTTL, logger, idOpts...)
 	h.sess = session.New(st, cfg.Auth.SessionTTL, cfg.Auth.Secure(), logger)
@@ -528,6 +541,9 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 	// Local logins hash a password each (ADR-0026): 10 a minute per address, 5 at once, on top of
 	// the pages' own per-address limit.
 	h.web.LocalLimiter = ratelimit.New(10, 5)
+	// "Forgot your password?" (gravel#234): 10 requests an hour per address, 5 at once, beside each
+	// account's own three mails an hour.
+	h.web.MailLimiter = ratelimit.NewEvery(10, time.Hour, 5)
 
 	h.public = h.buildPublic()
 	h.internal = h.buildInternal()
@@ -865,6 +881,9 @@ func (h *Hub) Prune(ctx context.Context) {
 	h.ingest.Sweep()
 	if h.web != nil && h.web.LocalLimiter != nil {
 		h.web.LocalLimiter.Sweep()
+	}
+	if h.web != nil && h.web.MailLimiter != nil {
+		h.web.MailLimiter.Sweep()
 	}
 	h.logger.Debug("pruned", "events", pruned, "sessions", sessions, "attempts", attempts, "app_tokens", tokens, "proofs", proofs, "ip_buckets", ips, "user_buckets", users, "app_buckets", appsSwept)
 }

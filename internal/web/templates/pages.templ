@@ -48,10 +48,54 @@ templ localLoginForm(p LoginPage) {
 			<input type="password" id="local-password" name="password" autocomplete="current-password" maxlength="1024" required/>
 			<p><button type="submit">Log in</button></p>
 		</form>
+		if p.Forgot {
+			<p><a href="/auth/local/forgot">Forgot your password?</a></p>
+		}
 		if p.Register {
 			<p>No account yet? <a href="/auth/local/register">Make one</a>.</p>
 		}
 	</section>
+}
+
+// Forgot is the whole "forgot your password" page (gravel#234).
+templ Forgot(p ForgotPage) {
+	@Layout(p.Page) {
+		@ForgotContent(p)
+	}
+}
+
+// ForgotContent asks for a username; after a request it shows only the one answer. It posts with
+// no session, like the login form.
+templ ForgotContent(p ForgotPage) {
+	@FlashView(p.Flash)
+	<h1>Forgot your password?</h1>
+	if !p.Sent {
+		<p id="forgot-about">If your account has a confirmed recovery address, the hub mails a link there to choose a new password. It works for an hour.</p>
+		<form method="post" action="/auth/local/forgot" aria-describedby="forgot-about">
+			<label for="forgot-username">Username</label>
+			<input type="text" id="forgot-username" name="username" value={ p.Username } autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="32" required/>
+			<p><button type="submit">Mail me a link</button></p>
+		</form>
+	}
+	<p><a href="/login">Back to logging in</a></p>
+}
+
+// Verify is the whole page a recovery address's verification link opens.
+templ Verify(p VerifyPage) {
+	@Layout(p.Page) {
+		@VerifyContent(p)
+	}
+}
+
+// VerifyContent confirms the address with a button, so following the link alone proves nothing.
+// Like a password link's page, it sends no referrer and the access log never holds its path.
+templ VerifyContent(p VerifyPage) {
+	@FlashView(p.Flash)
+	<h1>Confirm your recovery address</h1>
+	<form method="post" action={ templ.SafeURL(p.Action) }>
+		<p>Make <strong>{ p.Email }</strong> the recovery address of the account <strong>{ p.Username }</strong>? A forgotten password's link will be mailed there, and nowhere else.</p>
+		<p><button type="submit">Confirm the address</button></p>
+	</form>
 }
 
 // Reset is the whole page a password link opens.
@@ -163,6 +207,9 @@ templ AccountContent(p AccountPage) {
 					<li><a class="button" href={ templ.SafeURL("/auth/" + pr.Name + "/link") }>Link { pr.DisplayName }</a></li>
 				}
 			</ul>
+		}
+		if p.Recovery != nil {
+			@recoveryForm(p)
 		}
 		if p.Local != nil {
 			<h3>Log in with a username and password too</h3>
@@ -368,4 +415,31 @@ templ ProofStatusView(s ProofStatus) {
 			}
 		</div>
 	}
+}
+
+// recoveryForm is the local account's recovery address (gravel#234): set or changed with the current
+// password, proved by the link mailed to it.
+templ recoveryForm(p AccountPage) {
+	<h3 id="recovery-heading">Recovery address</h3>
+	<p class="muted" id="recovery-about">If you forget your password, the hub mails a link to choose a new one to this address, and only once you confirmed it. Nobody else sees it, and the hub never matches accounts by it.</p>
+	if p.Recovery.Email == "" {
+		<p>You have no recovery address.</p>
+	} else if p.Recovery.VerifiedAt != nil {
+		<p><strong>{ p.Recovery.Email }</strong>, confirmed { p.Recovery.VerifiedAt.Format("2006-01-02") }.</p>
+	} else {
+		<p><strong>{ p.Recovery.Email }</strong>, not confirmed yet. Save it with your password to mail a link that confirms it; a link already mailed works too.</p>
+	}
+	<form method="post" action="/account/local/email" aria-labelledby="recovery-heading" aria-describedby="recovery-about">
+		<input type="hidden" name="_csrf" value={ p.CSRF }/>
+		<label for="recovery-email">Email address</label>
+		<input type="email" id="recovery-email" name="email" value={ p.Recovery.Email } autocomplete="email" maxlength="254"/>
+		<label for="recovery-password">Your current password</label>
+		<input type="password" id="recovery-password" name="password" autocomplete="current-password" maxlength="1024" required/>
+		<p>
+			<button type="submit">Save and mail a link</button>
+			if p.Recovery.Email != "" {
+				<button type="submit" name="remove" value="1" class="link">Remove the address</button>
+			}
+		</p>
+	</form>
 }

@@ -76,6 +76,9 @@ type Handler struct {
 	// LocalLimiter, when set, bounds local logins and registrations per client address: each
 	// hashes a password.
 	LocalLimiter *ratelimit.Limiter
+	// MailLimiter, when set, bounds "forgot your password" requests per client address (gravel#234),
+	// beside each account's own limit in the identity service.
+	MailLimiter *ratelimit.Limiter
 	// ObserveAuthorization, when set, is told how every request at the authorization endpoint
 	// ended: "issued" (a code went back to the app), "denied" (the member pressed Cancel),
 	// "rejected" (an unknown app or redirect URI, or a request the app got an error for) or
@@ -141,6 +144,11 @@ func (h *Handler) Register(mux Mux) {
 	mux.HandleFunc("POST /account/local", h.setLocal)
 	mux.HandleFunc("GET /auth/local/reset/{token}", h.resetForm)
 	mux.HandleFunc("POST /auth/local/reset/{token}", h.reset)
+	mux.HandleFunc("GET /auth/local/forgot", h.forgotForm)
+	mux.HandleFunc("POST /auth/local/forgot", h.forgot)
+	mux.HandleFunc("GET /auth/local/verify/{token}", h.verifyForm)
+	mux.HandleFunc("POST /auth/local/verify/{token}", h.verify)
+	mux.HandleFunc("POST /account/local/email", h.setRecoveryEmail)
 	mux.HandleFunc("GET /auth/{provider}/start", h.startLogin)
 	mux.HandleFunc("GET /auth/{provider}/link", h.startLink)
 	mux.HandleFunc("GET /auth/{provider}/roles", h.startRoles)
@@ -208,7 +216,7 @@ func (h *Handler) loginPage(w http.ResponseWriter, r *http.Request, status int, 
 	if c, err := r.Cookie(h.sess.CookieName(session.CookieLastProvider)); err == nil {
 		last = c.Value
 	}
-	lp := templates.LoginPage{Page: p.Page, Local: h.ids.LocalEnabled(), Username: username}
+	lp := templates.LoginPage{Page: p.Page, Local: h.ids.LocalEnabled(), Forgot: h.ids.MailEnabled(), Username: username}
 	for _, reg := range h.ids.Providers() {
 		if reg.Login {
 			pr := templates.Provider{Name: reg.Provider.Name(), DisplayName: reg.Provider.DisplayName(), LastUsed: reg.Provider.Name() == last}
@@ -300,6 +308,13 @@ func (h *Handler) accountPage(r *http.Request, flash *templates.Flash) (template
 		}
 		if _, ok := reg.Provider.(identity.Publisher); ok && reg.Login && linked[pr.Name] {
 			ap.RoleProviders = append(ap.RoleProviders, pr)
+		}
+	}
+	if h.ids.MailEnabled() {
+		for _, i := range ap.Identities {
+			if i.Provider == identity.ProviderLocal {
+				ap.Recovery = &templates.RecoveryForm{Email: i.RecoveryEmail, VerifiedAt: i.RecoveryVerifiedAt}
+			}
 		}
 	}
 	if h.ids.LocalEnabled() && !linked[identity.ProviderLocal] {
@@ -716,10 +731,15 @@ func (h *Handler) page(r *http.Request, title string) (pageData, *browser, error
 				Moderator: holdsSomewhere(u, "servers:moderate", "moderator", "admin"), CanGrant: holdsSomewhere(u, "roles:grant", "admin")}
 			p.CSRF = s.CSRFToken
 			for _, i := range u.GetIdentities() {
-				v := templates.Identity{Provider: i.GetProvider(), Subject: i.GetSubject(), DisplayName: i.GetDisplayName(), AvatarURL: i.GetAvatarUrl(), Method: i.GetVerificationMethod(), VerifiedAt: i.GetVerifiedAt().AsTime()}
+				v := templates.Identity{Provider: i.GetProvider(), Subject: i.GetSubject(), DisplayName: i.GetDisplayName(), AvatarURL: i.GetAvatarUrl(), Method: i.GetVerificationMethod(), VerifiedAt: i.GetVerifiedAt().AsTime(),
+					RecoveryEmail: i.GetRecoveryEmail()}
 				if i.GetLastLoginAt() != nil {
 					t := i.GetLastLoginAt().AsTime()
 					v.LastLoginAt = &t
+				}
+				if i.GetRecoveryEmailVerifiedAt() != nil {
+					t := i.GetRecoveryEmailVerifiedAt().AsTime()
+					v.RecoveryVerifiedAt = &t
 				}
 				p.identities = append(p.identities, v)
 			}

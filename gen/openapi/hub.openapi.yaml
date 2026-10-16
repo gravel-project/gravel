@@ -5964,6 +5964,20 @@ components:
             - $ref: '#/components/schemas/google.protobuf.Timestamp'
           title: last_login_at
           description: When this identity was last used to log in; unset for one that was only linked.
+        recoveryEmail:
+          type: string
+          title: recovery_email
+          description: |-
+            The recovery address of the caller's own local account (gravel#234), only in GetMe and only to
+             a session: never to an app acting for the member, never in another member's identities. Empty
+             for none.
+        recoveryEmailVerifiedAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: recovery_email_verified_at
+          description: |-
+            When the member proved recovery_email with the link mailed to it; unset while unproved. Only a
+             proved address is mailed a password link.
       title: Identity
       additionalProperties: false
       description: |-

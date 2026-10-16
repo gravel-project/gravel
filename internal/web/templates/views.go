@@ -122,6 +122,10 @@ type Identity struct {
 	VerifiedAt      time.Time
 	LastLoginAt     *time.Time
 	CanUnlink       bool
+	// RecoveryEmail and RecoveryVerifiedAt are a local account's recovery address, the member's own
+	// only (gravel#234).
+	RecoveryEmail      string
+	RecoveryVerifiedAt *time.Time
 }
 
 // Provider is a login or link provider a page offers.
@@ -157,7 +161,8 @@ type LoginPage struct {
 	Providers []Provider
 	// Local offers the form; LocalFirst puts it above the providers (this browser last used it);
 	// Register links to registration, which the host opened.
-	Local, LocalFirst, Register bool
+	// Forgot links to "forgot your password", when the hub mails members (gravel#234).
+	Local, LocalFirst, Register, Forgot bool
 	// Username is what the member typed, kept after a refusal.
 	Username string
 }
@@ -180,6 +185,29 @@ type ResetPage struct {
 	Action string
 }
 
+// ForgotPage asks for a username to mail a password link to (gravel#234); Sent is the one answer
+// after a request, whatever happened.
+type ForgotPage struct {
+	Page
+	Username string
+	Sent     bool
+}
+
+// VerifyPage confirms a recovery address from the link mailed to it; Action is the link's own path.
+type VerifyPage struct {
+	Page
+	Username string
+	Email    string
+	Action   string
+}
+
+// RecoveryForm is the recovery address of the member's local account on the account page, when the
+// hub mails members (gravel#234).
+type RecoveryForm struct {
+	Email      string
+	VerifiedAt *time.Time
+}
+
 // LocalForm offers a member with no local account a username and password (ADR-0026).
 type LocalForm struct {
 	MinPasswordLength int
@@ -189,7 +217,9 @@ type LocalForm struct {
 type AccountPage struct {
 	Page
 	// Local offers a username and password when the hub has local accounts and the member has none.
-	Local         *LocalForm
+	Local *LocalForm
+	// Recovery is the local account's recovery address, when the hub mails members.
+	Recovery      *RecoveryForm
 	Identities    []Identity
 	LinkProviders []Provider
 	// RoleProviders are linked providers that show the member's linked accounts (Discord's

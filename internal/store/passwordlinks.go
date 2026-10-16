@@ -31,6 +31,10 @@ type PasswordLink struct {
 	IssuedAt  time.Time
 	ExpiresAt time.Time
 	UsedAt    *time.Time
+	// Mailed is a link a member asked for that is mailed to their verified recovery address
+	// (gravel#234): the identity log says password_reset_mailed, not password_reset_issued. Not
+	// stored on the link.
+	Mailed bool
 }
 
 const passwordLinkColumns = `id, token_hash, subject, purpose, issued_by, issued_at, expires_at, used_at`
@@ -45,7 +49,7 @@ func scanPasswordLink(row pgx.Row) (PasswordLink, error) {
 }
 
 // CreatePasswordLink stores a link for a local account, deletes the account's unused links, and logs
-// the issue on the account's identity log, in one transaction. ErrNotFound for an unknown account.
+// the issue (or the mailing, l.Mailed) on the account's identity log, in one transaction. ErrNotFound for an unknown account.
 func (s *Store) CreatePasswordLink(ctx context.Context, l PasswordLink) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -67,7 +71,11 @@ func (s *Store) CreatePasswordLink(ctx context.Context, l PasswordLink) error {
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`, l.ID, l.TokenHash, ProviderLocal, l.Subject, l.Purpose, l.IssuedBy, l.IssuedAt, l.ExpiresAt); err != nil {
 		return fmt.Errorf("store: create password link: %w", err)
 	}
-	if err := s.appendIdentityEvent(ctx, tx, userID, ProviderLocal, l.Subject, IdentityEventPasswordLinkIssued, l.IssuedAt); err != nil {
+	event := IdentityEventPasswordLinkIssued
+	if l.Mailed {
+		event = IdentityEventPasswordResetMailed
+	}
+	if err := s.appendIdentityEvent(ctx, tx, userID, ProviderLocal, l.Subject, event, l.IssuedAt); err != nil {
 		return err
 	}
 	if err := tx.Commit(ctx); err != nil {

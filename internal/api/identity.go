@@ -15,6 +15,7 @@ import (
 
 	hubv1 "github.com/gravel-project/gravel/gen/gravel/hub/v1"
 	"github.com/gravel-project/gravel/gen/gravel/hub/v1/hubv1connect"
+	"github.com/gravel-project/gravel/internal/apps"
 	"github.com/gravel-project/gravel/internal/authz"
 	"github.com/gravel-project/gravel/internal/identity"
 	"github.com/gravel-project/gravel/internal/identity/proof"
@@ -57,7 +58,35 @@ func (s *IdentityServer) GetMe(ctx context.Context, _ *connect.Request[hubv1.Get
 	if err != nil {
 		return nil, err
 	}
+	if err := s.recoveryAddress(ctx, uid, u); err != nil {
+		return nil, err
+	}
 	return connect.NewResponse(&hubv1.GetMeResponse{User: u}), nil
+}
+
+// recoveryAddress puts the recovery address on the caller's local identity (gravel#234), for a
+// session only: an app acting for the member never sees it.
+func (s *IdentityServer) recoveryAddress(ctx context.Context, uid uuid.UUID, u *hubv1.User) error {
+	if _, app := apps.MemberFromContext(ctx); app {
+		return nil
+	}
+	for _, i := range u.GetIdentities() {
+		if i.GetProvider() != identity.ProviderLocal {
+			continue
+		}
+		a, err := s.ids.RecoveryAddressOf(ctx, uid)
+		if errors.Is(err, identity.ErrNoLocalLogin) {
+			return nil
+		}
+		if err != nil {
+			return mapError(ctx, s.logger, err)
+		}
+		i.RecoveryEmail = a.Email
+		if a.VerifiedAt != nil {
+			i.RecoveryEmailVerifiedAt = timestamppb.New(*a.VerifiedAt)
+		}
+	}
+	return nil
 }
 
 // UnlinkIdentity removes one of the caller's identities; the last one is refused.

@@ -45,8 +45,40 @@ func (e *email) Notify(ctx context.Context, evs []Event) error {
 		fmt.Fprintf(&b, "\n%s\n", e.d.Link)
 	}
 	m.SetBodyString(mail.TypeTextPlain, b.String())
+	return send(ctx, e.d.SMTP, m)
+}
 
-	s := e.d.SMTP
+// Mailer sends one plain-text message to one address through hub.yaml's mail server: what the hub
+// mails a member who asked (a recovery address's verification, a password link, gravel#234),
+// beside the notifiers, which carry events to staff.
+type Mailer struct {
+	smtp SMTP
+}
+
+// NewMailer builds a Mailer over the mail server.
+func NewMailer(s SMTP) (*Mailer, error) {
+	if s.Host == "" {
+		return nil, errors.New("no mail server: set hub.yaml notify.smtp")
+	}
+	return &Mailer{smtp: s}, nil
+}
+
+// Mail sends the message. Its errors never carry the body, which may hold a one-time link.
+func (m *Mailer) Mail(ctx context.Context, to, subject, body string) error {
+	msg := mail.NewMsg()
+	if err := msg.From(m.smtp.From); err != nil {
+		return fmt.Errorf("from: %w", err)
+	}
+	if err := msg.To(to); err != nil {
+		return fmt.Errorf("to: %w", err)
+	}
+	msg.Subject(subject)
+	msg.SetBodyString(mail.TypeTextPlain, body)
+	return send(ctx, m.smtp, msg)
+}
+
+// send delivers a message through the mail server.
+func send(ctx context.Context, s SMTP, m *mail.Msg) error {
 	opts := []mail.Option{mail.WithTimeout(SendTimeout), mail.WithPort(s.Port)}
 	switch s.TLS {
 	case "implicit":

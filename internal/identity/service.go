@@ -62,6 +62,7 @@ type Service struct {
 	pwParams    PasswordParams
 	links       LinkStore // nil: no password links (gravel#187)
 	observeLink func(result string)
+	mail        *mailing // nil: the hub mails no member (gravel#234)
 
 	now  func() time.Time
 	rand io.Reader
@@ -496,7 +497,15 @@ func (s *Service) Prune(ctx context.Context) (int64, error) {
 	}
 	// Password links are kept 30 days after they expire, for the record, then go.
 	m, err := s.links.DeleteExpiredPasswordLinks(ctx, s.now().Add(-30*24*time.Hour))
-	return n + m, err
+	if err != nil || s.mail == nil {
+		return n + m, err
+	}
+	// A verification link is worth nothing once expired: no record is kept.
+	v, err := s.mail.st.DeleteExpiredEmailVerifications(ctx, s.now())
+	if s.mail.limit != nil {
+		s.mail.limit.Sweep()
+	}
+	return n + m + v, err
 }
 
 func (s *Service) random() (string, error) {

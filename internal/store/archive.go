@@ -21,9 +21,9 @@ type ArchiveTable struct {
 
 // NotArchived are the tables an export leaves out: the migration ledger (the archive says its
 // schema version) and what only lasts minutes or a login (sessions and their attempts, app and
-// authorization tokens, one-time password links). Leaving them out ends every login; nothing a
-// member or an operator made is lost.
-var NotArchived = []string{"goose_db_version", "sessions", "auth_attempts", "app_tokens", "authorization_codes", "password_links"}
+// authorization tokens, one-time password links and recovery-address links). Leaving them out
+// ends every login and every open link; nothing a member or an operator made is lost.
+var NotArchived = []string{"goose_db_version", "sessions", "auth_attempts", "app_tokens", "authorization_codes", "password_links", "email_verifications"}
 
 // ErrNotEmpty is an import into a database that holds a hub's data already.
 var ErrNotEmpty = errors.New("store: the database is not empty")

@@ -60,6 +60,13 @@ message Identity {
   google.protobuf.Timestamp linked_at = 7;
   // When this identity was last used to log in; unset for one that was only linked.
   google.protobuf.Timestamp last_login_at = 8;
+  // The recovery address of the caller's own local account (gravel#234), only in GetMe and only to
+  // a session: never to an app acting for the member, never in another member's identities. Empty
+  // for none.
+  string recovery_email = 9;
+  // When the member proved recovery_email with the link mailed to it; unset while unproved. Only a
+  // proved address is mailed a password link.
+  google.protobuf.Timestamp recovery_email_verified_at = 10;
 }
 
 message GetMeRequest {}
