@@ -297,13 +297,15 @@ func whoamiCmd(ctx context.Context, args []string, stdout, stderr io.Writer) int
 // claimCmd makes the logged-in member the hub's owner with the one-time token the hub printed at
 // start (ADR-0002).
 func claimCmd(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	const usage = "usage: gravel claim [--hub URL] [--] TOKEN   (gravel hub status prints the token while the hub is unowned; -- before a token that starts with '-')"
 	fs := newFlagSet("claim", stderr)
 	hf := addHubFlag(fs)
 	if err := fs.Parse(args); err != nil {
+		fmt.Fprintln(stderr, usage) // a token starting with '-' lands here, read as a flag
 		return exitUsage
 	}
 	if fs.NArg() != 1 {
-		fmt.Fprintln(stderr, "usage: gravel claim [--hub URL] TOKEN   (gravel hub status prints the token while the hub is unowned)")
+		fmt.Fprintln(stderr, usage)
 		return exitUsage
 	}
 	c, err := openHub(hf)

@@ -281,7 +281,7 @@ The VMs a hub makes for its game servers are the hub's, not the CLI's: they come
 | `gravel login` | `--local`: a local account's session; `--app`: an app's client id and secret file | 0; 1 refused; 2 usage |
 | `gravel logout` | end the session on the hub and forget the credential | 0; 1 |
 | `gravel whoami` | the member (their roles, identities and capabilities), or the app | 0; 1; 4 log in |
-| `gravel claim TOKEN` | become the owner of an unowned hub (ADR-0002) | 0; 1 refused or owned; 2; 4 |
+| `gravel claim TOKEN` | become the owner of an unowned hub (ADR-0002). A hub from 0.10.0 never mints a token starting with `-`; for an older hub's that does, `gravel claim -- TOKEN` | 0; 1 refused or owned; 2; 4 |
 | `gravel fleet` | the totals, the open alarms and each server's health, trouble first | 0; 1 a server is down, or failed; 4 |
 | `gravel servers list` | every server: game, location, driver, state, players, map | 0; 1; 4 |
 | `gravel servers status SERVER` | one server's last observation | 0; 1 unknown or failed; 4 |
