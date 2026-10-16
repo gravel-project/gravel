@@ -353,7 +353,7 @@ jobs:
           cache: npm
           cache-dependency-path: web/admin/package-lock.json
       - run: make admin # ko builds from the tree: the bundle must be in it
-      - uses: ko-build/setup-ko@v0.9
+      - uses: ko-build/setup-ko@v0.10
         with:
           version: v0.19.1 # keep in step with KO_VERSION in the Makefile
       - uses: sigstore/cosign-installer@v4.1.2 # no floating v4 tag is published; pin the release
