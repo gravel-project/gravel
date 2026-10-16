@@ -249,6 +249,11 @@ type Discord struct {
 	// application has no endpoint URL. A deployment that serves /interactions and needs no
 	// events can turn it off.
 	Gateway bool `yaml:"gateway"`
+	// AvatarFile is a PNG the bot gives its user and the application at start, where they differ
+	// from it (gravel#158): gravel's stock bot points it at the kit's bot avatar in the image, a
+	// host at its own. Empty leaves both as the Developer Portal set them. Never fatal: a bad
+	// file is logged and the bot runs on.
+	AvatarFile string `yaml:"avatar_file"`
 
 	tokenSource string
 }

@@ -10,6 +10,7 @@ discord:
   token_file: /run/secrets/gravel-bot-discord-token
   guild_ids: []                  # commands per guild (instant) when set; global otherwise
   gateway: true                  # the staging application has no endpoint URL, so interactions arrive here
+  avatar_file: /var/run/ko/logo/variations/png/gravel-bot-avatar-512.png   # gravel's bot avatar, in the image; a host's own PNG, or leave out
 
 hub:
   url: http://hub:8080           # the hub on the stack's network

@@ -28,6 +28,7 @@ discord:
   token_file: /run/secrets/gravel-bot-discord-token   # or GRAVEL_BOT_DISCORD_TOKEN
   guild_ids: ["…"]               # commands registered per guild (visible at once); empty = global (within the hour)
   gateway: true                  # member events, and interactions when the application has no endpoint URL
+  avatar_file: /var/run/ko/logo/variations/png/gravel-bot-avatar-512.png   # a PNG for the bot and the application (below); leave out to keep the portal's
 hub:
   url: http://gravel-hub:8080    # the hub's API on the stack's network
   public_url: https://app.example.com   # the origin members open; the links in replies
@@ -114,6 +115,36 @@ URL** set to the bot's public `/interactions` (behind TLS termination), Discord 
 signature-verified with the public key and acknowledged within three seconds; with the field
 empty, they arrive over the gateway, so a staging bot needs no public URL. Both go through the same
 router.
+
+### The bot's avatar
+
+`discord.avatar_file` names a PNG (at most 10 MiB; 512×512 is what Discord shows best) that the
+bot gives its user and the application's icon at start, so a bot needs no trip to the Developer
+Portal to look like its host. Leave the key out and both stay as the portal set them.
+
+- **gravel's own look.** The stock image carries the brand kit's bot avatar (the hub stone in
+  slate, the grains in amber, on the dark ground) at
+  `/var/run/ko/logo/variations/png/gravel-bot-avatar-512.png`, vendored from mkzsystems/brand into
+  `cmd/gravel-bot/kodata/` (its `VENDORED` names the commit; change the kit and re-vendor, never
+  the files). `deploy/bot.yaml` points at it, for a bot with no host branding: a hub with no host
+  brand, a demo hub, a hosting service's bots. It is in the images from 0.10.0; an older image
+  logs that the file is missing and keeps its avatar.
+- **A host's own.** Put the PNG beside `bot.yaml` (in a quadlet,
+  `Volume=%h/.config/gravel/bot-avatar.png:/etc/gravel/bot-avatar.png:ro,Z`) and point the key at
+  it. A host's bot keeps its own avatar exactly as its Organization settings keep its theme;
+  gravel never picks one for it.
+
+**Only what differs is written, so a restart writes nothing.** Once the commands are registered, a
+job reads the file and the bot user: it fetches the current avatar from Discord's CDN at full
+size, which serves the uploaded bytes unchanged, and uploads the file only when they differ (no
+avatar, an animated one or another image). An application icon is stored downscaled, so it is
+compared by hash instead: Discord gives one image the same hash as an avatar and as an icon, so
+an icon whose hash isn't the avatar's is set. Change the file and restart to change both.
+
+Nothing about it stops the bot. A missing, unreadable or non-PNG file, a CDN that can't be
+reached (nothing is uploaded blind) or a refused upload is logged as an error and the bot runs on.
+Discord limits how often an avatar may change; a refused change waits for the next start, and
+the icon with it.
 
 ## Endpoints
 
