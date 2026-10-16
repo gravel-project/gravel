@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/mail"
 	"strings"
 	"time"
 
@@ -80,9 +79,8 @@ func (s *Service) CreateLocal(ctx context.Context, username, email string, by *u
 	}
 	var addr *string
 	if e := strings.TrimSpace(email); e != "" {
-		a, err := mail.ParseAddress(e)
-		if err != nil || a.Address != e || a.Name != "" || len(e) > MaxEmail {
-			return store.User{}, PasswordLink{}, fmt.Errorf("%w: %q", ErrInvalidEmail, e)
+		if _, err := parseRecoveryEmail(e); err != nil {
+			return store.User{}, PasswordLink{}, err
 		}
 		addr = &e
 	}
@@ -110,7 +108,7 @@ func (s *Service) CreateLocal(ctx context.Context, username, email string, by *u
 		return store.User{}, PasswordLink{}, err
 	}
 	s.logger.InfoContext(ctx, "local account created", "user_id", u.ID, "by", by)
-	link, err := s.issueLink(ctx, subject, store.PasswordLinkSet, by)
+	link, err := s.issueLink(ctx, subject, store.PasswordLinkSet, by, false)
 	if err != nil {
 		return store.User{}, PasswordLink{}, err
 	}
@@ -127,10 +125,12 @@ func (s *Service) IssueReset(ctx context.Context, username string, by *uuid.UUID
 	if err != nil {
 		return PasswordLink{}, ErrNoLocal
 	}
-	return s.issueLink(ctx, subject, store.PasswordLinkReset, by)
+	return s.issueLink(ctx, subject, store.PasswordLinkReset, by, false)
 }
 
-func (s *Service) issueLink(ctx context.Context, subject, purpose string, by *uuid.UUID) (PasswordLink, error) {
+// issueLink stores a new link for the account; mailed is one a member asked for by mail
+// (RequestPasswordMail), which counts as "mailed" once sent rather than "issued".
+func (s *Service) issueLink(ctx context.Context, subject, purpose string, by *uuid.UUID, mailed bool) (PasswordLink, error) {
 	raw := make([]byte, 32)
 	if _, err := io.ReadFull(s.rand, raw); err != nil {
 		return PasswordLink{}, err
@@ -141,16 +141,18 @@ func (s *Service) issueLink(ctx context.Context, subject, purpose string, by *uu
 		return PasswordLink{}, fmt.Errorf("identity: new id: %w", err)
 	}
 	now := s.now()
-	l := store.PasswordLink{ID: id, TokenHash: hashToken(token), Subject: subject, Purpose: purpose, IssuedBy: by, IssuedAt: now, ExpiresAt: now.Add(PasswordLinkTTL)}
+	l := store.PasswordLink{ID: id, TokenHash: hashToken(token), Subject: subject, Purpose: purpose, IssuedBy: by, IssuedAt: now, ExpiresAt: now.Add(PasswordLinkTTL), Mailed: mailed}
 	if err := s.links.CreatePasswordLink(ctx, l); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			return PasswordLink{}, ErrNoLocal
 		}
 		return PasswordLink{}, err
 	}
-	s.linkObserved("issued")
+	if !mailed {
+		s.linkObserved("issued")
+	}
 	// The token is never logged: the link is a password for the next hour.
-	s.logger.InfoContext(ctx, "password link issued", "subject", subject, "purpose", purpose, "by", by, "expires_at", l.ExpiresAt.UTC().Format(time.RFC3339))
+	s.logger.InfoContext(ctx, "password link issued", "subject", subject, "purpose", purpose, "by", by, "mailed", mailed, "expires_at", l.ExpiresAt.UTC().Format(time.RFC3339))
 	return PasswordLink{Token: token, Username: subject, Purpose: purpose, ExpiresAt: l.ExpiresAt}, nil
 }
 

@@ -365,7 +365,7 @@ func TestAccessibility(t *testing.T) {
 			p := base
 			p.Title, p.CanLogIn = "Log in", true
 			p.Flash = &templates.Flash{Kind: "err", Text: "That username and password don't match an account that may log in now."}
-			return templates.Login(templates.LoginPage{Page: p, Local: true, LocalFirst: true, Register: true, Username: "neckbeard",
+			return templates.Login(templates.LoginPage{Page: p, Local: true, LocalFirst: true, Register: true, Forgot: true, Username: "neckbeard",
 				Providers: []templates.Provider{{Name: "discord", DisplayName: "Discord"}}})
 		},
 		"/fixture/register": func() templ.Component {
@@ -384,6 +384,32 @@ func TestAccessibility(t *testing.T) {
 			p.Title, p.CanLogIn = "Choose a password", true
 			p.Flash = &templates.Flash{Kind: "err", Text: "A password has at least 12 characters."}
 			return templates.Reset(templates.ResetPage{Page: p, Username: "vps.dad", Set: true, MinPasswordLength: 12, Action: "/auth/local/reset/fixture"})
+		},
+		// The mailed reset (gravel#234): asking for a link, the one answer, confirming a recovery
+		// address, and the account page's recovery address waiting for its confirmation.
+		"/fixture/forgot": func() templ.Component {
+			p := base
+			p.Title, p.CanLogIn = "Forgot your password?", true
+			return templates.Forgot(templates.ForgotPage{Page: p, Username: "neckbeard"})
+		},
+		"/fixture/forgot-sent": func() templ.Component {
+			p := base
+			p.Title, p.CanLogIn = "Forgot your password?", true
+			p.Flash = &templates.Flash{Kind: "ok", Text: "If that account has a confirmed recovery address, a link to choose a new password is on its way there."}
+			return templates.Forgot(templates.ForgotPage{Page: p, Sent: true})
+		},
+		"/fixture/verify": func() templ.Component {
+			p := base
+			p.Title, p.CanLogIn = "Confirm your recovery address", true
+			return templates.Verify(templates.VerifyPage{Page: p, Username: "neckbeard", Email: "neck@example.com", Action: "/auth/local/verify/fixture"})
+		},
+		"/fixture/account-recovery": func() templ.Component {
+			p := base
+			p.Title, p.User, p.CSRF = "Account", jo, "csrf"
+			p.Flash = &templates.Flash{Kind: "ok", Text: "A link is on its way to neck@example.com. Open it within a day to confirm the address."}
+			local := templates.Identity{Provider: "local", ProviderDisplay: "Username and password", Subject: "neckbeard", DisplayName: "neckbeard", Method: "password", VerifiedAt: now,
+				RecoveryEmail: "neck@example.com"}
+			return templates.Account(templates.AccountPage{Page: p, Identities: []templates.Identity{local}, Recovery: &templates.RecoveryForm{Email: "neck@example.com"}})
 		},
 		"/fixture/consent": func() templ.Component {
 			p := base
@@ -639,6 +665,7 @@ func TestAccessibility(t *testing.T) {
 		"/fixture/server-moderator", "/fixture/server-host", "/fixture/server-host-parked", "/fixture/host-confirm", "/fixture/confirm", "/fixture/log", "/fixture/account-apps", "/fixture/consent",
 		"/fixture/account-proof", "/fixture/proof", "/fixture/proof-proven", "/fixture/host-expect", "/fixture/result",
 		"/fixture/login-local", "/fixture/register", "/fixture/account-local", "/fixture/reset",
+		"/fixture/forgot", "/fixture/forgot-sent", "/fixture/verify", "/fixture/account-recovery",
 		"/admin", "/admin/events", "/admin/people", "/admin/servers/htg-cs2-1", "/admin/settings", "/admin/apps", "/admin/metrics", "/admin/stats", "/admin/activity", "/admin/spend", "/admin/access", "/admin/nowhere"}
 	// What each dashboard route shows once rendered in the browser.
 	adminRenders := map[string]string{"/admin": ">HTG WARDOGS | NA WEST | #1</a>", "/admin/events": ">HTG WARDOGS | NA WEST | #2 is down</p>", "/admin/people": ">Sam</a>", "/admin/servers/htg-cs2-1": ">Release the lease</button>", "/admin/settings": ">Save the settings</button>", "/admin/apps": ">HTG Bot</p>", "/admin/metrics": ">p95 latency by procedure</figcaption>", "/admin/stats": ">Damage (HP)</th>", "/admin/activity": ">Regulars gone quiet</h2>", "/admin/spend": ">Day by day</h2>", "/admin/access": ">Your access</h1>", "/admin/nowhere": ">Not found</h1>"}

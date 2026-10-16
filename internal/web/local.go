@@ -296,7 +296,11 @@ func (h *Handler) reset(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) linkError(w http.ResponseWriter, r *http.Request, err error) {
 	if errors.Is(err, identity.ErrLinkInvalid) {
-		h.fail(w, r, http.StatusNotFound, "Link not valid", "This link is unknown, used or expired. Ask the hub's staff for a new one.")
+		text := "This link is unknown, used or expired. Ask the hub's staff for a new one."
+		if h.ids.MailEnabled() {
+			text = "This link is unknown, used or expired. Ask for a new one under \"Forgot your password?\" on the login page, or ask the hub's staff."
+		}
+		h.fail(w, r, http.StatusNotFound, "Link not valid", text)
 		return
 	}
 	h.serverError(w, r, err)

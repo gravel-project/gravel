@@ -113,7 +113,7 @@ notify:                          # the notifiers' secrets and the mail server; w
     ops-hook: {file: /run/secrets/gravel-notify-ops-hook}     # a JSON webhook's signing key (openssl rand -hex 32)
     discord: {file: /run/secrets/gravel-notify-discord}       # a Discord webhook's whole URL
     john-phone: {file: /run/secrets/gravel-notify-ntfy}       # an ntfy access token (optional)
-  smtp:                          # for email notifiers; omit it and they fail, saying so
+  smtp:                          # for email notifiers and members' mailed password links (with auth.base_url); omit it and notifiers fail, saying so
     host: smtp.example.com
     port: 587                    # 0 or omitted: 587, or 465 with tls: implicit
     username: hub@example.com
@@ -224,6 +224,9 @@ every page works without it):
 | `GET`, `POST /auth/local/register` | make a local account and log in, when `local_accounts.registration` is `open`; 404 otherwise |
 | `POST /account/local` | give the logged-in member a username and password, with the CSRF token |
 | `GET`, `POST /auth/local/reset/{token}` | a password link: choose the password, once, within the hour; every other session of the member ends and this browser is logged in. 404 for an unknown, used or expired link. The access log shows `/auth/local/reset/<redacted>`, and the page sends no referrer |
+| `GET`, `POST /auth/local/forgot` | "Forgot your password?": a username; the hub mails a password link to the account's confirmed recovery address, and the answer is the same for every username. 429 past the per-address limit; 404 when the hub mails no member |
+| `GET`, `POST /auth/local/verify/{token}` | a recovery address's verification link: the page names the address, Confirm proves it, once, within the day. 404 for an unknown, used or expired link or one for an address changed since; the access log shows `/auth/local/verify/<redacted>`, and the page sends no referrer |
+| `POST /account/local/email` | set, change or (`remove=1`) remove the logged-in member's recovery address, with their current password and the CSRF token |
 | `POST /auth/logout` | this session (`Logout`), or every session with `everywhere=1` (`RevokeSessions`) |
 | `POST /account/unlink`, `POST /account/claim`, `POST /account/apps/revoke` | forms; every POST carries the session's CSRF token in `_csrf`; with `HX-Request: true` the answer is the page's content, else a redirect |
 | `GET /theme.css` | the theme's tokens as custom properties, with an ETag |
@@ -1621,6 +1624,8 @@ app with `events:read`.
 | `identity.password_set` | notice | A local account's first password was set from its link |
 | `identity.password_reset` | notice | A local account's password was reset from its link |
 | `identity.password_reset_issued` | notice | Staff or the host issued a password link |
+| `identity.password_reset_mailed` | notice | A member asked for a password link and the hub mailed it to their confirmed recovery address |
+| `identity.email_verified` | info | A member confirmed a local account's recovery address with the link mailed to it |
 | `ownership.claim_token_minted` | notice | The host minted an owner-claim token with `gravel-hub claim-token` (`detail.expires_at`; never the token) |
 | `ownership.claimed` | notice | A member claimed the hub with the one-time token and became its owner |
 | `settings.updated` | notice | The Organization settings were replaced; `detail.sections` names the top-level sections that changed (none when the same document was saved again) and `detail.settings_updated_at` the new version's time |
@@ -1929,13 +1934,32 @@ password is stored beside it as an argon2id hash and goes with it when it is unl
   a newer one for the account ends the older ones. Using it clears a lockout, ends every session
   the member had, and logs the browser in. Only the link's SHA-256 is stored; the link is never
   logged. Links are kept 30 days after they expire, then pruned.
-- **Email** is optional and only ever for recovery; the hub never matches or merges accounts by
-  email. Mailing a reset link to it waits for the email notifier: #234, after #196.
+- **A recovery address** (#234) is optional and only ever for recovery; the hub never matches or
+  merges accounts by email. It needs a hub that mails members: `notify.smtp` (the notifiers' mail
+  server) and `auth.base_url` (the origin the links point at) with local accounts on; with one of
+  them missing there is no recovery address and no "Forgot your password?", and staff issue links
+  as before. A member sets or changes it on the account page **with their current password** (a
+  wrong one counts toward the lockout), so a stolen session alone can't point recovery elsewhere;
+  the hub mails a link there, and the address gets nothing until the member opens it and presses
+  Confirm (following the link alone proves nothing, so a mail scanner can't). The link works once,
+  for a day, and only for the address it was mailed to: changing or removing the address ends it,
+  and a changed address is unconfirmed again. An address staff typed with `CreateLocalAccount` is
+  unconfirmed too. Only the link's SHA-256 is stored, the link never travels in an export, and
+  neither it nor the address is logged.
+- **Forgot your password?** on the login page (when the hub mails members) takes a username and
+  always gives the same answer, at once: a password link (the same hour-long, one-time link staff
+  issue) is mailed in the background, only to a confirmed address, at most three an hour for an
+  account; "forgot" itself is limited to 10 an hour per client address (5 at once). Verification
+  mails are limited to three an hour an account too. The mail comes from `notify.smtp.from`.
+  `GetMe` gives the member their own address and when they confirmed it, to their session only,
+  never to an app.
 - `gravel_local_logins_total{result}` counts `ok`, `refused`, `locked`, `invalid` (a refused
   registration), `rate_limited` and `error`, and `gravel_password_resets_total{result}` counts links
-  `issued`, `used`, `invalid` and `refused`, both on the hub dashboard's Login row;
+  `issued`, `mailed`, `mail_failed`, `mail_limited`, `used`, `invalid` and `refused`, both on the hub
+  dashboard's Login row;
   `gravel_identities{provider="local"}` counts the local accounts. Identity events
-  `password_reset_issued`, `password_set` and `password_reset` go on the identity log.
+  `password_reset_issued`, `password_reset_mailed`, `password_set`, `password_reset` and
+  `email_verified` go on the identity log.
 
 ### Proof in game (ADR-0022)
 

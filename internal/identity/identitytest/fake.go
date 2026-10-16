@@ -36,6 +36,8 @@ type FakeStore struct {
 	Locals map[string]store.LocalCredential
 	// Links are password links (gravel#187), oldest first.
 	Links []store.PasswordLink
+	// Verifications are open recovery-address links (gravel#234).
+	Verifications []store.EmailVerification
 	// Grants are role grants (ADR-0027), in the order made; Games, when set, are the games a
 	// grant may name (store.ErrUnknownGame otherwise).
 	Grants []store.RoleGrant
@@ -701,7 +703,11 @@ func (f *FakeStore) CreatePasswordLink(_ context.Context, l store.PasswordLink) 
 	}
 	f.Links = slices.DeleteFunc(f.Links, func(o store.PasswordLink) bool { return o.Subject == l.Subject && o.UsedAt == nil })
 	f.Links = append(f.Links, l)
-	f.event(ident.UserID, store.ProviderLocal, l.Subject, store.IdentityEventPasswordLinkIssued, l.IssuedAt)
+	event := store.IdentityEventPasswordLinkIssued
+	if l.Mailed {
+		event = store.IdentityEventPasswordResetMailed
+	}
+	f.event(ident.UserID, store.ProviderLocal, l.Subject, event, l.IssuedAt)
 	return nil
 }
 
@@ -745,4 +751,75 @@ func (f *FakeStore) DeleteExpiredPasswordLinks(_ context.Context, cutoff time.Ti
 	before := len(f.Links)
 	f.Links = slices.DeleteFunc(f.Links, func(l store.PasswordLink) bool { return l.ExpiresAt.Before(cutoff) })
 	return int64(before - len(f.Links)), nil
+}
+
+// SetRecoveryEmail is the store's statement in Go: a changed address loses its verification, the
+// account's open links end, and v becomes the open one.
+func (f *FakeStore) SetRecoveryEmail(_ context.Context, subject string, email *string, v *store.EmailVerification) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.fail("SetRecoveryEmail"); err != nil {
+		return err
+	}
+	c, ok := f.Locals[subject]
+	if !ok {
+		return store.ErrNotFound
+	}
+	same := (c.Email == nil && email == nil) || (c.Email != nil && email != nil && *c.Email == *email)
+	if !same {
+		c.EmailVerifiedAt = nil
+	}
+	if email != nil {
+		e := *email
+		c.Email = &e
+	} else {
+		c.Email = nil
+	}
+	f.Locals[subject] = c
+	f.Verifications = slices.DeleteFunc(f.Verifications, func(o store.EmailVerification) bool { return o.Subject == subject })
+	if v != nil {
+		f.Verifications = append(f.Verifications, *v)
+	}
+	return nil
+}
+
+func (f *FakeStore) GetEmailVerification(_ context.Context, tokenHash []byte, now time.Time) (store.EmailVerification, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, v := range f.Verifications {
+		if c := f.Locals[v.Subject]; bytes.Equal(v.TokenHash, tokenHash) && v.ExpiresAt.After(now) && c.Email != nil && *c.Email == v.Email {
+			return v, nil
+		}
+	}
+	return store.EmailVerification{}, store.ErrNotFound
+}
+
+func (f *FakeStore) VerifyRecoveryEmail(_ context.Context, tokenHash []byte, now time.Time) (store.EmailVerification, uuid.UUID, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for i, v := range f.Verifications {
+		if !bytes.Equal(v.TokenHash, tokenHash) || !v.ExpiresAt.After(now) {
+			continue
+		}
+		f.Verifications = slices.Delete(f.Verifications, i, i+1)
+		c := f.Locals[v.Subject]
+		if c.Email == nil || *c.Email != v.Email {
+			return store.EmailVerification{}, uuid.Nil, store.ErrNotFound
+		}
+		at := now
+		c.EmailVerifiedAt = &at
+		f.Locals[v.Subject] = c
+		ident := f.Identities[key(store.ProviderLocal, v.Subject)]
+		f.event(ident.UserID, store.ProviderLocal, v.Subject, store.IdentityEventEmailVerified, now)
+		return v, ident.UserID, nil
+	}
+	return store.EmailVerification{}, uuid.Nil, store.ErrNotFound
+}
+
+func (f *FakeStore) DeleteExpiredEmailVerifications(_ context.Context, cutoff time.Time) (int64, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	before := len(f.Verifications)
+	f.Verifications = slices.DeleteFunc(f.Verifications, func(v store.EmailVerification) bool { return v.ExpiresAt.Before(cutoff) })
+	return int64(before - len(f.Verifications)), nil
 }

@@ -307,6 +307,41 @@ func TestEmail(t *testing.T) {
 	}
 }
 
+func TestMailer(t *testing.T) {
+	f := newFakeSMTP(t)
+	host, port, _ := net.SplitHostPort(f.addr)
+	p, _ := strconv.Atoi(port)
+	m, err := notify.NewMailer(notify.SMTP{Host: host, Port: p, From: "hub@example.com", TLS: "none"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := m.Mail(context.Background(), "neckbeard@example.com", "HTG: reset your password", "Open https://hub.example.com/auth/local/reset/tok within the hour.\n"); err != nil {
+		t.Fatal(err)
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if strings.Join(f.rcpt, ",") != "neckbeard@example.com" || len(f.data) != 1 {
+		t.Fatalf("rcpt %v, %d messages", f.rcpt, len(f.data))
+	}
+	head, body, _ := strings.Cut(f.data[0], "\r\n\r\n")
+	text, err := io.ReadAll(quotedprintable.NewReader(strings.NewReader(body)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	msg := head + "\n" + string(text)
+	for _, want := range []string{"Subject: HTG: reset your password", "From: <hub@example.com>", "To: <neckbeard@example.com>", "https://hub.example.com/auth/local/reset/tok"} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("the message lacks %q:\n%s", want, msg)
+		}
+	}
+	if _, err := notify.NewMailer(notify.SMTP{}); err == nil || !strings.Contains(err.Error(), "notify.smtp") {
+		t.Errorf("a mailer needs a mail server: %v", err)
+	}
+	if err := m.Mail(context.Background(), "not an address", "s", "b"); err == nil {
+		t.Error("a bad address is refused")
+	}
+}
+
 func TestBackoff(t *testing.T) {
 	for n, want := range map[int]time.Duration{1: 10 * time.Second, 2: 20 * time.Second, 3: 40 * time.Second, 7: 640 * time.Second / 1, 8: notify.MaxBackoff, 50: notify.MaxBackoff} {
 		if got := notify.Backoff(n); got != min(want, notify.MaxBackoff) {

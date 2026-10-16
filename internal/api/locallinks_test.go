@@ -73,3 +73,43 @@ func TestCreateLocalAccountAndReset(t *testing.T) {
 		t.Errorf("moderator reset: %v", err)
 	}
 }
+
+// GetMe carries the recovery address of the caller's own local account to their session, never to
+// an app acting for them (gravel#234).
+func TestGetMeRecoveryAddress(t *testing.T) {
+	r := newRig(t, withLocalLinks)
+	ctx := context.Background()
+	u, _, err := r.ids.CreateLocal(ctx, "vps.dad", "dad@example.com", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	local := func(c hubv1connect.IdentityServiceClient) *hubv1.Identity {
+		t.Helper()
+		me, err := c.GetMe(ctx, connect.NewRequest(&hubv1.GetMeRequest{}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, i := range me.Msg.GetUser().GetIdentities() {
+			if i.GetProvider() == "local" {
+				return i
+			}
+		}
+		t.Fatalf("no local identity: %v", me.Msg)
+		return nil
+	}
+	session := hubv1connect.NewIdentityServiceClient(cookieClient(http.DefaultClient, r.login(t, u.ID)), r.srv.URL)
+	if i := local(session); i.GetRecoveryEmail() != "dad@example.com" || i.GetRecoveryEmailVerifiedAt() != nil {
+		t.Errorf("unproved: %v", i)
+	}
+	at := time.Date(2026, 10, 16, 12, 0, 0, 0, time.UTC)
+	c := r.idSt.Locals["vps.dad"]
+	c.EmailVerifiedAt = &at
+	r.idSt.Locals["vps.dad"] = c
+	if i := local(session); i.GetRecoveryEmail() != "dad@example.com" || !i.GetRecoveryEmailVerifiedAt().AsTime().Equal(at) {
+		t.Errorf("proved: %v", i)
+	}
+	app := hubv1connect.NewIdentityServiceClient(memberClient(r.memberToken(t, u.ID, nil)), r.srv.URL)
+	if i := local(app); i.GetRecoveryEmail() != "" || i.GetRecoveryEmailVerifiedAt() != nil {
+		t.Errorf("an app sees the address: %v", i)
+	}
+}

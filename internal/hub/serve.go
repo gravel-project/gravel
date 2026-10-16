@@ -79,7 +79,8 @@ func (h *Hub) Run(ctx context.Context) error {
 		}
 	}
 	cancel()
-	<-jobsDone // no job touches the store after Run returns and closes it
+	<-jobsDone       // no job touches the store after Run returns and closes it
+	h.ids.WaitMail() // a member's mail in flight is sent, or gives up, before the process ends
 	h.logger.Info("stopped")
 	return first
 }

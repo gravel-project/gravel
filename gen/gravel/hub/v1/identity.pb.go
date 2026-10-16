@@ -247,9 +247,16 @@ type Identity struct {
 	VerifiedAt         *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=verified_at,json=verifiedAt,proto3" json:"verified_at,omitempty"`
 	LinkedAt           *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=linked_at,json=linkedAt,proto3" json:"linked_at,omitempty"`
 	// When this identity was last used to log in; unset for one that was only linked.
-	LastLoginAt   *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=last_login_at,json=lastLoginAt,proto3" json:"last_login_at,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	LastLoginAt *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=last_login_at,json=lastLoginAt,proto3" json:"last_login_at,omitempty"`
+	// The recovery address of the caller's own local account (gravel#234), only in GetMe and only to
+	// a session: never to an app acting for the member, never in another member's identities. Empty
+	// for none.
+	RecoveryEmail string `protobuf:"bytes,9,opt,name=recovery_email,json=recoveryEmail,proto3" json:"recovery_email,omitempty"`
+	// When the member proved recovery_email with the link mailed to it; unset while unproved. Only a
+	// proved address is mailed a password link.
+	RecoveryEmailVerifiedAt *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=recovery_email_verified_at,json=recoveryEmailVerifiedAt,proto3" json:"recovery_email_verified_at,omitempty"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
 }
 
 func (x *Identity) Reset() {
@@ -334,6 +341,20 @@ func (x *Identity) GetLinkedAt() *timestamppb.Timestamp {
 func (x *Identity) GetLastLoginAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.LastLoginAt
+	}
+	return nil
+}
+
+func (x *Identity) GetRecoveryEmail() string {
+	if x != nil {
+		return x.RecoveryEmail
+	}
+	return ""
+}
+
+func (x *Identity) GetRecoveryEmailVerifiedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.RecoveryEmailVerifiedAt
 	}
 	return nil
 }
@@ -1921,7 +1942,7 @@ const file_gravel_hub_v1_identity_proto_rawDesc = "" +
 	"\n" +
 	"granted_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tgrantedAt\x12+\n" +
 	"\x12granted_by_user_id\x18\x05 \x01(\tR\x0fgrantedByUserId\x12)\n" +
-	"\x11granted_by_app_id\x18\x06 \x01(\tR\x0egrantedByAppId\"\xe9\x02\n" +
+	"\x11granted_by_app_id\x18\x06 \x01(\tR\x0egrantedByAppId\"\xe9\x03\n" +
 	"\bIdentity\x12\x1a\n" +
 	"\bprovider\x18\x01 \x01(\tR\bprovider\x12\x18\n" +
 	"\asubject\x18\x02 \x01(\tR\asubject\x12!\n" +
@@ -1932,7 +1953,10 @@ const file_gravel_hub_v1_identity_proto_rawDesc = "" +
 	"\vverified_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
 	"verifiedAt\x127\n" +
 	"\tlinked_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\blinkedAt\x12>\n" +
-	"\rlast_login_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\vlastLoginAt\"\x0e\n" +
+	"\rlast_login_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\vlastLoginAt\x12%\n" +
+	"\x0erecovery_email\x18\t \x01(\tR\rrecoveryEmail\x12W\n" +
+	"\x1arecovery_email_verified_at\x18\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\x17recoveryEmailVerifiedAt\"\x0e\n" +
 	"\fGetMeRequest\"8\n" +
 	"\rGetMeResponse\x12'\n" +
 	"\x04user\x18\x01 \x01(\v2\x13.gravel.hub.v1.UserR\x04user\"M\n" +
@@ -2098,53 +2122,54 @@ var file_gravel_hub_v1_identity_proto_depIdxs = []int32{
 	33, // 5: gravel.hub.v1.Identity.verified_at:type_name -> google.protobuf.Timestamp
 	33, // 6: gravel.hub.v1.Identity.linked_at:type_name -> google.protobuf.Timestamp
 	33, // 7: gravel.hub.v1.Identity.last_login_at:type_name -> google.protobuf.Timestamp
-	0,  // 8: gravel.hub.v1.GetMeResponse.user:type_name -> gravel.hub.v1.User
-	0,  // 9: gravel.hub.v1.UnlinkIdentityResponse.user:type_name -> gravel.hub.v1.User
-	0,  // 10: gravel.hub.v1.LookupUserResponse.user:type_name -> gravel.hub.v1.User
-	0,  // 11: gravel.hub.v1.ListUsersResponse.users:type_name -> gravel.hub.v1.User
-	33, // 12: gravel.hub.v1.IdentityEvent.at:type_name -> google.protobuf.Timestamp
-	17, // 13: gravel.hub.v1.ListIdentityEventsResponse.events:type_name -> gravel.hub.v1.IdentityEvent
-	1,  // 14: gravel.hub.v1.ListRoleGrantsResponse.grants:type_name -> gravel.hub.v1.RoleGrant
-	0,  // 15: gravel.hub.v1.SetUserRoleResponse.user:type_name -> gravel.hub.v1.User
-	33, // 16: gravel.hub.v1.PasswordLink.expires_at:type_name -> google.protobuf.Timestamp
-	0,  // 17: gravel.hub.v1.CreateLocalAccountResponse.user:type_name -> gravel.hub.v1.User
-	24, // 18: gravel.hub.v1.CreateLocalAccountResponse.link:type_name -> gravel.hub.v1.PasswordLink
-	24, // 19: gravel.hub.v1.IssuePasswordResetResponse.link:type_name -> gravel.hub.v1.PasswordLink
-	33, // 20: gravel.hub.v1.StartProofResponse.expires_at:type_name -> google.protobuf.Timestamp
-	33, // 21: gravel.hub.v1.GetProofResponse.expires_at:type_name -> google.protobuf.Timestamp
-	3,  // 22: gravel.hub.v1.IdentityService.GetMe:input_type -> gravel.hub.v1.GetMeRequest
-	5,  // 23: gravel.hub.v1.IdentityService.UnlinkIdentity:input_type -> gravel.hub.v1.UnlinkIdentityRequest
-	7,  // 24: gravel.hub.v1.IdentityService.Logout:input_type -> gravel.hub.v1.LogoutRequest
-	9,  // 25: gravel.hub.v1.IdentityService.RevokeSessions:input_type -> gravel.hub.v1.RevokeSessionsRequest
-	11, // 26: gravel.hub.v1.IdentityService.RevokeUserSessions:input_type -> gravel.hub.v1.RevokeUserSessionsRequest
-	13, // 27: gravel.hub.v1.IdentityService.LookupUser:input_type -> gravel.hub.v1.LookupUserRequest
-	15, // 28: gravel.hub.v1.IdentityService.ListUsers:input_type -> gravel.hub.v1.ListUsersRequest
-	18, // 29: gravel.hub.v1.IdentityService.ListIdentityEvents:input_type -> gravel.hub.v1.ListIdentityEventsRequest
-	20, // 30: gravel.hub.v1.IdentityService.SetUserRole:input_type -> gravel.hub.v1.SetUserRoleRequest
-	25, // 31: gravel.hub.v1.IdentityService.CreateLocalAccount:input_type -> gravel.hub.v1.CreateLocalAccountRequest
-	27, // 32: gravel.hub.v1.IdentityService.IssuePasswordReset:input_type -> gravel.hub.v1.IssuePasswordResetRequest
-	21, // 33: gravel.hub.v1.IdentityService.ListRoleGrants:input_type -> gravel.hub.v1.ListRoleGrantsRequest
-	29, // 34: gravel.hub.v1.IdentityService.StartProof:input_type -> gravel.hub.v1.StartProofRequest
-	31, // 35: gravel.hub.v1.IdentityService.GetProof:input_type -> gravel.hub.v1.GetProofRequest
-	4,  // 36: gravel.hub.v1.IdentityService.GetMe:output_type -> gravel.hub.v1.GetMeResponse
-	6,  // 37: gravel.hub.v1.IdentityService.UnlinkIdentity:output_type -> gravel.hub.v1.UnlinkIdentityResponse
-	8,  // 38: gravel.hub.v1.IdentityService.Logout:output_type -> gravel.hub.v1.LogoutResponse
-	10, // 39: gravel.hub.v1.IdentityService.RevokeSessions:output_type -> gravel.hub.v1.RevokeSessionsResponse
-	12, // 40: gravel.hub.v1.IdentityService.RevokeUserSessions:output_type -> gravel.hub.v1.RevokeUserSessionsResponse
-	14, // 41: gravel.hub.v1.IdentityService.LookupUser:output_type -> gravel.hub.v1.LookupUserResponse
-	16, // 42: gravel.hub.v1.IdentityService.ListUsers:output_type -> gravel.hub.v1.ListUsersResponse
-	19, // 43: gravel.hub.v1.IdentityService.ListIdentityEvents:output_type -> gravel.hub.v1.ListIdentityEventsResponse
-	23, // 44: gravel.hub.v1.IdentityService.SetUserRole:output_type -> gravel.hub.v1.SetUserRoleResponse
-	26, // 45: gravel.hub.v1.IdentityService.CreateLocalAccount:output_type -> gravel.hub.v1.CreateLocalAccountResponse
-	28, // 46: gravel.hub.v1.IdentityService.IssuePasswordReset:output_type -> gravel.hub.v1.IssuePasswordResetResponse
-	22, // 47: gravel.hub.v1.IdentityService.ListRoleGrants:output_type -> gravel.hub.v1.ListRoleGrantsResponse
-	30, // 48: gravel.hub.v1.IdentityService.StartProof:output_type -> gravel.hub.v1.StartProofResponse
-	32, // 49: gravel.hub.v1.IdentityService.GetProof:output_type -> gravel.hub.v1.GetProofResponse
-	36, // [36:50] is the sub-list for method output_type
-	22, // [22:36] is the sub-list for method input_type
-	22, // [22:22] is the sub-list for extension type_name
-	22, // [22:22] is the sub-list for extension extendee
-	0,  // [0:22] is the sub-list for field type_name
+	33, // 8: gravel.hub.v1.Identity.recovery_email_verified_at:type_name -> google.protobuf.Timestamp
+	0,  // 9: gravel.hub.v1.GetMeResponse.user:type_name -> gravel.hub.v1.User
+	0,  // 10: gravel.hub.v1.UnlinkIdentityResponse.user:type_name -> gravel.hub.v1.User
+	0,  // 11: gravel.hub.v1.LookupUserResponse.user:type_name -> gravel.hub.v1.User
+	0,  // 12: gravel.hub.v1.ListUsersResponse.users:type_name -> gravel.hub.v1.User
+	33, // 13: gravel.hub.v1.IdentityEvent.at:type_name -> google.protobuf.Timestamp
+	17, // 14: gravel.hub.v1.ListIdentityEventsResponse.events:type_name -> gravel.hub.v1.IdentityEvent
+	1,  // 15: gravel.hub.v1.ListRoleGrantsResponse.grants:type_name -> gravel.hub.v1.RoleGrant
+	0,  // 16: gravel.hub.v1.SetUserRoleResponse.user:type_name -> gravel.hub.v1.User
+	33, // 17: gravel.hub.v1.PasswordLink.expires_at:type_name -> google.protobuf.Timestamp
+	0,  // 18: gravel.hub.v1.CreateLocalAccountResponse.user:type_name -> gravel.hub.v1.User
+	24, // 19: gravel.hub.v1.CreateLocalAccountResponse.link:type_name -> gravel.hub.v1.PasswordLink
+	24, // 20: gravel.hub.v1.IssuePasswordResetResponse.link:type_name -> gravel.hub.v1.PasswordLink
+	33, // 21: gravel.hub.v1.StartProofResponse.expires_at:type_name -> google.protobuf.Timestamp
+	33, // 22: gravel.hub.v1.GetProofResponse.expires_at:type_name -> google.protobuf.Timestamp
+	3,  // 23: gravel.hub.v1.IdentityService.GetMe:input_type -> gravel.hub.v1.GetMeRequest
+	5,  // 24: gravel.hub.v1.IdentityService.UnlinkIdentity:input_type -> gravel.hub.v1.UnlinkIdentityRequest
+	7,  // 25: gravel.hub.v1.IdentityService.Logout:input_type -> gravel.hub.v1.LogoutRequest
+	9,  // 26: gravel.hub.v1.IdentityService.RevokeSessions:input_type -> gravel.hub.v1.RevokeSessionsRequest
+	11, // 27: gravel.hub.v1.IdentityService.RevokeUserSessions:input_type -> gravel.hub.v1.RevokeUserSessionsRequest
+	13, // 28: gravel.hub.v1.IdentityService.LookupUser:input_type -> gravel.hub.v1.LookupUserRequest
+	15, // 29: gravel.hub.v1.IdentityService.ListUsers:input_type -> gravel.hub.v1.ListUsersRequest
+	18, // 30: gravel.hub.v1.IdentityService.ListIdentityEvents:input_type -> gravel.hub.v1.ListIdentityEventsRequest
+	20, // 31: gravel.hub.v1.IdentityService.SetUserRole:input_type -> gravel.hub.v1.SetUserRoleRequest
+	25, // 32: gravel.hub.v1.IdentityService.CreateLocalAccount:input_type -> gravel.hub.v1.CreateLocalAccountRequest
+	27, // 33: gravel.hub.v1.IdentityService.IssuePasswordReset:input_type -> gravel.hub.v1.IssuePasswordResetRequest
+	21, // 34: gravel.hub.v1.IdentityService.ListRoleGrants:input_type -> gravel.hub.v1.ListRoleGrantsRequest
+	29, // 35: gravel.hub.v1.IdentityService.StartProof:input_type -> gravel.hub.v1.StartProofRequest
+	31, // 36: gravel.hub.v1.IdentityService.GetProof:input_type -> gravel.hub.v1.GetProofRequest
+	4,  // 37: gravel.hub.v1.IdentityService.GetMe:output_type -> gravel.hub.v1.GetMeResponse
+	6,  // 38: gravel.hub.v1.IdentityService.UnlinkIdentity:output_type -> gravel.hub.v1.UnlinkIdentityResponse
+	8,  // 39: gravel.hub.v1.IdentityService.Logout:output_type -> gravel.hub.v1.LogoutResponse
+	10, // 40: gravel.hub.v1.IdentityService.RevokeSessions:output_type -> gravel.hub.v1.RevokeSessionsResponse
+	12, // 41: gravel.hub.v1.IdentityService.RevokeUserSessions:output_type -> gravel.hub.v1.RevokeUserSessionsResponse
+	14, // 42: gravel.hub.v1.IdentityService.LookupUser:output_type -> gravel.hub.v1.LookupUserResponse
+	16, // 43: gravel.hub.v1.IdentityService.ListUsers:output_type -> gravel.hub.v1.ListUsersResponse
+	19, // 44: gravel.hub.v1.IdentityService.ListIdentityEvents:output_type -> gravel.hub.v1.ListIdentityEventsResponse
+	23, // 45: gravel.hub.v1.IdentityService.SetUserRole:output_type -> gravel.hub.v1.SetUserRoleResponse
+	26, // 46: gravel.hub.v1.IdentityService.CreateLocalAccount:output_type -> gravel.hub.v1.CreateLocalAccountResponse
+	28, // 47: gravel.hub.v1.IdentityService.IssuePasswordReset:output_type -> gravel.hub.v1.IssuePasswordResetResponse
+	22, // 48: gravel.hub.v1.IdentityService.ListRoleGrants:output_type -> gravel.hub.v1.ListRoleGrantsResponse
+	30, // 49: gravel.hub.v1.IdentityService.StartProof:output_type -> gravel.hub.v1.StartProofResponse
+	32, // 50: gravel.hub.v1.IdentityService.GetProof:output_type -> gravel.hub.v1.GetProofResponse
+	37, // [37:51] is the sub-list for method output_type
+	23, // [23:37] is the sub-list for method input_type
+	23, // [23:23] is the sub-list for extension type_name
+	23, // [23:23] is the sub-list for extension extendee
+	0,  // [0:23] is the sub-list for field type_name
 }
 
 func init() { file_gravel_hub_v1_identity_proto_init() }
