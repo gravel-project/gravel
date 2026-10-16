@@ -8,6 +8,8 @@ patch release is everything else.
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-16
+
 ### Changed
 
 - gravel's own quadlet units pin the **0.9.0** images, verified with cosign 3 against the release workflow at `v0.9.0` (a `v0.8.1` identity refused, the 0.8.1 hub as a control): `gravel-hub@sha256:10ef2843b8008a11cd2f035cdd91cfc9003e38c00f392cd998268733bf4cea7a` (and its `GRAVEL_IMAGE`), `gravel-bot@sha256:6a4692102963c1d93455ed373cf9495a828a53b1134d432a923004cb978b4d9c`, and the backup set's `gravel-postgres@sha256:2c943077d6949a5e406d60573dec75c1b65a578499b0bc529837b88d5266a183` (0.9.0 rebuilt it from gravel's Postgres mirror). The Compose tier needs 0.9.0's local accounts.
@@ -788,7 +790,8 @@ patch release is everything else.
 
 - README and CLAUDE.md follow ADR-0001: status line, principle 2 (the resource lives in the hub's database), the hub and backup paragraphs, the adapter-repo rule, the local-dev default, and a seven-step build order with the issues behind each step. The launch games are the five Hidden Token Gaming plays, in three shapes, with War Dogs first; the open threads link the design-delta issues #2–#9 (#1).
 
-[Unreleased]: https://github.com/gravel-project/gravel/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/gravel-project/gravel/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/gravel-project/gravel/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/gravel-project/gravel/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/gravel-project/gravel/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/gravel-project/gravel/compare/v0.7.1...v0.8.0
