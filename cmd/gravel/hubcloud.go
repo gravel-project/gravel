@@ -315,6 +315,15 @@ func waitReady(ctx context.Context, r remote, host string, stdout io.Writer) err
 	var out strings.Builder
 	err := r.run(ctx, sshAdmin, host, nil, &out, &out, "sudo cloud-init status --wait --long")
 	var ee interface{ ExitCode() int }
+	if errors.As(err, &ee) && ee.ExitCode() == 1 {
+		// cloud-init 25.3 checks its own units the moment its status says done, while
+		// cloud-final.service may still be finishing: "Failed due to systemd unit failure" naming
+		// no unit, gone a moment later (the hub-vm drill, four times on 2026-10-16). Ask again once
+		// systemd's boot jobs are done; a unit that really failed is still failed then.
+		_ = r.run(ctx, sshAdmin, host, nil, io.Discard, io.Discard, "systemctl is-system-running --wait")
+		out.Reset()
+		err = r.run(ctx, sshAdmin, host, nil, &out, &out, "sudo cloud-init status --long")
+	}
 	switch {
 	case err == nil:
 		return nil

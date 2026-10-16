@@ -39,12 +39,15 @@ type fakeRemote struct {
 	shells    []remoteCall
 	forgotten []string
 
-	sshDownFor     int    // the first n "true" probes fail, as SSH does while the host boots
-	cloudInitErr   error  // what `cloud-init status` returns
-	cloudInitOut   string // and prints
-	journal        string // what journalctl prints
-	tunnelErr      error
-	interactiveErr error
+	sshDownFor       int    // the first n "true" probes fail, as SSH does while the host boots
+	cloudInitErr     error  // what `cloud-init status --wait` returns
+	cloudInitAgain   error  // what the second look (no --wait) returns, unless cloudInitSettles
+	cloudInitSettles bool   // the second look finds cloud-init done
+	settleErr        error  // what `systemctl is-system-running --wait` returns
+	cloudInitOut     string // and prints
+	journal          string // what journalctl prints
+	tunnelErr        error
+	interactiveErr   error
 }
 
 func (r *fakeRemote) run(_ context.Context, user, host string, stdin io.Reader, stdout, _ io.Writer, command string) error {
@@ -68,7 +71,15 @@ func (r *fakeRemote) run(_ context.Context, user, host string, stdin io.Reader, 
 		return nil
 	case strings.Contains(command, "cloud-init status"):
 		fmt.Fprint(stdout, r.cloudInitOut)
+		if !strings.Contains(command, "--wait") {
+			if r.cloudInitSettles {
+				return nil
+			}
+			return r.cloudInitAgain
+		}
 		return r.cloudInitErr
+	case strings.Contains(command, "is-system-running"):
+		return r.settleErr
 	case strings.HasPrefix(command, "journalctl"):
 		fmt.Fprint(stdout, r.journal)
 		return nil

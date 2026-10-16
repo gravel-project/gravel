@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"slices"
 	"strings"
 	"testing"
@@ -160,24 +161,33 @@ func TestHubCreateDryRunFromNothing(t *testing.T) {
 
 func TestHubCreateCloudInit(t *testing.T) {
 	for _, tc := range []struct {
-		name string
-		err  error
-		code int
-		out  string // in stdout or stderr
+		name  string
+		err   error
+		again error // the second look, after systemd's boot jobs; nil: done then
+		code  int
+		out   string // in stdout or stderr
 	}{
-		{"done", nil, 0, "ready:"},
-		{"warnings", exitError{2}, 0, "warnings"},
-		{"failed", exitError{1}, 1, "cloud-init on"},
+		{"done", nil, nil, 0, "ready:"},
+		{"warnings", exitError{2}, nil, 0, "warnings"},
+		{"failed", exitError{1}, exitError{1}, 1, "cloud-init on"},
+		// cloud-init 25.3's "systemd unit failure" that clears once cloud-final.service finishes.
+		{"a unit still finishing", exitError{1}, nil, 0, "ready:"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			e := newEnv(t)
 			e.remote.cloudInitErr = tc.err
+			e.remote.cloudInitAgain, e.remote.cloudInitSettles = tc.again, tc.again == nil
 			e.remote.cloudInitOut = "status: done\ndetail: something\n"
 			code, out, errOut := e.run(e.createArgs("--ssh-from", "192.0.2.1")...)
 			if code != tc.code || !strings.Contains(out+errOut, tc.out) {
 				t.Errorf("%d\n%s\n%s", code, out, errOut)
 			}
-			if tc.err != nil && !strings.Contains(out+errOut, "  detail: something") {
+			calls, _, _ := e.remote.snapshot()
+			settled := slices.Contains(commands(calls), "admin systemctl is-system-running --wait")
+			if want := errors.Is(tc.err, exitError{1}); settled != want {
+				t.Errorf("asked again after the boot jobs: %t, want only after exit 1: %q", settled, commands(calls))
+			}
+			if tc.code != 0 && !strings.Contains(out+errOut, "  detail: something") {
 				t.Errorf("cloud-init's output not shown:\n%s\n%s", out, errOut)
 			}
 		})

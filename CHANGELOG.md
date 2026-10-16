@@ -8,6 +8,10 @@ patch release is everything else.
 
 ## [Unreleased]
 
+### Fixed
+
+- **A hub host that is ready no longer fails as "cloud-init reported errors".** cloud-init 25.3 checks its own units the moment its status says done, while `cloud-final.service` may still be finishing, and answers "Failed due to systemd unit failure" naming no unit, gone a moment later (CI's `hub-vm` job, four times on 2026-10-16). `gravel hub create`, `deploy/hub-vm.sh` and `deploy/game-vm.sh` now ask again once systemd's boot jobs are done (`systemctl is-system-running --wait`, then `cloud-init status --long`); a unit that really failed is still failed then, and fails as before.
+
 ## [0.10.0] - 2026-10-16
 
 ### Changed
