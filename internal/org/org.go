@@ -42,12 +42,20 @@ var (
 // NominationTTL is how long a nominee has to accept the hub (ADR-0027 §6).
 const NominationTTL = 7 * 24 * time.Hour
 
+// The bounds of a token the host mints on its command line (MintClaimToken, ADR-0036): long
+// enough to log in first, never longer than a nomination lasts.
+const (
+	MinClaimTokenTTL = time.Minute
+	MaxClaimTokenTTL = NominationTTL
+)
+
 // Store is what the service needs from the database.
 type Store interface {
 	GetBuiltinOrganization(ctx context.Context) (store.Organization, error)
 	CreateBuiltinOrganization(ctx context.Context, id uuid.UUID, name string) (store.Organization, error)
 	UpdateOrganizationName(ctx context.Context, id uuid.UUID, name string) error
 	SetClaimToken(ctx context.Context, id uuid.UUID, hash []byte, expiresAt time.Time) error
+	MintClaimToken(ctx context.Context, id uuid.UUID, hash []byte, expiresAt time.Time, by store.Actor, now time.Time) error
 	ClaimOrganization(ctx context.Context, id uuid.UUID, hash []byte, by store.Actor, now time.Time) (store.Organization, error)
 	UpdateOrganizationSettingsIf(ctx context.Context, id uuid.UUID, settings json.RawMessage, at time.Time, by store.Actor, sections []string, ifUpdatedAt *time.Time) (store.Organization, error)
 	NominateOwner(ctx context.Context, id, nominee uuid.UUID, by store.Actor, at, expires time.Time) (store.Organization, error)
@@ -126,6 +134,41 @@ func (s *Service) EnsureBuiltin(ctx context.Context, name string) (store.Organiz
 	o.ClaimTokenHash = hash
 	o.ClaimTokenExpiresAt = &expires
 	return o, token, nil
+}
+
+// MintClaimToken is the host's way to an owner-claim token on demand (ADR-0036): `gravel-hub
+// claim-token`, run on the hub's host, where shell access is the same proof reading the start-up
+// log is (ADR-0002). It replaces whatever token the hub printed, lives for ttl (the configured
+// claim.token_ttl when zero; MinClaimTokenTTL to MaxClaimTokenTTL), is returned once and never
+// logged, and is recorded as an event without the token. The organization must exist (the hub
+// started, or CreateBuiltinIfAbsent); ErrAlreadyOwned once it is owned.
+func (s *Service) MintClaimToken(ctx context.Context, ttl time.Duration, by store.Actor) (string, time.Time, error) {
+	if ttl == 0 {
+		ttl = s.ttl
+	}
+	if ttl < MinClaimTokenTTL || ttl > MaxClaimTokenTTL {
+		return "", time.Time{}, fmt.Errorf("org: a claim token lives from %s to %s, not %s", MinClaimTokenTTL, MaxClaimTokenTTL, ttl)
+	}
+	o, err := s.st.GetBuiltinOrganization(ctx)
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	if o.Owned() {
+		return "", time.Time{}, ErrAlreadyOwned
+	}
+	token, hash, err := s.newToken()
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	now := s.now()
+	expires := now.Add(ttl)
+	if err := s.st.MintClaimToken(ctx, o.ID, hash, expires, by, now); err != nil {
+		if errors.Is(err, store.ErrOwned) {
+			return "", time.Time{}, ErrAlreadyOwned
+		}
+		return "", time.Time{}, err
+	}
+	return token, expires, nil
 }
 
 // CreateBuiltinIfAbsent creates the built-in organization with name if it does not exist and

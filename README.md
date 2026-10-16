@@ -235,7 +235,7 @@ Revised by [ADR-0001](docs/adr/0001-hub-first-kubernetes-later.md) (2026-10-08) 
 
 - **Design deltas from HTG (filed 2026-10-01, sequenced 2026-10-08):** #2 server-less games · #3 stats provenance · #4 inbound push ingestion · #5 identity pairs and proof-of-control · #6 OIDC for first-party apps · #7 branding and navigation · #8 publisher guardrails · #9 managed-path realities. The plan behind them is `hidden-token-gaming/handbook` `docs/plan.md` (private).
 - **DigitalOcean (ADR-0003, 2026-10-08; ADR-0020, 2026-10-11):** #35 cloud provider interface and the DigitalOcean implementation and #150 `gravel hub` (the hub's own host; Hidden Token Gaming's hub moves onto it, hidden-token-gaming/deploy#93) · #36 cloud-VM driver (in: the manual resize and auto-park are #37's primitives) · #37 vertical scaling policy. HTG's side: deploy#108 the stack and the measured region, deploy#109 the minimal DOKS cluster, deploy#110 the Counter-Strike 2 test Droplet.
-- **H1, hub as a product (2026-10-12):** #182 tracks the gravel side of hidden-token-gaming/.github#59; [ADR-0025](docs/adr/0025-hub-as-a-product-the-unplug-test-tiers-and-personas.md) is the frame, and ADR-0026 to 0035 land with their issues.
+- **H1, hub as a product (2026-10-12):** #182 tracks the gravel side of hidden-token-gaming/.github#59; [ADR-0025](docs/adr/0025-hub-as-a-product-the-unplug-test-tiers-and-personas.md) is the frame, and ADR-0026 to 0036 land with their issues.
 
 - **Lawyer:** raw-event retention (13-month placeholder), retention-for-ban-enforcement under GDPR, ToS + privacy policy for the public site.
 - **War Dogs:** stats confirmed to exist — pin down the exact format before building its adapter.

@@ -53,6 +53,7 @@ var kinds = []Kind{
 	{"identity.password_reset", Notice, "a local account's password was reset from its link"},
 	{"identity.password_reset_issued", Notice, "staff or the host issued a password link"},
 	// The hub itself: who owns it and how it is set up.
+	{"ownership.claim_token_minted", Notice, "the host minted an owner-claim token on its command line (gravel-hub claim-token)"},
 	{"ownership.claimed", Notice, "a member claimed the hub with the one-time token and became its owner"},
 	{"ownership.nominated", Notice, "the owner nominated a member to take the hub over"},
 	{"ownership.transfer_cancelled", Notice, "the owner cancelled a nomination to take the hub over"},

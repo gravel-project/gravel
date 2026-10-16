@@ -32,6 +32,7 @@ the others has a `gravel` command over the API that takes the same flags.
 | `gravel-hub apps create --name NAME --scopes SCOPES [--redirect-uri URL]...` | Register a first-party app (ADR-0008) and print its client id and secret once; the hub keeps the secret's hash. `--redirect-uri` (repeatable) is where its web pages receive a member who signed in ([Members sign in to apps](#members-sign-in-to-apps-adr-0015)): https, or http on 127.0.0.1, `[::1]` or localhost, compared as an exact string. |
 | `gravel-hub apps list` | The registered apps: client id, name, scopes, redirect URIs, created, revoked. Over the API: `AppService.CreateApp`, `ListApps`, `RevokeApp` (`apps:manage`). |
 | `gravel-hub apps revoke --client-id ID` | Revoke an app: its tokens (its own and its members'), the grants members gave it and its unexchanged codes are deleted, and no new token is issued. |
+| `gravel-hub claim-token [--ttl DURATION]` | While the hub is unowned, mint an owner-claim token and print it once to stdout, never to the log ([Owner claim](#owner-claim-adr-0002-adr-0004-adr-0036)): for a program that provisioned the hub, or an operator who missed the start-up line. It replaces any earlier token and lasts `claim.token_ttl` unless `--ttl` (1m to 7 days) says otherwise; an owned hub refuses (exit 1). Recorded as `ownership.claim_token_minted`. |
 | `gravel-hub users create-local --username NAME [--email ADDRESS]` | Make a member with a local account and print the one-time link that sets its password ([Local accounts](#local-accounts-adr-0026)), with no API credential: how a hub with no provider gets its first member. Needs `auth.local.enabled`. |
 | `gravel-hub users reset-password --username NAME` | Print a one-time link that resets a local account's password; its earlier links stop working. |
 | `gravel-hub servers export` | Print the games and servers as a `servers.yaml` manifest ([Servers](#servers-adr-0010)). |
@@ -1620,6 +1621,7 @@ app with `events:read`.
 | `identity.password_set` | notice | A local account's first password was set from its link |
 | `identity.password_reset` | notice | A local account's password was reset from its link |
 | `identity.password_reset_issued` | notice | Staff or the host issued a password link |
+| `ownership.claim_token_minted` | notice | The host minted an owner-claim token with `gravel-hub claim-token` (`detail.expires_at`; never the token) |
 | `ownership.claimed` | notice | A member claimed the hub with the one-time token and became its owner |
 | `settings.updated` | notice | The Organization settings were replaced; `detail.sections` names the top-level sections that changed (none when the same document was saved again) and `detail.settings_updated_at` the new version's time |
 | `app.created` | notice | An app was registered (`detail`: its name, client id, scopes and redirect URIs) |
@@ -1985,7 +1987,7 @@ the fields at start (`discord/rolemeta`: `steam_linked`, `xbox_linked`, `rsi_lin
 - A refusal from Discord leaves the member logged in and says so; `gravel_auth_completions_total`
   counts the flow under `intent="roles"`.
 
-## Owner claim (ADR-0002, ADR-0004)
+## Owner claim (ADR-0002, ADR-0004, ADR-0036)
 
 A fresh hub is unowned. On each start while unowned it mints a one-time owner-claim token and logs
 it once at WARN level:
@@ -2015,6 +2017,23 @@ gravel-hub users create-local --username neckbeard --config /etc/gravel/hub.yaml
 
 Open the link, choose the password (you are logged in), and paste the claim token on the account
 page.
+
+**A token on demand** (ADR-0036). The start-up line lasts 15 minutes and a restart replaces it. On
+the host, `gravel-hub claim-token` mints a fresh one while the hub is unowned and prints it once,
+to stdout only, so a program can take it (`--ttl` from 1m to 7 days; the default is
+`claim.token_ttl`). It replaces any earlier token, the logged one included, and is recorded as an
+`ownership.claim_token_minted` event without the token. Shell access to the host is the proof,
+as reading the log is; nothing hands a token out over the network. On a stock host:
+
+```sh
+gravel hub ssh --name hub-1 -- podman exec gravel-hub /ko-app/gravel-hub claim-token --config /etc/gravel/hub.yaml
+```
+
+**Provisioning a hub for someone else** (a hosting service; ADR-0036): claim it yourself with a
+local account of your own (`users create-local`, then `gravel login --local`, `claim-token`,
+`gravel claim`), set it up, make the customer a member and hand it over with the
+[ownership transfer](#ownership-transfer-adr-0027-6). Your account stays an admin, which the
+customer may revoke on Members.
 
 The caller becomes the owner (`owner_user_id`). The claim is single-use and atomic. A call without
 a session answers `unauthenticated`, a second call `failed_precondition` (the hub is owned), a

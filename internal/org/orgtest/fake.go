@@ -68,6 +68,16 @@ func (f *FakeStore) SetClaimToken(_ context.Context, _ uuid.UUID, hash []byte, e
 	return nil
 }
 
+func (f *FakeStore) MintClaimToken(_ context.Context, _ uuid.UUID, hash []byte, expiresAt time.Time, _ store.Actor, _ time.Time) error {
+	f.Writes = append(f.Writes, "mint-token")
+	if f.Org.Owned() {
+		return store.ErrOwned
+	}
+	f.Org.ClaimTokenHash = hash
+	f.Org.ClaimTokenExpiresAt = &expiresAt
+	return nil
+}
+
 func (f *FakeStore) ClaimOrganization(_ context.Context, _ uuid.UUID, hash []byte, by store.Actor, now time.Time) (store.Organization, error) {
 	f.Writes = append(f.Writes, "claim")
 	if f.Org.Owned() {
