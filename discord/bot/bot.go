@@ -145,6 +145,8 @@ type Options struct {
 	RESTURL string
 	// HTTPClient is the client disgo's REST layer uses; nil means a default with a timeout.
 	HTTPClient *http.Client
+	// CDNURL replaces Discord's CDN (DefaultCDNURL), for tests against a fake.
+	CDNURL string
 }
 
 // Runtime is a built bot: handlers are ready, Run serves them.
@@ -159,6 +161,10 @@ type Runtime struct {
 
 	commands []discord.ApplicationCommandCreate
 	jobs     []namedJob
+
+	// httpClient and cdnURL fetch the bot's current avatar (syncAvatar).
+	httpClient *http.Client
+	cdnURL     string
 
 	public   http.Handler
 	internal http.Handler
@@ -238,6 +244,10 @@ func New(opts Options, modules ...Module) (*Runtime, error) {
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 30 * time.Second}
 	}
+	rt.httpClient, rt.cdnURL = httpClient, DefaultCDNURL
+	if opts.CDNURL != "" {
+		rt.cdnURL = strings.TrimRight(opts.CDNURL, "/")
+	}
 	restOpts := []rest.ClientConfigOpt{rest.WithHTTPClient(httpClient), rest.WithLogger(logger)}
 	if opts.RESTURL != "" {
 		restOpts = append(restOpts, rest.WithURL(opts.RESTURL))
@@ -275,6 +285,9 @@ func New(opts Options, modules ...Module) (*Runtime, error) {
 		rt.commands = append(rt.commands, reg.commands...)
 		rt.jobs = append(rt.jobs, reg.jobs...)
 		client.AddEventListeners(reg.listen...)
+	}
+	if cfg.Discord.AvatarFile != "" {
+		rt.jobs = append(rt.jobs, namedJob{name: "runtime/avatar", run: rt.syncAvatar})
 	}
 
 	rt.public = rt.buildPublic(key)

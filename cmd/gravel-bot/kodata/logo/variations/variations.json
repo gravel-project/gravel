@@ -1,0 +1,29 @@
+[
+ {
+  "name": "main",
+  "use": "The mark itself",
+  "file": "logo/gravel-mark.svg"
+ },
+ {
+  "name": "cli",
+  "use": "The command line: the flat mark",
+  "file": "logo/gravel-mark-flat.svg"
+ },
+ {
+  "name": "hosted",
+  "use": "The hosted hub: the GRVL.GG lockup",
+  "file": "logo/grvl-lockup.svg"
+ },
+ {
+  "name": "bot",
+  "use": "The gravel bot: grains in amber, hub in slate",
+  "file": "logo/variations/gravel-mark-bot.svg",
+  "avatar": "logo/variations/png/gravel-bot-avatar-512.png"
+ },
+ {
+  "name": "agent",
+  "use": "The agent on a member's rig: one grain in amber",
+  "file": "logo/variations/gravel-mark-agent.svg",
+  "avatar": "logo/variations/png/gravel-agent-avatar-512.png"
+ }
+]
