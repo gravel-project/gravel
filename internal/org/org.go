@@ -291,12 +291,16 @@ func transferError(err error) error {
 	return err
 }
 
+// newToken is a fresh token that never starts with '-': one that did (one in 64) read as a flag in
+// `gravel claim TOKEN`. Drawing again costs nothing a guesser could use.
 func (s *Service) newToken() (token string, hash []byte, err error) {
 	raw := make([]byte, 32)
-	if _, err := io.ReadFull(s.rand, raw); err != nil {
-		return "", nil, fmt.Errorf("org: token: %w", err)
+	for token == "" || token[0] == '-' {
+		if _, err := io.ReadFull(s.rand, raw); err != nil {
+			return "", nil, fmt.Errorf("org: token: %w", err)
+		}
+		token = base64.RawURLEncoding.EncodeToString(raw)
 	}
-	token = base64.RawURLEncoding.EncodeToString(raw)
 	return token, hashToken(token), nil
 }
 

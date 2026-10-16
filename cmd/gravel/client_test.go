@@ -507,6 +507,20 @@ func TestClaim(t *testing.T) {
 	}
 }
 
+// A token starting with '-' (an older hub's, one in 64) passes after --, not as a flag.
+func TestClaimDashToken(t *testing.T) {
+	isolate(t)
+	h := newFakeHub(t)
+	h.claimToken = "-claim-me"
+	login(t, h)
+	if code, _, stderr := (cli{t: t}).run(context.Background(), "claim", "-claim-me"); code != exitUsage || !strings.Contains(stderr, "-- before a token") {
+		t.Errorf("without --: exit %d, %q", code, stderr)
+	}
+	if code, _, stderr := (cli{t: t}).run(context.Background(), "claim", "--", "-claim-me"); code != exitOK || h.owner != "alice" {
+		t.Errorf("with --: exit %d, %q, owner %q", code, stderr, h.owner)
+	}
+}
+
 func fleetFixture(down int32) *hubv1.GetFleetSummaryResponse {
 	ts := func(d time.Duration) *timestamppb.Timestamp { return timestamppb.New(t0.Add(-d)) }
 	f := &hubv1.GetFleetSummaryResponse{

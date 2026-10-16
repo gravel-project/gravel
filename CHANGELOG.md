@@ -45,6 +45,7 @@ patch release is everything else.
 
 ### Fixed
 
+- **An owner-claim token never starts with `-`.** Base64url gives one first character in 64 a `-`, and `gravel claim TOKEN` read such a token as an unknown flag and failed; the hub now draws again, at start and in `gravel-hub claim-token`. For an older hub's token, `gravel claim -- TOKEN` works, and the usage line says so on a parse error. The compose drill passes `--` (it runs the pinned 0.9.0 image), which made main's `compose` job fail on 158271b.
 - ADR-0035 is marked accepted (it was merged with #257), and ADR-0033 and ADR-0034 with theirs (#262, #264).
 
 ## [0.9.0] - 2026-10-15

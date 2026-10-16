@@ -1,10 +1,12 @@
 package org
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
 	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
@@ -224,5 +226,17 @@ func TestMintClaimToken(t *testing.T) {
 	}
 	if _, _, err := s.MintClaimToken(ctx, 0, host); !errors.Is(err, ErrAlreadyOwned) {
 		t.Errorf("owned: %v", err)
+	}
+}
+
+// A token never starts with '-' (base64url's 62, one first draw in 64), which `gravel claim TOKEN`
+// would read as a flag.
+func TestTokenNeverStartsWithADash(t *testing.T) {
+	s, _ := newTestService(&orgtest.FakeStore{})
+	dash := bytes.Repeat([]byte{0xf8}, 32) // encodes as "-…"
+	s.rand = io.MultiReader(bytes.NewReader(dash), bytes.NewReader(dash), bytes.NewReader(make([]byte, 32)))
+	token, _, err := s.newToken()
+	if err != nil || token == "" || token[0] == '-' || token != strings.Repeat("A", 43) {
+		t.Fatalf("token %q: %v", token, err)
 	}
 }

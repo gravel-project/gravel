@@ -77,6 +77,6 @@ case "$landed" in */account) ;; *) echo "setting the password landed on $landed"
 export HOME="$work/home" SSL_CERT_FILE="$work/ca.crt"
 mkdir -p "$HOME"
 printf '%s\n' "$password" | "$cli" login --local --username drillhost --hub "$base" >/dev/null
-"$cli" claim --hub "$base" "$token"
+"$cli" claim --hub "$base" -- "$token" # -- : a token hubs before 0.10.0 mint may start with '-'
 "$cli" whoami --hub "$base" | grep -q owner || { echo "gravel whoami does not say owner" >&2; exit 1; }
 echo "compose drill: a fresh stack, a local account, the hub claimed by it"
