@@ -120,6 +120,15 @@ wait_ready() {
   set +e
   vm_ssh admin sudo cloud-init status --wait --long
   rc=$?
+  if (( rc == 1 )); then
+    # cloud-init 25.3 checks its own units the moment its status says done, while
+    # cloud-final.service may still be finishing: "Failed due to systemd unit failure" naming no
+    # unit, gone a moment later (four times on 2026-10-16). Ask again once systemd's boot jobs are
+    # done; a unit that really failed is still failed then. gravel hub create does the same.
+    vm_ssh admin systemctl is-system-running --wait >/dev/null
+    vm_ssh admin sudo cloud-init status --long
+    rc=$?
+  fi
   set -e
   if (( rc != 0 )); then
     vm_ssh admin sudo cat /var/log/cloud-init-output.log | tail -60 >&2 || true
