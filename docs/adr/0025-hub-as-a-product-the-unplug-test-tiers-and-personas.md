@@ -1,6 +1,6 @@
 # ADR-0025: Hub as a product — the unplug test, deployment tiers and personas
 
-**Status:** proposed (2026-10-13; accepted when John merges it) · **Changes:** what gravel promises to do with nothing plugged in, who it is built for and where it runs; amends README "Hub and spoke" and its load-bearing principles, and ADR-0001 (a Compose tier, and H1 in the build order) · **Decided in:** John's design session *gravel — Design Session: Hub, Spines & Dashboard* (2026-10-10 to 12) and Hidden Token Gaming's roadmap re-cut (handbook `docs/plan.md`, D35 and D36) · **Tracked by:** #183; the H1 milestone is #182 (hidden-token-gaming/.github#59)
+**Status:** accepted (2026-10-13, with #183 in #230) · **Changes:** what gravel promises to do with nothing plugged in, who it is built for and where it runs; amends README "Hub and spoke" and its load-bearing principles, and ADR-0001 (a Compose tier, and H1 in the build order) · **Decided in:** John's design session *gravel — Design Session: Hub, Spines & Dashboard* (2026-10-10 to 12) and Hidden Token Gaming's roadmap re-cut (handbook `docs/plan.md`, D35 and D36) · **Tracked by:** #183; the H1 milestone is #182 (hidden-token-gaming/.github#59)
 
 ## Context
 

@@ -16,6 +16,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/gravel-project/gravel/drivers"
+	"github.com/gravel-project/gravel/drivers/cloudvm"
 	"github.com/gravel-project/gravel/internal/jobs"
 )
 
@@ -554,6 +555,12 @@ func (m *Monitor) hostDown(w *worker, err error) error {
 func (m *Monitor) failed(ctx context.Context, w *worker, err error, took time.Duration) error {
 	if errors.Is(err, drivers.ErrHostNotRunning) {
 		return m.hostDown(w, err)
+	}
+	if errors.Is(err, cloudvm.ErrNotLoaded) {
+		// The cloud-VM manager has not read its hosts yet (a hub just started): nothing is known,
+		// so nothing is recorded; the next tick asks again (#229).
+		m.logger.Debug("the server's cloud-VM host is not loaded yet; polling again next tick", "server", w.def.ID)
+		return nil
 	}
 	state := stateOf(err)
 	now := m.now()

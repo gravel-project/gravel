@@ -1,6 +1,6 @@
 # ADR-0026: Local accounts: a username and a password are a provider
 
-**Status:** proposed (2026-10-13; accepted when John merges #186's pull request) · **Changes:** who can sign in to a hub with no provider configured; amends ADR-0004 §3 and §6, and supersedes README's "provider-only identity … an accepted, documented v1 tradeoff" and "shared verified email … absorb" · **Decided in:** John's design session *gravel — Design Session: Hub, Spines & Dashboard* (2026-10-10 to 12), handbook D35 · **Built in two steps:** #186 (accounts, login, registration, linking), #187 (set-password links, the host-side bootstrap, mailed resets) · **Part of:** H1 (#182), the unplug test (ADR-0025)
+**Status:** accepted (2026-10-13, with #186 in #232) · **Changes:** who can sign in to a hub with no provider configured; amends ADR-0004 §3 and §6, and supersedes README's "provider-only identity … an accepted, documented v1 tradeoff" and "shared verified email … absorb" · **Decided in:** John's design session *gravel — Design Session: Hub, Spines & Dashboard* (2026-10-10 to 12), handbook D35 · **Built in two steps:** #186 (accounts, login, registration, linking), #187 (set-password links, the host-side bootstrap, mailed resets) · **Part of:** H1 (#182), the unplug test (ADR-0025)
 
 ## Context
 

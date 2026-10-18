@@ -1,6 +1,6 @@
 # ADR-0028: Events and notifiers; no push to browsers in core
 
-**Status:** proposed (2026-10-13; accepted when John merges #188's pull request) · **Changes:** where the hub records what it did and how people hear about it; amends ADR-0010 §5 (the audit log stays, and each finished entry is an event too), the README's review-queue line, and ADR-0023 §8's wording on how a lease's holder learns of its state · **Decided in:** John's design session *gravel — Design Session: Hub, Spines & Dashboard* (2026-10-10 to 12), handbook D35 · **Built in steps:** #188 (§1 to §4: the log, its writers, the cursor, retention), #189 (the claim, settings and app events), #190 (server health events and alarms), #196 (§5 and §6: notifiers) · **Part of:** H1 (#182), the unplug test (ADR-0025)
+**Status:** accepted (2026-10-13, with #188 in #237) · **Changes:** where the hub records what it did and how people hear about it; amends ADR-0010 §5 (the audit log stays, and each finished entry is an event too), the README's review-queue line, and ADR-0023 §8's wording on how a lease's holder learns of its state · **Decided in:** John's design session *gravel — Design Session: Hub, Spines & Dashboard* (2026-10-10 to 12), handbook D35 · **Built in steps:** #188 (§1 to §4: the log, its writers, the cursor, retention), #189 (the claim, settings and app events), #190 (server health events and alarms), #196 (§5 and §6: notifiers) · **Part of:** H1 (#182), the unplug test (ADR-0025)
 
 ## Context
 

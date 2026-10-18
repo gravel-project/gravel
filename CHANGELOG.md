@@ -10,11 +10,13 @@ patch release is everything else.
 
 ### Changed
 
+- ADR-0025, 0026, 0028 and 0029 read **accepted**: their pull requests merged on 2026-10-13 and the status lines had said proposed since.
 - gravel's own quadlet units and the Compose tier pin the **0.10.0** images, verified with cosign 3 against the release workflow at `v0.10.0` (a `v0.9.0` identity refused): `gravel-hub@sha256:609a15b49cc05cc25591251c394e019ee3a47cde29fae4fb23c7147860ed48ce` (and its `GRAVEL_IMAGE`) and `gravel-bot@sha256:49f0ab6020277f9d92a2cfdd0d16f3ddb8e24125f851c9b56a5c4dce77dd5ef2`. The backup set's `gravel-postgres` stays: 0.10.0 changed nothing under `deploy/postgres` and published no new one. `docs/hub.md` names 0.10.0 as the tag example.
 - The compose drill gets its owner-claim token from `gravel-hub claim-token` (ADR-0036), which the pinned hub now has, instead of the start-up log, and checks what the command promises: the logged token no longer claims once replaced, and an owned hub mints none.
 
 ### Fixed
 
+- The first poll of a cloud-VM server after a hub start no longer records `error` before the cloud-VM manager has read its hosts: the hub loads the hosts and the servers' specs before the monitor starts, and a request that still comes early answers "not loaded yet", which the monitor takes as unknown and asks again next tick instead of a failed job (#229).
 - **A hub host that is ready no longer fails as "cloud-init reported errors".** cloud-init 25.3 checks its own units the moment its status says done, while `cloud-final.service` may still be finishing, and answers "Failed due to systemd unit failure" naming no unit, gone a moment later (CI's `hub-vm` job, four times on 2026-10-16). `gravel hub create`, `deploy/hub-vm.sh` and `deploy/game-vm.sh` now ask again once systemd's boot jobs are done (`systemctl is-system-running --wait`, then `cloud-init status --long`); a unit that really failed is still failed then, and fails as before.
 
 ## [0.10.0] - 2026-10-16
