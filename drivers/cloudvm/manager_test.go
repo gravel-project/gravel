@@ -121,6 +121,49 @@ func (r *rig) manager(st cloudvm.HostStore) *cloudvm.Manager {
 	return m
 }
 
+// newManager is manager without its first Reconcile: the hosts are not loaded yet.
+func (r *rig) newManager(st cloudvm.HostStore) *cloudvm.Manager {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	reg := prometheus.NewRegistry()
+	r.reg = reg
+	return cloudvm.NewManager(r.src, st, map[string]cloudvm.GameFactory{"cs2": r.game.Factory()}, cloudvm.Options{
+		Providers: func(context.Context, cloudvm.Location) (cloud.Provider, error) { return r.p, nil },
+		Remote:    r.remote,
+		Egress: func(context.Context) ([]string, error) {
+			r.nowMu.Lock()
+			defer r.nowMu.Unlock()
+			return slices.Clone(r.egress), nil
+		},
+		DefaultImages: map[string]string{"fake": "fedora-44"},
+		Runner:        jobs.New(logger, reg),
+		Logger:        logger,
+		Registerer:    reg,
+		Now:           r.clock,
+		Sleep:         func(context.Context, time.Duration) {},
+		Wake:          func(string) {},
+	})
+}
+
+// Before Load, a status request answers "not loaded yet", never "no such server"; after it, a
+// host the store holds is found (#229).
+func TestStatusBeforeTheHostsAreLoaded(t *testing.T) {
+	r := newRig(t)
+	r.up()
+	m := r.newManager(r.st)
+	if _, err := m.Status(context.Background(), serverID); !errors.Is(err, cloudvm.ErrNotLoaded) {
+		t.Fatalf("status before the load: %v, want ErrNotLoaded", err)
+	}
+	if err := m.Load(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := m.Status(context.Background(), serverID); errors.Is(err, cloudvm.ErrNotLoaded) || errors.Is(err, cloudvm.ErrNoSuchHost) {
+		t.Fatalf("status after the load: %v", err)
+	}
+	if err := m.Load(context.Background()); err != nil {
+		t.Fatalf("a second load: %v", err)
+	}
+}
+
 func (r *rig) clock() time.Time {
 	r.nowMu.Lock()
 	defer r.nowMu.Unlock()

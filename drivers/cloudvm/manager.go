@@ -51,7 +51,10 @@ const (
 
 // Errors a request returns.
 var (
-	ErrNoSuchHost  = errors.New("cloudvm: no cloud-VM server by that id")
+	ErrNoSuchHost = errors.New("cloudvm: no cloud-VM server by that id")
+	// ErrNotLoaded is a request before Load has read the hosts: the answer is unknown, not
+	// absent, so a caller that can wait (the monitor's poll) asks again next tick (#229).
+	ErrNotLoaded   = errors.New("cloudvm: the hosts are not loaded yet")
 	ErrNotRunning  = errors.New("cloudvm: the server's host is not running")
 	ErrPlayersOn   = errors.New("cloudvm: players are on the server")
 	ErrNotParked   = errors.New("cloudvm: only a parked host can be destroyed; park it or remove the server from the manifest first")
@@ -330,6 +333,50 @@ func NewManager(src Source, st HostStore, games map[string]GameFactory, opt Opti
 	}
 }
 
+// Load reads the hosts from the store once, before anything asks about them: the hub calls it
+// before the monitor's first poll, so a start never records a cloud-VM server as absent (#229).
+// Reconcile calls it too, for a Manager started without it.
+func (m *Manager) Load(ctx context.Context) error {
+	if m.isLoaded() {
+		return nil
+	}
+	specs, err := m.src.CloudVMServers(ctx)
+	if err != nil {
+		return err
+	}
+	rows, err := m.store.Hosts(ctx)
+	if err != nil {
+		return err
+	}
+	now := m.opt.Now()
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.loaded {
+		return nil
+	}
+	for _, h := range rows {
+		m.hosts[h.ServerID] = &hostRT{h: h}
+		m.met.setState(h)
+	}
+	// A server the store has no host for yet is known as absent from here, as Reconcile would
+	// record it; Reconcile still starts its job.
+	for _, s := range specs {
+		m.specs[s.ID] = s
+		if _, ok := m.hosts[s.ID]; !ok && !s.Removed {
+			m.hosts[s.ID] = &hostRT{h: Host{ServerID: s.ID, LocationID: s.Location.ID, Intent: Intent{Desired: DesiredRunning},
+				State: StateAbsent, StateSince: now}}
+		}
+	}
+	m.loaded = true
+	return nil
+}
+
+func (m *Manager) isLoaded() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.loaded
+}
+
 // Start schedules the reconcile job, which starts a job per host.
 func (m *Manager) Start() {
 	m.opt.Runner.Start(jobs.Job{Name: "cloudvm_reconcile", Every: ReconcileEvery, Immediate: true, Run: m.Reconcile})
@@ -345,21 +392,8 @@ func (m *Manager) Reconcile(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	m.mu.Lock()
-	loaded := m.loaded
-	m.mu.Unlock()
-	if !loaded {
-		rows, err := m.store.Hosts(ctx)
-		if err != nil {
-			return err
-		}
-		m.mu.Lock()
-		for _, h := range rows {
-			m.hosts[h.ServerID] = &hostRT{h: h}
-			m.met.setState(h)
-		}
-		m.loaded = true
-		m.mu.Unlock()
+	if err := m.Load(ctx); err != nil {
+		return err
 	}
 	// The egress pins the hosts' firewalls, so only a hub with a cloud-VM server or host asks for
 	// it: one with none reaches nothing off its machine (the unplug test, gravel#198).
@@ -1077,6 +1111,9 @@ func (m *Manager) gameForLocked(rt *hostRT, s ServerSpec, instanceAddress string
 // Status reads a running server's game and records who is on (what the idle park counts from).
 // A host that is not running is a *drivers.HostStateError naming its phase.
 func (m *Manager) Status(ctx context.Context, id string) (GameStatus, error) {
+	if !m.isLoaded() {
+		return GameStatus{}, ErrNotLoaded
+	}
 	rt, s, ok := m.host(id)
 	if !ok {
 		return GameStatus{}, ErrNoSuchHost

@@ -1,6 +1,6 @@
 # ADR-0029: The admin dashboard is a static client in the binary
 
-**Status:** proposed (2026-10-13; accepted when John merges #191's pull request) · **Changes:** how the hub's operators see and run it from a browser; amends ADR-0005 §2 (a JavaScript build, for the dashboard only) and §5 (the accessibility gate covers it), and the README's web UI line · **Decided in:** John's design session *gravel — Design Session: Hub, Spines & Dashboard* (2026-10-10 to 12), handbook D35 · **Built in steps:** #191 (this scaffold), then its pages: #192 (the fleet), #193 (events and alarms), H1-18 to H1-24 · **Part of:** H1 (#182), the unplug test (ADR-0025)
+**Status:** accepted (2026-10-13, with #191 in #238) · **Changes:** how the hub's operators see and run it from a browser; amends ADR-0005 §2 (a JavaScript build, for the dashboard only) and §5 (the accessibility gate covers it), and the README's web UI line · **Decided in:** John's design session *gravel — Design Session: Hub, Spines & Dashboard* (2026-10-10 to 12), handbook D35 · **Built in steps:** #191 (this scaffold), then its pages: #192 (the fleet), #193 (events and alarms), H1-18 to H1-24 · **Part of:** H1 (#182), the unplug test (ADR-0025)
 
 ## Context
 

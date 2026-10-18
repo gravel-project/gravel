@@ -442,6 +442,11 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 	}})
 	h.moderation = servers.NewModeration(h.servers, h.monitor, st, st, o.ID, h.registry, logger)
 	h.monitor.SetPrimer(h.moderation.Prime)
+	// The cloud-VM hosts are read before the first poll, so a start never records a cloud-VM
+	// server as absent while the manager's first reconcile is still queued (#229).
+	if err := h.cloudvm.Load(ctx); err != nil {
+		return nil, fmt.Errorf("hub: cloud-VM hosts: %w", err)
+	}
 	h.monitor.Start()
 	h.cloudvm.Start()
 	h.jobs.Start(jobs.Job{Name: "leases", Every: servers.LeaseEvery, Run: h.leases.Run})
