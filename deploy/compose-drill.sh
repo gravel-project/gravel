@@ -3,8 +3,9 @@
 # with a local owner" means, run end to end in a scratch copy of deploy/compose. init.sh for
 # localhost (Caddy serves it from its own local CA), up with the https profile, the hub healthy
 # behind Caddy, a local account made from the box, its password set through the one-time link,
-# then gravel login --local and gravel claim with the token the hub logged: the owner is the
-# account. CI's compose job runs it; make compose-drill runs it locally.
+# then gravel login --local and gravel claim with a token gravel-hub claim-token mints on the box
+# (ADR-0036), which replaces the one the hub logged: the owner is the account, and an owned hub
+# mints no token again. CI's compose job runs it; make compose-drill runs it locally.
 #
 # Environment: COMPOSE (default "docker compose"), GRAVEL_CLI (the gravel binary; built when
 # unset), GRAVEL_DRILL_HTTPS_PORT (default 8443, Caddy's published port here), KEEP=1 to leave the
@@ -63,8 +64,10 @@ done
 curl -fsS --cacert "$work/ca.crt" "$base/readyz" >/dev/null
 echo "the hub answers through Caddy at $base"
 
-token=$(dc logs hub 2>/dev/null | sed -n 's/.*the hub is unowned.*"token":"\([^"]*\)".*/\1/p' | tail -1)
-[ -n "$token" ] || { echo "the hub logged no claim token" >&2; exit 1; }
+logged=$(dc logs hub 2>/dev/null | sed -n 's/.*the hub is unowned.*"token":"\([^"]*\)".*/\1/p' | tail -1)
+[ -n "$logged" ] || { echo "the hub logged no claim token" >&2; exit 1; }
+token=$(dc exec -T hub /ko-app/gravel-hub claim-token --config /etc/gravel/hub.yaml)
+[ -n "$token" ] && [ "$token" != "$logged" ] || { echo "gravel-hub claim-token minted no new token" >&2; exit 1; }
 
 out=$(dc exec -T hub /ko-app/gravel-hub users create-local --username drillhost --config /etc/gravel/hub.yaml)
 link=$(printf '%s\n' "$out" | grep -o '/auth/local/reset/[A-Za-z0-9_-]*')
@@ -77,6 +80,14 @@ case "$landed" in */account) ;; *) echo "setting the password landed on $landed"
 export HOME="$work/home" SSL_CERT_FILE="$work/ca.crt"
 mkdir -p "$HOME"
 printf '%s\n' "$password" | "$cli" login --local --username drillhost --hub "$base" >/dev/null
-"$cli" claim --hub "$base" -- "$token" # -- : a token hubs before 0.10.0 mint may start with '-'
+if "$cli" claim --hub "$base" -- "$logged" >/dev/null 2>&1; then
+	echo "the logged claim token still worked after claim-token replaced it" >&2
+	exit 1
+fi
+"$cli" claim --hub "$base" "$token"
 "$cli" whoami --hub "$base" | grep -q owner || { echo "gravel whoami does not say owner" >&2; exit 1; }
+if dc exec -T hub /ko-app/gravel-hub claim-token --config /etc/gravel/hub.yaml >/dev/null 2>&1; then
+	echo "an owned hub minted a claim token" >&2
+	exit 1
+fi
 echo "compose drill: a fresh stack, a local account, the hub claimed by it"
