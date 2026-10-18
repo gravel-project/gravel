@@ -7,24 +7,30 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"strings"
 	"time"
+
+	"github.com/gravel-project/gravel/games/wardogs"
 )
 
-// The kill feed: War Dogs' [WDServerFeed] posts kill batches to <Url>/api/ingest/events with
-// `Authorization: Bearer <Token>` (ADR-0011), and the simulator does too.
+// The event feed: the server posts batches of events to the feed's Url with `Authorization:
+// Bearer <Token>` (ADR-0011), and the simulator does too, in the shape games/wardogs/feed.go reads:
+// `{serverId, serverName, events[]}`, each event with eventId, type and eventTime (the game's
+// clock in seconds). A build with [WDServerFeed] (CL-509546) appends wardogs.FeedPath to its Url;
+// Season 02 posts to the Url as given.
 //
-// THE BATCH SHAPE IS A GUESS. No real batch is recorded yet (hidden-token-gaming/deploy#49
-// captures them), and what is known comes from community captures, not a primary source: batches
-// of 1 to 10 events about every 2 s, no retry, and per-event fields eventId, an optional
-// killerSteamId and distance. The body below is a JSON array of such events with victimSteamId
-// and timestampUtc added; everything about it lives in this file, so a captured batch replaces it
-// here and nowhere else. The hub stores batches as received and parses none yet, so the guess
-// cannot leak into the stats.
+// What is captured (2026-10-18, Season 02): the envelope, and two match_state events at the
+// server's start (MatchState.PreMatch, then MatchState.PreMatch.WaitingForWorldLoad, with the
+// map), and a batch about every two minutes with nobody on. What is NOT, and is a guess here: a
+// kill (type "kill", killerSteamId, victimSteamId and distance, as community captures name them),
+// the states after the pre-match, and what an idle batch carries (the simulator sends no events).
+// A kill's fields come from the first session with players; until then the hub's parser keeps
+// these as a kind it does not know.
 const (
-	// FeedPath is what the game appends to the section's Url.
-	FeedPath = "/api/ingest/events"
-	// feedEvery is how often a batch goes out while there are kills to send.
+	// feedEvery is how often a batch goes out while there are events to send.
 	feedEvery = 2 * time.Second
+	// feedIdle is how often a batch goes out with nothing to send.
+	feedIdle = 2 * time.Minute
 	// feedBatch is the most events one batch carries.
 	feedBatch = 10
 	// feedBacklog is the most events kept while the sink is slow or away; older ones are dropped,
@@ -32,33 +38,77 @@ const (
 	feedBacklog = 1000
 )
 
-// KillEvent is one kill as the simulator posts it (the guessed shape above).
-type KillEvent struct {
-	EventID string `json:"eventId"`
-	// TimestampUTC is when the kill happened.
-	TimestampUTC string `json:"timestampUtc"`
-	// KillerSteamID is empty for a death nobody caused (an admin kill, the world).
-	KillerSteamID string  `json:"killerSteamId,omitempty"`
-	VictimSteamID string  `json:"victimSteamId"`
-	Distance      float64 `json:"distance"`
+// FeedEvent is one event as the simulator posts it.
+type FeedEvent struct {
+	EventID   string  `json:"eventId"`
+	Type      string  `json:"type"`
+	EventTime float64 `json:"eventTime"`
+	// A match_state's.
+	MapName string `json:"mapName,omitempty"`
+	State   string `json:"state,omitempty"`
+	// A kill's (guessed). KillerSteamID is empty for a death nobody caused (an admin kill, the
+	// world).
+	KillerSteamID string   `json:"killerSteamId,omitempty"`
+	VictimSteamID string   `json:"victimSteamId,omitempty"`
+	Distance      *float64 `json:"distance,omitempty"`
 }
 
-// queue keeps a kill for the feed when the feed is on (as read at the last restart). The caller
-// holds mu.
-func (s *Server) queue(t time.Time, killer, victim string) {
+// FeedBatch is one batch as the simulator posts it.
+type FeedBatch struct {
+	ServerID string `json:"serverId"`
+	// ServerName is the server's own name here; a real server sends its file's
+	// EventFeedServerName, a label of the host's choosing.
+	ServerName string      `json:"serverName"`
+	Events     []FeedEvent `json:"events"`
+}
+
+// event appends an event for the feed when the feed is on (as read at the last restart). The
+// caller holds mu.
+func (s *Server) event(t time.Time, e FeedEvent) {
 	if s.live.feedURL == "" {
 		return
 	}
 	s.eventSeq++
-	distance := math.Round(math.Exp(3.5+s.rng.NormFloat64()*0.9)*10) / 10
-	s.events = append(s.events, KillEvent{
-		EventID:      fmt.Sprintf("%s-%d-%d", s.build, s.booted.Unix(), s.eventSeq),
-		TimestampUTC: t.UTC().Format("2006-01-02T15:04:05.000Z"), KillerSteamID: killer, VictimSteamID: victim, Distance: distance,
-	})
+	e.EventID = fmt.Sprintf("%s-%d-%d", s.build, s.booted.Unix(), s.eventSeq)
+	e.EventTime = math.Round(t.Sub(s.booted).Seconds()*1000) / 1000
+	s.events = append(s.events, e)
 	if over := len(s.events) - feedBacklog; over > 0 {
 		s.events = s.events[over:]
 		s.dropped += over
 	}
+}
+
+// queue keeps a kill for the feed. The caller holds mu.
+func (s *Server) queue(t time.Time, killer, victim string) {
+	distance := math.Round(math.Exp(3.5+s.rng.NormFloat64()*0.9)*10) / 10
+	s.event(t, FeedEvent{Type: "kill", KillerSteamID: killer, VictimSteamID: victim, Distance: &distance})
+}
+
+// started queues the match states the server posts at its start. The caller holds mu.
+func (s *Server) started(t time.Time) {
+	level := s.match.entry.level()
+	for _, state := range []string{"MatchState.PreMatch", "MatchState.PreMatch.WaitingForWorldLoad"} {
+		s.event(t, FeedEvent{Type: wardogs.FeedMatchState, MapName: level, State: state})
+	}
+}
+
+// feedTarget is where a batch goes: the Url as given, or with wardogs.FeedPath on a build whose
+// feed is [WDServerFeed]. "" when the feed is off. The caller holds mu.
+func (s *Server) feedTarget() string {
+	if s.live.feedURL == "" {
+		return ""
+	}
+	if _, section := s.schema(secFeed); section {
+		return strings.TrimRight(s.live.feedURL, "/") + wardogs.FeedPath
+	}
+	return s.live.feedURL
+}
+
+// FeedTarget is where the feed posts now; "" when it is off.
+func (s *Server) FeedTarget() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.feedTarget()
 }
 
 // Run moves the world on every second, whether or not anyone reads it, and posts the feed's
@@ -78,11 +128,11 @@ func (s *Server) Run(ctx context.Context) error {
 		s.mu.Lock()
 		s.advance(now)
 		s.prunePeers(now)
-		url, token := s.live.feedURL, s.live.feedToken
-		var batch []KillEvent
-		if url != "" && now.Sub(lastPost) >= feedEvery && len(s.events) > 0 {
+		target, token := s.feedTarget(), s.live.feedToken
+		var batch *FeedBatch
+		if target != "" && (len(s.events) > 0 && now.Sub(lastPost) >= feedEvery || now.Sub(lastPost) >= feedIdle) {
 			n := min(feedBatch, len(s.events))
-			batch = append(batch, s.events[:n]...)
+			batch = &FeedBatch{ServerID: s.serverID, ServerName: s.live.serverName, Events: append([]FeedEvent{}, s.events[:n]...)}
 			s.events = s.events[n:]
 		}
 		s.mu.Unlock()
@@ -90,9 +140,9 @@ func (s *Server) Run(ctx context.Context) error {
 			continue
 		}
 		lastPost = now
-		if err := s.post(ctx, url, token, batch); err != nil {
+		if err := s.post(ctx, target, token, *batch); err != nil {
 			if !failing {
-				s.logger.Warn("wardogsim: feed batch not delivered; the feed does not retry", "events", len(batch), "error", err.Error())
+				s.logger.Warn("wardogsim: feed batch not delivered; the feed does not retry", "events", len(batch.Events), "error", err.Error())
 			}
 			failing = true
 		} else if failing {
@@ -103,14 +153,14 @@ func (s *Server) Run(ctx context.Context) error {
 }
 
 // post sends one batch. The sink's answer is not read beyond its status: the game does not retry.
-func (s *Server) post(ctx context.Context, url, token string, batch []KillEvent) error {
+func (s *Server) post(ctx context.Context, target, token string, batch FeedBatch) error {
 	body, err := json.Marshal(batch)
 	if err != nil {
 		return err
 	}
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url+FeedPath, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, target, bytes.NewReader(body))
 	if err != nil {
 		return err
 	}
@@ -129,7 +179,7 @@ func (s *Server) post(ctx context.Context, url, token string, batch []KillEvent)
 	return nil
 }
 
-// Pending is how many kills wait for the feed, and how many were dropped because the backlog was
+// Pending is how many events wait for the feed, and how many were dropped because the backlog was
 // full.
 func (s *Server) Pending() (waiting, dropped int) {
 	s.mu.Lock()

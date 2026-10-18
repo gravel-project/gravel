@@ -33,13 +33,15 @@ type RollupStore interface {
 	RetireResults(ctx context.Context, orgID uuid.UUID, cutoff time.Time, timezone string, periods []store.Period) (store.Retired, error)
 	OldestRawSession(ctx context.Context, orgID uuid.UUID) (time.Time, error)
 	RollUpActivity(ctx context.Context, orgID uuid.UUID, timezone string, periods []store.Period) (int, error)
+	RetireStatsEvents(ctx context.Context, orgID uuid.UUID, cutoff time.Time) (int, error)
 }
 
 // Retention rolls a player's per-match rows, participation events (ADR-0014) and sessions
 // (ADR-0035) into monthly
 // totals once they pass the Organization settings' stats.raw_retention_months (ADR-0012 §6), so
 // no raw row is older than the window and the boards keep their numbers. Match results past the
-// same window keep their scoreboards with their players anonymised (ADR-0024, #216).
+// same window keep their scoreboards with their players anonymised (ADR-0024, #216), and so do
+// the feed's events (ADR-0011).
 type Retention struct {
 	st       RollupStore
 	orgID    uuid.UUID
@@ -49,6 +51,7 @@ type Retention struct {
 	now      func() time.Time
 	rows     prometheus.Counter
 	retired  prometheus.Counter
+	events   prometheus.Counter
 }
 
 // NewRetention builds the rollup and registers its metric; changes is bumped when it moves rows,
@@ -60,8 +63,11 @@ func NewRetention(st RollupStore, orgID uuid.UUID, settings SettingsSource, chan
 		}),
 		retired: prometheus.NewCounter(prometheus.CounterOpts{
 			Name: "gravel_stats_results_retired_total", Help: "Match results past the raw retention window whose players were anonymised (ADR-0024, #216).",
+		}),
+		events: prometheus.NewCounter(prometheus.CounterOpts{
+			Name: "gravel_stats_events_retired_total", Help: "Feed events past the raw retention window whose players were anonymised (ADR-0011).",
 		})}
-	reg.MustRegister(r.rows, r.retired)
+	reg.MustRegister(r.rows, r.retired, r.events)
 	return r
 }
 
@@ -132,6 +138,17 @@ func (r *Retention) Run(ctx context.Context) error {
 		return err
 	}
 	due := func(t time.Time) bool { return !t.IsZero() && t.Before(cutoff) }
+	// The feed's events past the window stay countable and name nobody (README principle 10): no
+	// period is needed, each identity on each event gets a token of its own.
+	events, err := r.st.RetireStatsEvents(ctx, r.orgID, cutoff)
+	if err != nil {
+		return err
+	}
+	if events > 0 {
+		r.events.Add(float64(events))
+		r.logger.InfoContext(ctx, "stats: anonymised the players of feed events past the retention window", "events", events,
+			"before", cutoff.Format(time.DateOnly), "retention_months", set.RawRetentionMonthsOrDefault())
+	}
 	var oldest time.Time
 	for _, t := range []time.Time{oldestMatch, oldestPart, oldestSession, oldestResult} {
 		if due(t) && (oldest.IsZero() || t.Before(oldest)) {

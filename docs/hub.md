@@ -38,7 +38,7 @@ the others has a `gravel` command over the API that takes the same flags.
 | `gravel-hub servers export` | Print the games and servers as a `servers.yaml` manifest ([Servers](#servers-adr-0010)). |
 | `gravel-hub servers apply <servers.yaml> [--dry-run]` | Validate a manifest, check each credential file is readable where it runs, and store it; prints each change. With `--dry-run`, exit 3 when something would change. A running hub picks it up within 30 s. The only way to add a location or a server, or change a file or an endpoint ([Admin procedures](#admin-procedures-adr-0031)). |
 | `gravel-hub servers check <servers.yaml>` | Validate a manifest with no configuration, no database and no secret: exit 0 with its summary, 1 with every problem named, 2 on a usage error. |
-| `gravel-hub ingest export --server ID [--after ID] [--limit N]` | Print a server's stored ingest batches, oldest first, one JSON object per line: a JSON body as JSON, anything else as base64 ([Ingestion](#ingestion-adr-0011)). They hold players' SteamIDs: redact before they leave the host. |
+| `gravel-hub ingest export --server ID [--after ID] [--limit N] [--redact]` | Print a server's stored ingest batches, oldest first, one JSON object per line: a JSON body as JSON, anything else as base64 ([Ingestion](#ingestion-adr-0011)). They hold players' SteamIDs; `--redact` replaces them, the names beside them, addresses, server ids and secrets with stand-ins, so the output may leave the host. |
 | `gravel-hub stats erase --provider P --subject S` | Erase a player from the stats store ([Stats](#stats-adr-0012), Erasure): their identity becomes a random token in every stats table (participation, match results and sessions included) and the stored ingest batches, their pseudonym is deleted, the numbers stay. For an operator acting on a request they have verified. Prints the counts, never the identity. Over the API: `StatsService.EraseIdentity` (`stats:erase`). |
 | `gravel-hub wardogs record --base-url URL [--token-file FILE] [--dir DIR]` | Record a War Dogs server's read-only answers as test fixtures in `<dir>/<build>/` (default `games/wardogs/testdata`), with people, addresses and secrets replaced (ADR-0010; `games/wardogs/README.md`). One token, never retried; without one, only the public routes. |
 | `gravel-hub demo wardogs-server --listen ADDR --token-file FILE [--profile FILE] [--seed N]` | Serve a simulated War Dogs server for a demo hub to poll ([Demo hub](#demo-hub-gravel112)). |
@@ -693,7 +693,7 @@ servers:
     poll_interval: 15s           # 5s–10m; default 15s (two requests a poll)
     trust: official              # or community
     feed:                        # optional: where the server pushes its events (ADR-0011, Ingestion)
-      url: https://ingest.example.com    # an origin; the game adds /api/ingest/events
+      url: https://ingest.example.com    # an origin; CL-509546 adds /api/ingest/events (Season 02: see Ingestion)
       token_file: /run/secrets/htg-wardogs-feed-token   # line 1 the token; line 2 the previous one, while rotating
 ```
 
@@ -1166,10 +1166,12 @@ dashboard's Servers row).
 
 ## Ingestion (ADR-0011)
 
-Some servers push their events into the hub: War Dogs' `[WDServerFeed]` posts kill batches to
-`<Url>/api/ingest/events` with `Authorization: Bearer <Token>`, about every two seconds while
-players fight, and never retries. The hub serves that path on its public listener (put it behind
-the edge, as HTG does with `ingest.hiddentoken.com` through its Tunnel).
+Some servers push their events into the hub: War Dogs' event feed posts batches to
+`/api/ingest/events` with `Authorization: Bearer <Token>`, about every two minutes with nobody on
+and every few seconds in a fight, and never retries. The hub serves that path on its public
+listener (put it behind the edge, as HTG does with `ingest.hiddentoken.com` through its Tunnel).
+A batch is `{serverId, serverName, events[]}`, each event with `eventId`, `type` and `eventTime`
+(the game's clock in seconds) and its type's own fields; `games/wardogs/feed.go` has what is known.
 
 - **Turning a feed on.** Add `feed` to the server in `servers.yaml` (above), make the token a podman
   secret (`openssl rand -hex 32`), apply. The hub reads the token file every 30 s (job
@@ -1179,8 +1181,11 @@ the edge, as HTG does with `ingest.hiddentoken.com` through its Tunnel).
   takes the feed only from the server's own config file** (`bEventFeedEnabled`,
   `EventFeedEndpoints` and `EventFeedServerName` in `[/Script/WDRCON.WDRCONSettings]`, file only):
   the schema has no `[WDServerFeed]`, so the driver writes no feed, the plan and the apply carry a
-  warning saying so, and the host sets the feed in that file. `GET /v1/feed` on the server says
-  whether it is on.
+  warning saying so, and the host sets the feed in that file. **Season 02 posts to the endpoint's
+  Url as given** (CL-509546 appended `/api/ingest/events`), so the Url there is the whole route:
+  `+EventFeedEndpoints=(Url="https://ingest.example.com/api/ingest/events",Token="…")`. An origin
+  alone posts to `/` and is refused 401. `EventFeedServerName` is the label the batches carry.
+  `GET /v1/feed` on the server says whether it is on and the status of its last post.
 - **Rotating the token.** Put the new token on the first line of the file and the old one on the
   second, apply the configuration, and leave both. The hub accepts the old one for 48 hours from
   when it first read it, which covers a daily restart. Then remove the second line.
@@ -1190,10 +1195,30 @@ the edge, as HTG does with `ingest.hiddentoken.com` through its Tunnel).
   an unknown token (and 429 to an address that keeps guessing), 413 over 64 KiB, 429 when one
   server posts more than 600 a minute, 503 when the database did not take the batch (lost: the
   metrics and the log say so). Nothing in an answer names a server.
-- **What happens to a batch.** Batches are kept 30 days (job `ingest_prune`, hourly) and parsed by
-  the game's adapter into stats events (#4, after the first real captures). Until then they wait
-  as `pending`. `gravel-hub ingest export --server ID` prints them, so a deployment can read its
-  first captures; they hold players' SteamIDs, so redact them before they leave the host.
+- **What happens to a batch.** The `ingest_parse` job (every 10 s) reads each `pending` batch with
+  its game's parser (`adapters/<game>`) into **stats events** in `stats_events`, each with its
+  provenance: the source (`server_adapter`), the server and game, the source's own key (War Dogs'
+  `eventId`; a second event with the same key from the same server is dropped and counted), the
+  game's time or else when the batch came, the server's trust then, the batch it came from and the
+  schema version. The batch becomes `parsed`, or `failed` when the parser cannot read it. An event
+  of a type the parser does not know is counted (`kind="unknown"`, logged once per type) and stays
+  in the batch: a parser that learns it raises its version, and on the next start the hub reads
+  every stored batch of that game again (its keys make that safe), failed ones included. War Dogs'
+  parser reads `match_state` (map and state) so far; kills come with the first session with
+  players. Batches are kept 30 days (job `ingest_prune`, hourly).
+- **Reading the captures.** `gravel-hub ingest export --server ID` prints the stored batches as
+  received; they hold players' SteamIDs and the host's server id. With `--redact` every SteamID,
+  the name beside it, address, server id and secret is replaced with a stand-in, the same one for
+  the same value across the export, as `wardogs record` does (JSON bodies only; nothing is printed
+  if a replaced value is still there): that output may leave the host and become a parser's
+  fixture.
+- **Gaps.** Missing data is a row: a stats event of kind `gap`, its window from `observed_at` to
+  `extensions.to` and its `extensions.reason`. `hub_down`: at start, from a feed's last batch
+  before the start to the start, when the poll saw anyone on the server at that batch. `silence`:
+  no batch for 10 minutes while the poll sees at least one player (the feed posts every two
+  minutes even with nobody on, so that is a feed that stopped); it runs to the next batch and is
+  written when that comes (job `ingest_gaps`, every minute). A silence open when the hub stops is
+  left to `hub_down`.
 
 **The log route.** A game that cannot send an Authorization header pushes to
 `POST /api/ingest/log/<token>` instead (CS2's `logaddress_add_http`; the cloud-VM driver writes the
@@ -1207,8 +1232,11 @@ handed to the driver, whose roster is how a CS2 server's players are known. A lo
 is refused on the bearer route.
 
 Metrics: `gravel_ingest_batches_total{server,source,result}` (`server="unknown"` when the token
-matched none) and `gravel_ingest_last_batch_timestamp_seconds{server}`, on the hub dashboard's
-Ingestion row.
+matched none), `gravel_ingest_last_batch_timestamp_seconds{server}`,
+`gravel_ingest_parse_total{server,source,result}` (`parsed`, `failed`),
+`gravel_ingest_events_total{server,kind}` (`unknown`, `invalid` besides each kind),
+`gravel_ingest_duplicates_total{server}` and `gravel_ingest_gaps_total{server,reason}`, on the hub
+dashboard's Ingestion row.
 
 ## Stats (ADR-0012)
 
@@ -1219,8 +1247,8 @@ empty server; an empty server ends its match. A player who leaves and rejoins ke
 (the game counts from the rejoin). After a hub restart the open match is picked up again. Rows are
 keyed by the identity the game reports (Steam), never a member, and carry the server's trust when
 written: a server's board counts its own matches, a game's or the organization's counts Official
-servers' only (ADR-0011's trust mapping). The feed's events (#4) will add who killed whom; boards
-count the totals, so they are right without a feed.
+servers' only (ADR-0011's trust mapping). The feed's events ([Ingestion](#ingestion-adr-0011)) add
+the detail; boards count the totals, so they are right without a feed.
 
 **Names.** A player who has not linked the identity, or has not chosen to be shown by name
 (`SetBoardName`, off by default), appears under a **pseudonym**: two words chosen by a keyed hash of
@@ -1265,18 +1293,21 @@ The scoreboard stays readable, shown as deleted players; nothing is deleted. A s
 ended is never retired. Before that, in the same transaction, each player's stat extensions are
 added to `result_stats_monthly` (a total, the maps and the best map, per period like the matches),
 so a season's or all time's board keeps them. `gravel_stats_results_retired_total` counts the series.
+The same job anonymises the players of **feed events** observed before that day, each identity on
+each event with a token of its own (`gravel_stats_events_retired_total`); the events, and the gaps
+and match states that name nobody, stay.
 
 **Erasure.** `gravel-hub stats erase --provider steam --subject <SteamID64>` replaces the identity
 with `erased` and a random token in `match_stats`, `stats_monthly`, `participation_events`,
 `participation_monthly`, `match_result_players` (blanking the in-game name), `result_stats_monthly`, `player_sessions`,
-`player_activity_monthly` and the bodies of the stored ingest batches (their hashes recomputed), and deletes the pseudonym, in one transaction. The numbers
+`player_activity_monthly`, `stats_events` (either player of an event) and the bodies of the stored ingest batches (their hashes recomputed), and deletes the pseudonym, in one transaction. The numbers
 stay, shown as "Deleted player"; nothing maps the token back (a hash would not do: every SteamID can
 be tried). A player still on a server is recorded under their identity again from the next poll.
 The flow members start themselves comes with identity's erasure; this is the stats store's part.
 
 Metrics: `gravel_stats_matches_total{server,game}`, `gravel_stats_rows_written_total{server}`,
 `gravel_stats_sessions_started_total{server}`, `gravel_stats_record_errors_total{server}`,
-`gravel_stats_rolled_rows_total`, `gravel_stats_results_retired_total`, and the rollup job's
+`gravel_stats_rolled_rows_total`, `gravel_stats_results_retired_total`, `gravel_stats_events_retired_total`, and the rollup job's
 `gravel_hub_job_last_success_timestamp_seconds{job="stats_rollup"}` (stored by Prometheus as
 `exported_job`, since the scrape's own `job` label wins), on the hub dashboard's Stats row.
 
@@ -1460,13 +1491,16 @@ holds the RCON password it accepts; put the same one in `servers.yaml`'s `creden
 - **Optional flags:** `--name` (default "Demo War Dogs server (made-up players)"; the recording's
   name is a real community's), `--build` (an older recording), and `--feed-url` with
   `--feed-token-file` (start with the feed set, as the host's own file would: `[WDServerFeed]` on
-  CL-509546; Season 02 takes it from the file alone).
+  CL-509546; Season 02 takes it from the file alone and posts to the Url as given).
 - **State:** it keeps everything in memory, so a restart starts from the recording again.
-- **The feed:** with a feed `Url` and `Token` in force, it posts kill batches to
-  `<Url>/api/ingest/events` every 2 s. The batch's shape is a guess until a real one is captured
-  (hidden-token-gaming/deploy#49). It is a JSON array of `{eventId, timestampUtc, killerSteamId,
-  victimSteamId, distance}` and lives in `wardogsim/feed.go` alone. The hub stores batches without
-  parsing them, so the guess can't reach the stats.
+- **The feed:** with a feed `Url` and `Token` in force, it posts batches in the captured shape
+  (`{serverId, serverName, events[]}`): the two `match_state` events a server posts at its start,
+  then its kills every 2 s, and an empty batch every two minutes when there is nothing to send. On
+  Season 02 it posts to the Url as given (so `--feed-url` is the whole route,
+  `http://hub:8080/api/ingest/events`), on CL-509546 to `<Url>/api/ingest/events`. A kill's fields
+  are still a guess (`type: "kill"`, `killerSteamId`, `victimSteamId`, `distance`, from community
+  captures; `wardogsim/feed.go`), so the hub's parser keeps them as a kind it does not know until a
+  real session's captures say what a kill is.
 
 **The calibration profile** (`--profile`, both commands) holds distributions only, never a name or a
 SteamID. A fresh measurement changes the demo without code. Sources, best first: HTG's own

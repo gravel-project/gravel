@@ -92,6 +92,14 @@ type rollupStore struct {
 	oldestSession  time.Time
 	sessionPeriods []store.Period
 	sessionsMoved  int
+
+	eventsCutoff  time.Time
+	eventsRetired int
+}
+
+func (r *rollupStore) RetireStatsEvents(_ context.Context, _ uuid.UUID, cutoff time.Time) (int, error) {
+	r.eventsCutoff = cutoff
+	return r.eventsRetired, nil
 }
 
 func (r *rollupStore) OldestRawSession(context.Context, uuid.UUID) (time.Time, error) {
@@ -175,6 +183,16 @@ func TestRetentionRun(t *testing.T) {
 	}
 	if n := testutil.ToFloat64(r0.retired); n != 2 {
 		t.Errorf("retired results metric = %v", n)
+	}
+	// Feed events past the window are anonymised on every run, from the same cutoff, with nothing
+	// else due.
+	stEvents := &rollupStore{eventsRetired: 5}
+	rEvents, _ := newRun(stEvents)
+	if err := rEvents.Run(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if want := time.Date(2026, 5, 1, 0, 0, 0, 0, chicago); !stEvents.eventsCutoff.Equal(want) || testutil.ToFloat64(rEvents.events) != 5 {
+		t.Errorf("events retired before %v (%v)", stEvents.eventsCutoff, testutil.ToFloat64(rEvents.events))
 	}
 	// None ended before the cutoff: nothing is retired.
 	st1 := &rollupStore{oldestResult: time.Date(2026, 6, 2, 0, 0, 0, 0, time.UTC)}

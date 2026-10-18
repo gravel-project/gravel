@@ -214,3 +214,31 @@ func (s *scrubber) address(a, prefix string) string {
 	}
 	return fake
 }
+
+// Scrubber is a recording's scrubbing for other JSON that leaves a server's host: SteamIDs, the
+// names beside them, addresses, the host's server ids and secrets are replaced with the same
+// stand-ins a recording uses, the same value with the same stand-in in every document. It is how
+// `gravel-hub ingest export --redact` makes the feed's stored batches fit to become fixtures.
+type Scrubber struct{ s *scrubber }
+
+// NewScrubber returns a scrubber that also redacts token wherever it appears; "" for none.
+func NewScrubber(token string) *Scrubber { return &Scrubber{s: newScrubber(token)} }
+
+// Scrub rewrites docs (decoded with UseNumber, so numbers keep their digits) in place and returns
+// them. It learns the names in all of them first, so a name seen beside a SteamID in one is
+// replaced in every one.
+func (x *Scrubber) Scrub(docs []any) []any {
+	for _, d := range docs {
+		x.s.collect(d)
+	}
+	for i, d := range docs {
+		docs[i] = x.s.scrub(d)
+	}
+	return docs
+}
+
+// Originals are the values scrubbed: what the output must not contain.
+func (x *Scrubber) Originals() []string { return x.s.originals() }
+
+// Counts are what was scrubbed.
+func (x *Scrubber) Counts() Counts { return x.s.counts() }

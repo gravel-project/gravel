@@ -26,6 +26,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	wardogsfeed "github.com/gravel-project/gravel/adapters/wardogs"
 	"github.com/gravel-project/gravel/cloud"
 	"github.com/gravel-project/gravel/cloud/digitalocean"
 	"github.com/gravel-project/gravel/drivers"
@@ -524,6 +525,44 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 	h.jobs.Start(jobs.Job{Name: "ingest_prune", Every: ingest.PruneEvery, Run: func(ctx context.Context) error {
 		return ingest.Prune(ctx, st, time.Now(), logger)
 	}})
+	// The stored batches become stats events through each source's parser (ADR-0011 §2; a
+	// batch's source is its server's game), and what a feed lost is recorded as gaps (§5).
+	parsers := map[string]ingest.Parser{wardogsfeed.Game: wardogsfeed.Feed{}}
+	parsing := ingest.NewParsing(st, o.ID, parsers, func(ctx context.Context, id string) (string, string, error) {
+		// A removed server's batches are still its own.
+		all, err := st.ListManagedServers(ctx, o.ID, true)
+		if err != nil {
+			return "", "", err
+		}
+		for _, s := range all {
+			if s.ID == id {
+				return s.GameID, s.Trust, nil
+			}
+		}
+		return "", "", fmt.Errorf("server %s: %w", id, store.ErrNotFound)
+	}, h.registry, logger)
+	h.jobs.Start(jobs.Job{Name: "ingest_parse", Every: ingest.ParseEvery, Immediate: true, Run: parsing.Run})
+	gaps := ingest.NewGaps(st, o.ID, func(ctx context.Context) ([]ingest.FeedServer, error) {
+		list, err := h.servers.Servers(ctx)
+		if err != nil {
+			return nil, err
+		}
+		var out []ingest.FeedServer
+		for _, s := range list {
+			if _, ok := parsers[s.Game]; ok && s.Feed != nil {
+				out = append(out, ingest.FeedServer{ID: s.ID, Game: s.Game, Trust: s.Trust})
+			}
+		}
+		return out, nil
+	}, func(server string) (int, bool) {
+		o, ok := h.monitor.Observation(server)
+		if !ok {
+			return 0, false
+		}
+		return max(o.Status.Players, len(o.Players)), o.Reachable
+	}, time.Now(), h.registry, logger)
+	h.ingest.SetStoredHook(gaps.Stored)
+	h.jobs.Start(jobs.Job{Name: "ingest_gaps", Every: ingest.GapsEvery, Immediate: true, Run: gaps.Run})
 
 	// The API, once: the public listener serves it, and the pages call it in process through
 	// the session middleware (ADR-0005).

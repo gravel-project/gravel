@@ -102,3 +102,50 @@ Two more constraints. The feed's format is unverified: S1 (deploy#49) is meant t
     byte offsets, ticks, timestamp, map and score), with the body at most 256 KiB.
   - **The tap.** After the insert, the batch is handed to the server's driver, whose roster is how
     a CS2 server's players are known; the parser for stats events (#4) is still to come.
+- **2026-10-18, the first real feed (Season 02, CL-516586) and the parser as built (step 3, #4).**
+  - **The feed moved.** Season 02 removed `[WDServerFeed]`: the feed is the RCON section's
+    `bEventFeedEnabled`, `EventFeedEndpoints` and `EventFeedServerName`, set in the server's own
+    file only, so the driver writes no feed on such a build and its plan says what Url to set.
+    The server **posts to an endpoint's Url as given**; CL-509546 appended `/api/ingest/events`.
+    HTG's first try (an origin) posted to `/` and was refused 401; the Url now carries the path.
+  - **The shape** (`games/wardogs/feed.go`): a batch is `{serverId, serverName, events[]}`,
+    `serverId` the host's id for the server and `serverName` the file's `EventFeedServerName`. An
+    event has `eventId`, `type` and `eventTime`, the game's clock in seconds (0.132 at the start),
+    not a wall-clock time, so an event's `observed_at` is its batch's `received_at`. The first
+    batch carried two `match_state` events (`mapName`, `state`: `MatchState.PreMatch`, then
+    `MatchState.PreMatch.WaitingForWorldLoad`) at the server's start with nobody on, and **the feed
+    posts about every two minutes even to an empty server.** A kill's fields are not known yet.
+  - **`silence` is 10 minutes while the poll sees one player or more** (John, 2026-10-18; was 10 or
+    more). With batches every two minutes regardless, ten minutes without one while anyone is on
+    is a feed that stopped, not a quiet match. The gap runs from the last batch to the next one
+    and is written when that one arrives; a silence still open when the hub stops is left to
+    `hub_down`.
+  - **`hub_down` uses the poll's occupancy.** "The server had players then" is a
+    `server_occupancy` row (ADR-0018) for the minute of the last batch before the start or the
+    one before it. The hub-down window is that batch to the start.
+  - **The parse job** (`ingest_parse`, every 10 s) reads one source's `pending` batches with that
+    source's `ingest.Parser` (a batch's source is its server's game; `adapters/wardogs` for War
+    Dogs). Sources with no parser, such as CS2's log, which its driver reads as it arrives, stay
+    `pending` and are out of its way (the pending index is per source). A batch, its events and
+    its new state are saved in one transaction. A batch the parser can't read is `failed` and
+    counted.
+  - **Unknown kinds stay in the batch.** An event of a type the parser does not know is counted
+    (`gravel_ingest_events_total{kind="unknown"}`) and logged once per type, and the batch is
+    still `parsed`. The batch records the parser version that read it (`parser_version`). When a
+    parser's version rises, every stored batch of its source, parsed or failed, goes back to
+    `pending` at the next start, and the source keys make reading it again safe. A duplicate found
+    on a re-read is not counted as one the source sent. This is how the kills will be read: the
+    first session with players is captured with `gravel-hub ingest export --redact` (the
+    recorder's stand-ins, across the export), its batches become the adapter's fixtures, and the
+    next parser version reads every batch still inside the 30 days.
+  - **`stats_events`** (migration 36) carries §4's columns and up to two players, each a provider
+    identity: the one the event is about (a kill's killer, `provider`/`subject`) and the other
+    (its victim, `target_*`). Either is absent for an event of nobody (a match state, a gap). A
+    gap is `kind = 'gap'`, its window `observed_at` to `extensions.to`, its `extensions.reason`.
+  - **Erasure and retention.** `stats erase` re-keys either player of an event in one statement.
+    Past `stats.raw_retention_months` the rollup job anonymises each identity on each event with
+    a token of its own, as #216 does for match results (principle 10), rather than deleting the
+    events; events of nobody are kept as they are.
+  - **Not yet:** the `reconcile` detector and the trust mapping's first event-fed board need the
+    kills; gaps on the server and game pages wait for #18's pages; CS2's and MatchZy's parsers
+    come when their events are wanted as stats.

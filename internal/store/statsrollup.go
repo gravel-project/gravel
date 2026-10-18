@@ -112,12 +112,15 @@ type Erasure struct {
 	// (ADR-0035).
 	SessionRows         int
 	ActivityMonthlyRows int
-	Pseudonym           bool
+	// EventRows are stats_events rows the identity was a player of (ADR-0011), in either place.
+	EventRows int
+	Pseudonym bool
 }
 
 // EraseIdentity replaces an identity with (ErasedProvider, token) in match_stats, stats_monthly,
 // participation_events, participation_monthly, match_result_players (whose in-game name it blanks),
-// result_stats_monthly, player_sessions, player_activity_monthly and the bodies of the stored ingest batches, and deletes its pseudonym, in one transaction. The
+// result_stats_monthly, player_sessions, player_activity_monthly, stats_events (as either player) and the bodies of the stored ingest
+// batches, and deletes its pseudonym, in one transaction. The
 // token must be random (a hash of a SteamID can be reversed by trying them all); the counts stay.
 // ingest_batches is re-keyed by replacing the subject wherever it appears in a body, which is how
 // a feed writes it.
@@ -174,6 +177,18 @@ func (s *Store) EraseIdentity(ctx context.Context, orgID uuid.UUID, key PlayerKe
 		return Erasure{}, fmt.Errorf("store: erase identity: player_activity_monthly: %w", err)
 	}
 	out.ActivityMonthlyRows = int(tag.RowsAffected())
+	// One statement for both places: an event whose two players are the same identity (a death of
+	// one's own doing) is re-keyed in both, and counted once.
+	if tag, err = tx.Exec(ctx, `UPDATE stats_events SET
+		  provider = CASE WHEN provider = $2 AND subject = $3 THEN $4 ELSE provider END,
+		  subject = CASE WHEN provider = $2 AND subject = $3 THEN $5 ELSE subject END,
+		  target_provider = CASE WHEN target_provider = $2 AND target_subject = $3 THEN $4 ELSE target_provider END,
+		  target_subject = CASE WHEN target_provider = $2 AND target_subject = $3 THEN $5 ELSE target_subject END
+		WHERE organization_id = $1 AND ((provider = $2 AND subject = $3) OR (target_provider = $2 AND target_subject = $3))`,
+		orgID, key.Provider, key.Subject, ErasedProvider, token); err != nil {
+		return Erasure{}, fmt.Errorf("store: erase identity: stats_events: %w", err)
+	}
+	out.EventRows = int(tag.RowsAffected())
 	if tag, err = tx.Exec(ctx, `UPDATE ingest_batches
 		   SET body = convert_to(replace(convert_from(body, 'UTF8'), $2, $3), 'UTF8'),
 		       body_sha256 = sha256(convert_to(replace(convert_from(body, 'UTF8'), $2, $3), 'UTF8'))
@@ -191,7 +206,7 @@ func (s *Store) EraseIdentity(ctx context.Context, orgID uuid.UUID, key PlayerKe
 	if err := s.appendEvent(ctx, tx, by.event(Event{OrganizationID: orgID, At: at, Kind: "stats.erased",
 		Summary: "A player's identity was erased from the stats",
 		Detail: map[string]any{"provider": key.Provider, "match_rows": out.MatchRows, "monthly_rows": out.MonthlyRows,
-			"participation_rows": out.ParticipationRows, "result_rows": out.ResultRows, "result_monthly_rows": out.ResultMonthlyRows, "session_rows": out.SessionRows, "ingest_batches": out.IngestBatches},
+			"participation_rows": out.ParticipationRows, "result_rows": out.ResultRows, "result_monthly_rows": out.ResultMonthlyRows, "session_rows": out.SessionRows, "event_rows": out.EventRows, "ingest_batches": out.IngestBatches},
 		Source: "stats.erase", SourceID: fmt.Sprintf("%s:%d", orgID, at.UnixMicro())})); err != nil {
 		return Erasure{}, err
 	}

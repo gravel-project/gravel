@@ -26,7 +26,8 @@ var ErrNotADemoDatabase = errors.New("store: the database is not an empty demo d
 type DemoCensus struct {
 	// Users is every user; DemoUsers those whose identities are all DemoVerification.
 	Users, DemoUsers int
-	// The history a seed must never mix with.
+	// The history a seed must never mix with. IngestBatches counts the feed events parsed from
+	// batches too, which outlive them.
 	Matches, AuditEntries, Bans, IngestBatches, ParticipationEvents, MonthlyRows, Occupancy, Pseudonyms int
 	// Apps are registered first-party apps (a bot): a hub in use has one before anyone signs in,
 	// so a seed refuses them too. A demo hub registers its apps after the seed.
@@ -52,7 +53,7 @@ func (e *DemoRefusal) Error() string {
 	case c.DemoUsers > 0:
 		return fmt.Sprintf("store: the database was seeded already (%d demo members); seed a fresh database", c.DemoUsers)
 	}
-	return fmt.Sprintf("store: the database holds history already (%d matches, %d audit entries, %d bans, %d ingest batches, %d participation events, %d monthly rows, %d occupancy minutes, %d pseudonyms, %d apps); the demo seed writes only into an empty database",
+	return fmt.Sprintf("store: the database holds history already (%d matches, %d audit entries, %d bans, %d ingest batches and feed events, %d participation events, %d monthly rows, %d occupancy minutes, %d pseudonyms, %d apps); the demo seed writes only into an empty database",
 		c.Matches, c.AuditEntries, c.Bans, c.IngestBatches, c.ParticipationEvents, c.MonthlyRows, c.Occupancy, c.Pseudonyms, c.Apps)
 }
 
@@ -66,7 +67,7 @@ const demoCensusQuery = `SELECT
 	(SELECT count(*) FROM matches),
 	(SELECT count(*) FROM audit_log),
 	(SELECT count(*) FROM bans),
-	(SELECT count(*) FROM ingest_batches),
+	(SELECT count(*) FROM ingest_batches) + (SELECT count(*) FROM stats_events),
 	(SELECT count(*) FROM participation_events),
 	(SELECT count(*) FROM stats_monthly) + (SELECT count(*) FROM participation_monthly),
 	(SELECT count(*) FROM server_occupancy),
@@ -144,7 +145,7 @@ type DemoHistory struct {
 // demoTables are what SeedDemo locks against every other writer until it commits, so nothing can
 // be recorded between its census and its writes.
 const demoTables = `users, identities, identity_events, role_changes, matches, match_stats, audit_log, bans, ban_lists,
-	ingest_batches, participation_events, stats_monthly, participation_monthly, server_occupancy, pseudonyms, apps`
+	ingest_batches, stats_events, participation_events, stats_monthly, participation_monthly, server_occupancy, pseudonyms, apps`
 
 // SeedDemo writes a demo history in one transaction, and only into an empty database: it locks
 // the tables it reads and writes, counts what they hold, and refuses (a *DemoRefusal, nothing

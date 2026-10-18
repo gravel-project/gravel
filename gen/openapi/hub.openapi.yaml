@@ -4750,6 +4750,11 @@ components:
           type: integer
           title: activity_monthly_rows
           format: int32
+        eventRows:
+          type: integer
+          title: event_rows
+          format: int32
+          description: Feed events (ADR-0011) the identity was a player of.
       title: EraseIdentityResponse
       additionalProperties: false
       description: EraseIdentityResponse counts what the erasure re-keyed; it never repeats the identity.

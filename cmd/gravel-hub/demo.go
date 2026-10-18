@@ -86,7 +86,7 @@ func demoWardogsServer(ctx context.Context, args []string, stdout, stderr io.Wri
 	profilePath := fs.String("profile", "", "a calibration file (population by hour, match length, kills, rejoins); the built-in profile without one")
 	seed := fs.Uint64("seed", 1, "the simulation's seed: the same seed and clock give the same world")
 	build := fs.String("build", "", "the recorded build to answer as (games/wardogs/testdata); the newest without one")
-	feedURL := fs.String("feed-url", "", "start with [WDServerFeed] Url set, as a host's own document would (the hub can write it too)")
+	feedURL := fs.String("feed-url", "", "start with the feed's Url set, as the host's own file would: Season 02 posts to it as given (https://hub.example.com/api/ingest/events); CL-509546 appends /api/ingest/events")
 	feedTokenFile := fs.String("feed-token-file", "", "a file holding the feed's token, with --feed-url")
 	name := fs.String("name", "", "the name the server reports (ServerName); a demo name without one")
 	if err := fs.Parse(args); err != nil {
@@ -131,9 +131,9 @@ func demoWardogsServer(ctx context.Context, args []string, stdout, stderr io.Wri
 	served := make(chan error, 1)
 	go func() { served <- srv.Serve(ln) }()
 	go func() { _ = sim.Run(ctx) }()
-	feed := "off"
-	if *feedURL != "" {
-		feed = *feedURL + wardogsim.FeedPath
+	feed := sim.FeedTarget()
+	if feed == "" {
+		feed = "off"
 	}
 	logger.Info("simulating a War Dogs server: its players, matches and stats are made up", "build", sim.Build(), "listen", ln.Addr().String(),
 		"profile", orDefault(*profilePath, "built-in"), "seed", *seed, "feed", feed)

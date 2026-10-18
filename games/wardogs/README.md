@@ -61,7 +61,20 @@ the files under `testdata/` stay the one source and a binary can still serve the
 `wardogsim` is a simulated server for a demo hub (gravel#112). It answers as the newest recording
 does, over made-up players with stand-in SteamIDs who join, fight, rejoin and leave on a calibration
 profile's curves. Moderation, configuration writes and the three-strike lock work as above, and it
-posts kill batches in a shape that is a guess until one is captured (`wardogsim/feed.go`): from
-`[WDServerFeed]` on CL-509546, which takes it over RCON; on Season 02, which takes the feed only
-from the server's own file and strips the section, from the start options (the host's file), and
-`GET /v1/feed` says whether it is on. A new recording here is what the simulator answers as next.
+posts its event feed in the captured shape (`wardogsim/feed.go`): from `[WDServerFeed]` on
+CL-509546, which takes it over RCON and appends `/api/ingest/events` to its Url; on Season 02,
+which takes the feed only from the server's own file and strips the section, from the start
+options (the host's file), posting to the Url as given. `GET /v1/feed` says whether it is on. A new
+recording here is what the simulator answers as next.
+
+## The event feed
+
+`feed.go` reads a feed batch as the first capture showed it (2026-10-18, Season 02): `{serverId,
+serverName, events[]}`, each event with `eventId`, `type`, `eventTime` (the game's clock in
+seconds, not a wall-clock time) and its type's own fields, kept whole (`Raw`) for a reader that
+knows the type. `serverId` is the host's id for the server (the Join-by-ID); `serverName` is the
+file's `EventFeedServerName`. Only `match_state` (`mapName`, `state`) is known: two at a server's
+start, `MatchState.PreMatch` then `MatchState.PreMatch.WaitingForWorldLoad`. The feed posts about
+every two minutes with nobody on. A kill's fields come from the first session with players: read
+the stored batches with `gravel-hub ingest export --server ID --redact`, add them as the adapter's
+fixtures (`adapters/wardogs/testdata/<build>/`) and teach `feed.go` the type.
