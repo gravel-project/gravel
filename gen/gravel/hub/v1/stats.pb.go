@@ -1820,8 +1820,10 @@ type EraseIdentityResponse struct {
 	// Player sessions and their monthly rows (ADR-0035).
 	SessionRows         int32 `protobuf:"varint,8,opt,name=session_rows,json=sessionRows,proto3" json:"session_rows,omitempty"`
 	ActivityMonthlyRows int32 `protobuf:"varint,9,opt,name=activity_monthly_rows,json=activityMonthlyRows,proto3" json:"activity_monthly_rows,omitempty"`
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
+	// Feed events (ADR-0011) the identity was a player of.
+	EventRows     int32 `protobuf:"varint,10,opt,name=event_rows,json=eventRows,proto3" json:"event_rows,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *EraseIdentityResponse) Reset() {
@@ -1913,6 +1915,13 @@ func (x *EraseIdentityResponse) GetSessionRows() int32 {
 func (x *EraseIdentityResponse) GetActivityMonthlyRows() int32 {
 	if x != nil {
 		return x.ActivityMonthlyRows
+	}
+	return 0
+}
+
+func (x *EraseIdentityResponse) GetEventRows() int32 {
+	if x != nil {
+		return x.EventRows
 	}
 	return 0
 }
@@ -3471,7 +3480,7 @@ const file_gravel_hub_v1_stats_proto_rawDesc = "" +
 	"\aseconds\x18\a \x01(\x05R\aseconds\"L\n" +
 	"\x14EraseIdentityRequest\x12\x1a\n" +
 	"\bprovider\x18\x01 \x01(\tR\bprovider\x12\x18\n" +
-	"\asubject\x18\x02 \x01(\tR\asubject\"\x92\x03\n" +
+	"\asubject\x18\x02 \x01(\tR\asubject\"\xb1\x03\n" +
 	"\x15EraseIdentityResponse\x12\x1d\n" +
 	"\n" +
 	"match_rows\x18\x01 \x01(\x05R\tmatchRows\x12!\n" +
@@ -3483,7 +3492,10 @@ const file_gravel_hub_v1_stats_proto_rawDesc = "" +
 	"\vresult_rows\x18\a \x01(\x05R\n" +
 	"resultRows\x12!\n" +
 	"\fsession_rows\x18\b \x01(\x05R\vsessionRows\x122\n" +
-	"\x15activity_monthly_rows\x18\t \x01(\x05R\x13activityMonthlyRows\"\xe9\x03\n" +
+	"\x15activity_monthly_rows\x18\t \x01(\x05R\x13activityMonthlyRows\x12\x1d\n" +
+	"\n" +
+	"event_rows\x18\n" +
+	" \x01(\x05R\teventRows\"\xe9\x03\n" +
 	"\vMatchResult\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\tserver_id\x18\x02 \x01(\tR\bserverId\x12\x19\n" +

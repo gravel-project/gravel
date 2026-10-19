@@ -223,7 +223,7 @@ func (s *StatsServer) EraseIdentity(ctx context.Context, req *connect.Request[hu
 	}
 	return connect.NewResponse(&hubv1.EraseIdentityResponse{MatchRows: int32(got.MatchRows), MonthlyRows: int32(got.MonthlyRows), //nolint:gosec // row counts
 		ParticipationRows: int32(got.ParticipationRows), ParticipationMonthlyRows: int32(got.ParticipationMonthlyRows), ResultRows: int32(got.ResultRows), SessionRows: int32(got.SessionRows), ActivityMonthlyRows: int32(got.ActivityMonthlyRows), //nolint:gosec // row counts
-		IngestBatches: int32(got.IngestBatches), PseudonymDeleted: got.Pseudonym}), nil //nolint:gosec // row counts
+		EventRows: int32(got.EventRows), IngestBatches: int32(got.IngestBatches), PseudonymDeleted: got.Pseudonym}), nil //nolint:gosec // row counts
 }
 
 // RevokeUserSessions logs a member out everywhere: members:manage.

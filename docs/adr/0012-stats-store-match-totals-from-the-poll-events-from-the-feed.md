@@ -77,3 +77,11 @@ ADR-0011 already decided how they meet: the feed is reconciled against the poll,
 - **2026-10-15, player sessions (#208, [ADR-0035](0035-player-sessions-from-the-poll.md)).** The poll also stitches each identity's sessions on each server (`player_sessions`); `stats erase` re-keys them and the rollup moves them into `player_activity_monthly`, as §6 and §7 treat match rows.
 - **2026-10-15, match results (#216).** `match_result_players` (ADR-0024) is erased and retired like every identity-linked row. `stats erase` re-keys it to (`erased`, the token) and blanks the in-game name. The `stats_rollup` job anonymises the players of every series that ended before the retention cutoff, each with a random token of their own in that series, rather than rolling them up: a scoreboard has no monthly form, and keeping it readable while naming nobody is §6's "keep aggregates" for a series. `gravel_stats_results_retired_total` counts them.
 - **2026-10-10, profiles as built (#18).** `PlayerStats` became `GetMemberProfile`: a member's totals over all time, this week, this month and each season running now (Official rows, every linked identity, a game's season filtered to that game) and their recent matches. §8's access holds (the member, the owner, `stats:read`), plus anyone when the member shows their name and stats are public. Every other refusal is `not_found`, so a profile can't confirm who plays under a pseudonym.
+- **2026-10-18, `stats_events` (#4, ADR-0011's amendment of the same day).** Migration 36 adds it
+  with the parser that writes it: ADR-0011 §4's provenance columns, a kind, extensions, and two
+  optional players (the one the event is about and the other, each a provider identity). §6 is
+  amended for it as #216 did for match results: past the window its identities are anonymised, a
+  token of its own per identity per event (`gravel_stats_events_retired_total`), not deleted with
+  the rows rolled up, so a kill's detail stays countable and names nobody. §7's erasure re-keys
+  either player. The boards still count `match_stats`; the feed's kills join them through the
+  `reconcile` detector once a session with players shows a kill's fields.

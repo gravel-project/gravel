@@ -4728,6 +4728,70 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
+      "description": "Feed events past stats.raw_retention_months whose players were anonymised, each with a token of their own (ADR-0011). The events stay countable; nobody is named.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 206
+      },
+      "id": 81,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(increase(gravel_stats_events_retired_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "events",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Feed events anonymised",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
       "description": "The rollup job runs every 6 hours; much over that means it is failing (gravel_hub_jobs_total, result error). Prometheus stores the runner's job label as exported_job, since the scrape's own job label wins.",
       "fieldConfig": {
         "defaults": {
@@ -4750,10 +4814,10 @@
       "gridPos": {
         "h": 4,
         "w": 12,
-        "x": 12,
-        "y": 206
+        "x": 0,
+        "y": 214
       },
-      "id": 81,
+      "id": 82,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -4818,9 +4882,9 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 214
+        "y": 218
       },
-      "id": 82,
+      "id": 83,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4853,9 +4917,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 222
+        "y": 226
       },
-      "id": 83,
+      "id": 84,
       "panels": [],
       "title": "Ingestion",
       "type": "row"
@@ -4865,7 +4929,7 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
-      "description": "A feed posts only while players fight, so a quiet server is quiet here too; compare with Players now (ADR-0011). No data is expected when no server has a feed (servers.yaml feed), or none has posted yet.",
+      "description": "War Dogs' Season 02 feed posts about every two minutes even with nobody on, and every few seconds in a fight; ten minutes with players on is a silence gap (ADR-0011). No data is expected when no server has a feed (servers.yaml feed), or none has posted yet.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -4897,9 +4961,9 @@
         "h": 4,
         "w": 8,
         "x": 0,
-        "y": 223
+        "y": 227
       },
-      "id": 84,
+      "id": 85,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -4965,9 +5029,9 @@
         "h": 8,
         "w": 16,
         "x": 8,
-        "y": 223
+        "y": 227
       },
-      "id": 85,
+      "id": 86,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -4995,14 +5059,274 @@
       "type": "timeseries"
     },
     {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "The parse job reads the stored batches with their source's parser (ADR-0011): parsed, or failed (kept, and read again by a newer parser). No data is expected when no batch was parsed in the range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gravelOptional": "no batch was parsed in the range",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 235
+      },
+      "id": 87,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (server, result) (increase(gravel_ingest_parse_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "{{server}} {{result}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Batches parsed by result",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Events stored from the batches. unknown: a kind the parser does not know yet, kept in the batch for 30 days for a parser that does; invalid: an event it could not read. No data is expected when no event was parsed in the range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gravelOptional": "no event was parsed in the range",
+      "gridPos": {
+        "h": 8,
+        "w": 16,
+        "x": 8,
+        "y": 235
+      },
+      "id": 88,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (server, kind) (increase(gravel_ingest_events_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "{{server}} {{kind}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Events by kind",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Events a server sent again (the same source key); stored once. No data is expected when no server sent an event twice in the range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gravelOptional": "no server sent an event twice in the range",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 243
+      },
+      "id": 89,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (server) (increase(gravel_ingest_duplicates_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "{{server}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Duplicate events",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Data a feed lost, recorded as gap events (ADR-0011 §5). hub_down: the hub was away while players were on; silence: no batch for ten minutes while players were on. No data is expected when no feed lost anything in the range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gravelOptional": "no feed lost anything in the range",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 243
+      },
+      "id": 90,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (server, reason) (increase(gravel_ingest_gaps_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "{{server}} {{reason}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Feed gaps by reason",
+      "type": "timeseries"
+    },
+    {
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 231
+        "y": 251
       },
-      "id": 86,
+      "id": 91,
       "panels": [],
       "title": "Background jobs",
       "type": "row"
@@ -5042,9 +5366,9 @@
         "h": 8,
         "w": 16,
         "x": 0,
-        "y": 232
+        "y": 252
       },
-      "id": 87,
+      "id": 92,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5076,7 +5400,7 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
-      "description": "prune runs every 10 minutes, servers_reconcile and ingest_feeds every 30 seconds, ingest_prune hourly, server_poll at each server's interval.",
+      "description": "prune runs every 10 minutes, servers_reconcile and ingest_feeds every 30 seconds, ingest_parse every 10 seconds, ingest_gaps every minute, ingest_prune hourly, server_poll at each server's interval.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -5099,9 +5423,9 @@
         "h": 4,
         "w": 8,
         "x": 16,
-        "y": 232
+        "y": 252
       },
-      "id": 88,
+      "id": 93,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -5137,9 +5461,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 240
+        "y": 260
       },
-      "id": 89,
+      "id": 94,
       "panels": [],
       "title": "Events",
       "type": "row"
@@ -5180,9 +5504,9 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 241
+        "y": 261
       },
-      "id": 90,
+      "id": 95,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5245,9 +5569,9 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 249
+        "y": 269
       },
-      "id": 91,
+      "id": 96,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5310,9 +5634,9 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 249
+        "y": 269
       },
-      "id": 92,
+      "id": 97,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5345,9 +5669,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 257
+        "y": 277
       },
-      "id": 93,
+      "id": 98,
       "panels": [],
       "title": "Runtime",
       "type": "row"
@@ -5386,9 +5710,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 258
+        "y": 278
       },
-      "id": 94,
+      "id": 99,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5449,9 +5773,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 258
+        "y": 278
       },
-      "id": 95,
+      "id": 100,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5512,9 +5836,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 258
+        "y": 278
       },
-      "id": 96,
+      "id": 101,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5575,9 +5899,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 266
+        "y": 286
       },
-      "id": 97,
+      "id": 102,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5638,9 +5962,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 266
+        "y": 286
       },
-      "id": 98,
+      "id": 103,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5701,9 +6025,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 266
+        "y": 286
       },
-      "id": 99,
+      "id": 104,
       "options": {
         "legend": {
           "displayMode": "list",

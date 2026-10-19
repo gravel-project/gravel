@@ -628,43 +628,76 @@ func TestTokenThrottle(t *testing.T) {
 	}
 }
 
+// TestFeed: the batches read as the feed's wire format (games/wardogs/feed.go), the server's
+// start first; Season 02 posts to the Url as given, CL-509546 appends the path.
 func TestFeed(t *testing.T) {
-	type batch struct {
-		auth string
-		path string
-		body []KillEvent
-	}
-	got := make(chan batch, 100)
-	sink := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var events []KillEvent
-		if err := json.NewDecoder(r.Body).Decode(&events); err != nil {
-			t.Errorf("a batch that is not a JSON array of events: %v", err)
-		}
-		got <- batch{auth: r.Header.Get("Authorization"), path: r.URL.Path, body: events}
-	}))
-	t.Cleanup(sink.Close)
-	p := busy()
-	p.KillsPerMinute = 6
-	sim, err := New(Options{Token: testToken, Profile: p, Seed: 8, FeedURL: sink.URL + "/", FeedToken: "feed-token"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan error, 1)
-	go func() { done <- sim.Run(ctx) }()
-	t.Cleanup(func() { cancel(); <-done })
-	select {
-	case b := <-got:
-		if b.auth != "Bearer feed-token" || b.path != FeedPath || len(b.body) < 1 || len(b.body) > feedBatch {
-			t.Errorf("batch: %+v", b)
-		}
-		for _, e := range b.body {
-			if e.EventID == "" || !strings.HasPrefix(e.VictimSteamID, StandInSteamIDPrefix) || e.TimestampUTC == "" {
-				t.Errorf("event %+v", e)
+	for _, tc := range []struct {
+		build, url, path string
+	}{
+		{"CL-516586", "/api/ingest/events", wardogs.FeedPath},
+		{"CL-516586", "/hooks/feed", "/hooks/feed"},
+		{"CL-509546", "/", wardogs.FeedPath},
+	} {
+		t.Run(tc.build+tc.url, func(t *testing.T) {
+			type batch struct {
+				auth, path string
+				body       wardogs.FeedBatch
 			}
-		}
-	case <-time.After(20 * time.Second):
-		t.Fatal("no batch reached the sink")
+			got := make(chan batch, 100)
+			sink := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				body, _ := io.ReadAll(r.Body)
+				b, err := wardogs.ParseFeedBatch(body)
+				if err != nil {
+					t.Errorf("a batch the feed's reader refuses: %v: %s", err, body)
+				}
+				got <- batch{auth: r.Header.Get("Authorization"), path: r.URL.Path, body: b}
+			}))
+			t.Cleanup(sink.Close)
+			p := busy()
+			p.KillsPerMinute = 6
+			sim, err := New(Options{Token: testToken, Profile: p, Seed: 8, Build: tc.build, FeedURL: sink.URL + tc.url, FeedToken: "feed-token"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if target := sim.FeedTarget(); target != sink.URL+tc.path {
+				t.Errorf("target = %q", target)
+			}
+			ctx, cancel := context.WithCancel(context.Background())
+			done := make(chan error, 1)
+			go func() { done <- sim.Run(ctx) }()
+			t.Cleanup(func() { cancel(); <-done })
+			first, kills := true, 0
+			for kills == 0 {
+				select {
+				case b := <-got:
+					if b.auth != "Bearer feed-token" || b.path != tc.path || len(b.body.Events) < 1 || len(b.body.Events) > feedBatch ||
+						!strings.HasPrefix(b.body.ServerID, "00000000-0000-4000-8000-") || b.body.ServerName != DefaultServerName {
+						t.Fatalf("batch: %+v", b)
+					}
+					for i, e := range b.body.Events {
+						if e.EventID == "" || !e.HasTime {
+							t.Errorf("event %+v", e)
+						}
+						if first && i < 2 {
+							m, err := e.MatchState()
+							if err != nil || m.MapName == "" || !strings.HasPrefix(m.State, "MatchState.PreMatch") {
+								t.Errorf("the start's event %d: %+v %v", i, m, err)
+							}
+						}
+						if e.Type == "kill" {
+							var k FeedEvent
+							if err := json.Unmarshal(e.Raw, &k); err != nil || !strings.HasPrefix(k.VictimSteamID, StandInSteamIDPrefix) || k.Distance == nil {
+								t.Errorf("kill %s: %v", e.Raw, err)
+							}
+							kills++
+						}
+					}
+					first = false
+				case <-time.After(30 * time.Second):
+					t.Fatal("no kill reached the sink")
+				}
+			}
+		})
 	}
 }
 

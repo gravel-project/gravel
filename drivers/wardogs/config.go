@@ -20,8 +20,10 @@ import (
 //
 // Season 02 (CL-516586) dropped the feed section from the schema: the feed is set in the server's
 // own config file (bEventFeedEnabled, EventFeedEndpoints and EventFeedServerName in the RCON
-// section, file only). On such a build the driver writes no feed and says so in the plan; a feed
-// section the server still holds is copied as before, so the plan shows no change for it.
+// section, file only), and posts to the endpoint's Url as given, where CL-509546 appended
+// /api/ingest/events. On such a build the driver writes no feed and says so in the plan, with the
+// Url to set; a feed section the server still holds is copied as before, so the plan shows no
+// change for it.
 const (
 	sectionGameSession = "/Script/WDGame.WDGameSession"
 	keyBannedIDs       = "DefaultBannedPlayerIds"
@@ -184,7 +186,7 @@ func merge(draft drivers.ConfigDraft, server wardogs.ConfigDocument) (_ wardogs.
 	if f := draft.Feed; f != nil && !feedSettable {
 		notes = append(notes, "this build takes its event feed only from the server's own config file "+
 			"(bEventFeedEnabled and EventFeedEndpoints, file only), so the hub's feed was not written; "+
-			"the host sets it there")
+			"the host sets it there, and this build posts to the Url as given: "+strings.TrimRight(f.URL, "/")+wardogs.FeedPath)
 	} else if f != nil {
 		// The game appends /api/ingest/events to Url.
 		want.SetSection(wardogs.DocSection{Name: sectionFeed, Lines: []wardogs.DocLine{

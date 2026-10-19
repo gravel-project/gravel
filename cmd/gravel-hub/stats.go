@@ -56,7 +56,7 @@ func statsCmd(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 		return 1
 	}
 	// The identity is not printed back: the command line already holds it, and a log should not.
-	fmt.Fprintf(stdout, "erased: %d match rows, %d monthly rows, %d participation events, %d participation monthly rows, %d match result rows, %d sessions, %d activity monthly rows, %d ingest batches re-keyed; pseudonym deleted: %t\n",
-		got.MatchRows, got.MonthlyRows, got.ParticipationRows, got.ParticipationMonthlyRows, got.ResultRows, got.SessionRows, got.ActivityMonthlyRows, got.IngestBatches, got.Pseudonym)
+	fmt.Fprintf(stdout, "erased: %d match rows, %d monthly rows, %d participation events, %d participation monthly rows, %d match result rows, %d sessions, %d activity monthly rows, %d feed events, %d ingest batches re-keyed; pseudonym deleted: %t\n",
+		got.MatchRows, got.MonthlyRows, got.ParticipationRows, got.ParticipationMonthlyRows, got.ResultRows, got.SessionRows, got.ActivityMonthlyRows, got.EventRows, got.IngestBatches, got.Pseudonym)
 	return 0
 }

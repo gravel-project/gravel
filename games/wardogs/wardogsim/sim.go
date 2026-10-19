@@ -76,6 +76,7 @@ type Server struct {
 	factions  []wardogs.FactionScore
 	maps      map[string]bool
 	lightings map[string]bool
+	serverID  string // the recording's stand-in, which the feed's batches name
 
 	mu       sync.Mutex
 	rng      *rand.Rand
@@ -95,7 +96,7 @@ type Server struct {
 	lighting string
 	audit    []wardogs.AuditEntry
 	auth     map[string]*peer
-	events   []KillEvent
+	events   []FeedEvent
 	eventSeq uint64
 	dropped  int
 	inFlight int
@@ -188,6 +189,7 @@ func New(opt Options) (*Server, error) {
 	s.clock, s.booted, s.restart = now, now, profile.NextRestart(now)
 	s.regulars = Regulars(profile, s.rng)
 	s.enterRotation(0)
+	s.started(now)
 	// A server that has been up a while: the hour's population is on, and a match has begun.
 	for range int(math.Round(math.Min(profile.PopulationAt(now), float64(s.capacity())))) {
 		s.join(now, s.pick())
@@ -210,6 +212,12 @@ func (s *Server) load(build string) error {
 	}
 	if s.caps, err = fs.ReadFile(s.files, "v1/capabilities.json"); err != nil {
 		return fmt.Errorf("wardogsim: %w", err)
+	}
+	var id struct {
+		ServerID string `json:"serverId"`
+	}
+	if b, err := fs.ReadFile(s.files, "v1/server-id.json"); err == nil && json.Unmarshal(b, &id) == nil {
+		s.serverID = id.ServerID
 	}
 	if s.tokenless, err = wardogs.TokenlessShapes(s.files); err != nil {
 		return fmt.Errorf("wardogsim: %w", err)
@@ -582,4 +590,5 @@ func (s *Server) reboot(t time.Time) {
 	s.booted, s.restart = t, s.profile.NextRestart(t)
 	s.match.playing = false
 	s.enterRotation(0)
+	s.started(t)
 }

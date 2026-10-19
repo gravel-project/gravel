@@ -196,7 +196,9 @@ type Server struct {
 // reads and never stores: its first line is the token, an optional second line the previous one,
 // accepted for RotationGrace while the server still has it.
 type Feed struct {
-	// URL is the origin the server posts to; the game appends its own path (/api/ingest/events).
+	// URL is the origin the server posts to. A War Dogs build whose feed the hub writes
+	// ([WDServerFeed], CL-509546) appends /api/ingest/events itself; Season 02 takes its feed from
+	// the host's file and posts to the Url as given, so the host sets <url>/api/ingest/events there.
 	URL       string `yaml:"url" json:"url"`
 	TokenFile string `yaml:"token_file" json:"token_file"`
 }
@@ -467,7 +469,7 @@ func (m Manifest) Validate(specs map[string]Spec, drivers, providers []string) e
 		}
 		if f := s.Feed; f != nil {
 			if u, err := url.Parse(f.URL); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || (u.Path != "" && u.Path != "/") || u.RawQuery != "" || u.User != nil {
-				bad("%s.feed.url: %q must be an http(s) origin with no path, query or credentials (the game adds its path)", at, f.URL)
+				bad("%s.feed.url: %q must be an http(s) origin with no path, query or credentials (the hub's ingest route is at its path /api/ingest/events)", at, f.URL)
 			}
 			if !filepath.IsAbs(f.TokenFile) || filepath.Clean(f.TokenFile) != f.TokenFile {
 				bad("%s.feed.token_file: %q must be a clean absolute path (a podman secret: /run/secrets/<name>)", at, f.TokenFile)

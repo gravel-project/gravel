@@ -24,6 +24,8 @@ type IngestBatch struct {
 	Headers    json.RawMessage
 	BodySHA256 []byte
 	State      string
+	// ParserVersion is the version of the parser that last read the batch; 0 for none.
+	ParserVersion int
 }
 
 // Ingest batch states.
@@ -33,11 +35,11 @@ const (
 	IngestFailed  = "failed"
 )
 
-const ingestColumns = `id, organization_id, server_id, source, received_at, body, headers, body_sha256, state`
+const ingestColumns = `id, organization_id, server_id, source, received_at, body, headers, body_sha256, state, parser_version`
 
 func scanIngestBatch(row pgx.Row) (IngestBatch, error) {
 	var b IngestBatch
-	err := row.Scan(&b.ID, &b.OrganizationID, &b.ServerID, &b.Source, &b.ReceivedAt, &b.Body, &b.Headers, &b.BodySHA256, &b.State)
+	err := row.Scan(&b.ID, &b.OrganizationID, &b.ServerID, &b.Source, &b.ReceivedAt, &b.Body, &b.Headers, &b.BodySHA256, &b.State, &b.ParserVersion)
 	return b, err
 }
 

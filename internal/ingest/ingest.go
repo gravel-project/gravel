@@ -28,7 +28,8 @@ import (
 	"github.com/gravel-project/gravel/internal/store"
 )
 
-// Path is where the sources post: War Dogs appends it to the feed's url.
+// Path is where the sources post: War Dogs' CL-509546 appended it to the feed's Url, and Season
+// 02 posts to the Url as given, so its Url ends with it.
 const Path = "/api/ingest/events"
 
 const (
@@ -164,6 +165,16 @@ type Handler struct {
 	log logConfig
 	// plugin is the match plugin's routes' (plugin.go).
 	plugin pluginConfig
+	// stored is told of every batch the bearer route stored (the gap detectors, gaps.go).
+	storedMu sync.RWMutex
+	stored   func(server string, at time.Time)
+}
+
+// SetStoredHook sets who is told of every batch the bearer route stores; nil tells nobody.
+func (h *Handler) SetStoredHook(f func(server string, at time.Time)) {
+	h.storedMu.Lock()
+	defer h.storedMu.Unlock()
+	h.stored = f
 }
 
 // NewHandler builds the route and registers its metrics.
@@ -250,6 +261,12 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.count(server, source, "stored")
 	h.last.WithLabelValues(server).Set(float64(now.UnixNano()) / 1e9)
 	w.WriteHeader(http.StatusOK)
+	h.storedMu.RLock()
+	hook := h.stored
+	h.storedMu.RUnlock()
+	if hook != nil {
+		hook(server, now)
+	}
 }
 
 func (h *Handler) count(server, source, result string) {

@@ -269,6 +269,8 @@ message EraseIdentityResponse {
   // Player sessions and their monthly rows (ADR-0035).
   int32 session_rows = 8;
   int32 activity_monthly_rows = 9;
+  // Feed events (ADR-0011) the identity was a player of.
+  int32 event_rows = 10;
 }
 
 // first-party apps, on boards of its own (ADR-0014).
