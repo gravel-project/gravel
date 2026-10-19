@@ -259,7 +259,7 @@ func Hub() Dashboard {
 			}},
 			{Title: "Ingestion", Panels: []Panel{
 				{Title: "Since the last batch", Kind: "stat", Unit: "s", Width: 8, TextMode: "value_and_name", Optional: "no server has a feed (servers.yaml feed), or none has posted yet",
-					Description: "War Dogs' Season 02 feed posts about every two minutes even with nobody on, and every few seconds in a fight; ten minutes with players on is a silence gap (ADR-0011).",
+					Description: "War Dogs' feed posts only when it has events: at a server's start and every few seconds in a fight, nothing for hours on an empty server. Ten minutes of nothing with ten or more players on is a silence gap (ADR-0011).",
 					Thresholds:  []Step{{Color: "green"}, {Value: 600, Color: "orange"}, {Value: 3600, Color: "red"}},
 					Targets:     []Target{{Expr: `time() - gravel_ingest_last_batch_timestamp_seconds{` + Sel + `}`, Legend: "{{server}}"}}},
 				{Title: "Ingest requests by result", Kind: "timeseries", Width: 16, Optional: "nothing posted to the ingest route in the range",
@@ -275,7 +275,7 @@ func Hub() Dashboard {
 					Description: "Events a server sent again (the same source key); stored once.",
 					Targets:     []Target{{Expr: `sum by (server) (increase(gravel_ingest_duplicates_total{` + Sel + `}[$__rate_interval]))`, Legend: "{{server}}"}}},
 				{Title: "Feed gaps by reason", Kind: "timeseries", Width: 12, Optional: "no feed lost anything in the range",
-					Description: "Data a feed lost, recorded as gap events (ADR-0011 §5). hub_down: the hub was away while players were on; silence: no batch for ten minutes while players were on.",
+					Description: "Data a feed lost, recorded as gap events (ADR-0011 §5). hub_down: the hub was away while players were on; silence: no batch for ten minutes while ten or more players were on.",
 					Targets:     []Target{{Expr: `sum by (server, reason) (increase(gravel_ingest_gaps_total{` + Sel + `}[$__rate_interval]))`, Legend: "{{server}} {{reason}}"}}},
 			}},
 			{Title: "Background jobs", Panels: []Panel{

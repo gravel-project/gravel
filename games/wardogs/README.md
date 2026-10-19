@@ -74,7 +74,7 @@ serverName, events[]}`, each event with `eventId`, `type`, `eventTime` (the game
 seconds, not a wall-clock time) and its type's own fields, kept whole (`Raw`) for a reader that
 knows the type. `serverId` is the host's id for the server (the Join-by-ID); `serverName` is the
 file's `EventFeedServerName`. Only `match_state` (`mapName`, `state`) is known: two at a server's
-start, `MatchState.PreMatch` then `MatchState.PreMatch.WaitingForWorldLoad`. The feed posts about
-every two minutes with nobody on. A kill's fields come from the first session with players: read
+start, `MatchState.PreMatch` then `MatchState.PreMatch.WaitingForWorldLoad`. The feed posts only
+when it has events: nothing for hours on an empty server. A kill's fields come from the first session with players: read
 the stored batches with `gravel-hub ingest export --server ID --redact`, add them as the adapter's
 fixtures (`adapters/wardogs/testdata/<build>/`) and teach `feed.go` the type.

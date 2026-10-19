@@ -1167,8 +1167,8 @@ dashboard's Servers row).
 ## Ingestion (ADR-0011)
 
 Some servers push their events into the hub: War Dogs' event feed posts batches to
-`/api/ingest/events` with `Authorization: Bearer <Token>`, about every two minutes with nobody on
-and every few seconds in a fight, and never retries. The hub serves that path on its public
+`/api/ingest/events` with `Authorization: Bearer <Token>` when it has events (at the server's
+start, every few seconds in a fight, nothing on an empty server), and never retries. The hub serves that path on its public
 listener (put it behind the edge, as HTG does with `ingest.hiddentoken.com` through its Tunnel).
 A batch is `{serverId, serverName, events[]}`, each event with `eventId`, `type` and `eventTime`
 (the game's clock in seconds) and its type's own fields; `games/wardogs/feed.go` has what is known.
@@ -1215,8 +1215,9 @@ A batch is `{serverId, serverName, events[]}`, each event with `eventId`, `type`
 - **Gaps.** Missing data is a row: a stats event of kind `gap`, its window from `observed_at` to
   `extensions.to` and its `extensions.reason`. `hub_down`: at start, from a feed's last batch
   before the start to the start, when the poll saw anyone on the server at that batch. `silence`:
-  no batch for 10 minutes while the poll sees at least one player (the feed posts every two
-  minutes even with nobody on, so that is a feed that stopped); it runs to the next batch and is
+  no batch for 10 minutes while the poll sees 10 or more players (a match is running, so kills
+  should come every few seconds; fewer players idling below the match's minimum post nothing); it
+  runs to the next batch and is
   written when that comes (job `ingest_gaps`, every minute). A silence open when the hub stops is
   left to `hub_down`.
 
@@ -1495,7 +1496,7 @@ holds the RCON password it accepts; put the same one in `servers.yaml`'s `creden
 - **State:** it keeps everything in memory, so a restart starts from the recording again.
 - **The feed:** with a feed `Url` and `Token` in force, it posts batches in the captured shape
   (`{serverId, serverName, events[]}`): the two `match_state` events a server posts at its start,
-  then its kills every 2 s, and an empty batch every two minutes when there is nothing to send. On
+  then its kills every 2 s, and nothing when there is nothing to send. On
   Season 02 it posts to the Url as given (so `--feed-url` is the whole route,
   `http://hub:8080/api/ingest/events`), on CL-509546 to `<Url>/api/ingest/events`. A kill's fields
   are still a guess (`type: "kill"`, `killerSteamId`, `victimSteamId`, `distance`, from community

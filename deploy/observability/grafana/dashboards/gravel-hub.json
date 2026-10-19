@@ -4929,7 +4929,7 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
-      "description": "War Dogs' Season 02 feed posts about every two minutes even with nobody on, and every few seconds in a fight; ten minutes with players on is a silence gap (ADR-0011). No data is expected when no server has a feed (servers.yaml feed), or none has posted yet.",
+      "description": "War Dogs' feed posts only when it has events: at a server's start and every few seconds in a fight, nothing for hours on an empty server. Ten minutes of nothing with ten or more players on is a silence gap (ADR-0011). No data is expected when no server has a feed (servers.yaml feed), or none has posted yet.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -5258,7 +5258,7 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
-      "description": "Data a feed lost, recorded as gap events (ADR-0011 §5). hub_down: the hub was away while players were on; silence: no batch for ten minutes while players were on. No data is expected when no feed lost anything in the range.",
+      "description": "Data a feed lost, recorded as gap events (ADR-0011 §5). hub_down: the hub was away while players were on; silence: no batch for ten minutes while ten or more players were on. No data is expected when no feed lost anything in the range.",
       "fieldConfig": {
         "defaults": {
           "color": {

@@ -21,17 +21,21 @@ import (
 //   - hub_down: at start, for every server with a feed, from the last batch it stored before the
 //     start to the start, when the poll saw anyone on the server at that last batch. A source that
 //     never retries lost whatever it posted while the hub was away.
-//   - silence: no batch for SilenceAfter while the poll sees at least one player. War Dogs' feed
-//     posts about every two minutes even to an empty server (Season 02), so ten minutes with
-//     somebody on is a feed that stopped, not a quiet match (John, 2026-10-18). The gap runs from
-//     the last batch to the next one, and is written when that one comes.
+//   - silence: no batch for SilenceAfter while the poll sees at least SilencePlayers. War Dogs'
+//     feed posts only when it has events (no batch at all for hours on an empty server, Season
+//     02), so a few players idling below the match's minimum is quiet, not lost; with ten or more
+//     on a match runs and kills come every few seconds, so ten minutes of nothing is a feed that
+//     stopped (John, 2026-10-10, kept on 2026-10-19). The gap runs from the last batch to the
+//     next one, and is written when that one comes.
 //
 // The third, reconcile (the feed's counts below the poll's), needs the kills, which come with the
 // parser that reads them.
 
 const (
-	// SilenceAfter is how long without a batch, while someone is on, is a silence gap.
+	// SilenceAfter is how long without a batch, while SilencePlayers are on, is a silence gap.
 	SilenceAfter = 10 * time.Minute
+	// SilencePlayers is how many players the poll must see for a silence to count.
+	SilencePlayers = 10
 	// GapsEvery is the silence check's period.
 	GapsEvery = time.Minute
 
@@ -82,7 +86,7 @@ func NewGaps(st GapStore, orgID uuid.UUID, servers FeedServers, occupancy Occupa
 		checked: map[string]bool{}, last: map[string]time.Time{}, silent: map[string]time.Time{},
 		gaps: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Name: "gravel_ingest_gaps_total",
-			Help: "Gaps in a server's feed the hub recorded (ADR-0011 §5), by reason: hub_down (the hub was away while players were on), silence (no batch for ten minutes while players were on).",
+			Help: "Gaps in a server's feed the hub recorded (ADR-0011 §5), by reason: hub_down (the hub was away while players were on), silence (no batch for ten minutes while ten or more players were on).",
 		}, []string{"server", "reason"}),
 	}
 	reg.MustRegister(g.gaps)
@@ -153,7 +157,7 @@ func (g *Gaps) hubDown(ctx context.Context, s FeedServer) error {
 }
 
 // silence ends a silence when a batch came after it began, or begins one when the last batch is
-// SilenceAfter old and the poll sees someone on. A server that never posted has no feed on yet.
+// SilenceAfter old and the poll sees SilencePlayers on. A server that never posted has no feed on yet.
 func (g *Gaps) silence(ctx context.Context, s FeedServer) error {
 	g.mu.Lock()
 	last, from, open := g.last[s.ID], g.silent[s.ID], false
@@ -176,13 +180,13 @@ func (g *Gaps) silence(ctx context.Context, s FeedServer) error {
 	if last.IsZero() || g.now().Sub(last) < SilenceAfter {
 		return nil
 	}
-	if players, reachable := g.occupancy(s.ID); !reachable || players < 1 {
+	if players, reachable := g.occupancy(s.ID); !reachable || players < SilencePlayers {
 		return nil
 	}
 	g.mu.Lock()
 	g.silent[s.ID] = last
 	g.mu.Unlock()
-	g.logger.WarnContext(ctx, "ingest: a server's feed went quiet while players are on; a gap is recorded when it posts again",
+	g.logger.WarnContext(ctx, "ingest: a server's feed went quiet in a full match; a gap is recorded when it posts again",
 		"server", s.ID, "last_batch", last.UTC().Format(time.RFC3339))
 	return nil
 }

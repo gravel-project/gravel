@@ -142,9 +142,9 @@ func TestHubDownRetriesTheStore(t *testing.T) {
 	}
 }
 
-// TestSilence: ten minutes with no batch while someone is on opens a silence, the next batch ends
-// it and writes the gap; an empty or unreachable server, or one whose feed never posted, is quiet
-// for no reason worth a gap.
+// TestSilence: ten minutes with no batch while ten or more are on opens a silence, the next batch
+// ends it and writes the gap; a server with fewer on (idling below the match's minimum posts
+// nothing), an unreachable one, or one whose feed never posted, is quiet for no reason worth a gap.
 func TestSilence(t *testing.T) {
 	r := newGapRig(t)
 	ctx := context.Background()
@@ -154,7 +154,7 @@ func TestSilence(t *testing.T) {
 	r.g.Stored("wd-1", r.now.Add(time.Minute))
 	r.g.Stored("wd-2", r.now.Add(time.Minute))
 	r.g.Stored("wd-1", r.now) // an older one changes nothing
-	r.players["wd-1"], r.players["wd-2"] = 3, 0
+	r.players["wd-1"], r.players["wd-2"] = SilencePlayers, SilencePlayers-1
 	r.now = r.now.Add(time.Minute + SilenceAfter - time.Second)
 	if err := r.g.Run(ctx); err != nil || len(r.g.silent) != 0 {
 		t.Fatalf("before ten minutes: %v %v", r.g.silent, err)
@@ -192,7 +192,7 @@ func TestSilence(t *testing.T) {
 	}
 	// An unreachable server's silence is the server's, not the feed's.
 	r.now = r.now.Add(time.Hour)
-	r.players["wd-1"], r.down["wd-1"] = 5, true
+	r.players["wd-1"], r.down["wd-1"] = 20, true
 	if err := r.g.Run(ctx); err != nil || len(r.g.silent) != 0 {
 		t.Errorf("unreachable: %v %v", r.g.silent, err)
 	}

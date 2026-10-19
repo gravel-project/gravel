@@ -14,9 +14,10 @@ import (
 // to the Url as given, so the Url carries the path.
 //
 // The shape below is the first capture (2026-10-18, CL-516586): a batch names the server and
-// carries its events; every event has an id, a type and a time. Only match_state events have been
-// seen so far (the server's start, with nobody on); a kill's fields are not known yet, so an event
-// of any other type is kept as posted (Raw) for a reader that knows it.
+// carries its events; every event has an id, a type and a time. The feed posts only when it has
+// events (nothing for hours on an empty server). Only match_state events have been seen so far
+// (the server's start, with nobody on); a kill's fields are not known yet, so an event of any
+// other type is kept as posted (Raw) for a reader that knows it.
 const (
 	// FeedPath is what CL-509546 appended to the feed's Url.
 	FeedPath = "/api/ingest/events"
