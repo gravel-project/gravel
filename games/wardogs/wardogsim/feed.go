@@ -21,16 +21,14 @@ import (
 //
 // What is captured (2026-10-18, Season 02): the envelope, and two match_state events at the
 // server's start (MatchState.PreMatch, then MatchState.PreMatch.WaitingForWorldLoad, with the
-// map), and a batch about every two minutes with nobody on. What is NOT, and is a guess here: a
-// kill (type "kill", killerSteamId, victimSteamId and distance, as community captures name them),
-// the states after the pre-match, and what an idle batch carries (the simulator sends no events).
+// map), and that it posts only when it has events (nothing for hours on an empty server). What is
+// NOT, and is a guess here: a kill (type "kill", killerSteamId, victimSteamId and distance, as
+// community captures name them) and the states after the pre-match.
 // A kill's fields come from the first session with players; until then the hub's parser keeps
 // these as a kind it does not know.
 const (
 	// feedEvery is how often a batch goes out while there are events to send.
 	feedEvery = 2 * time.Second
-	// feedIdle is how often a batch goes out with nothing to send.
-	feedIdle = 2 * time.Minute
 	// feedBatch is the most events one batch carries.
 	feedBatch = 10
 	// feedBacklog is the most events kept while the sink is slow or away; older ones are dropped,
@@ -130,7 +128,7 @@ func (s *Server) Run(ctx context.Context) error {
 		s.prunePeers(now)
 		target, token := s.feedTarget(), s.live.feedToken
 		var batch *FeedBatch
-		if target != "" && (len(s.events) > 0 && now.Sub(lastPost) >= feedEvery || now.Sub(lastPost) >= feedIdle) {
+		if target != "" && len(s.events) > 0 && now.Sub(lastPost) >= feedEvery {
 			n := min(feedBatch, len(s.events))
 			batch = &FeedBatch{ServerID: s.serverID, ServerName: s.live.serverName, Events: append([]FeedEvent{}, s.events[:n]...)}
 			s.events = s.events[n:]

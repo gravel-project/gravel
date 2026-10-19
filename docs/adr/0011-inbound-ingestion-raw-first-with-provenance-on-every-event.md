@@ -113,13 +113,17 @@ Two more constraints. The feed's format is unverified: S1 (deploy#49) is meant t
     event has `eventId`, `type` and `eventTime`, the game's clock in seconds (0.132 at the start),
     not a wall-clock time, so an event's `observed_at` is its batch's `received_at`. The first
     batch carried two `match_state` events (`mapName`, `state`: `MatchState.PreMatch`, then
-    `MatchState.PreMatch.WaitingForWorldLoad`) at the server's start with nobody on, and **the feed
-    posts about every two minutes even to an empty server.** A kill's fields are not known yet.
-  - **`silence` is 10 minutes while the poll sees one player or more** (John, 2026-10-18; was 10 or
-    more). With batches every two minutes regardless, ten minutes without one while anyone is on
-    is a feed that stopped, not a quiet match. The gap runs from the last batch to the next one
-    and is written when that one arrives; a silence still open when the hub stops is left to
-    `hub_down`.
+    `MatchState.PreMatch.WaitingForWorldLoad`) at the server's start with nobody on. **The feed
+    posts only when it has events**: after that start the hub received nothing for hours while
+    the server stood empty. A kill's fields are not known yet.
+  - **`silence` stays 10 minutes while the poll sees 10 or more players** (John's 2026-10-10 value,
+    kept 2026-10-19). On 2026-10-18 it was briefly one player or more, on the belief that the feed
+    posted every two minutes regardless; the hub's own counters showed it does not (4 batches in
+    the 6 hours after the feed went live, all at the server's starts). With no heartbeat, a few
+    players idling below the match's minimum post nothing and would raise false gaps; with ten
+    or more a match runs and kills come every few seconds. The gap runs from the last batch to
+    the next one and is written when that one arrives; a silence still open when the hub stops is
+    left to `hub_down`.
   - **`hub_down` uses the poll's occupancy.** "The server had players then" is a
     `server_occupancy` row (ADR-0018) for the minute of the last batch before the start or the
     one before it. The hub-down window is that batch to the start.
