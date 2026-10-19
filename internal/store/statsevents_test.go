@@ -88,6 +88,23 @@ func TestStatsEvents(t *testing.T) {
 	if pending, _ := st.PendingIngestBatches(ctx, o.ID, "wardogs", 10); len(pending) != 2 || pending[0].ParserVersion != 1 {
 		t.Errorf("pending after the requeue = %+v", pending)
 	}
+	// Read again, a batch's own events take the newer parser's fields and are not new; the same key
+	// from another batch is a duplicate and changes nothing.
+	state.Extensions = json.RawMessage(`{"match_id":"m1"}`)
+	if stored, err := st.SaveParsedBatch(ctx, store.ParsedBatch{BatchID: b1, State: store.IngestParsed, ParserVersion: 2,
+		Events: []store.StatsEvent{kill("k1", "76561190000000001", "76561190000000002"), state}}); err != nil || len(stored) != 2 || stored[0] || stored[1] {
+		t.Fatalf("read again: %v, %v", stored, err)
+	}
+	other := state
+	other.BatchID, other.Extensions = b2, json.RawMessage(`{"match_id":"m2"}`)
+	if stored, err := st.SaveParsedBatch(ctx, store.ParsedBatch{BatchID: b2, State: store.IngestParsed, ParserVersion: 2,
+		Events: []store.StatsEvent{other}}); err != nil || stored[0] {
+		t.Fatalf("another batch's copy: %v, %v", stored, err)
+	}
+	if only, _ := st.StatsEvents(ctx, o.ID, "wd-1", "match_state", t0, t0.Add(time.Hour), 10); len(only) != 1 ||
+		string(only[0].Extensions) != `{"match_id": "m1"}` || only[0].BatchID != b1 || only[0].Trust != "official" {
+		t.Errorf("match state after the newer parser = %+v", only)
+	}
 
 	// A gap no batch carried.
 	gap := store.StatsEvent{OrganizationID: o.ID, ServerID: "wd-1", GameID: "wardogs", Source: "server_adapter", SourceKey: "gap:silence:1",

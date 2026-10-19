@@ -95,6 +95,6 @@ Matchmaking · player-facing allocation · billing / payment processing · anti-
 
 ## Open threads (don't guess at these — ask John)
 
-- Exact War Dogs kill event format: the feed's envelope and `match_state` are captured (2026-10-18, `games/wardogs/feed.go`); a kill's fields wait for a session with players.
+- Exact War Dogs kill event format: the feed's envelope, `match_state`, `player_joined` and `player_left` are captured (2026-10-18, `games/wardogs/feed.go`, `adapters/wardogs/testdata/`); a kill's fields wait for a session with enough players to start a match.
 - Legal: raw-event retention (13-month placeholder), retention for ban enforcement, ToS/privacy policy.
 - GitHub org staked: `gravel-project` (2026-10-02); this repo moved there from `jomkz/gravel`. New gravel repos (`gravel-catalog`, `gravel-adapter-*`) are created in it. The domain is not yet staked.

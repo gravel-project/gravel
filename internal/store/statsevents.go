@@ -74,14 +74,21 @@ func queueStatsEvents(batch *pgx.Batch, events []StatsEvent) {
 		batch.Queue(`INSERT INTO stats_events (organization_id, server_id, game_id, source, source_key, kind, observed_at,
 			  received_at, trust, batch_id, schema_version, provider, subject, target_provider, target_subject, extensions)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
-			ON CONFLICT (organization_id, server_id, source, source_key) DO NOTHING RETURNING id`,
+			ON CONFLICT (organization_id, server_id, source, source_key) DO UPDATE SET kind = EXCLUDED.kind,
+			  observed_at = EXCLUDED.observed_at, schema_version = EXCLUDED.schema_version, provider = EXCLUDED.provider,
+			  subject = EXCLUDED.subject, target_provider = EXCLUDED.target_provider, target_subject = EXCLUDED.target_subject,
+			  extensions = EXCLUDED.extensions
+			WHERE stats_events.batch_id = EXCLUDED.batch_id
+			RETURNING id, xmax = 0`,
 			e.OrganizationID, e.ServerID, e.GameID, e.Source, e.SourceKey, e.Kind, e.ObservedAt, e.ReceivedAt, e.Trust, batchID,
 			e.SchemaVersion, null(e.Player.Provider), null(e.Player.Subject), null(e.Target.Provider), null(e.Target.Subject), ext)
 	}
 }
 
 // insertStatsEvents runs the queued inserts and reports, for each event in order, whether it was
-// stored: false is a duplicate.
+// stored new: false is a duplicate, or an event its own batch carried before, read again by a newer
+// parser, whose fields are refreshed (a field the older parser did not read; never its trust or when
+// it was received). A key from another batch, or an event no batch carried, is never touched.
 func insertStatsEvents(ctx context.Context, tx pgx.Tx, events []StatsEvent, then func(*pgx.Batch)) ([]bool, error) {
 	batch := &pgx.Batch{}
 	queueStatsEvents(batch, events)
@@ -92,13 +99,14 @@ func insertStatsEvents(ctx context.Context, tx pgx.Tx, events []StatsEvent, then
 	stored := make([]bool, len(events))
 	for i := range events {
 		var id int64
-		switch err := br.QueryRow().Scan(&id); {
+		var inserted bool
+		switch err := br.QueryRow().Scan(&id, &inserted); {
 		case errors.Is(err, pgx.ErrNoRows):
 		case err != nil:
 			_ = br.Close()
 			return nil, err
 		default:
-			stored[i] = true
+			stored[i] = inserted
 		}
 	}
 	if then != nil {
@@ -132,18 +140,34 @@ func (s *Store) RecordStatsEvents(ctx context.Context, events []StatsEvent) ([]b
 }
 
 // SaveParsedBatch stores a parsed batch's events and moves the batch to its new state, in one
-// transaction, and reports for each event in order whether it was stored: false is a duplicate,
-// a source key the server's source had used (an earlier batch, an earlier reading of this one).
+// transaction, and reports for each event in order whether it was stored new. False is a duplicate
+// (a source key the server's source had used: an earlier batch, or earlier in this one, which is
+// dropped), or an event an earlier reading of this batch stored, which takes this reading's fields.
 func (s *Store) SaveParsedBatch(ctx context.Context, p ParsedBatch) ([]bool, error) {
 	if p.State != IngestParsed && p.State != IngestFailed {
 		return nil, fmt.Errorf("store: save parsed batch: state %q", p.State)
+	}
+	// A key twice in one batch is the source repeating itself: the first stands, the rest are
+	// duplicates and never reach the refresh an earlier reading's rows get.
+	var first []StatsEvent
+	at := make([]int, len(p.Events)) // each event's place in first, or -1
+	seen := map[string]bool{}
+	for i, e := range p.Events {
+		k := e.ServerID + "\x00" + e.Source + "\x00" + e.SourceKey
+		if seen[k] {
+			at[i] = -1
+			continue
+		}
+		seen[k] = true
+		at[i] = len(first)
+		first = append(first, e)
 	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("store: save parsed batch: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	stored, err := insertStatsEvents(ctx, tx, p.Events, func(b *pgx.Batch) {
+	got, err := insertStatsEvents(ctx, tx, first, func(b *pgx.Batch) {
 		b.Queue(`UPDATE ingest_batches SET state = $2, parser_version = $3 WHERE id = $1`, p.BatchID, p.State, p.ParserVersion)
 	})
 	if err != nil {
@@ -151,6 +175,10 @@ func (s *Store) SaveParsedBatch(ctx context.Context, p ParsedBatch) ([]bool, err
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("store: save parsed batch: %w", err)
+	}
+	stored := make([]bool, len(p.Events))
+	for i, j := range at {
+		stored[i] = j >= 0 && got[j]
 	}
 	return stored, nil
 }

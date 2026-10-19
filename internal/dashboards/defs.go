@@ -283,7 +283,7 @@ func Hub() Dashboard {
 					Description: "A failed run is retried with backoff and never stops the hub; server_poll failures are a server that did not answer.",
 					Targets:     []Target{{Expr: `sum by (exported_job, result) (increase(gravel_hub_jobs_total{` + Sel + `}[$__rate_interval]))`, Legend: "{{exported_job}} {{result}}"}}},
 				{Title: "Since each job last succeeded", Kind: "stat", Unit: "s", Width: 8, TextMode: "value_and_name",
-					Description: "prune runs every 10 minutes, servers_reconcile and ingest_feeds every 30 seconds, ingest_parse every 10 seconds, ingest_gaps every minute, ingest_prune hourly, server_poll at each server's interval.",
+					Description: "prune runs every 10 minutes, servers_reconcile and ingest_feeds every 30 seconds, ingest_parse every 10 seconds, ingest_gaps and hub_alive every minute, ingest_prune hourly, server_poll at each server's interval.",
 					Targets:     []Target{{Expr: `time() - max by (exported_job) (gravel_hub_job_last_success_timestamp_seconds{` + Sel + `})`, Legend: "{{exported_job}}"}}},
 			}},
 			{Title: "Events", Panels: []Panel{

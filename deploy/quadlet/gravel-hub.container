@@ -1,4 +1,4 @@
-# The gravel hub, pinned by digest to a release of ghcr.io/gravel-project/gravel-hub (0.10.0; the
+# The gravel hub, pinned by digest to a release of ghcr.io/gravel-project/gravel-hub (0.10.1; the
 # index digest covers amd64 and arm64). docs/releasing.md says how to verify a release and move
 # the pin, here and in GRAVEL_IMAGE below. For a local build use `make image` and
 # Image=localhost/gravel-hub:dev.
@@ -11,9 +11,9 @@ Requires=gravel-postgres.service
 After=gravel-postgres.service
 
 [Container]
-Image=ghcr.io/gravel-project/gravel-hub@sha256:609a15b49cc05cc25591251c394e019ee3a47cde29fae4fb23c7147860ed48ce
+Image=ghcr.io/gravel-project/gravel-hub@sha256:aeefd917c654928aa9000d72bb8718ca3e6319d272fda934fdfb158b2e7c1a2a
 # What /healthz reports as the hub's image and digest (gravel#214): keep it equal to Image=.
-Environment=GRAVEL_IMAGE=ghcr.io/gravel-project/gravel-hub@sha256:609a15b49cc05cc25591251c394e019ee3a47cde29fae4fb23c7147860ed48ce
+Environment=GRAVEL_IMAGE=ghcr.io/gravel-project/gravel-hub@sha256:aeefd917c654928aa9000d72bb8718ca3e6319d272fda934fdfb158b2e7c1a2a
 ContainerName=gravel-hub
 Network=gravel.network
 PublishPort=127.0.0.1:8080:8080

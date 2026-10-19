@@ -5400,7 +5400,7 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
-      "description": "prune runs every 10 minutes, servers_reconcile and ingest_feeds every 30 seconds, ingest_parse every 10 seconds, ingest_gaps every minute, ingest_prune hourly, server_poll at each server's interval.",
+      "description": "prune runs every 10 minutes, servers_reconcile and ingest_feeds every 30 seconds, ingest_parse every 10 seconds, ingest_gaps and hub_alive every minute, ingest_prune hourly, server_poll at each server's interval.",
       "fieldConfig": {
         "defaults": {
           "color": {

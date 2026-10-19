@@ -547,6 +547,22 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 		return "", "", fmt.Errorf("server %s: %w", id, store.ErrNotFound)
 	}, h.registry, logger)
 	h.jobs.Start(jobs.Job{Name: "ingest_parse", Every: ingest.ParseEvery, Immediate: true, Run: parsing.Run})
+	// This start is a run, and the run before it says when the hub stopped: the hub_down gap's
+	// window (ADR-0011 §5). alive_at moves every minute, so a crash is known to the minute too.
+	run, prev, hadPrev, err := st.StartHubRun(ctx, o.ID, time.Now())
+	if err != nil {
+		return nil, fmt.Errorf("hub: %w", err)
+	}
+	away := ingest.Away{From: prev.AliveAt, To: run.StartedAt, Known: hadPrev}
+	if hadPrev {
+		logger.InfoContext(ctx, "hub: the previous run stopped", "alive_at", prev.AliveAt.UTC().Format(time.RFC3339),
+			"away_minutes", int(run.StartedAt.Sub(prev.AliveAt).Minutes()))
+	} else {
+		logger.InfoContext(ctx, "hub: no record of a previous run, so no hub_down gap is decided at this start")
+	}
+	h.jobs.Start(jobs.Job{Name: "hub_alive", Every: time.Minute, Run: func(ctx context.Context) error {
+		return st.HubRunAlive(ctx, run.ID, time.Now())
+	}})
 	gaps := ingest.NewGaps(st, o.ID, func(ctx context.Context) ([]ingest.FeedServer, error) {
 		list, err := h.servers.Servers(ctx)
 		if err != nil {
@@ -565,7 +581,7 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 			return 0, false
 		}
 		return max(o.Status.Players, len(o.Players)), o.Reachable
-	}, time.Now(), h.registry, logger)
+	}, away, h.registry, logger)
 	h.ingest.SetStoredHook(gaps.Stored)
 	h.jobs.Start(jobs.Job{Name: "ingest_gaps", Every: ingest.GapsEvery, Immediate: true, Run: gaps.Run})
 

@@ -8,6 +8,21 @@ patch release is everything else.
 
 ## [Unreleased]
 
+### Added
+
+- **The War Dogs feed's joins and leaves become stats events** (#4, feed version 2, from Hidden Token Gaming's first session with a player on, 2026-10-18). `player_joined` and `player_left` are the player by SteamID with the map, the match and how many are on after (`players`); the name and the game's own id for the player are not kept. A `match_state` carries the match's id (`match_id`) from the wait for players on. The hub reads every stored batch again at its next start. The fixtures in `adapters/wardogs/testdata/CL-516586/` are now the four real batches, redacted, in place of the reconstructed one. The demo's simulated server posts a join and a leave for each made-up player.
+- **The hub keeps its runs** (migration 37, `hub_runs`): a row per start and the last minute it was known to run, moved every minute by the job `hub_alive`, so the next start knows when the hub stopped, crash or not. The start logs the previous run's stop and how long the hub was away.
+
+### Changed
+
+- gravel's own quadlet units and the Compose tier pin the **0.10.1** images, verified with cosign 3 against the release workflow at `v0.10.1` (a `v0.10.0` identity refused, the 0.10.0 hub as a control): `gravel-hub@sha256:aeefd917c654928aa9000d72bb8718ca3e6319d272fda934fdfb158b2e7c1a2a` (and its `GRAVEL_IMAGE`) and `gravel-bot@sha256:44a972b8a1e5f7dbfdaae31a794daf674f335c52b4200bf95e6916e0174d5a0b`. `gravel-postgres` stays: 0.10.1 published none. `docs/hub.md` names 0.10.1 as the tag example.
+- `gravel-hub ingest export --redact` and `gravel-hub wardogs record` also replace the game's own ids for a player beside a SteamID (`playerId`, `killerId`, `victimId`, `accountId` and their kin) with stand-ins, and count them (`player ids` in the summary, `playerIds` in a recording's counts): they are a person as much as the SteamID, and the fixtures are public.
+
+### Fixed
+
+- **A `hub_down` gap is no longer invented by a quiet feed.** It ran from a server's last batch to the hub's start and asked whether players were on at that batch; a feed that posts only when it has events can be silent for hours before the hub stops. Hidden Token Gaming's upgrade to 0.10.1 wrote a 1029-minute gap with nobody on in the 16 hours before it. Now the gap runs from when the hub stopped (its previous run, above) to the start, when the poll saw anyone on as it stopped. A hub with no run recorded before its start writes none. Migration 37 deletes the `hub_down` gaps 0.10.1 wrote, since none can be told true from false (ADR-0011, amended 2026-10-19).
+- **A batch read again by a newer parser updates its own events.** The source keys kept the old fields, so a parser that learns a new field of a kind it already read (the `match_id` above) would never have stored it. An event that an earlier reading of the same batch stored now takes the newer reading's fields (never its trust, nor when it was received) and is not counted again. The same key from another batch, or twice in one batch, is still a duplicate and changes nothing.
+
 ## [0.10.1] - 2026-10-19
 
 ### Changed

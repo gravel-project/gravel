@@ -1,0 +1,17 @@
+{
+  "events": [
+    {
+      "eventId": "9DB72F0A-B2DC-4A4D-86D3-C37F961EFA36",
+      "eventTime": 8039.4227929785848,
+      "mapName": "Kavkazi",
+      "matchId": "054b8989-0234-42bb-878c-96bf4945834c",
+      "playerId": "00000000-0000-4000-8001-000000000001",
+      "playerName": "Player 1",
+      "playerSteamId": "76561190000000001",
+      "players": 1,
+      "type": "player_joined"
+    }
+  ],
+  "serverId": "00000000-0000-4000-8000-000000000001",
+  "serverName": "Hidden Token Gaming"
+}

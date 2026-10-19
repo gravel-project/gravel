@@ -18,9 +18,13 @@ import (
 // Missing data is a row, not a shortfall (ADR-0011 §5): a gap is a stats event of kind gap with a
 // reason and a window. Two of the detectors are the ingest route's:
 //
-//   - hub_down: at start, for every server with a feed, from the last batch it stored before the
-//     start to the start, when the poll saw anyone on the server at that last batch. A source that
-//     never retries lost whatever it posted while the hub was away.
+//   - hub_down: at start, for every server whose feed has posted, from when the hub stopped (the
+//     last minute its previous run was known to run, store.HubRun) to the start, when the poll saw
+//     anyone on the server as the hub stopped. A source that never retries lost whatever it posted
+//     while the hub was away; one with nobody on had nothing to post. Not the last batch: a feed
+//     that posts only when it has events can be silent for hours before the hub stops (amended
+//     2026-10-19, after 0.10.1 recorded a 1029-minute gap with nobody on). A hub with no record
+//     of a previous run records no hub_down gap: it cannot say when it was away.
 //   - silence: no batch for SilenceAfter while the poll sees at least SilencePlayers. War Dogs'
 //     feed posts only when it has events (no batch at all for hours on an empty server, Season
 //     02), so a few players idling below the match's minimum is quiet, not lost; with ten or more
@@ -62,13 +66,20 @@ type FeedServers func(ctx context.Context) ([]FeedServer, error)
 // Occupancy is the poll's latest word on a server: how many players, and whether it answered.
 type Occupancy func(server string) (players int, reachable bool)
 
+// Away is when the hub was last away: from the last time its previous run was known to run to
+// this start. Known is false when the hub has no record of a previous run.
+type Away struct {
+	From, To time.Time
+	Known    bool
+}
+
 // Gaps runs the hub_down and silence detectors.
 type Gaps struct {
 	st        GapStore
 	orgID     uuid.UUID
 	servers   FeedServers
 	occupancy Occupancy
-	started   time.Time
+	away      Away
 	logger    *slog.Logger
 	now       func() time.Time
 
@@ -80,13 +91,14 @@ type Gaps struct {
 	gaps *prometheus.CounterVec
 }
 
-// NewGaps builds the detectors for a hub that started at started, and registers their metric.
-func NewGaps(st GapStore, orgID uuid.UUID, servers FeedServers, occupancy Occupancy, started time.Time, reg prometheus.Registerer, logger *slog.Logger) *Gaps {
-	g := &Gaps{st: st, orgID: orgID, servers: servers, occupancy: occupancy, started: started, logger: logger, now: time.Now,
+// NewGaps builds the detectors for a hub that was away as away says (To is its start), and
+// registers their metric.
+func NewGaps(st GapStore, orgID uuid.UUID, servers FeedServers, occupancy Occupancy, away Away, reg prometheus.Registerer, logger *slog.Logger) *Gaps {
+	g := &Gaps{st: st, orgID: orgID, servers: servers, occupancy: occupancy, away: away, logger: logger, now: time.Now,
 		checked: map[string]bool{}, last: map[string]time.Time{}, silent: map[string]time.Time{},
 		gaps: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Name: "gravel_ingest_gaps_total",
-			Help: "Gaps in a server's feed the hub recorded (ADR-0011 §5), by reason: hub_down (the hub was away while players were on), silence (no batch for ten minutes while ten or more players were on).",
+			Help: "Gaps in a server's feed the hub recorded (ADR-0011 §5), by reason: hub_down (the hub stopped while players were on), silence (no batch for ten minutes while ten or more players were on).",
 		}, []string{"server", "reason"}),
 	}
 	reg.MustRegister(g.gaps)
@@ -122,9 +134,9 @@ func (g *Gaps) Run(ctx context.Context) error {
 	return errors.Join(errs...)
 }
 
-// hubDown runs once per server: the last batch before the start, and a gap to the start when
-// anyone was on then. A server first seen after the start (added to servers.yaml) has no
-// stored batch before it, so no gap.
+// hubDown runs once per server: a gap from the hub's stop to its start when anyone was on as it
+// stopped. A server whose feed never posted before the start (new in servers.yaml, or a feed not
+// on yet) lost nothing, so no gap; nor on a hub that does not know when it stopped.
 func (g *Gaps) hubDown(ctx context.Context, s FeedServer) error {
 	g.mu.Lock()
 	done := g.checked[s.ID]
@@ -132,17 +144,17 @@ func (g *Gaps) hubDown(ctx context.Context, s FeedServer) error {
 	if done {
 		return nil
 	}
-	last, ok, err := g.st.LastIngestBatch(ctx, g.orgID, s.ID, g.started)
+	last, ok, err := g.st.LastIngestBatch(ctx, g.orgID, s.ID, g.away.To)
 	if err != nil {
 		return fmt.Errorf("ingest: gaps: server %s: %w", s.ID, err)
 	}
-	if ok {
-		had, err := g.st.HadPlayers(ctx, g.orgID, s.ID, last)
+	if ok && g.away.Known {
+		had, err := g.st.HadPlayers(ctx, g.orgID, s.ID, g.away.From)
 		if err != nil {
 			return fmt.Errorf("ingest: gaps: server %s: %w", s.ID, err)
 		}
 		if had {
-			if err := g.record(ctx, s, GapHubDown, last, g.started); err != nil {
+			if err := g.record(ctx, s, GapHubDown, g.away.From, g.away.To); err != nil {
 				return err
 			}
 		}

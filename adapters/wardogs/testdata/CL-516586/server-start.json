@@ -1,1 +1,20 @@
-{"serverId":"00000000-0000-4000-8000-000000000001","serverName":"Hidden Token Gaming","events":[{"eventId":"0f3b6c2e-5a1d-4e8b-9c7f-2d4e6a8b0c1d","type":"match_state","eventTime":0.132,"mapName":"Kavkazi","state":"MatchState.PreMatch"},{"eventId":"7a9c1e3f-6b2d-4f0a-8e4c-1b3d5f7a9c2e","type":"match_state","eventTime":0.132,"mapName":"Kavkazi","state":"MatchState.PreMatch.WaitingForWorldLoad"}]}
+{
+  "events": [
+    {
+      "eventId": "A549CA59-1FC1-4860-A9F6-E03372E62D40",
+      "eventTime": 0.13216013461351395,
+      "mapName": "Kavkazi",
+      "state": "MatchState.PreMatch",
+      "type": "match_state"
+    },
+    {
+      "eventId": "C5150951-CCE8-4E95-9BA1-E727B590D0C8",
+      "eventTime": 0.13216013461351395,
+      "mapName": "Kavkazi",
+      "state": "MatchState.PreMatch.WaitingForWorldLoad",
+      "type": "match_state"
+    }
+  ],
+  "serverId": "00000000-0000-4000-8000-000000000001",
+  "serverName": "Hidden Token Gaming"
+}

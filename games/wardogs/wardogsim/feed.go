@@ -19,11 +19,13 @@ import (
 // clock in seconds). A build with [WDServerFeed] (CL-509546) appends wardogs.FeedPath to its Url;
 // Season 02 posts to the Url as given.
 //
-// What is captured (2026-10-18, Season 02): the envelope, and two match_state events at the
-// server's start (MatchState.PreMatch, then MatchState.PreMatch.WaitingForWorldLoad, with the
-// map), and that it posts only when it has events (nothing for hours on an empty server). What is
-// NOT, and is a guess here: a kill (type "kill", killerSteamId, victimSteamId and distance, as
-// community captures name them) and the states after the pre-match.
+// What is captured (2026-10-18, Season 02): the envelope, two match_state events at the server's
+// start (MatchState.PreMatch, then MatchState.PreMatch.WaitingForWorldLoad, with the map), a
+// player_joined and a player_left for each player (playerSteamId, playerName, playerId, the count
+// after, matchId, mapName), and that it posts only when it has events (nothing for hours on an
+// empty server). What is NOT, and is a guess here: a kill (type "kill", killerSteamId,
+// victimSteamId and distance, as community captures name them) and the states after the
+// pre-match.
 // A kill's fields come from the first session with players; until then the hub's parser keeps
 // these as a kind it does not know.
 const (
@@ -41,9 +43,15 @@ type FeedEvent struct {
 	EventID   string  `json:"eventId"`
 	Type      string  `json:"type"`
 	EventTime float64 `json:"eventTime"`
-	// A match_state's.
+	// A match_state's (MapName and MatchID a player event's too).
 	MapName string `json:"mapName,omitempty"`
 	State   string `json:"state,omitempty"`
+	MatchID string `json:"matchId,omitempty"`
+	// A player_joined's or a player_left's: who, and how many are on after.
+	PlayerSteamID string `json:"playerSteamId,omitempty"`
+	PlayerName    string `json:"playerName,omitempty"`
+	PlayerID      string `json:"playerId,omitempty"`
+	Players       *int   `json:"players,omitempty"`
 	// A kill's (guessed). KillerSteamID is empty for a death nobody caused (an admin kill, the
 	// world).
 	KillerSteamID string   `json:"killerSteamId,omitempty"`
@@ -82,8 +90,17 @@ func (s *Server) queue(t time.Time, killer, victim string) {
 	s.event(t, FeedEvent{Type: "kill", KillerSteamID: killer, VictimSteamID: victim, Distance: &distance})
 }
 
-// started queues the match states the server posts at its start. The caller holds mu.
+// playerEvent queues a player's joining or leaving, with how many are on after. The caller holds mu.
+func (s *Server) playerEvent(t time.Time, kind string, p *Player) {
+	n := len(s.online)
+	s.event(t, FeedEvent{Type: kind, MapName: s.match.entry.level(), MatchID: s.match.id, PlayerSteamID: p.SteamID,
+		PlayerName: p.Name, PlayerID: fmt.Sprintf("00000000-0000-4000-8001-%012d", p.N), Players: &n})
+}
+
+// started queues the match states the server posts at its start, and gives the match the id its
+// players' events carry. The caller holds mu.
 func (s *Server) started(t time.Time) {
+	s.match.id = fmt.Sprintf("%08x-0000-4000-8000-%012x", uint32(t.Unix()), s.match.index)
 	level := s.match.entry.level()
 	for _, state := range []string{"MatchState.PreMatch", "MatchState.PreMatch.WaitingForWorldLoad"} {
 		s.event(t, FeedEvent{Type: wardogs.FeedMatchState, MapName: level, State: state})
