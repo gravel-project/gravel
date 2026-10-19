@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gravel-project/gravel/internal/ingest"
+	"github.com/gravel-project/gravel/internal/store"
 )
 
 func parse(t *testing.T, body string) ingest.Parsed {
@@ -17,14 +18,19 @@ func parse(t *testing.T, body string) ingest.Parsed {
 	return got
 }
 
-// TestServerStart: the first batch Hidden Token Gaming's server stored, at its start with nobody
-// on (testdata/README.md says what is the capture's).
-func TestServerStart(t *testing.T) {
-	body, err := os.ReadFile("testdata/CL-516586/server-start.json")
+func fixture(t *testing.T, name string) ingest.Parsed {
+	t.Helper()
+	body, err := os.ReadFile("testdata/CL-516586/" + name)
 	if err != nil {
 		t.Fatal(err)
 	}
-	got := parse(t, string(body))
+	return parse(t, string(body))
+}
+
+// TestServerStart: the first batch Hidden Token Gaming's server stored, at its start with nobody
+// on (testdata/README.md says what is the capture's).
+func TestServerStart(t *testing.T) {
+	got := fixture(t, "server-start.json")
 	if len(got.Events) != 2 || len(got.Unknown) != 0 || got.Invalid != 0 {
 		t.Fatalf("parsed = %+v", got)
 	}
@@ -33,12 +39,80 @@ func TestServerStart(t *testing.T) {
 		if e.Kind != KindMatchState || e.Key == "" || !e.ObservedAt.IsZero() || e.Player != (e.Target) || e.Player.Subject != "" {
 			t.Errorf("event %d = %+v", i, e)
 		}
-		if e.Extensions["map"] != "Kavkazi" || e.Extensions["state"] != want[i] || e.Extensions["game_time"] != 0.132 {
+		if e.Extensions["map"] != "Kavkazi" || e.Extensions["state"] != want[i] || e.Extensions["game_time"] != 0.13216013461351395 {
 			t.Errorf("event %d extensions = %v", i, e.Extensions)
 		}
 	}
 	if got.Events[0].Key == got.Events[1].Key {
 		t.Error("two events share a key")
+	}
+	if _, ok := got.Events[0].Extensions["match_id"]; ok {
+		t.Error("a match id before there is a match")
+	}
+}
+
+// TestWaitingForPlayers: from the wait for players on, a match_state carries the match's id.
+func TestWaitingForPlayers(t *testing.T) {
+	got := fixture(t, "waiting-for-players.json")
+	if len(got.Events) != 2 || len(got.Unknown) != 0 || got.Invalid != 0 {
+		t.Fatalf("parsed = %+v", got)
+	}
+	for _, e := range got.Events {
+		if e.Kind != KindMatchState || e.Extensions["match_id"] != "054b8989-0234-42bb-878c-96bf4945834c" || e.Extensions["game_time"] != 141.09025091305375 {
+			t.Errorf("event = %+v", e)
+		}
+	}
+}
+
+// TestPlayerJoinedAndLeft: the first session with a player on (2026-10-18 19:18Z): one player
+// joins, then leaves; each is the player by SteamID, the map, the match and the count after, and
+// neither keeps the name or the game's own id for them.
+func TestPlayerJoinedAndLeft(t *testing.T) {
+	for _, c := range []struct {
+		file, kind string
+		players    int
+		gameTime   float64
+	}{
+		{"player-joined.json", KindPlayerJoined, 1, 8039.4227929785848},
+		{"player-left.json", KindPlayerLeft, 0, 8061.3008470498025},
+	} {
+		got := fixture(t, c.file)
+		if len(got.Events) != 1 || len(got.Unknown) != 0 || got.Invalid != 0 {
+			t.Fatalf("%s: parsed = %+v", c.file, got)
+		}
+		e := got.Events[0]
+		if e.Kind != c.kind || e.Key == "" || e.Player != (store.PlayerKey{Provider: "steam", Subject: "76561190000000001"}) || e.Target != (store.PlayerKey{}) {
+			t.Errorf("%s: event = %+v", c.file, e)
+		}
+		want := map[string]any{"map": "Kavkazi", "match_id": "054b8989-0234-42bb-878c-96bf4945834c", "players": c.players, "game_time": c.gameTime}
+		if len(e.Extensions) != len(want) {
+			t.Errorf("%s: extensions = %v", c.file, e.Extensions)
+		}
+		for k, v := range want {
+			if e.Extensions[k] != v {
+				t.Errorf("%s: %s = %v, want %v", c.file, k, e.Extensions[k], v)
+			}
+		}
+	}
+}
+
+// TestPlayerChangeInvalid: a join or a leave with no SteamID, or one that is not a SteamID64, or
+// fields that cannot be read, is invalid; with no count it is kept without one.
+func TestPlayerChangeInvalid(t *testing.T) {
+	got := parse(t, `{"serverId":"x","events":[
+		{"eventId":"a","type":"player_joined","mapName":"Kavkazi","players":1},
+		{"eventId":"b","type":"player_left","playerSteamId":"Player 1","players":0},
+		{"eventId":"c","type":"player_joined","playerSteamId":"76561190000000001","players":"one"},
+		{"eventId":"d","type":"player_left","playerSteamId":76561190000000002}]}`)
+	if got.Invalid != 3 || len(got.Events) != 1 || len(got.Unknown) != 0 {
+		t.Fatalf("parsed = %+v", got)
+	}
+	e := got.Events[0]
+	if e.Key != "d" || e.Kind != KindPlayerLeft || e.Player.Subject != "76561190000000002" {
+		t.Errorf("event = %+v", e)
+	}
+	if _, ok := e.Extensions["players"]; ok {
+		t.Errorf("a count from nowhere: %v", e.Extensions)
 	}
 }
 

@@ -666,8 +666,8 @@ func TestFeed(t *testing.T) {
 			done := make(chan error, 1)
 			go func() { done <- sim.Run(ctx) }()
 			t.Cleanup(func() { cancel(); <-done })
-			first, kills := true, 0
-			for kills == 0 {
+			first, kills, joins := true, 0, 0
+			for kills == 0 || joins == 0 {
 				select {
 				case b := <-got:
 					if b.auth != "Bearer feed-token" || b.path != tc.path || len(b.body.Events) < 1 || len(b.body.Events) > feedBatch ||
@@ -684,6 +684,16 @@ func TestFeed(t *testing.T) {
 								t.Errorf("the start's event %d: %+v %v", i, m, err)
 							}
 						}
+						if e.Type == wardogs.FeedPlayerJoined || e.Type == wardogs.FeedPlayerLeft {
+							pc, err := e.PlayerChange()
+							if err != nil || !strings.HasPrefix(string(pc.PlayerSteamID), StandInSteamIDPrefix) || pc.PlayerName == "" ||
+								pc.Players == nil || pc.MatchID == "" || pc.MapName == "" || !strings.HasPrefix(pc.PlayerID, "00000000-0000-4000-8001-") {
+								t.Errorf("%s %s: %v", e.Type, e.Raw, err)
+							}
+							if e.Type == wardogs.FeedPlayerJoined {
+								joins++
+							}
+						}
 						if e.Type == "kill" {
 							var k FeedEvent
 							if err := json.Unmarshal(e.Raw, &k); err != nil || !strings.HasPrefix(k.VictimSteamID, StandInSteamIDPrefix) || k.Distance == nil {
@@ -694,7 +704,7 @@ func TestFeed(t *testing.T) {
 					}
 					first = false
 				case <-time.After(30 * time.Second):
-					t.Fatal("no kill reached the sink")
+					t.Fatalf("no kill or no join reached the sink (%d kills, %d joins)", kills, joins)
 				}
 			}
 		})

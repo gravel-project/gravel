@@ -15,14 +15,18 @@ import (
 //
 // The shape below is the first capture (2026-10-18, CL-516586): a batch names the server and
 // carries its events; every event has an id, a type and a time. The feed posts only when it has
-// events (nothing for hours on an empty server). Only match_state events have been seen so far
-// (the server's start, with nobody on); a kill's fields are not known yet, so an event of any
-// other type is kept as posted (Raw) for a reader that knows it.
+// events (nothing for hours on an empty server). Seen so far: match_state (the server's start,
+// then waiting for players, with the match's id from then on) and player_joined/player_left (one
+// player, with the count after). A kill's fields are not known yet, so an event of any other type
+// is kept as posted (Raw) for a reader that knows it.
 const (
 	// FeedPath is what CL-509546 appended to the feed's Url.
 	FeedPath = "/api/ingest/events"
 	// FeedMatchState is a match's state changing, the map with it.
 	FeedMatchState = "match_state"
+	// FeedPlayerJoined and FeedPlayerLeft are one player coming onto the server and leaving it.
+	FeedPlayerJoined = "player_joined"
+	FeedPlayerLeft   = "player_left"
 )
 
 // FeedBatch is one request the feed posts.
@@ -80,6 +84,8 @@ type MatchState struct {
 	MapName string `json:"mapName"`
 	// State is the engine's match state: "MatchState.PreMatch", "MatchState.PreMatch.WaitingForWorldLoad".
 	State string `json:"state"`
+	// MatchID is the match's id, from the wait for players on; "" before it (the server's start).
+	MatchID string `json:"matchId"`
 }
 
 // MatchState reads a match_state event's fields.
@@ -92,6 +98,31 @@ func (e FeedEvent) MatchState() (MatchState, error) {
 		return MatchState{}, fmt.Errorf("wardogs: %s %s: %w", FeedMatchState, e.EventID, err)
 	}
 	return m, nil
+}
+
+// PlayerChange is a player_joined or player_left event's own fields.
+type PlayerChange struct {
+	MatchID string `json:"matchId"`
+	MapName string `json:"mapName"`
+	// PlayerSteamID is who; PlayerName is their name in the game then, and PlayerID the game's own
+	// id for them, which gravel does not read (players are known by SteamID).
+	PlayerSteamID SteamID `json:"playerSteamId"`
+	PlayerName    string  `json:"playerName"`
+	PlayerID      string  `json:"playerId"`
+	// Players is how many are on after the change; nil when the event carried no count.
+	Players *int `json:"players"`
+}
+
+// PlayerChange reads a player_joined or player_left event's fields.
+func (e FeedEvent) PlayerChange() (PlayerChange, error) {
+	if e.Type != FeedPlayerJoined && e.Type != FeedPlayerLeft {
+		return PlayerChange{}, fmt.Errorf("wardogs: a %q event is not a %s or a %s", e.Type, FeedPlayerJoined, FeedPlayerLeft)
+	}
+	var p PlayerChange
+	if err := json.Unmarshal(e.Raw, &p); err != nil {
+		return PlayerChange{}, fmt.Errorf("wardogs: %s %s: %w", e.Type, e.EventID, err)
+	}
+	return p, nil
 }
 
 // ParseFeedBatch reads a batch. It fails only when the body is not a JSON object or its events

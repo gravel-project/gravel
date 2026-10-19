@@ -69,8 +69,8 @@ func wardogsCmd(ctx context.Context, args []string, stdout, stderr io.Writer) in
 	for _, s := range rep.Skipped {
 		fmt.Fprintf(stdout, "  skipped %s: %s\n", s.Route, s.Reason)
 	}
-	fmt.Fprintf(stdout, "scrubbed %d SteamIDs, %d player names, %d addresses, %d server ids, %d secrets\n",
-		rep.Scrubbed.SteamIDs, rep.Scrubbed.Names, rep.Scrubbed.Addresses, rep.Scrubbed.ServerIDs, rep.Scrubbed.Secrets)
+	fmt.Fprintf(stdout, "scrubbed %d SteamIDs, %d player names, %d player ids, %d addresses, %d server ids, %d secrets\n",
+		rep.Scrubbed.SteamIDs, rep.Scrubbed.Names, rep.Scrubbed.PlayerIDs, rep.Scrubbed.Addresses, rep.Scrubbed.ServerIDs, rep.Scrubbed.Secrets)
 	switch {
 	case rep.Previous == "":
 		fmt.Fprintln(stdout, "no earlier build recorded to compare with")

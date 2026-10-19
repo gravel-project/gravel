@@ -88,8 +88,8 @@ func ingestCmd(ctx context.Context, args []string, stdout, stderr io.Writer) int
 		fmt.Fprintln(stderr, err)
 		return 1
 	}
-	fmt.Fprintf(stderr, "%d batches, redacted: %d SteamIDs, %d names, %d addresses, %d server ids, %d secrets replaced\n",
-		len(batches), counts.SteamIDs, counts.Names, counts.Addresses, counts.ServerIDs, counts.Secrets)
+	fmt.Fprintf(stderr, "%d batches, redacted: %d SteamIDs, %d names, %d player ids, %d addresses, %d server ids, %d secrets replaced\n",
+		len(batches), counts.SteamIDs, counts.Names, counts.PlayerIDs, counts.Addresses, counts.ServerIDs, counts.Secrets)
 	return 0
 }
 

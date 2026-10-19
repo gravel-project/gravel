@@ -40,7 +40,7 @@ Two more constraints. The feed's format is unverified: S1 (deploy#49) is meant t
 
 5. **Missing data is a row, not a shortfall.** A gap is a stats event of kind `gap`, with a reason, a window (`from`, `to`) and, where it is known, a count. Boards keep their numbers and the server and game pages show the gaps beside them (#3, #18). Three detectors for War Dogs:
    - **`reconcile`:** the poll (ADR-0010 §3) already reads each player's cumulative kills and deaths for the match. When the counts the feed delivered for a player fall behind the poll's, a gap records the difference, and on a match end the poll's totals are the record for that match. That is the "reconcile against polled state" half of the restated principle.
-   - **`hub_down`:** at start, the hub writes a gap for every server with a feed from the last batch it stored to now, if the server had players then.
+   - **`hub_down`:** at start, the hub writes a gap for every server with a feed from when it stopped to now, if the server had players as it stopped (amended 2026-10-19: from the last batch it stored, until a feed with no heartbeat showed why not).
    - **`silence`:** no batch for 10 minutes while the poll reports at least 10 players. This is weaker evidence, because a quiet match is possible, so it is a gap with no count.
 
    CS2's byte-offset holes are the P4 detector, written now as a design test.
@@ -153,3 +153,28 @@ Two more constraints. The feed's format is unverified: S1 (deploy#49) is meant t
   - **Not yet:** the `reconcile` detector and the trust mapping's first event-fed board need the
     kills; gaps on the server and game pages wait for #18's pages; CS2's and MatchZy's parsers
     come when their events are wanted as stats.
+- **2026-10-19, after Hidden Token Gaming's first start on 0.10.1.**
+  - **A false `hub_down` gap.** The upgrade's restart wrote a gap of 1029 minutes, from the last
+    batch (the day before, 19:18Z, one player on) to the start. The poll had seen nobody on for
+    the 16 hours before the restart, and nothing was lost. A window from the last batch, and
+    players asked for at that batch, are only right for a feed that posts all the time; this one
+    posts only when it has events.
+  - **The hub keeps its runs** (`hub_runs`, migration 37): a row per start and the last minute it
+    was known to run, moved every minute (job `hub_alive`), so the run before a start says when
+    the hub stopped, crash or not. `hub_down` now runs from that stop to the start, when the poll
+    saw anyone on as it stopped (`server_occupancy` for that minute or the one before), for a
+    server whose feed had posted before. A hub with no previous run recorded writes no `hub_down`
+    gap: it cannot say when it was away. Migration 37 deletes the `hub_down` gaps 0.10.1 wrote;
+    none can be told true from false now, and a gap names no player.
+  - **A batch read again refreshes its own events.** The source keys kept a re-read safe, but
+    they also kept an event's old fields: a parser that reads a new field of a known kind would
+    never see it stored. Now an event that an earlier reading of the same batch stored takes the
+    newer reading's kind, time, players and extensions (never its trust, nor when it was received),
+    and is not counted again. The same key from another batch, or twice in one batch, is still a
+    duplicate and changes nothing.
+  - **Joins and leaves** (feed version 2): the first session with a player on carried
+    `player_joined` and `player_left` (`playerSteamId`, `playerName`, `playerId`, `players` after
+    the change, `matchId`, `mapName`), and `match_state` carries `matchId` from the wait for
+    players on. The stats events are the player by SteamID with the map, the match and the count;
+    the name and the game's own id are not kept. `--redact` now replaces the game's ids for a
+    player beside a SteamID too (`playerId` and its kin), since the fixtures are public.

@@ -13,8 +13,9 @@ import (
 )
 
 // The fixtures land in a public repository, so a recording carries no real person and no real
-// address: SteamIDs, player names and IP addresses are replaced with stand-ins, consistently
-// across every file of one recording, and every secret is redacted.
+// address: SteamIDs, player names, the game's other ids for a player and IP addresses are
+// replaced with stand-ins, consistently across every file of one recording, and every secret is
+// redacted.
 var (
 	steamIDPattern = regexp.MustCompile(`7656119\d{10}`)
 	ipv4Pattern    = regexp.MustCompile(`\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b`)
@@ -30,6 +31,9 @@ const (
 	// fakeServerIDFormat is a version-4-shaped UUID that names no server.
 	fakeServerIDPrefix = "00000000-0000-4000-8000-"
 	fakeServerIDFormat = fakeServerIDPrefix + "%012d"
+	// fakePlayerIDFormat stands in for the game's own id for a player (the feed's playerId).
+	fakePlayerIDPrefix = "00000000-0000-4000-8001-"
+	fakePlayerIDFormat = fakePlayerIDPrefix + "%012d"
 )
 
 // Counts are what a recording scrubbed.
@@ -39,6 +43,8 @@ type Counts struct {
 	Addresses int `json:"addresses"`
 	// ServerIDs are the host's identifiers for the server (GET /v1/server-id).
 	ServerIDs int `json:"serverIds"`
+	// PlayerIDs are the game's own ids for a player beside a SteamID (the feed's playerId).
+	PlayerIDs int `json:"playerIds"`
 	Secrets   int `json:"secrets"`
 }
 
@@ -55,15 +61,18 @@ type scrubber struct {
 	names     map[string]string
 	addresses map[string]string
 	serverIDs map[string]string
+	playerIDs map[string]string
 	secrets   int
 }
 
 func newScrubber(token string) *scrubber {
-	return &scrubber{token: token, steamIDs: map[string]string{}, names: map[string]string{}, addresses: map[string]string{}, serverIDs: map[string]string{}}
+	return &scrubber{token: token, steamIDs: map[string]string{}, names: map[string]string{}, addresses: map[string]string{},
+		serverIDs: map[string]string{}, playerIDs: map[string]string{}}
 }
 
 func (s *scrubber) counts() Counts {
-	return Counts{SteamIDs: len(s.steamIDs), Names: len(s.names), Addresses: len(s.addresses), ServerIDs: len(s.serverIDs), Secrets: s.secrets}
+	return Counts{SteamIDs: len(s.steamIDs), Names: len(s.names), Addresses: len(s.addresses), ServerIDs: len(s.serverIDs),
+		PlayerIDs: len(s.playerIDs), Secrets: s.secrets}
 }
 
 // originals are the values a written file must never contain.
@@ -72,7 +81,7 @@ func (s *scrubber) originals() []string {
 	if s.token != "" {
 		out = append(out, s.token)
 	}
-	for _, m := range []map[string]string{s.steamIDs, s.names, s.addresses, s.serverIDs} {
+	for _, m := range []map[string]string{s.steamIDs, s.names, s.addresses, s.serverIDs, s.playerIDs} {
 		for k := range m {
 			out = append(out, k)
 		}
@@ -92,6 +101,16 @@ func isNameKey(k string) bool {
 func isSteamIDKey(k string) bool { return strings.Contains(strings.ToLower(k), "steamid") }
 
 func isServerIDKey(k string) bool { return strings.EqualFold(k, "serverId") }
+
+// isPlayerIDKey recognises the game's own id for a player, in an object that has a SteamID: an
+// account id is a person as much as the SteamID beside it. A team's, squad's or match's id is not.
+func isPlayerIDKey(k string) bool {
+	switch strings.ToLower(k) {
+	case "playerid", "killerid", "victimid", "accountid", "userid", "epicid", "eosid", "platformid", "uniqueid", "netid":
+		return true
+	}
+	return false
+}
 
 // collect is the first pass: it learns every player name (a name-like key in an object that also
 // has a SteamID-like key), so the second pass can replace the name wherever it appears, in free
@@ -126,7 +145,22 @@ func (s *scrubber) collect(v any) {
 func (s *scrubber) scrub(v any) any {
 	switch x := v.(type) {
 	case map[string]any:
+		hasID := false
+		for k := range x {
+			if isSteamIDKey(k) {
+				hasID = true
+			}
+		}
 		for _, k := range slices.Sorted(maps.Keys(x)) {
+			if id, ok := x[k].(string); ok && hasID && isPlayerIDKey(k) && id != "" && !strings.HasPrefix(id, fakePlayerIDPrefix) {
+				fake, seen := s.playerIDs[id]
+				if !seen {
+					fake = fmt.Sprintf(fakePlayerIDFormat, len(s.playerIDs)+1)
+					s.playerIDs[id] = fake
+				}
+				x[k] = fake
+				continue
+			}
 			if id, ok := x[k].(string); ok && isServerIDKey(k) && id != "" && !strings.HasPrefix(id, fakeServerIDPrefix) {
 				fake, seen := s.serverIDs[id]
 				if !seen {
@@ -216,7 +250,7 @@ func (s *scrubber) address(a, prefix string) string {
 }
 
 // Scrubber is a recording's scrubbing for other JSON that leaves a server's host: SteamIDs, the
-// names beside them, addresses, the host's server ids and secrets are replaced with the same
+// names and the game's ids beside them, addresses, the host's server ids and secrets are replaced with the same
 // stand-ins a recording uses, the same value with the same stand-in in every document. It is how
 // `gravel-hub ingest export --redact` makes the feed's stored batches fit to become fixtures.
 type Scrubber struct{ s *scrubber }

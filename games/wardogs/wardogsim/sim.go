@@ -114,6 +114,7 @@ type player struct {
 
 // match is the match in progress, or the pre-match wait before one.
 type match struct {
+	id          string // the match's id in the feed's player events
 	playing     bool
 	index, next int // rotation positions
 	entry       rotationEntry
@@ -317,7 +318,7 @@ func (s *Server) step(t time.Time) {
 		if t.Before(p.leaveAt) {
 			continue
 		}
-		s.leave(p)
+		s.leave(t, p)
 		if s.rng.Float64() < s.profile.RejoinRate {
 			s.back[p.N] = t.Add(time.Duration(60+s.rng.IntN(240)) * time.Second)
 		} else {
@@ -345,7 +346,7 @@ func (s *Server) step(t time.Time) {
 		}
 	} else if gap < -2 && len(s.online) > 0 && s.rng.Float64() < -gap*tick.Minutes()/10 {
 		p := s.online[s.rng.IntN(len(s.online))]
-		s.leave(p)
+		s.leave(t, p)
 		s.away[p.N] = t.Add(time.Duration(30+s.rng.IntN(180)) * time.Minute)
 	}
 
@@ -438,10 +439,12 @@ func (s *Server) join(t time.Time, p *Player) {
 	}
 	session := time.Duration(s.profile.SessionMinutes.draw(s.rng.Float64()) * float64(time.Minute))
 	s.online = append(s.online, &player{Player: p, faction: faction, leaveAt: t.Add(session)})
+	s.playerEvent(t, wardogs.FeedPlayerJoined, p)
 }
 
-func (s *Server) leave(p *player) {
+func (s *Server) leave(t time.Time, p *player) {
 	s.online = slices.DeleteFunc(s.online, func(o *player) bool { return o == p })
+	s.playerEvent(t, wardogs.FeedPlayerLeft, p.Player)
 }
 
 // startIfReady starts a match once the document's minimum is on.

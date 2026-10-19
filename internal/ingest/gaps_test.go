@@ -54,20 +54,28 @@ type gapRig struct {
 	st      *gapStore
 	g       *Gaps
 	now     time.Time
+	stopped time.Time // when the previous run was last known to run
 	players map[string]int
 	down    map[string]bool
 }
 
-func newGapRig(t *testing.T) *gapRig {
+// newGapRig is a hub that starts at 01:00, eight minutes after its previous run stopped.
+func newGapRig(t *testing.T) *gapRig { return newGapRigAway(t, true) }
+
+func newGapRigAway(t *testing.T, known bool) *gapRig {
 	t.Helper()
 	start := time.Date(2026, 10, 21, 1, 0, 0, 0, time.UTC)
 	r := &gapRig{st: &gapStore{last: map[string]time.Time{}, players: map[string][]time.Time{}}, now: start,
-		players: map[string]int{}, down: map[string]bool{}}
+		stopped: start.Add(-8*time.Minute + 20*time.Second), players: map[string]int{}, down: map[string]bool{}}
 	servers := func(context.Context) ([]FeedServer, error) {
 		return []FeedServer{{ID: "wd-1", Game: "wardogs", Trust: "official"}, {ID: "wd-2", Game: "wardogs", Trust: "community"}}, nil
 	}
 	occupancy := func(server string) (int, bool) { return r.players[server], !r.down[server] }
-	r.g = NewGaps(r.st, uuid.New(), servers, occupancy, start, prometheus.NewRegistry(), quiet())
+	away := Away{From: r.stopped, To: start, Known: known}
+	if !known {
+		away.From = time.Time{}
+	}
+	r.g = NewGaps(r.st, uuid.New(), servers, occupancy, away, prometheus.NewRegistry(), quiet())
 	r.g.now = func() time.Time { return r.now }
 	return r
 }
@@ -90,14 +98,17 @@ func gapOf(t *testing.T, e store.StatsEvent) (reason string, to time.Time) {
 	return ext.Reason, ext.To
 }
 
-// TestHubDown: at start, a server whose last batch came while players were on gets a gap from
-// that batch to the start; one that was empty then, or never posted, gets none.
+// TestHubDown: at start, a server with players on as the hub stopped gets a gap from the stop to
+// the start; one that was empty then gets none, even when its feed last posted with players on
+// hours before (a feed that posts only when it has events: Hidden Token Gaming's 1029-minute gap
+// of 2026-10-19, with nobody on); one whose feed never posted gets none.
 func TestHubDown(t *testing.T) {
 	r := newGapRig(t)
-	lastBatch := r.now.Add(-7*time.Minute - 30*time.Second)
-	r.st.last["wd-1"] = lastBatch
-	r.st.players["wd-1"] = []time.Time{lastBatch.Truncate(time.Minute)}
-	r.st.last["wd-2"] = r.now.Add(-3 * time.Minute) // nobody on
+	r.st.last["wd-1"] = r.now.Add(-40 * time.Minute)
+	r.st.players["wd-1"] = []time.Time{r.stopped.Truncate(time.Minute)}
+	lastBatch := r.now.Add(-17 * time.Hour)
+	r.st.last["wd-2"] = lastBatch // players on then, nobody on as the hub stopped
+	r.st.players["wd-2"] = []time.Time{lastBatch.Truncate(time.Minute)}
 	ctx := context.Background()
 	if err := r.g.Run(ctx); err != nil {
 		t.Fatal(err)
@@ -109,7 +120,7 @@ func TestHubDown(t *testing.T) {
 	e := got[0]
 	reason, to := gapOf(t, e)
 	if e.ServerID != "wd-1" || e.Kind != KindGap || e.Source != SourceServerAdapter || e.Trust != "official" || e.GameID != "wardogs" ||
-		!e.ObservedAt.Equal(lastBatch) || reason != GapHubDown || !to.Equal(r.now) || e.BatchID != 0 || e.Player.Subject != "" {
+		!e.ObservedAt.Equal(r.stopped) || reason != GapHubDown || !to.Equal(r.now) || e.BatchID != 0 || e.Player.Subject != "" {
 		t.Errorf("gap = %+v (%s to %s)", e, reason, to)
 	}
 	if n := testutil.ToFloat64(r.g.gaps.WithLabelValues("wd-1", GapHubDown)); n != 1 {
@@ -119,19 +130,37 @@ func TestHubDown(t *testing.T) {
 	if err := r.g.Run(ctx); err != nil || len(r.gaps()) != 1 {
 		t.Errorf("a second run: %d gaps, %v", len(r.gaps()), err)
 	}
-	// The same gap found again (a hub that restarts with the same last batch) is stored once.
+	// The same gap found again (a hub that restarts before its run was recorded alive again) is
+	// stored once.
 	again := newGapRig(t)
 	again.st = r.st
 	again.g.st = r.st
 	if err := again.g.Run(ctx); err != nil || len(r.gaps()) != 1 {
 		t.Errorf("found again: %d gaps, %v", len(r.gaps()), err)
 	}
+	// A server whose feed never posted lost nothing.
+	never := newGapRig(t)
+	never.st.players["wd-1"] = []time.Time{never.stopped.Truncate(time.Minute)}
+	if err := never.g.Run(ctx); err != nil || len(never.gaps()) != 0 {
+		t.Errorf("a feed that never posted: %d gaps, %v", len(never.gaps()), err)
+	}
+}
+
+// TestHubDownUnknown: a hub with no record of its previous run cannot say when it was away, so it
+// records no hub_down gap, whoever was on.
+func TestHubDownUnknown(t *testing.T) {
+	r := newGapRigAway(t, false)
+	r.st.last["wd-1"] = r.now.Add(-time.Minute)
+	r.st.players["wd-1"] = []time.Time{r.now.Add(-time.Minute).Truncate(time.Minute), r.stopped.Truncate(time.Minute)}
+	if err := r.g.Run(context.Background()); err != nil || len(r.gaps()) != 0 {
+		t.Errorf("unknown: %d gaps, %v", len(r.gaps()), err)
+	}
 }
 
 func TestHubDownRetriesTheStore(t *testing.T) {
 	r := newGapRig(t)
-	r.st.last["wd-1"] = r.now.Add(-time.Minute)
-	r.st.players["wd-1"] = []time.Time{r.now.Add(-time.Minute).Truncate(time.Minute)}
+	r.st.last["wd-1"] = r.now.Add(-time.Hour)
+	r.st.players["wd-1"] = []time.Time{r.stopped.Truncate(time.Minute)}
 	r.st.fail = true
 	if err := r.g.Run(context.Background()); err == nil {
 		t.Fatal("no error")

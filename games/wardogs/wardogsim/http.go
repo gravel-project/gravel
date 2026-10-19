@@ -553,7 +553,7 @@ func (s *Server) kick(q request) reply {
 	if p == nil {
 		return fail(http.StatusNotFound, "player_not_found", "no such player is connected")
 	}
-	s.leave(p)
+	s.leave(q.now, p)
 	s.away[p.N] = q.now.Add(time.Duration(5+s.rng.IntN(25)) * time.Minute)
 	return ok(okBody)
 }
@@ -645,7 +645,7 @@ func (s *Server) ban(q request) reply {
 		}
 	}
 	s.rconBans = append(s.rconBans, ban{steamID: id, reason: in.Reason, at: q.now})
-	s.leave(p)
+	s.leave(q.now, p)
 	return ok(okBody)
 }
 

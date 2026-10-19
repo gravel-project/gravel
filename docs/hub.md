@@ -1203,18 +1203,26 @@ A batch is `{serverId, serverName, events[]}`, each event with `eventId`, `type`
   schema version. The batch becomes `parsed`, or `failed` when the parser cannot read it. An event
   of a type the parser does not know is counted (`kind="unknown"`, logged once per type) and stays
   in the batch: a parser that learns it raises its version, and on the next start the hub reads
-  every stored batch of that game again (its keys make that safe), failed ones included. War Dogs'
-  parser reads `match_state` (map and state) so far; kills come with the first session with
+  every stored batch of that game again, failed ones included. Its keys make that safe: an event
+  an earlier reading of the same batch stored takes the newer reading's fields (never its trust)
+  and is not counted again, and the same key from another batch is still a duplicate. War Dogs'
+  parser (version 2) reads `match_state` (map, state and the match's id), and `player_joined` and
+  `player_left` (the player by SteamID, the map, the match and how many are on after; not the
+  name, nor the game's own id for the player); kills come with the first session with enough
   players. Batches are kept 30 days (job `ingest_prune`, hourly).
 - **Reading the captures.** `gravel-hub ingest export --server ID` prints the stored batches as
   received; they hold players' SteamIDs and the host's server id. With `--redact` every SteamID,
-  the name beside it, address, server id and secret is replaced with a stand-in, the same one for
+  the name and the game's own ids beside it (`playerId` and its kin), address, server id and
+  secret is replaced with a stand-in, the same one for
   the same value across the export, as `wardogs record` does (JSON bodies only; nothing is printed
   if a replaced value is still there): that output may leave the host and become a parser's
   fixture.
 - **Gaps.** Missing data is a row: a stats event of kind `gap`, its window from `observed_at` to
-  `extensions.to` and its `extensions.reason`. `hub_down`: at start, from a feed's last batch
-  before the start to the start, when the poll saw anyone on the server at that batch. `silence`:
+  `extensions.to` and its `extensions.reason`. `hub_down`: at start, from when the hub stopped to
+  the start, when the poll saw anyone on the server as it stopped, for a server whose feed had
+  posted before. The hub keeps its runs to know when it stopped (`hub_runs`: a row per start, its
+  `alive_at` moved every minute by the job `hub_alive`, so a crash is known to the minute too); a
+  hub with no run recorded before its start writes no `hub_down` gap. `silence`:
   no batch for 10 minutes while the poll sees 10 or more players (a match is running, so kills
   should come every few seconds; fewer players idling below the match's minimum post nothing); it
   runs to the next batch and is
@@ -1496,7 +1504,8 @@ holds the RCON password it accepts; put the same one in `servers.yaml`'s `creden
 - **State:** it keeps everything in memory, so a restart starts from the recording again.
 - **The feed:** with a feed `Url` and `Token` in force, it posts batches in the captured shape
   (`{serverId, serverName, events[]}`): the two `match_state` events a server posts at its start,
-  then its kills every 2 s, and nothing when there is nothing to send. On
+  a `player_joined` or `player_left` as each made-up player comes and goes (with the count after,
+  the map and the match), then its kills, every 2 s, and nothing when there is nothing to send. On
   Season 02 it posts to the Url as given (so `--feed-url` is the whole route,
   `http://hub:8080/api/ingest/events`), on CL-509546 to `<Url>/api/ingest/events`. A kill's fields
   are still a guess (`type: "kill"`, `killerSteamId`, `victimSteamId`, `distance`, from community
@@ -2294,7 +2303,7 @@ One hub, four tiers ([tiers.md](tiers.md), [ADR-0025](adr/0025-hub-as-a-product-
 
 The image is built by ko from `cmd/gravel-hub` on `gcr.io/distroless/static-debian12:nonroot`,
 runs as uid 65532, and has the binary at `/ko-app/gravel-hub` (`.ko.yaml`). Releases push it to
-`ghcr.io/gravel-project/gravel-hub` as `<version>` (no `v`: `0.10.0`) and `latest`, multi-arch
+`ghcr.io/gravel-project/gravel-hub` as `<version>` (no `v`: `0.10.1`) and `latest`, multi-arch
 (amd64, arm64), signed with cosign and with an SBOM attached. Every green push to `main` publishes
 it the same way as `main-<commit>` and `main`. `docs/releasing.md` has the verify commands for both
 and the digest-pin procedure.
