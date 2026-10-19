@@ -8,12 +8,13 @@ patch release is everything else.
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-10-19
+
 ### Changed
 
 - ADR-0025, 0026, 0028 and 0029 read **accepted**: their pull requests merged on 2026-10-13 and the status lines had said proposed since.
 - gravel's own quadlet units and the Compose tier pin the **0.10.0** images, verified with cosign 3 against the release workflow at `v0.10.0` (a `v0.9.0` identity refused): `gravel-hub@sha256:609a15b49cc05cc25591251c394e019ee3a47cde29fae4fb23c7147860ed48ce` (and its `GRAVEL_IMAGE`) and `gravel-bot@sha256:49f0ab6020277f9d92a2cfdd0d16f3ddb8e24125f851c9b56a5c4dce77dd5ef2`. The backup set's `gravel-postgres` stays: 0.10.0 changed nothing under `deploy/postgres` and published no new one. `docs/hub.md` names 0.10.0 as the tag example.
 - The compose drill gets its owner-claim token from `gravel-hub claim-token` (ADR-0036), which the pinned hub now has, instead of the start-up log, and checks what the command promises: the logged token no longer claims once replaced, and an owned hub mints none.
-
 - `gravel-hub demo wardogs-server --feed-url` is the feed's Url as the host's file has it (not counted as breaking: the demo feed has no users yet). The simulated Season 02 server posts to it as given, as the real one does (`http://hub:8080/api/ingest/events`), and CL-509546 still appends `/api/ingest/events`. The simulator posts the captured batch shape (`{serverId, serverName, events[]}`, the two `match_state` events at its start, then its kills) instead of the guessed array of kills. Its kills are still a guess, so the hub keeps them as a kind it does not know. `wardogsim.KillEvent` and `wardogsim.FeedPath` are gone: use `wardogsim.FeedEvent`/`FeedBatch` and `wardogs.FeedPath`.
 - `docs/hub.md` "Ingestion", the War Dogs driver's plan note and `servers.yaml`'s `feed.url` comment say what Season 02 does: it takes its feed from the host's file and **posts to the Url as given**, so the Url there ends with `/api/ingest/events`. An origin alone posts to `/` and is refused 401.
 - README principle 4 now reads as ADR-0011 §6 restated it: game-server logs are authoritative **where logs exist**; elsewhere the hub reconciles against what it polls and records the gaps (#3).
@@ -817,7 +818,8 @@ patch release is everything else.
 
 - README and CLAUDE.md follow ADR-0001: status line, principle 2 (the resource lives in the hub's database), the hub and backup paragraphs, the adapter-repo rule, the local-dev default, and a seven-step build order with the issues behind each step. The launch games are the five Hidden Token Gaming plays, in three shapes, with War Dogs first; the open threads link the design-delta issues #2–#9 (#1).
 
-[Unreleased]: https://github.com/gravel-project/gravel/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/gravel-project/gravel/compare/v0.10.1...HEAD
+[0.10.1]: https://github.com/gravel-project/gravel/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/gravel-project/gravel/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/gravel-project/gravel/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/gravel-project/gravel/compare/v0.8.0...v0.8.1
