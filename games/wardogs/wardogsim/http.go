@@ -413,15 +413,27 @@ func (s *Server) reservedSlots(_ request) reply {
 	return ok(map[string]any{"count": len(ids), "reservedSlots": ids})
 }
 
-// feedStatus is GET /v1/feed (CL-516586): on or off as the feed the simulation runs. Season 02's
-// server listed no endpoint when it was recorded, so their fields are unknown and the list stays
-// empty.
+// feedStatus is GET /v1/feed (CL-516586): on or off as the feed the simulation runs, and its one
+// endpoint's delivery in the fields Hidden Token Gaming's server showed (2026-10-20).
 func (s *Server) feedStatus(_ request) reply {
-	n := 0
-	if s.live.feedURL != "" {
-		n = 1
+	if s.live.feedURL == "" {
+		return ok(map[string]any{"enabled": false, "endpointCount": 0, "anyUnhealthy": false, "endpoints": []any{}})
 	}
-	return ok(map[string]any{"enabled": n > 0, "endpointCount": n, "anyUnhealthy": false, "endpoints": []any{}})
+	var scheme, host string
+	if u, err := url.Parse(s.live.feedURL); err == nil {
+		scheme, host = u.Scheme, u.Hostname()
+	}
+	d := s.delivery
+	var last int64
+	if !d.lastSuccess.IsZero() {
+		last = d.lastSuccess.Unix()
+	}
+	healthy := d.failures == 0
+	return ok(map[string]any{"enabled": true, "endpointCount": 1, "anyUnhealthy": !healthy, "endpoints": []any{map[string]any{
+		"index": 0, "scheme": scheme, "host": host, "healthy": healthy, "queued": len(s.events), "inFlight": s.inFlight,
+		"consecutiveFailures": d.failures, "sentTotal": d.sent, "droppedTotal": s.dropped, "lastHttpStatus": d.lastStatus,
+		"lastSuccessUnixSeconds": last,
+	}}})
 }
 
 func (s *Server) sponsor(_ request) reply {
@@ -564,7 +576,7 @@ func (s *Server) kill(q request) reply {
 		return fail(http.StatusNotFound, "player_not_found", "no such player is connected")
 	}
 	p.deaths++
-	s.queue(q.now, "", p.SteamID)
+	s.queue(q.now, nil, p)
 	return ok(okBody)
 }
 

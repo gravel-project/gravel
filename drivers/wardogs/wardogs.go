@@ -58,7 +58,12 @@ type Driver struct {
 	id    string
 	idAt  time.Time
 	idErr bool
-	now   func() time.Time
+	// feeds is the server's feed delivery, read at most once a FeedTTL.
+	feedMu  sync.Mutex
+	feeds   []drivers.FeedDelivery
+	feedAt  time.Time
+	feedErr bool
+	now     func() time.Time
 }
 
 // RotationTTL is how long the driver keeps the rotation's maps before reading them again.
@@ -67,6 +72,10 @@ const RotationTTL = time.Minute
 // JoinTTL is how long the driver keeps the server's ID before reading it again: the host sets it,
 // and it survives restarts and map changes (War Dogs patch 0.11).
 const JoinTTL = 10 * time.Minute
+
+// FeedTTL is how long the driver keeps the feed's delivery before reading it again: the gaps job
+// compares it once a minute.
+const FeedTTL = time.Minute
 
 // joinHint says where a War Dogs player uses the ID (tested 2026-10-11, wardogs-server#8): no
 // launch URI or steam://connect joins a server; the Community browser's Join by ID does.
@@ -171,7 +180,43 @@ func (d *Driver) Status(ctx context.Context) (drivers.Status, error) {
 	if id := d.serverID(ctx); id != "" {
 		out.Join = drivers.Join{Method: drivers.JoinByID, Value: id, Hint: joinHint}
 	}
+	out.Feeds = d.feedDelivery(ctx)
 	return out, nil
+}
+
+// feedDelivery is the feed's delivery per endpoint (GET /v1/feed, Season 02), read again once
+// FeedTTL has passed. A build without the route, or a feed that is off, says nothing; a failed
+// read keeps the last good one and never fails the status.
+func (d *Driver) feedDelivery(ctx context.Context) []drivers.FeedDelivery {
+	d.feedMu.Lock()
+	defer d.feedMu.Unlock()
+	if !d.feedAt.IsZero() && d.now().Sub(d.feedAt) < FeedTTL {
+		return d.feeds
+	}
+	d.feedAt = d.now()
+	f, err := d.c.Feed(ctx)
+	switch {
+	case errors.Is(err, wardogs.ErrNotSupported):
+		d.feeds = nil
+		return nil
+	case err != nil:
+		if !d.feedErr {
+			d.logger.Warn("war dogs feed delivery unreadable; the status goes without it", "error", err.Error())
+		}
+		d.feedErr = true
+		return d.feeds
+	}
+	if d.feedErr {
+		d.logger.Info("war dogs feed delivery readable again")
+	}
+	d.feedErr = false
+	d.feeds = nil
+	if f.Enabled {
+		for _, e := range f.Endpoints {
+			d.feeds = append(d.feeds, drivers.FeedDelivery{Host: e.Host, Healthy: e.Healthy, Queued: e.Queued + e.InFlight, Sent: e.SentTotal, Dropped: e.DroppedTotal})
+		}
+	}
+	return d.feeds
 }
 
 // serverID is the host's identifier for the server, read again once JoinTTL has passed. Like the

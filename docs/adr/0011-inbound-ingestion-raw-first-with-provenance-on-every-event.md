@@ -150,8 +150,8 @@ Two more constraints. The feed's format is unverified: S1 (deploy#49) is meant t
     Past `stats.raw_retention_months` the rollup job anonymises each identity on each event with
     a token of its own, as #216 does for match results (principle 10), rather than deleting the
     events; events of nobody are kept as they are.
-  - **Not yet:** the `reconcile` detector and the trust mapping's first event-fed board need the
-    kills; gaps on the server and game pages wait for #18's pages; CS2's and MatchZy's parsers
+  - **Not yet:** the `reconcile` detector (built 2026-10-20, below) and the trust mapping's first
+    event-fed board need the kills; gaps on the server and game pages wait for #18's pages; CS2's and MatchZy's parsers
     come when their events are wanted as stats.
 - **2026-10-19, after Hidden Token Gaming's first start on 0.10.1.**
   - **A false `hub_down` gap.** The upgrade's restart wrote a gap of 1029 minutes, from the last
@@ -178,3 +178,49 @@ Two more constraints. The feed's format is unverified: S1 (deploy#49) is meant t
     players on. The stats events are the player by SteamID with the map, the match and the count;
     the name and the game's own id are not kept. `--redact` now replaces the game's ids for a
     player beside a SteamID too (`playerId` and its kin), since the fixtures are public.
+- **2026-10-20, the feed retries, and the kills (Hidden Token Gaming's sink-down test, deploy#49).**
+  - **War Dogs queues and retries.** With HTG's tunnel answering 503 on the ingest route for nine
+    minutes (12:25:33–12:34:33Z) and the hub up, a player joined and left. The server held both
+    events (`GET /v1/feed`: `queued` 2, `healthy` false), retried a few times quickly and then about
+    once a minute (12 failures by the end), and dropped nothing (`droppedTotal` 0). It posted both
+    in one batch 19 s after the route came back, each with the `eventTime` it happened at (2 min
+    29 s apart, which the poll's minutes agree with). So the Context's "It does not retry" was
+    wrong for this build, and an outage of the hub costs War Dogs a delay, not data, up to however
+    much the server holds (not measured: two events were all the test had). The 0.10.1 export did
+    not scrub `playerId`; the fixtures were scrubbed again by main's `record.Scrubber`.
+  - **A game's spec says what its feed does** (`feed.retries`, `feed.kills` in `game.yaml`; War Dogs
+    both). `hub_down` is recorded only for a feed that does not retry.
+  - **`dropped`** replaces it as the loss War Dogs can have: the server's own count of events it
+    gave up on (`droppedTotal`), read by the driver with the status at most once a minute
+    (`drivers.Status.Feeds`, the endpoint whose host is the hub's feed URL's). The gap job compares
+    each reading with the last, kept in `feed_delivery` (migration 38) so a drop while the hub was
+    away is seen at its next start; a rise is a gap from the last reading to this one with how
+    many (`extensions.events`, and `gravel_ingest_dropped_events_total`). A count below the kept
+    one is the server's restart, and all it counts since is lost.
+  - **`reconcile`, as built.** For a game whose feed posts every kill, five minutes after a poll
+    match ends (ADR-0012's `matches`; the game's own match id is not linked to it), each player's
+    kills and deaths from the feed's `kill` events between the match's start and five minutes past
+    its end against `match_stats`. A kill counts for its player unless that is its victim (a
+    suicide is a death only), a death for its victim, the world's kill too. Where the feed falls
+    short, one gap for the match, its window the match, with the poll's match id and the missing
+    kills and deaths. The five minutes past the end can count a kill of the next match, so it can
+    hide a shortfall but never invent one. A match that ended more than six hours before is not
+    reconciled (a hub away longer). On a match's end the poll's totals stay the record (§5), so
+    nothing else changes.
+  - **The kills (feed version 3).** No `killed` event has reached HTG's server: a match needs the
+    spec's `MinimumRequiredPlayers` (at least 20), and an RCON kill of a lone player waiting for
+    one posts nothing. John chose to read them now from the War Dogs community's capture of
+    CL-501228 (Warcon's `docs/wardogs-api.md` and parser, whose Season 02 update left the kill
+    unchanged) and check against HTG's first match: `type` `killed`; `killerName`, `killerId`,
+    `killerSteamId` (absent when the world killed); `victimName`, `victimId`, `victimSteamId`;
+    `cause` (an item id, absent on a fall); `distance` (centimetres, absent on a vehicle's
+    explosion and most suicides); `contextTags` (`…KillContext.Headshot` and others,
+    `…PlayerKillFlag.Player.Suicide`). No faction on either side, so a team kill is the poll's to
+    tell at read time; no board reads one yet. The stats event is kind `kill`, the killer as the
+    player and the victim as the target, with the map, the match, `cause`, `distance_cm`,
+    `headshot` and `suicide`; the names and the game's ids are not kept. Its fixture is synthetic
+    and says so (`adapters/wardogs/testdata/README.md`).
+  - **`match_ended`** (captured on HTG's server, 2026-10-19): `winningFaction`, `factionScores`
+    (`faction`, `score`), `players`, and `randomWinner` (true when nobody scored and the server drew
+    the winner), then `MatchState.PostMatch`. The stats event is kind `match_ended` with the map,
+    the match, `winner`, `random_winner`, `scores` and `players`.

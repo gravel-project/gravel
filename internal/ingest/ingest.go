@@ -2,7 +2,8 @@
 // [WDServerFeed] first, then Counter-Strike 2's HTTP log (the log route, log.go: the token in the
 // path, because the game sends no header). Each route authenticates the server by its feed token,
 // commits the batch to ingest_batches (redacted of secrets, for a source that can carry them) and
-// only then answers: the sources do not retry, so that insert is all the durability they get. Parsing reads
+// only then answers: for a source that does not retry (CS2's log) that insert is all the durability
+// it gets, and one that does (War Dogs, deploy#49) is answered only once it is kept. Parsing reads
 // the stored batches afterwards (an adapter's job), so a parser bug or a game update loses
 // nothing. Batches are a 30-day buffer, pruned by a hub job.
 package ingest

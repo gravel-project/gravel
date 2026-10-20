@@ -110,6 +110,19 @@ type Status struct {
 	NextRotationMap string
 	// Join is how a player gets onto the server from the game; zero when the driver knows no way.
 	Join Join
+	// Feeds are how the server's own event feed is delivering, one per place it posts, as the
+	// server reports it; nil when the driver cannot tell (ADR-0011 §5).
+	Feeds []FeedDelivery
+}
+
+// FeedDelivery is one place a server's event feed posts to, and its counts since the server
+// started: what it holds to post again, what it sent, and what it gave up on.
+type FeedDelivery struct {
+	// Host is where it posts (the host of the feed's URL).
+	Host string
+	// Healthy is false while posts there fail.
+	Healthy               bool
+	Queued, Sent, Dropped int64
 }
 
 // Join is how a player reaches the server from the game: Method says what Value is, Hint says

@@ -57,3 +57,41 @@ func TestParseFeedBatchRefuses(t *testing.T) {
 		}
 	}
 }
+
+// TestFeedEndpoint: GET /v1/feed with its endpoint mid-outage, as Hidden Token Gaming's server
+// answered on 2026-10-20 (deploy#49): two events queued after seven failed posts, none dropped.
+func TestFeedEndpoint(t *testing.T) {
+	var f Feed
+	if err := json.Unmarshal([]byte(`{"enabled":true,"endpointCount":1,"anyUnhealthy":true,"endpoints":[{"index":0,"scheme":"https",
+		"host":"ingest.example.org","healthy":false,"queued":2,"inFlight":0,"consecutiveFailures":7,"sentTotal":4,"droppedTotal":0,
+		"lastHttpStatus":503,"lastSuccessUnixSeconds":1792429805}]}`), &f); err != nil {
+		t.Fatal(err)
+	}
+	want := FeedEndpoint{Scheme: "https", Host: "ingest.example.org", Queued: 2, ConsecutiveFailures: 7, SentTotal: 4, LastHTTPStatus: 503, LastSuccessUnixSeconds: 1792429805}
+	if !f.Enabled || !f.AnyUnhealthy || len(f.Endpoints) != 1 || f.Endpoints[0] != want {
+		t.Errorf("feed = %+v", f)
+	}
+}
+
+// TestKillAndMatchEnded: the type's own readers refuse another type's event.
+func TestKillAndMatchEnded(t *testing.T) {
+	b, err := ParseFeedBatch([]byte(`{"events":[{"eventId":"a","type":"killed","victimSteamId":"76561190000000002","contextTags":["` + TagHeadshot + `"]},
+		{"eventId":"b","type":"match_ended","winningFaction":"Manticore","factionScores":[{"faction":"Manticore","score":100}]}]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	k, err := b.Events[0].Kill()
+	if err != nil || !k.Headshot() || k.Suicide() || k.KillerSteamID != "" || k.Distance != nil {
+		t.Errorf("kill = %+v, %v", k, err)
+	}
+	m, err := b.Events[1].MatchEnded()
+	if err != nil || m.WinningFaction != "Manticore" || len(m.FactionScores) != 1 || m.FactionScores[0] != (FeedFactionScore{Faction: "Manticore", Score: 100}) || m.Players != nil {
+		t.Errorf("match ended = %+v, %v", m, err)
+	}
+	if _, err := b.Events[0].MatchEnded(); err == nil {
+		t.Error("a kill read as a match end")
+	}
+	if _, err := b.Events[1].Kill(); err == nil {
+		t.Error("a match end read as a kill")
+	}
+}

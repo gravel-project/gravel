@@ -1168,7 +1168,10 @@ dashboard's Servers row).
 
 Some servers push their events into the hub: War Dogs' event feed posts batches to
 `/api/ingest/events` with `Authorization: Bearer <Token>` when it has events (at the server's
-start, every few seconds in a fight, nothing on an empty server), and never retries. The hub serves that path on its public
+start, every few seconds in a fight, nothing on an empty server). It queues what it could not post
+and retries, quickly at first and then about once a minute: nine minutes of 503s from the hub's
+route lost nothing, and the queue went out in one batch 19 s after the route came back, each event
+with its own `eventTime` (deploy#49, 2026-10-20). The hub serves that path on its public
 listener (put it behind the edge, as HTG does with `ingest.hiddentoken.com` through its Tunnel).
 A batch is `{serverId, serverName, events[]}`, each event with `eventId`, `type` and `eventTime`
 (the game's clock in seconds) and its type's own fields; `games/wardogs/feed.go` has what is known.
@@ -1185,13 +1188,17 @@ A batch is `{serverId, serverName, events[]}`, each event with `eventId`, `type`
   Url as given** (CL-509546 appended `/api/ingest/events`), so the Url there is the whole route:
   `+EventFeedEndpoints=(Url="https://ingest.example.com/api/ingest/events",Token="…")`. An origin
   alone posts to `/` and is refused 401. `EventFeedServerName` is the label the batches carry.
-  `GET /v1/feed` on the server says whether it is on and the status of its last post.
+  `GET /v1/feed` on the server says whether it is on and, per endpoint, its delivery: `healthy`,
+  `queued`, `inFlight`, `consecutiveFailures`, `sentTotal`, `droppedTotal` (since the server
+  started), `lastHttpStatus` and `lastSuccessUnixSeconds`. The War Dogs driver reads it with each
+  status at most once a minute (the status's `Feeds`), and the `dropped` gap is made from it.
 - **Rotating the token.** Put the new token on the first line of the file and the old one on the
   second, apply the configuration, and leave both. The hub accepts the old one for 48 hours from
   when it first read it, which covers a daily restart. Then remove the second line.
 - **What the route does.** It finds the server by its token (compared in constant time against
   every feed). It stores the request body, as received, in `ingest_batches` and only then answers
-  200: the sources do not retry, so that insert is the durability. It answers 401 with no body for
+  200: a source that does not retry (CS2's log) has only that insert for its durability, and one
+  that does (War Dogs) is answered only once its batch is kept. It answers 401 with no body for
   an unknown token (and 429 to an address that keeps guessing), 413 over 64 KiB, 429 when one
   server posts more than 600 a minute, 503 when the database did not take the batch (lost: the
   metrics and the log say so). Nothing in an answer names a server.
@@ -1206,10 +1213,15 @@ A batch is `{serverId, serverName, events[]}`, each event with `eventId`, `type`
   every stored batch of that game again, failed ones included. Its keys make that safe: an event
   an earlier reading of the same batch stored takes the newer reading's fields (never its trust)
   and is not counted again, and the same key from another batch is still a duplicate. War Dogs'
-  parser (version 2) reads `match_state` (map, state and the match's id), and `player_joined` and
+  parser (version 3) reads `match_state` (map, state and the match's id), `player_joined` and
   `player_left` (the player by SteamID, the map, the match and how many are on after; not the
-  name, nor the game's own id for the player); kills come with the first session with enough
-  players. Batches are kept 30 days (job `ingest_prune`, hourly).
+  name, nor the game's own id for the player), `killed` as kind `kill` (the killer as the player,
+  none when the world killed; the victim as the target, the killer for a suicide; the map, the
+  match, the item as `cause`, `distance_cm`, `headshot` and `suicide`; not the names or the game's
+  ids) and `match_ended` (the map, the match, the `winner`, `random_winner` when nobody scored and
+  the server drew it, the `scores` by faction and how many were on). A kill's fields are the War
+  Dogs community's capture (`games/wardogs/feed.go` says whose); HTG's server has not had a match
+  with enough players to post one yet. Batches are kept 30 days (job `ingest_prune`, hourly).
 - **Reading the captures.** `gravel-hub ingest export --server ID` prints the stored batches as
   received; they hold players' SteamIDs and the host's server id. With `--redact` every SteamID,
   the name and the game's own ids beside it (`playerId` and its kin), address, server id and
@@ -1218,16 +1230,29 @@ A batch is `{serverId, serverName, events[]}`, each event with `eventId`, `type`
   if a replaced value is still there): that output may leave the host and become a parser's
   fixture.
 - **Gaps.** Missing data is a row: a stats event of kind `gap`, its window from `observed_at` to
-  `extensions.to` and its `extensions.reason`. `hub_down`: at start, from when the hub stopped to
-  the start, when the poll saw anyone on the server as it stopped, for a server whose feed had
-  posted before. The hub keeps its runs to know when it stopped (`hub_runs`: a row per start, its
+  `extensions.to` and its `extensions.reason`. What a detector may assume of a feed is its game's
+  spec (`feed.retries`, `feed.kills`; War Dogs has both). `hub_down`: at start, from when the hub
+  stopped to the start, when the poll saw anyone on the server as it stopped, for a server whose
+  feed had posted before and does not retry (a feed that retries lost only what it dropped, which
+  `dropped` says). The hub keeps its runs to know when it stopped (`hub_runs`: a row per start, its
   `alive_at` moved every minute by the job `hub_alive`, so a crash is known to the minute too); a
   hub with no run recorded before its start writes no `hub_down` gap. `silence`:
   no batch for 10 minutes while the poll sees 10 or more players (a match is running, so kills
   should come every few seconds; fewer players idling below the match's minimum post nothing); it
   runs to the next batch and is
   written when that comes (job `ingest_gaps`, every minute). A silence open when the hub stops is
-  left to `hub_down`.
+  left to `hub_down`. `dropped`: the server's own count of events it gave up on rose since the
+  last reading (`extensions.events` says how many; the window is the last reading to this one).
+  The last reading is kept (`feed_delivery`), so what was dropped while the hub was away is a gap
+  at its next start; a count below the kept one is the server's restart, and all it counts since is
+  lost. The metric `gravel_ingest_dropped_events_total` counts the events. `reconcile`: five
+  minutes after a poll match ends (`ReconcileAfter`, for what the server held to arrive), each
+  player's kills and deaths from the feed's `kill` events in the match against the poll's, for a
+  game whose feed posts every kill; a shortfall is one gap for the match, from its start to its
+  end, with `extensions.match` (the poll's match), `kills`, `deaths` (missing) and `players` (how
+  many fell short). The game's match id is not the poll's, so the feed's events are taken from the
+  match's start to five minutes past its end, which can count a kill of the next match and hide a
+  shortfall but never invent one. Matches that ended more than six hours ago are not reconciled.
 
 **The log route.** A game that cannot send an Authorization header pushes to
 `POST /api/ingest/log/<token>` instead (CS2's `logaddress_add_http`; the cloud-VM driver writes the
@@ -1505,12 +1530,12 @@ holds the RCON password it accepts; put the same one in `servers.yaml`'s `creden
 - **The feed:** with a feed `Url` and `Token` in force, it posts batches in the captured shape
   (`{serverId, serverName, events[]}`): the two `match_state` events a server posts at its start,
   a `player_joined` or `player_left` as each made-up player comes and goes (with the count after,
-  the map and the match), then its kills, every 2 s, and nothing when there is nothing to send. On
-  Season 02 it posts to the Url as given (so `--feed-url` is the whole route,
-  `http://hub:8080/api/ingest/events`), on CL-509546 to `<Url>/api/ingest/events`. A kill's fields
-  are still a guess (`type: "kill"`, `killerSteamId`, `victimSteamId`, `distance`, from community
-  captures; `wardogsim/feed.go`), so the hub's parser keeps them as a kind it does not know until a
-  real session's captures say what a kill is.
+  the map and the match), its kills (`killed`, in the community's capture's fields; the items made
+  up but for the AK-74M) and each match's end (`match_ended`, then `MatchState.PostMatch`), every
+  2 s, and nothing when there is nothing to send. Like the real server it keeps what the sink
+  refused and tries again, quickly and then once a minute, and `GET /v1/feed` reports its counts.
+  On Season 02 it posts to the Url as given (so `--feed-url` is the whole route,
+  `http://hub:8080/api/ingest/events`), on CL-509546 to `<Url>/api/ingest/events`.
 
 **The calibration profile** (`--profile`, both commands) holds distributions only, never a name or a
 SteamID. A fresh measurement changes the demo without code. Sources, best first: HTG's own
