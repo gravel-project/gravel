@@ -105,6 +105,25 @@ type fakeStats struct {
 	recapErr  connect.Code
 	recap     *hubv1.GetSessionRecapResponse
 	recapLast *hubv1.GetSessionRecapRequest
+	// The server's feed gaps: their answer; err (set) refuses them as it does the matches, and
+	// gapsErr fails them alone.
+	gaps     []*hubv1.Gap
+	gapsMore bool
+	gapsErr  connect.Code
+}
+
+func (f *fakeStats) ListGaps(_ context.Context, req *connect.Request[hubv1.ListGapsRequest]) (*connect.Response[hubv1.ListGapsResponse], error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	switch {
+	case f.err != 0:
+		return nil, connect.NewError(f.err, errors.New("refused"))
+	case f.gapsErr != 0:
+		return nil, connect.NewError(f.gapsErr, errors.New("broken"))
+	case req.Msg.GetServerId() == "":
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("a gap list needs a server id"))
+	}
+	return connect.NewResponse(&hubv1.ListGapsResponse{Gaps: f.gaps, More: f.gapsMore}), nil
 }
 
 func (f *fakeStats) GetBoard(_ context.Context, req *connect.Request[hubv1.GetBoardRequest]) (*connect.Response[hubv1.GetBoardResponse], error) {
@@ -401,5 +420,60 @@ func TestBoardLinksNamedMembers(t *testing.T) {
 	_, body := get(t, browser(t), r.srv.URL+"/boards")
 	if !strings.Contains(body, `<a href="/members/u1">Jo</a>`) || strings.Contains(body, `">Brave Falcon</a>`) {
 		t.Errorf("board links: %s", body)
+	}
+}
+
+func TestServerPageGaps(t *testing.T) {
+	r := newRig(t)
+	page := func() (int, string) {
+		t.Helper()
+		resp, body := get(t, browser(t), r.srv.URL+"/servers/htg-wardogs-1")
+		return resp.StatusCode, body
+	}
+	// None recorded: no section at all.
+	if code, body := page(); code != http.StatusOK || strings.Contains(body, "Missing data") {
+		t.Fatalf("no gaps: %d, section shown: %v", code, strings.Contains(body, "Missing data"))
+	}
+
+	day := time.Date(2026, 10, 19, 12, 0, 0, 0, time.UTC)
+	gap := func(reason string, from time.Duration, length time.Duration) *hubv1.Gap {
+		return &hubv1.Gap{Reason: reason, From: timestamppb.New(day.Add(from)), To: timestamppb.New(day.Add(from + length))}
+	}
+	dropped, reconcile, one := gap("dropped", 2*time.Hour, time.Minute), gap("reconcile", 3*time.Hour, 95*time.Minute), gap("dropped", 6*time.Hour, 0)
+	dropped.Events, reconcile.MatchId, reconcile.Kills, reconcile.Deaths, reconcile.Players, one.Events = 7, "42", 3, 1, 2, 1
+	r.stats.gaps = []*hubv1.Gap{gap("hub_down", 0, 9*time.Minute), gap("silence", time.Hour, 12*time.Minute), dropped, reconcile, one, gap("later", 7*time.Hour, time.Minute)}
+	code, body := page()
+	if code != http.StatusOK {
+		t.Fatalf("gaps: %d", code)
+	}
+	for _, want := range []string{`<h2 id="gaps-heading">Missing data</h2>`, "The leaderboard counts from the hub's own checks", "Oct 19, 12:00 UTC", "9m",
+		"The hub was down, and the events the server sent meanwhile were lost.", "The feed went quiet during a full match.",
+		"The server gave up on 7 events it couldn&#39;t send.", "The server gave up on 1 event it couldn&#39;t send.",
+		"The feed was short 3 kills and 1 death for 2 players in a match.", "1h 35m", "Some of the feed is missing."} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the gaps section lacks %q", want)
+		}
+	}
+	if strings.Contains(body, "Only the oldest") {
+		t.Error("a full list says it is cut short")
+	}
+	r.stats.gapsMore = true
+	if _, body = page(); !strings.Contains(body, "Only the oldest 6 are listed.") {
+		t.Error("a list cut short doesn't say so")
+	}
+
+	// Private stats: no section, and the page still renders.
+	r.stats.set(connect.CodePermissionDenied)
+	if code, body = page(); code != http.StatusOK || strings.Contains(body, "Missing data") {
+		t.Errorf("private: %d, section shown: %v", code, strings.Contains(body, "Missing data"))
+	}
+	r.stats.set(0)
+
+	// Any other failure is the page's failure, as for the matches.
+	r.stats.mu.Lock()
+	r.stats.gapsErr = connect.CodeInternal
+	r.stats.mu.Unlock()
+	if code, _ = page(); code != http.StatusInternalServerError {
+		t.Errorf("a failed gap list: %d, want 500", code)
 	}
 }

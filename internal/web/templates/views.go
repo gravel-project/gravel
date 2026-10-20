@@ -5,6 +5,7 @@
 package templates
 
 import (
+	"fmt"
 	"strings"
 	"time"
 	"unicode"
@@ -359,6 +360,36 @@ type MatchRow struct {
 	Kills   int
 }
 
+// GapRow is one span of a server's feed the hub knows it is missing (ADR-0011 §5), in words.
+type GapRow struct {
+	From, To time.Time
+	What     string
+}
+
+// GapWords is what a gap means to someone reading a server page; every reason the ingest gap
+// detectors write has words, and an unknown one says only that data is missing.
+func GapWords(reason string, events, kills, deaths, players int) string {
+	switch reason {
+	case "hub_down":
+		return "The hub was down, and the events the server sent meanwhile were lost."
+	case "silence":
+		return "The feed went quiet during a full match."
+	case "dropped":
+		return fmt.Sprintf("The server gave up on %s it couldn't send.", plural(events, "event", "events"))
+	case "reconcile":
+		return fmt.Sprintf("The feed was short %s and %s for %s in a match.", plural(kills, "kill", "kills"), plural(deaths, "death", "deaths"),
+			plural(players, "player", "players"))
+	}
+	return "Some of the feed is missing."
+}
+
+func plural(n int, one, many string) string {
+	if n == 1 {
+		return "1 " + one
+	}
+	return fmt.Sprintf("%d %s", n, many)
+}
+
 // ServerPage is one server: its status, who is on, its recent matches.
 type ServerPage struct {
 	Page
@@ -373,7 +404,11 @@ type ServerPage struct {
 	PlayersNote string
 	Matches     []MatchRow
 	MatchesNote string
-	BoardURL    string
+	// Gaps are the feed's known gaps in the last 30 days, oldest first; GapsMore when there were
+	// more than the page lists. Empty when none were recorded, or when stats are private.
+	Gaps     []GapRow
+	GapsMore bool
+	BoardURL string
 	// NextMap is the rotation's next map as the game names it; empty when unknown.
 	NextMap string
 	// Join is how a player gets onto the server from the game; nil when the driver knows no way.

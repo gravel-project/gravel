@@ -194,6 +194,7 @@ Public listener (`server.listen`), HTTP/1.1 and unencrypted HTTP/2 so gRPC works
 | `/gravel.hub.v1.StatsService/GetBoardName`, `SetBoardName` | a logged-in member's choice to be shown by name on boards (off by default) |
 | `/gravel.hub.v1.StatsService/RecordParticipation` | `{"events": [{"key", "kind", "identity": {"provider", "subject"}, "occurred_at", "duration_seconds", …}]}` (1 to 100) → a `recorded` or `duplicate` result per event, in order ([Participation](#participation-adr-0014)); an app with `participation:write` only, never a member or the owner; `invalid_argument` names every invalid field by index and stores nothing |
 | `/gravel.hub.v1.StatsService/GetSessionRecap` | `{"server_id": "…", "from": "…", "to": "…", "floor": 20}` → what the server's window held: peak players, minutes with anyone on and at or above `floor`, distinct players, the matches that overlap it with their team scores, and the top five by kills under pseudonyms or opted-in names ([Session recaps](#session-recaps-adr-0018)); the window at most 24 h and ended; the same access as `GetBoard` |
+| `/gravel.hub.v1.StatsService/ListGaps` | `{"server_id": "…", "from", "to"}` (both optional: the 30 days to now; at most 90) → the gaps that began in the window, oldest first, at most 100 (`more` past that): each its `reason`, `from`, `to` and counts (`events` for `dropped`; `match_id`, `kills`, `deaths`, `players` for `reconcile`), never a player; the same access as `GetBoard`; `not_found` for an unknown server |
 | `/gravel.hub.v1.StatsService/GetParticipationBoard` | `{"kind": "seeding", "game_id", "window": "week"}` → a page of players ranked by time taken part, under pseudonyms or opted-in names, and every kind recorded (`kinds`); the same access as `GetBoard` |
 | `/gravel.hub.v1.ServerService/ListServerPlayers` | `{"server_id": "…"}` → who was on at the last poll (name, provider identity, team, kills, deaths, ping, and the member's user id when that identity is linked); a logged-in member, the owner, or an app with `servers:read` |
 | `/grpc.health.v1.Health/Check` | gRPC health |
@@ -1253,6 +1254,12 @@ A batch is `{serverId, serverName, events[]}`, each event with `eventId`, `type`
   many fell short). The game's match id is not the poll's, so the feed's events are taken from the
   match's start to five minutes past its end, which can count a kill of the next match and hide a
   shortfall but never invent one. Matches that ended more than six hours ago are not reconciled.
+- **Where gaps are shown** (gravel#3). `StatsService.ListGaps` reads a server's gaps, with the
+  boards' access. A server's page lists the last 30 days' under "Missing data", each in words, and
+  shows nothing when there are none or the stats are private; the admin dashboard's server page
+  (`/admin/servers/{id}`) lists them too and says when none were recorded. The boards count from the
+  poll, not the feed, so a gap never changes a board and none is shown on one: gaps reach the boards
+  when the feed's events do (#17).
 
 **The log route.** A game that cannot send an Authorization header pushes to
 `POST /api/ingest/log/<token>` instead (CS2's `logaddress_add_http`; the cloud-VM driver writes the
@@ -2328,7 +2335,7 @@ One hub, four tiers ([tiers.md](tiers.md), [ADR-0025](adr/0025-hub-as-a-product-
 
 The image is built by ko from `cmd/gravel-hub` on `gcr.io/distroless/static-debian12:nonroot`,
 runs as uid 65532, and has the binary at `/ko-app/gravel-hub` (`.ko.yaml`). Releases push it to
-`ghcr.io/gravel-project/gravel-hub` as `<version>` (no `v`: `0.10.1`) and `latest`, multi-arch
+`ghcr.io/gravel-project/gravel-hub` as `<version>` (no `v`: `0.10.2`) and `latest`, multi-arch
 (amd64, arm64), signed with cosign and with an SBOM attached. Every green push to `main` publishes
 it the same way as `main-<commit>` and `main`. `docs/releasing.md` has the verify commands for both
 and the digest-pin procedure.
@@ -2428,11 +2435,15 @@ GRAVEL_TEST_DATABASE_URL='postgres://gravel:test@127.0.0.1:55432/gravel?sslmode=
 
 The servers' monitor runs against the War Dogs driver and a fake server serving a recorded
 build (`internal/servers`), and `internal/hub`'s integration test applies a server, runs the hub
-and reads its status over the API and the metrics. Until a stats conformance suite exists, the
-`first_party` source's conformance case (ADR-0014) is two integration tests: a participation event
-reaches no combat board, of any scope, metric or window (`internal/store`,
-`TestParticipationBoardAndTotals`), and an app's event reaches the member's profile and the
-participation board but not `GetBoard` (`internal/hub`, `TestParticipationFromAnApp`).
+and reads its status over the API and the metrics. The stats sources' conformance (gravel#3, ADR-0011's
+trust mapping) is `internal/hub`'s `TestStatsSourcesConformance`: one case per source with a
+producer, read back through the API. The poll's matches (`server_adapter`) reach the combat boards
+at every scope; the feed's kill events (`server_adapter`) reach no board; a gap is listed by
+`ListGaps` and counted nowhere else; and an app's participation (`first_party`) reaches the
+participation board only. With it, two integration tests hold `first_party` to every scope, metric
+and window (`internal/store`, `TestParticipationBoardAndTotals`) and to the member's profile
+(`internal/hub`, `TestParticipationFromAnApp`). `platform_api` and `self_report` have no producer
+yet; their cases come with them (#2).
 
 `make unplug` is H1's gate ([the unplug test](tiers.md#the-unplug-test), gravel#198): a hub with no
 provider, cloud or metrics store, run end to end from the host's binaries and the CLI, with every

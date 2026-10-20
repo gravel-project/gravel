@@ -1,3 +1,4 @@
+import { Code, ConnectError } from "@connectrpc/connect";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { axe } from "vitest-axe";
@@ -132,5 +133,49 @@ describe("a server's controls", () => {
     renderShell({ me: member({ capabilities: ["servers:read"] }), fleet });
     await screen.findByRole("link", { name: "HTG CS2 #1" });
     expect(screen.queryByRole("link", { name: /Manage/ })).toBeNull();
+  });
+
+  describe("its feed's gaps", () => {
+    const at = (iso: string) => ({ seconds: BigInt(Date.parse(iso) / 1000), nanos: 0 });
+    const gaps = {
+      "htg-wardogs-1": {
+        gaps: [
+          { reason: "dropped", from: at("2026-10-19T12:00:00Z"), to: at("2026-10-19T12:09:00Z"), events: 7 },
+          { reason: "reconcile", from: at("2026-10-19T20:00:00Z"), to: at("2026-10-19T21:35:00Z"), matchId: "42", kills: 3, deaths: 1, players: 2 },
+        ],
+      },
+    };
+    const section = async () => (await screen.findByRole("heading", { name: "Missing data" })).closest("section") as HTMLElement;
+
+    it("lists them in words, oldest first", async () => {
+      const { container } = renderShell({ me: owner, path: "/servers/htg-wardogs-1", servers, gaps });
+      const s = await section();
+      const rows = await within(s).findAllByRole("row");
+      expect(rows.map((r) => r.textContent)).toEqual([
+        "FromLengthWhat happened",
+        "2026-10-19 12:00 UTC9mThe server gave up on 7 events it couldn't send.",
+        "2026-10-19 20:00 UTC1h 35mThe feed was short 3 kills and 1 death for 2 players in a match.",
+      ]);
+      expect(within(s).queryByText(/Only the oldest/)).toBeNull();
+      expect(await axe(container)).toHaveNoViolations();
+    });
+
+    it("says when none were recorded, and when the list is cut short", async () => {
+      const view = renderShell({ me: owner, path: "/servers/htg-wardogs-1", servers });
+      expect(await within(await section()).findByText("No gaps recorded.")).toBeTruthy();
+      view.unmount();
+      renderShell({ me: owner, path: "/servers/htg-wardogs-1", servers, gaps: { "htg-wardogs-1": { ...gaps["htg-wardogs-1"], more: true } } });
+      expect(await within(await section()).findByText("Only the oldest 2 are listed.")).toBeTruthy();
+    });
+
+    it("shows nothing to a viewer the stats are closed to, and says when the hub fails", async () => {
+      const view = renderShell({ me: operator, path: "/servers/htg-wardogs-1", servers, gaps: new ConnectError("stats are private", Code.PermissionDenied) });
+      expect(await screen.findByText(/is not a cloud-VM server/)).toBeTruthy();
+      await waitFor(() => { expect(screen.queryByText("Loading the gaps…")).toBeNull(); });
+      expect(screen.queryByRole("heading", { name: "Missing data" })).toBeNull();
+      view.unmount();
+      renderShell({ me: owner, path: "/servers/htg-wardogs-1", servers, gaps: new ConnectError("database down", Code.Unavailable) });
+      expect((await within(await section()).findByRole("alert")).textContent).toBe("The hub did not answer: database down.");
+    });
   });
 });

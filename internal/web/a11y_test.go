@@ -441,7 +441,9 @@ func TestAccessibility(t *testing.T) {
 				Teams:    []templates.Team{{Name: "Lonestar", Score: 412, Players: &eight}, {Name: "Boreal", Score: 388, Players: &seven}},
 				Players:  []templates.PlayerRow{{Name: "Jo", Team: "Lonestar", Kills: 7, Deaths: 2, PingMs: 41, Member: true}, {Name: "Stranger", Team: "Boreal", Kills: 1, Deaths: 5, PingMs: 90}},
 				Matches:  []templates.MatchRow{{Started: now, Map: "Ozeti", Players: 24, Kills: 310}, {Started: now, Ended: &ended, Map: "Bakurani", Players: 31, Kills: 402}},
-				BoardURL: "/boards?scope=server%3Ahtg-wardogs-1", NextMap: "NorthAmerica"})
+				BoardURL: "/boards?scope=server%3Ahtg-wardogs-1", NextMap: "NorthAmerica",
+				Gaps: []templates.GapRow{{From: now, To: now.Add(9 * time.Minute), What: templates.GapWords("dropped", 7, 0, 0, 0)},
+					{From: now, To: now.Add(time.Hour), What: templates.GapWords("reconcile", 0, 3, 1, 2)}}, GapsMore: true})
 		},
 		"/fixture/server-anonymous": func() templ.Component {
 			p := base

@@ -14,7 +14,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file gravel/hub/v1/stats.proto.
  */
 export const file_gravel_hub_v1_stats: GenFile = /*@__PURE__*/
-  fileDesc("ChlncmF2ZWwvaHViL3YxL3N0YXRzLnByb3RvEg1ncmF2ZWwuaHViLnYxIpECCgpCb2FyZEVudHJ5EgwKBHJhbmsYASABKAUSDAoEbmFtZRgCIAEoCRIUCgxwc2V1ZG9ueW1vdXMYAyABKAgSDwoHdXNlcl9pZBgEIAEoCRINCgVraWxscxgFIAEoBRIOCgZkZWF0aHMYBiABKAUSCgoCa2QYByABKAESEgoKc2Vjb25kc19vbhgIIAEoBRIPCgdtYXRjaGVzGAkgASgFEj0KCmV4dGVuc2lvbnMYCiADKAsyKS5ncmF2ZWwuaHViLnYxLkJvYXJkRW50cnkuRXh0ZW5zaW9uc0VudHJ5GjEKD0V4dGVuc2lvbnNFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAE6AjgBIowBCg9HZXRCb2FyZFJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJEg8KB2dhbWVfaWQYAiABKAkSDgoGd2luZG93GAMgASgJEg4KBnNlYXNvbhgEIAEoCRIOCgZtZXRyaWMYBSABKAkSEQoJcGFnZV9zaXplGAYgASgFEhIKCnBhZ2VfdG9rZW4YByABKAki4AEKEEdldEJvYXJkUmVzcG9uc2USKgoHZW50cmllcxgBIAMoCzIZLmdyYXZlbC5odWIudjEuQm9hcmRFbnRyeRIXCg9uZXh0X3BhZ2VfdG9rZW4YAiABKAkSKAoEZnJvbRgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASJgoCdG8YBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEjUKD3N0YXRfZXh0ZW5zaW9ucxgFIAMoCzIcLmdyYXZlbC5odWIudjEuU3RhdEV4dGVuc2lvbiLJAQoMTWF0Y2hTdW1tYXJ5EgoKAmlkGAEgASgJEhEKCXNlcnZlcl9pZBgCIAEoCRIPCgdnYW1lX2lkGAMgASgJEi4KCnN0YXJ0ZWRfYXQYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEiwKCGVuZGVkX2F0GAUgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBILCgNtYXAYBiABKAkSDwoHcGxheWVycxgHIAEoBRINCgVraWxscxgIIAEoBSJOChJMaXN0TWF0Y2hlc1JlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJEhEKCXBhZ2Vfc2l6ZRgCIAEoBRISCgpwYWdlX3Rva2VuGAMgASgJIlwKE0xpc3RNYXRjaGVzUmVzcG9uc2USLAoHbWF0Y2hlcxgBIAMoCzIbLmdyYXZlbC5odWIudjEuTWF0Y2hTdW1tYXJ5EhcKD25leHRfcGFnZV90b2tlbhgCIAEoCSIVChNHZXRCb2FyZE5hbWVSZXF1ZXN0IikKFEdldEJvYXJkTmFtZVJlc3BvbnNlEhEKCXNob3dfbmFtZRgBIAEoCCIoChNTZXRCb2FyZE5hbWVSZXF1ZXN0EhEKCXNob3dfbmFtZRgBIAEoCCIpChRTZXRCb2FyZE5hbWVSZXNwb25zZRIRCglzaG93X25hbWUYASABKAgi0QEKDVByb2ZpbGVUb3RhbHMSDgoGd2luZG93GAEgASgJEg4KBnNlYXNvbhgCIAEoCRIoCgRmcm9tGAMgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBImCgJ0bxgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASDQoFa2lsbHMYBSABKAUSDgoGZGVhdGhzGAYgASgFEgoKAmtkGAcgASgBEhIKCnNlY29uZHNfb24YCCABKAUSDwoHbWF0Y2hlcxgJIAEoBSLlAQoLUGxheWVyTWF0Y2gSEAoIbWF0Y2hfaWQYASABKAkSEQoJc2VydmVyX2lkGAIgASgJEhMKC3NlcnZlcl9uYW1lGAMgASgJEi4KCnN0YXJ0ZWRfYXQYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEiwKCGVuZGVkX2F0GAUgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBILCgNtYXAYBiABKAkSDQoFa2lsbHMYByABKAUSDgoGZGVhdGhzGAggASgFEhIKCnNlY29uZHNfb24YCSABKAUiKgoXR2V0TWVtYmVyUHJvZmlsZVJlcXVlc3QSDwoHdXNlcl9pZBgBIAEoCSL3AQoYR2V0TWVtYmVyUHJvZmlsZVJlc3BvbnNlEg8KB3VzZXJfaWQYASABKAkSFAoMZGlzcGxheV9uYW1lGAIgASgJEhEKCXNob3dfbmFtZRgDIAEoCBIMCgRzZWxmGAQgASgIEiwKBnRvdGFscxgFIAMoCzIcLmdyYXZlbC5odWIudjEuUHJvZmlsZVRvdGFscxIqCgZyZWNlbnQYBiADKAsyGi5ncmF2ZWwuaHViLnYxLlBsYXllck1hdGNoEjkKDXBhcnRpY2lwYXRpb24YByADKAsyIi5ncmF2ZWwuaHViLnYxLlBhcnRpY2lwYXRpb25Ub3RhbHMiMwoOUGxheWVySWRlbnRpdHkSEAoIcHJvdmlkZXIYASABKAkSDwoHc3ViamVjdBgCIAEoCSL4AQoSUGFydGljaXBhdGlvbkV2ZW50EgsKA2tleRgBIAEoCRIMCgRraW5kGAIgASgJEi8KCGlkZW50aXR5GAMgASgLMh0uZ3JhdmVsLmh1Yi52MS5QbGF5ZXJJZGVudGl0eRIPCgdnYW1lX2lkGAQgASgJEhEKCXNlcnZlcl9pZBgFIAEoCRIPCgdzZXNzaW9uGAYgASgJEi8KC29jY3VycmVkX2F0GAcgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIYChBkdXJhdGlvbl9zZWNvbmRzGAggASgFEhYKDnNjaGVtYV92ZXJzaW9uGAkgASgFIk8KGlJlY29yZFBhcnRpY2lwYXRpb25SZXF1ZXN0EjEKBmV2ZW50cxgBIAMoCzIhLmdyYXZlbC5odWIudjEuUGFydGljaXBhdGlvbkV2ZW50IjMKE1BhcnRpY2lwYXRpb25SZXN1bHQSCwoDa2V5GAEgASgJEg8KB291dGNvbWUYAiABKAkiUgobUmVjb3JkUGFydGljaXBhdGlvblJlc3BvbnNlEjMKB3Jlc3VsdHMYASADKAsyIi5ncmF2ZWwuaHViLnYxLlBhcnRpY2lwYXRpb25SZXN1bHQieAoSUGFydGljaXBhdGlvbkVudHJ5EgwKBHJhbmsYASABKAUSDAoEbmFtZRgCIAEoCRIUCgxwc2V1ZG9ueW1vdXMYAyABKAgSDwoHdXNlcl9pZBgEIAEoCRIOCgZldmVudHMYBSABKAUSDwoHc2Vjb25kcxgGIAEoBSKEAQocR2V0UGFydGljaXBhdGlvbkJvYXJkUmVxdWVzdBIMCgRraW5kGAEgASgJEg8KB2dhbWVfaWQYAiABKAkSDgoGd2luZG93GAMgASgJEg4KBnNlYXNvbhgEIAEoCRIRCglwYWdlX3NpemUYBSABKAUSEgoKcGFnZV90b2tlbhgGIAEoCSLbAQodR2V0UGFydGljaXBhdGlvbkJvYXJkUmVzcG9uc2USMgoHZW50cmllcxgBIAMoCzIhLmdyYXZlbC5odWIudjEuUGFydGljaXBhdGlvbkVudHJ5EhcKD25leHRfcGFnZV90b2tlbhgCIAEoCRIoCgRmcm9tGAMgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBImCgJ0bxgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASDAoEa2luZBgFIAEoCRINCgVraW5kcxgGIAMoCSK2AQoTUGFydGljaXBhdGlvblRvdGFscxIOCgZ3aW5kb3cYASABKAkSDgoGc2Vhc29uGAIgASgJEigKBGZyb20YAyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEiYKAnRvGAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIMCgRraW5kGAUgASgJEg4KBmV2ZW50cxgGIAEoBRIPCgdzZWNvbmRzGAcgASgFIjkKFEVyYXNlSWRlbnRpdHlSZXF1ZXN0EhAKCHByb3ZpZGVyGAEgASgJEg8KB3N1YmplY3QYAiABKAkikgIKFUVyYXNlSWRlbnRpdHlSZXNwb25zZRISCgptYXRjaF9yb3dzGAEgASgFEhQKDG1vbnRobHlfcm93cxgCIAEoBRIaChJwYXJ0aWNpcGF0aW9uX3Jvd3MYAyABKAUSIgoacGFydGljaXBhdGlvbl9tb250aGx5X3Jvd3MYBCABKAUSFgoOaW5nZXN0X2JhdGNoZXMYBSABKAUSGQoRcHNldWRvbnltX2RlbGV0ZWQYBiABKAgSEwoLcmVzdWx0X3Jvd3MYByABKAUSFAoMc2Vzc2lvbl9yb3dzGAggASgFEh0KFWFjdGl2aXR5X21vbnRobHlfcm93cxgJIAEoBRISCgpldmVudF9yb3dzGAogASgFIvACCgtNYXRjaFJlc3VsdBIKCgJpZBgBIAEoCRIRCglzZXJ2ZXJfaWQYAiABKAkSEAoIbGVhc2VfaWQYAyABKAkSEgoKdGVhbTFfbmFtZRgEIAEoCRISCgp0ZWFtMl9uYW1lGAUgASgJEhAKCG51bV9tYXBzGAYgASgFEhMKC3RlYW0xX3Njb3JlGAcgASgFEhMKC3RlYW0yX3Njb3JlGAggASgFEg4KBndpbm5lchgJIAEoCRIuCgpzdGFydGVkX2F0GAogASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIsCghlbmRlZF9hdBgLIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASKwoEbWFwcxgMIAMoCzIdLmdyYXZlbC5odWIudjEuTWF0Y2hSZXN1bHRNYXASMQoHcGxheWVycxgNIAMoCzIgLmdyYXZlbC5odWIudjEuTWF0Y2hSZXN1bHRQbGF5ZXIi4AEKDk1hdGNoUmVzdWx0TWFwEhIKCm1hcF9udW1iZXIYASABKAUSEAoIbWFwX25hbWUYAiABKAkSEwoLdGVhbTFfc2NvcmUYAyABKAUSEwoLdGVhbTJfc2NvcmUYBCABKAUSDgoGd2lubmVyGAUgASgJEi4KCnN0YXJ0ZWRfYXQYBiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEiwKCGVuZGVkX2F0GAcgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIQCghoYXNfZGVtbxgIIAEoCCK2AgoRTWF0Y2hSZXN1bHRQbGF5ZXISEgoKbWFwX251bWJlchgBIAEoBRIMCgRuYW1lGAIgASgJEhQKDHBzZXVkb255bW91cxgDIAEoCBIPCgd1c2VyX2lkGAQgASgJEgwKBHRlYW0YBSABKAkSDQoFa2lsbHMYBiABKAUSDgoGZGVhdGhzGAcgASgFEkQKCmV4dGVuc2lvbnMYDSADKAsyMC5ncmF2ZWwuaHViLnYxLk1hdGNoUmVzdWx0UGxheWVyLkV4dGVuc2lvbnNFbnRyeRoxCg9FeHRlbnNpb25zRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgBOgI4AUoECAgQDVIHYXNzaXN0c1IGZGFtYWdlUg5oZWFkc2hvdF9raWxsc1IEbXZwc1IFc2NvcmUilgEKF0xpc3RNYXRjaFJlc3VsdHNSZXF1ZXN0EhEKCXNlcnZlcl9pZBgBIAEoCRIQCghsZWFzZV9pZBgCIAEoCRISCgplbmRlZF9vbmx5GAMgASgIEi8KC2VuZGVkX2FmdGVyGAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIRCglwYWdlX3NpemUYBSABKAUiRwoYTGlzdE1hdGNoUmVzdWx0c1Jlc3BvbnNlEisKB3Jlc3VsdHMYASADKAsyGi5ncmF2ZWwuaHViLnYxLk1hdGNoUmVzdWx0IiMKFUdldE1hdGNoUmVzdWx0UmVxdWVzdBIKCgJpZBgBIAEoCSJ7ChZHZXRNYXRjaFJlc3VsdFJlc3BvbnNlEioKBnJlc3VsdBgBIAEoCzIaLmdyYXZlbC5odWIudjEuTWF0Y2hSZXN1bHQSNQoPc3RhdF9leHRlbnNpb25zGAIgAygLMhwuZ3JhdmVsLmh1Yi52MS5TdGF0RXh0ZW5zaW9uIjUKE0dldE1hdGNoRGVtb1JlcXVlc3QSCgoCaWQYASABKAkSEgoKbWFwX251bWJlchgCIAEoBSJTChRHZXRNYXRjaERlbW9SZXNwb25zZRILCgN1cmwYASABKAkSLgoKZXhwaXJlc19hdBgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAijAEKFkdldFNlc3Npb25SZWNhcFJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJEigKBGZyb20YAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEiYKAnRvGAMgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBINCgVmbG9vchgEIAEoBSK9AQoKUmVjYXBNYXRjaBIKCgJpZBgBIAEoCRIuCgpzdGFydGVkX2F0GAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIsCghlbmRlZF9hdBgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASCwoDbWFwGAQgASgJEicKBXRlYW1zGAUgAygLMhguZ3JhdmVsLmh1Yi52MS5UZWFtU2NvcmUSDwoHcGxheWVycxgGIAEoBSKgAgoXR2V0U2Vzc2lvblJlY2FwUmVzcG9uc2USKAoEZnJvbRgBIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASJgoCdG8YAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEg0KBWZsb29yGAMgASgFEhQKDHBlYWtfcGxheWVycxgEIAEoBRIPCgdtaW51dGVzGAUgASgFEhgKEG1pbnV0ZXNfYXRfZmxvb3IYBiABKAUSDwoHcGxheWVycxgHIAEoBRIqCgdtYXRjaGVzGAggAygLMhkuZ3JhdmVsLmh1Yi52MS5SZWNhcE1hdGNoEiYKA3RvcBgJIAMoCzIZLmdyYXZlbC5odWIudjEuQm9hcmRFbnRyeSIkChJHZXRBY3Rpdml0eVJlcXVlc3QSDgoGd2luZG93GAEgASgJIkgKDEFjdGl2aXR5SG91chILCgNkYXkYASABKAUSDAoEaG91chgCIAEoBRIPCgdhdmVyYWdlGAMgASgBEgwKBHBlYWsYBCABKAUiXwoMQWN0aXZpdHlXZWVrEikKBXN0YXJ0GAEgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIPCgdwbGF5ZXJzGAIgASgFEhMKC25ld19wbGF5ZXJzGAMgASgFIq4BCgxRdWlldFJlZ3VsYXISDAoEbmFtZRgBIAEoCRIUCgxwc2V1ZG9ueW1vdXMYAiABKAgSDwoHdXNlcl9pZBgDIAEoCRITCgtkYXlzX2JlZm9yZRgEIAEoBRItCglsYXN0X3NlZW4YBSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhYKDmxhc3Rfc2VydmVyX2lkGAYgASgJEg0KBWhvdXJzGAcgASgBIu4DChNHZXRBY3Rpdml0eVJlc3BvbnNlEg4KBndpbmRvdxgBIAEoCRIoCgRmcm9tGAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBImCgJ0bxgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASEAoIdGltZXpvbmUYBCABKAkSKgoFaG91cnMYBSADKAsyGy5ncmF2ZWwuaHViLnYxLkFjdGl2aXR5SG91chIQCghzZXNzaW9ucxgGIAEoBRIPCgdwbGF5ZXJzGAcgASgFEh4KFm1lZGlhbl9zZXNzaW9uX3NlY29uZHMYCCABKAUSGQoRcmV0dXJuaW5nX3BsYXllcnMYCSABKAUSGAoQbWVhbl9hY3RpdmVfZGF5cxgKIAEoARITCgtuZXdfcGxheWVycxgLIAEoBRIUCgxsb3N0X3BsYXllcnMYDCABKAUSKgoFd2Vla3MYDSADKAsyGy5ncmF2ZWwuaHViLnYxLkFjdGl2aXR5V2VlaxIqCgVxdWlldBgOIAMoCzIbLmdyYXZlbC5odWIudjEuUXVpZXRSZWd1bGFyEhQKDHJlZ3VsYXJfZGF5cxgPIAEoBRIVCg1yZWd1bGFyX3dlZWtzGBAgASgFEg8KB3BhcnRpYWwYESABKAgy2wkKDFN0YXRzU2VydmljZRJLCghHZXRCb2FyZBIeLmdyYXZlbC5odWIudjEuR2V0Qm9hcmRSZXF1ZXN0Gh8uZ3JhdmVsLmh1Yi52MS5HZXRCb2FyZFJlc3BvbnNlElQKC0xpc3RNYXRjaGVzEiEuZ3JhdmVsLmh1Yi52MS5MaXN0TWF0Y2hlc1JlcXVlc3QaIi5ncmF2ZWwuaHViLnYxLkxpc3RNYXRjaGVzUmVzcG9uc2USVwoMR2V0Qm9hcmROYW1lEiIuZ3JhdmVsLmh1Yi52MS5HZXRCb2FyZE5hbWVSZXF1ZXN0GiMuZ3JhdmVsLmh1Yi52MS5HZXRCb2FyZE5hbWVSZXNwb25zZRJXCgxTZXRCb2FyZE5hbWUSIi5ncmF2ZWwuaHViLnYxLlNldEJvYXJkTmFtZVJlcXVlc3QaIy5ncmF2ZWwuaHViLnYxLlNldEJvYXJkTmFtZVJlc3BvbnNlEmMKEEdldE1lbWJlclByb2ZpbGUSJi5ncmF2ZWwuaHViLnYxLkdldE1lbWJlclByb2ZpbGVSZXF1ZXN0GicuZ3JhdmVsLmh1Yi52MS5HZXRNZW1iZXJQcm9maWxlUmVzcG9uc2USbAoTUmVjb3JkUGFydGljaXBhdGlvbhIpLmdyYXZlbC5odWIudjEuUmVjb3JkUGFydGljaXBhdGlvblJlcXVlc3QaKi5ncmF2ZWwuaHViLnYxLlJlY29yZFBhcnRpY2lwYXRpb25SZXNwb25zZRJyChVHZXRQYXJ0aWNpcGF0aW9uQm9hcmQSKy5ncmF2ZWwuaHViLnYxLkdldFBhcnRpY2lwYXRpb25Cb2FyZFJlcXVlc3QaLC5ncmF2ZWwuaHViLnYxLkdldFBhcnRpY2lwYXRpb25Cb2FyZFJlc3BvbnNlEmAKD0dldFNlc3Npb25SZWNhcBIlLmdyYXZlbC5odWIudjEuR2V0U2Vzc2lvblJlY2FwUmVxdWVzdBomLmdyYXZlbC5odWIudjEuR2V0U2Vzc2lvblJlY2FwUmVzcG9uc2USYwoQTGlzdE1hdGNoUmVzdWx0cxImLmdyYXZlbC5odWIudjEuTGlzdE1hdGNoUmVzdWx0c1JlcXVlc3QaJy5ncmF2ZWwuaHViLnYxLkxpc3RNYXRjaFJlc3VsdHNSZXNwb25zZRJdCg5HZXRNYXRjaFJlc3VsdBIkLmdyYXZlbC5odWIudjEuR2V0TWF0Y2hSZXN1bHRSZXF1ZXN0GiUuZ3JhdmVsLmh1Yi52MS5HZXRNYXRjaFJlc3VsdFJlc3BvbnNlElcKDEdldE1hdGNoRGVtbxIiLmdyYXZlbC5odWIudjEuR2V0TWF0Y2hEZW1vUmVxdWVzdBojLmdyYXZlbC5odWIudjEuR2V0TWF0Y2hEZW1vUmVzcG9uc2USWgoNRXJhc2VJZGVudGl0eRIjLmdyYXZlbC5odWIudjEuRXJhc2VJZGVudGl0eVJlcXVlc3QaJC5ncmF2ZWwuaHViLnYxLkVyYXNlSWRlbnRpdHlSZXNwb25zZRJUCgtHZXRBY3Rpdml0eRIhLmdyYXZlbC5odWIudjEuR2V0QWN0aXZpdHlSZXF1ZXN0GiIuZ3JhdmVsLmh1Yi52MS5HZXRBY3Rpdml0eVJlc3BvbnNlQjpaOGdpdGh1Yi5jb20vZ3JhdmVsLXByb2plY3QvZ3JhdmVsL2dlbi9ncmF2ZWwvaHViL3YxO2h1YnYxYgZwcm90bzM", [file_google_protobuf_timestamp, file_gravel_hub_v1_servers]);
+  fileDesc("ChlncmF2ZWwvaHViL3YxL3N0YXRzLnByb3RvEg1ncmF2ZWwuaHViLnYxIpECCgpCb2FyZEVudHJ5EgwKBHJhbmsYASABKAUSDAoEbmFtZRgCIAEoCRIUCgxwc2V1ZG9ueW1vdXMYAyABKAgSDwoHdXNlcl9pZBgEIAEoCRINCgVraWxscxgFIAEoBRIOCgZkZWF0aHMYBiABKAUSCgoCa2QYByABKAESEgoKc2Vjb25kc19vbhgIIAEoBRIPCgdtYXRjaGVzGAkgASgFEj0KCmV4dGVuc2lvbnMYCiADKAsyKS5ncmF2ZWwuaHViLnYxLkJvYXJkRW50cnkuRXh0ZW5zaW9uc0VudHJ5GjEKD0V4dGVuc2lvbnNFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAE6AjgBIowBCg9HZXRCb2FyZFJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJEg8KB2dhbWVfaWQYAiABKAkSDgoGd2luZG93GAMgASgJEg4KBnNlYXNvbhgEIAEoCRIOCgZtZXRyaWMYBSABKAkSEQoJcGFnZV9zaXplGAYgASgFEhIKCnBhZ2VfdG9rZW4YByABKAki4AEKEEdldEJvYXJkUmVzcG9uc2USKgoHZW50cmllcxgBIAMoCzIZLmdyYXZlbC5odWIudjEuQm9hcmRFbnRyeRIXCg9uZXh0X3BhZ2VfdG9rZW4YAiABKAkSKAoEZnJvbRgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASJgoCdG8YBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEjUKD3N0YXRfZXh0ZW5zaW9ucxgFIAMoCzIcLmdyYXZlbC5odWIudjEuU3RhdEV4dGVuc2lvbiLJAQoMTWF0Y2hTdW1tYXJ5EgoKAmlkGAEgASgJEhEKCXNlcnZlcl9pZBgCIAEoCRIPCgdnYW1lX2lkGAMgASgJEi4KCnN0YXJ0ZWRfYXQYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEiwKCGVuZGVkX2F0GAUgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBILCgNtYXAYBiABKAkSDwoHcGxheWVycxgHIAEoBRINCgVraWxscxgIIAEoBSJOChJMaXN0TWF0Y2hlc1JlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJEhEKCXBhZ2Vfc2l6ZRgCIAEoBRISCgpwYWdlX3Rva2VuGAMgASgJIlwKE0xpc3RNYXRjaGVzUmVzcG9uc2USLAoHbWF0Y2hlcxgBIAMoCzIbLmdyYXZlbC5odWIudjEuTWF0Y2hTdW1tYXJ5EhcKD25leHRfcGFnZV90b2tlbhgCIAEoCSJ2Cg9MaXN0R2Fwc1JlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJEigKBGZyb20YAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEiYKAnRvGAMgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCK5AQoDR2FwEg4KBnJlYXNvbhgBIAEoCRIoCgRmcm9tGAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBImCgJ0bxgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASDgoGZXZlbnRzGAQgASgFEhAKCG1hdGNoX2lkGAUgASgJEg0KBWtpbGxzGAYgASgFEg4KBmRlYXRocxgHIAEoBRIPCgdwbGF5ZXJzGAggASgFIpQBChBMaXN0R2Fwc1Jlc3BvbnNlEiAKBGdhcHMYASADKAsyEi5ncmF2ZWwuaHViLnYxLkdhcBIoCgRmcm9tGAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBImCgJ0bxgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASDAoEbW9yZRgEIAEoCCIVChNHZXRCb2FyZE5hbWVSZXF1ZXN0IikKFEdldEJvYXJkTmFtZVJlc3BvbnNlEhEKCXNob3dfbmFtZRgBIAEoCCIoChNTZXRCb2FyZE5hbWVSZXF1ZXN0EhEKCXNob3dfbmFtZRgBIAEoCCIpChRTZXRCb2FyZE5hbWVSZXNwb25zZRIRCglzaG93X25hbWUYASABKAgi0QEKDVByb2ZpbGVUb3RhbHMSDgoGd2luZG93GAEgASgJEg4KBnNlYXNvbhgCIAEoCRIoCgRmcm9tGAMgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBImCgJ0bxgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASDQoFa2lsbHMYBSABKAUSDgoGZGVhdGhzGAYgASgFEgoKAmtkGAcgASgBEhIKCnNlY29uZHNfb24YCCABKAUSDwoHbWF0Y2hlcxgJIAEoBSLlAQoLUGxheWVyTWF0Y2gSEAoIbWF0Y2hfaWQYASABKAkSEQoJc2VydmVyX2lkGAIgASgJEhMKC3NlcnZlcl9uYW1lGAMgASgJEi4KCnN0YXJ0ZWRfYXQYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEiwKCGVuZGVkX2F0GAUgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBILCgNtYXAYBiABKAkSDQoFa2lsbHMYByABKAUSDgoGZGVhdGhzGAggASgFEhIKCnNlY29uZHNfb24YCSABKAUiKgoXR2V0TWVtYmVyUHJvZmlsZVJlcXVlc3QSDwoHdXNlcl9pZBgBIAEoCSL3AQoYR2V0TWVtYmVyUHJvZmlsZVJlc3BvbnNlEg8KB3VzZXJfaWQYASABKAkSFAoMZGlzcGxheV9uYW1lGAIgASgJEhEKCXNob3dfbmFtZRgDIAEoCBIMCgRzZWxmGAQgASgIEiwKBnRvdGFscxgFIAMoCzIcLmdyYXZlbC5odWIudjEuUHJvZmlsZVRvdGFscxIqCgZyZWNlbnQYBiADKAsyGi5ncmF2ZWwuaHViLnYxLlBsYXllck1hdGNoEjkKDXBhcnRpY2lwYXRpb24YByADKAsyIi5ncmF2ZWwuaHViLnYxLlBhcnRpY2lwYXRpb25Ub3RhbHMiMwoOUGxheWVySWRlbnRpdHkSEAoIcHJvdmlkZXIYASABKAkSDwoHc3ViamVjdBgCIAEoCSL4AQoSUGFydGljaXBhdGlvbkV2ZW50EgsKA2tleRgBIAEoCRIMCgRraW5kGAIgASgJEi8KCGlkZW50aXR5GAMgASgLMh0uZ3JhdmVsLmh1Yi52MS5QbGF5ZXJJZGVudGl0eRIPCgdnYW1lX2lkGAQgASgJEhEKCXNlcnZlcl9pZBgFIAEoCRIPCgdzZXNzaW9uGAYgASgJEi8KC29jY3VycmVkX2F0GAcgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIYChBkdXJhdGlvbl9zZWNvbmRzGAggASgFEhYKDnNjaGVtYV92ZXJzaW9uGAkgASgFIk8KGlJlY29yZFBhcnRpY2lwYXRpb25SZXF1ZXN0EjEKBmV2ZW50cxgBIAMoCzIhLmdyYXZlbC5odWIudjEuUGFydGljaXBhdGlvbkV2ZW50IjMKE1BhcnRpY2lwYXRpb25SZXN1bHQSCwoDa2V5GAEgASgJEg8KB291dGNvbWUYAiABKAkiUgobUmVjb3JkUGFydGljaXBhdGlvblJlc3BvbnNlEjMKB3Jlc3VsdHMYASADKAsyIi5ncmF2ZWwuaHViLnYxLlBhcnRpY2lwYXRpb25SZXN1bHQieAoSUGFydGljaXBhdGlvbkVudHJ5EgwKBHJhbmsYASABKAUSDAoEbmFtZRgCIAEoCRIUCgxwc2V1ZG9ueW1vdXMYAyABKAgSDwoHdXNlcl9pZBgEIAEoCRIOCgZldmVudHMYBSABKAUSDwoHc2Vjb25kcxgGIAEoBSKEAQocR2V0UGFydGljaXBhdGlvbkJvYXJkUmVxdWVzdBIMCgRraW5kGAEgASgJEg8KB2dhbWVfaWQYAiABKAkSDgoGd2luZG93GAMgASgJEg4KBnNlYXNvbhgEIAEoCRIRCglwYWdlX3NpemUYBSABKAUSEgoKcGFnZV90b2tlbhgGIAEoCSLbAQodR2V0UGFydGljaXBhdGlvbkJvYXJkUmVzcG9uc2USMgoHZW50cmllcxgBIAMoCzIhLmdyYXZlbC5odWIudjEuUGFydGljaXBhdGlvbkVudHJ5EhcKD25leHRfcGFnZV90b2tlbhgCIAEoCRIoCgRmcm9tGAMgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBImCgJ0bxgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASDAoEa2luZBgFIAEoCRINCgVraW5kcxgGIAMoCSK2AQoTUGFydGljaXBhdGlvblRvdGFscxIOCgZ3aW5kb3cYASABKAkSDgoGc2Vhc29uGAIgASgJEigKBGZyb20YAyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEiYKAnRvGAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIMCgRraW5kGAUgASgJEg4KBmV2ZW50cxgGIAEoBRIPCgdzZWNvbmRzGAcgASgFIjkKFEVyYXNlSWRlbnRpdHlSZXF1ZXN0EhAKCHByb3ZpZGVyGAEgASgJEg8KB3N1YmplY3QYAiABKAkikgIKFUVyYXNlSWRlbnRpdHlSZXNwb25zZRISCgptYXRjaF9yb3dzGAEgASgFEhQKDG1vbnRobHlfcm93cxgCIAEoBRIaChJwYXJ0aWNpcGF0aW9uX3Jvd3MYAyABKAUSIgoacGFydGljaXBhdGlvbl9tb250aGx5X3Jvd3MYBCABKAUSFgoOaW5nZXN0X2JhdGNoZXMYBSABKAUSGQoRcHNldWRvbnltX2RlbGV0ZWQYBiABKAgSEwoLcmVzdWx0X3Jvd3MYByABKAUSFAoMc2Vzc2lvbl9yb3dzGAggASgFEh0KFWFjdGl2aXR5X21vbnRobHlfcm93cxgJIAEoBRISCgpldmVudF9yb3dzGAogASgFIvACCgtNYXRjaFJlc3VsdBIKCgJpZBgBIAEoCRIRCglzZXJ2ZXJfaWQYAiABKAkSEAoIbGVhc2VfaWQYAyABKAkSEgoKdGVhbTFfbmFtZRgEIAEoCRISCgp0ZWFtMl9uYW1lGAUgASgJEhAKCG51bV9tYXBzGAYgASgFEhMKC3RlYW0xX3Njb3JlGAcgASgFEhMKC3RlYW0yX3Njb3JlGAggASgFEg4KBndpbm5lchgJIAEoCRIuCgpzdGFydGVkX2F0GAogASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIsCghlbmRlZF9hdBgLIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASKwoEbWFwcxgMIAMoCzIdLmdyYXZlbC5odWIudjEuTWF0Y2hSZXN1bHRNYXASMQoHcGxheWVycxgNIAMoCzIgLmdyYXZlbC5odWIudjEuTWF0Y2hSZXN1bHRQbGF5ZXIi4AEKDk1hdGNoUmVzdWx0TWFwEhIKCm1hcF9udW1iZXIYASABKAUSEAoIbWFwX25hbWUYAiABKAkSEwoLdGVhbTFfc2NvcmUYAyABKAUSEwoLdGVhbTJfc2NvcmUYBCABKAUSDgoGd2lubmVyGAUgASgJEi4KCnN0YXJ0ZWRfYXQYBiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEiwKCGVuZGVkX2F0GAcgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIQCghoYXNfZGVtbxgIIAEoCCK2AgoRTWF0Y2hSZXN1bHRQbGF5ZXISEgoKbWFwX251bWJlchgBIAEoBRIMCgRuYW1lGAIgASgJEhQKDHBzZXVkb255bW91cxgDIAEoCBIPCgd1c2VyX2lkGAQgASgJEgwKBHRlYW0YBSABKAkSDQoFa2lsbHMYBiABKAUSDgoGZGVhdGhzGAcgASgFEkQKCmV4dGVuc2lvbnMYDSADKAsyMC5ncmF2ZWwuaHViLnYxLk1hdGNoUmVzdWx0UGxheWVyLkV4dGVuc2lvbnNFbnRyeRoxCg9FeHRlbnNpb25zRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgBOgI4AUoECAgQDVIHYXNzaXN0c1IGZGFtYWdlUg5oZWFkc2hvdF9raWxsc1IEbXZwc1IFc2NvcmUilgEKF0xpc3RNYXRjaFJlc3VsdHNSZXF1ZXN0EhEKCXNlcnZlcl9pZBgBIAEoCRIQCghsZWFzZV9pZBgCIAEoCRISCgplbmRlZF9vbmx5GAMgASgIEi8KC2VuZGVkX2FmdGVyGAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIRCglwYWdlX3NpemUYBSABKAUiRwoYTGlzdE1hdGNoUmVzdWx0c1Jlc3BvbnNlEisKB3Jlc3VsdHMYASADKAsyGi5ncmF2ZWwuaHViLnYxLk1hdGNoUmVzdWx0IiMKFUdldE1hdGNoUmVzdWx0UmVxdWVzdBIKCgJpZBgBIAEoCSJ7ChZHZXRNYXRjaFJlc3VsdFJlc3BvbnNlEioKBnJlc3VsdBgBIAEoCzIaLmdyYXZlbC5odWIudjEuTWF0Y2hSZXN1bHQSNQoPc3RhdF9leHRlbnNpb25zGAIgAygLMhwuZ3JhdmVsLmh1Yi52MS5TdGF0RXh0ZW5zaW9uIjUKE0dldE1hdGNoRGVtb1JlcXVlc3QSCgoCaWQYASABKAkSEgoKbWFwX251bWJlchgCIAEoBSJTChRHZXRNYXRjaERlbW9SZXNwb25zZRILCgN1cmwYASABKAkSLgoKZXhwaXJlc19hdBgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAijAEKFkdldFNlc3Npb25SZWNhcFJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJEigKBGZyb20YAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEiYKAnRvGAMgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBINCgVmbG9vchgEIAEoBSK9AQoKUmVjYXBNYXRjaBIKCgJpZBgBIAEoCRIuCgpzdGFydGVkX2F0GAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIsCghlbmRlZF9hdBgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASCwoDbWFwGAQgASgJEicKBXRlYW1zGAUgAygLMhguZ3JhdmVsLmh1Yi52MS5UZWFtU2NvcmUSDwoHcGxheWVycxgGIAEoBSKgAgoXR2V0U2Vzc2lvblJlY2FwUmVzcG9uc2USKAoEZnJvbRgBIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASJgoCdG8YAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEg0KBWZsb29yGAMgASgFEhQKDHBlYWtfcGxheWVycxgEIAEoBRIPCgdtaW51dGVzGAUgASgFEhgKEG1pbnV0ZXNfYXRfZmxvb3IYBiABKAUSDwoHcGxheWVycxgHIAEoBRIqCgdtYXRjaGVzGAggAygLMhkuZ3JhdmVsLmh1Yi52MS5SZWNhcE1hdGNoEiYKA3RvcBgJIAMoCzIZLmdyYXZlbC5odWIudjEuQm9hcmRFbnRyeSIkChJHZXRBY3Rpdml0eVJlcXVlc3QSDgoGd2luZG93GAEgASgJIkgKDEFjdGl2aXR5SG91chILCgNkYXkYASABKAUSDAoEaG91chgCIAEoBRIPCgdhdmVyYWdlGAMgASgBEgwKBHBlYWsYBCABKAUiXwoMQWN0aXZpdHlXZWVrEikKBXN0YXJ0GAEgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIPCgdwbGF5ZXJzGAIgASgFEhMKC25ld19wbGF5ZXJzGAMgASgFIq4BCgxRdWlldFJlZ3VsYXISDAoEbmFtZRgBIAEoCRIUCgxwc2V1ZG9ueW1vdXMYAiABKAgSDwoHdXNlcl9pZBgDIAEoCRITCgtkYXlzX2JlZm9yZRgEIAEoBRItCglsYXN0X3NlZW4YBSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhYKDmxhc3Rfc2VydmVyX2lkGAYgASgJEg0KBWhvdXJzGAcgASgBIu4DChNHZXRBY3Rpdml0eVJlc3BvbnNlEg4KBndpbmRvdxgBIAEoCRIoCgRmcm9tGAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBImCgJ0bxgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASEAoIdGltZXpvbmUYBCABKAkSKgoFaG91cnMYBSADKAsyGy5ncmF2ZWwuaHViLnYxLkFjdGl2aXR5SG91chIQCghzZXNzaW9ucxgGIAEoBRIPCgdwbGF5ZXJzGAcgASgFEh4KFm1lZGlhbl9zZXNzaW9uX3NlY29uZHMYCCABKAUSGQoRcmV0dXJuaW5nX3BsYXllcnMYCSABKAUSGAoQbWVhbl9hY3RpdmVfZGF5cxgKIAEoARITCgtuZXdfcGxheWVycxgLIAEoBRIUCgxsb3N0X3BsYXllcnMYDCABKAUSKgoFd2Vla3MYDSADKAsyGy5ncmF2ZWwuaHViLnYxLkFjdGl2aXR5V2VlaxIqCgVxdWlldBgOIAMoCzIbLmdyYXZlbC5odWIudjEuUXVpZXRSZWd1bGFyEhQKDHJlZ3VsYXJfZGF5cxgPIAEoBRIVCg1yZWd1bGFyX3dlZWtzGBAgASgFEg8KB3BhcnRpYWwYESABKAgyqAoKDFN0YXRzU2VydmljZRJLCghHZXRCb2FyZBIeLmdyYXZlbC5odWIudjEuR2V0Qm9hcmRSZXF1ZXN0Gh8uZ3JhdmVsLmh1Yi52MS5HZXRCb2FyZFJlc3BvbnNlElQKC0xpc3RNYXRjaGVzEiEuZ3JhdmVsLmh1Yi52MS5MaXN0TWF0Y2hlc1JlcXVlc3QaIi5ncmF2ZWwuaHViLnYxLkxpc3RNYXRjaGVzUmVzcG9uc2USVwoMR2V0Qm9hcmROYW1lEiIuZ3JhdmVsLmh1Yi52MS5HZXRCb2FyZE5hbWVSZXF1ZXN0GiMuZ3JhdmVsLmh1Yi52MS5HZXRCb2FyZE5hbWVSZXNwb25zZRJXCgxTZXRCb2FyZE5hbWUSIi5ncmF2ZWwuaHViLnYxLlNldEJvYXJkTmFtZVJlcXVlc3QaIy5ncmF2ZWwuaHViLnYxLlNldEJvYXJkTmFtZVJlc3BvbnNlEmMKEEdldE1lbWJlclByb2ZpbGUSJi5ncmF2ZWwuaHViLnYxLkdldE1lbWJlclByb2ZpbGVSZXF1ZXN0GicuZ3JhdmVsLmh1Yi52MS5HZXRNZW1iZXJQcm9maWxlUmVzcG9uc2USbAoTUmVjb3JkUGFydGljaXBhdGlvbhIpLmdyYXZlbC5odWIudjEuUmVjb3JkUGFydGljaXBhdGlvblJlcXVlc3QaKi5ncmF2ZWwuaHViLnYxLlJlY29yZFBhcnRpY2lwYXRpb25SZXNwb25zZRJyChVHZXRQYXJ0aWNpcGF0aW9uQm9hcmQSKy5ncmF2ZWwuaHViLnYxLkdldFBhcnRpY2lwYXRpb25Cb2FyZFJlcXVlc3QaLC5ncmF2ZWwuaHViLnYxLkdldFBhcnRpY2lwYXRpb25Cb2FyZFJlc3BvbnNlEmAKD0dldFNlc3Npb25SZWNhcBIlLmdyYXZlbC5odWIudjEuR2V0U2Vzc2lvblJlY2FwUmVxdWVzdBomLmdyYXZlbC5odWIudjEuR2V0U2Vzc2lvblJlY2FwUmVzcG9uc2USSwoITGlzdEdhcHMSHi5ncmF2ZWwuaHViLnYxLkxpc3RHYXBzUmVxdWVzdBofLmdyYXZlbC5odWIudjEuTGlzdEdhcHNSZXNwb25zZRJjChBMaXN0TWF0Y2hSZXN1bHRzEiYuZ3JhdmVsLmh1Yi52MS5MaXN0TWF0Y2hSZXN1bHRzUmVxdWVzdBonLmdyYXZlbC5odWIudjEuTGlzdE1hdGNoUmVzdWx0c1Jlc3BvbnNlEl0KDkdldE1hdGNoUmVzdWx0EiQuZ3JhdmVsLmh1Yi52MS5HZXRNYXRjaFJlc3VsdFJlcXVlc3QaJS5ncmF2ZWwuaHViLnYxLkdldE1hdGNoUmVzdWx0UmVzcG9uc2USVwoMR2V0TWF0Y2hEZW1vEiIuZ3JhdmVsLmh1Yi52MS5HZXRNYXRjaERlbW9SZXF1ZXN0GiMuZ3JhdmVsLmh1Yi52MS5HZXRNYXRjaERlbW9SZXNwb25zZRJaCg1FcmFzZUlkZW50aXR5EiMuZ3JhdmVsLmh1Yi52MS5FcmFzZUlkZW50aXR5UmVxdWVzdBokLmdyYXZlbC5odWIudjEuRXJhc2VJZGVudGl0eVJlc3BvbnNlElQKC0dldEFjdGl2aXR5EiEuZ3JhdmVsLmh1Yi52MS5HZXRBY3Rpdml0eVJlcXVlc3QaIi5ncmF2ZWwuaHViLnYxLkdldEFjdGl2aXR5UmVzcG9uc2VCOlo4Z2l0aHViLmNvbS9ncmF2ZWwtcHJvamVjdC9ncmF2ZWwvZ2VuL2dyYXZlbC9odWIvdjE7aHVidjFiBnByb3RvMw", [file_google_protobuf_timestamp, file_gravel_hub_v1_servers]);
 
 /**
  * BoardEntry is one player on a board. A player who has not linked the identity, or has not
@@ -296,6 +296,137 @@ export const ListMatchesResponseSchema: GenMessage<ListMatchesResponse> = /*@__P
   messageDesc(file_gravel_hub_v1_stats, 5);
 
 /**
+ * ListGapsRequest is one server's gaps (ADR-0011 §5) that began in a window: unset to is now, unset
+ * from is 30 days before to, and the window is at most 90 days.
+ *
+ * @generated from message gravel.hub.v1.ListGapsRequest
+ */
+export type ListGapsRequest = Message<"gravel.hub.v1.ListGapsRequest"> & {
+  /**
+   * @generated from field: string server_id = 1;
+   */
+  serverId: string;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp from = 2;
+   */
+  from?: Timestamp | undefined;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp to = 3;
+   */
+  to?: Timestamp | undefined;
+};
+
+/**
+ * Describes the message gravel.hub.v1.ListGapsRequest.
+ * Use `create(ListGapsRequestSchema)` to create a new message.
+ */
+export const ListGapsRequestSchema: GenMessage<ListGapsRequest> = /*@__PURE__*/
+  messageDesc(file_gravel_hub_v1_stats, 6);
+
+/**
+ * Gap is a span of a server's feed the hub knows it is missing, recorded as a gap instead of
+ * counted as nothing. Only counts: a gap never names a player.
+ *
+ * @generated from message gravel.hub.v1.Gap
+ */
+export type Gap = Message<"gravel.hub.v1.Gap"> & {
+  /**
+   * "hub_down" (the hub was away, for a feed that doesn't retry), "silence" (the feed went quiet
+   * in a full match), "dropped" (the server gave up on events) or "reconcile" (the feed's kills
+   * and deaths fell short of the poll's for a match).
+   *
+   * @generated from field: string reason = 1;
+   */
+  reason: string;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp from = 2;
+   */
+  from?: Timestamp | undefined;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp to = 3;
+   */
+  to?: Timestamp | undefined;
+
+  /**
+   * dropped: how many events the server gave up on.
+   *
+   * @generated from field: int32 events = 4;
+   */
+  events: number;
+
+  /**
+   * reconcile: the match, and the kills and deaths the feed lacked across how many players.
+   *
+   * @generated from field: string match_id = 5;
+   */
+  matchId: string;
+
+  /**
+   * @generated from field: int32 kills = 6;
+   */
+  kills: number;
+
+  /**
+   * @generated from field: int32 deaths = 7;
+   */
+  deaths: number;
+
+  /**
+   * @generated from field: int32 players = 8;
+   */
+  players: number;
+};
+
+/**
+ * Describes the message gravel.hub.v1.Gap.
+ * Use `create(GapSchema)` to create a new message.
+ */
+export const GapSchema: GenMessage<Gap> = /*@__PURE__*/
+  messageDesc(file_gravel_hub_v1_stats, 7);
+
+/**
+ * @generated from message gravel.hub.v1.ListGapsResponse
+ */
+export type ListGapsResponse = Message<"gravel.hub.v1.ListGapsResponse"> & {
+  /**
+   * Oldest first.
+   *
+   * @generated from field: repeated gravel.hub.v1.Gap gaps = 1;
+   */
+  gaps: Gap[];
+
+  /**
+   * The window read.
+   *
+   * @generated from field: google.protobuf.Timestamp from = 2;
+   */
+  from?: Timestamp | undefined;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp to = 3;
+   */
+  to?: Timestamp | undefined;
+
+  /**
+   * More gaps began in the window than the answer holds (the first 100 are given).
+   *
+   * @generated from field: bool more = 4;
+   */
+  more: boolean;
+};
+
+/**
+ * Describes the message gravel.hub.v1.ListGapsResponse.
+ * Use `create(ListGapsResponseSchema)` to create a new message.
+ */
+export const ListGapsResponseSchema: GenMessage<ListGapsResponse> = /*@__PURE__*/
+  messageDesc(file_gravel_hub_v1_stats, 8);
+
+/**
  * @generated from message gravel.hub.v1.GetBoardNameRequest
  */
 export type GetBoardNameRequest = Message<"gravel.hub.v1.GetBoardNameRequest"> & {
@@ -306,7 +437,7 @@ export type GetBoardNameRequest = Message<"gravel.hub.v1.GetBoardNameRequest"> &
  * Use `create(GetBoardNameRequestSchema)` to create a new message.
  */
 export const GetBoardNameRequestSchema: GenMessage<GetBoardNameRequest> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_stats, 6);
+  messageDesc(file_gravel_hub_v1_stats, 9);
 
 /**
  * @generated from message gravel.hub.v1.GetBoardNameResponse
@@ -323,7 +454,7 @@ export type GetBoardNameResponse = Message<"gravel.hub.v1.GetBoardNameResponse">
  * Use `create(GetBoardNameResponseSchema)` to create a new message.
  */
 export const GetBoardNameResponseSchema: GenMessage<GetBoardNameResponse> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_stats, 7);
+  messageDesc(file_gravel_hub_v1_stats, 10);
 
 /**
  * @generated from message gravel.hub.v1.SetBoardNameRequest
@@ -342,7 +473,7 @@ export type SetBoardNameRequest = Message<"gravel.hub.v1.SetBoardNameRequest"> &
  * Use `create(SetBoardNameRequestSchema)` to create a new message.
  */
 export const SetBoardNameRequestSchema: GenMessage<SetBoardNameRequest> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_stats, 8);
+  messageDesc(file_gravel_hub_v1_stats, 11);
 
 /**
  * @generated from message gravel.hub.v1.SetBoardNameResponse
@@ -359,7 +490,7 @@ export type SetBoardNameResponse = Message<"gravel.hub.v1.SetBoardNameResponse">
  * Use `create(SetBoardNameResponseSchema)` to create a new message.
  */
 export const SetBoardNameResponseSchema: GenMessage<SetBoardNameResponse> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_stats, 9);
+  messageDesc(file_gravel_hub_v1_stats, 12);
 
 /**
  * ProfileTotals is a member's totals over one window: "all", "week", "month", or "season" with
@@ -419,7 +550,7 @@ export type ProfileTotals = Message<"gravel.hub.v1.ProfileTotals"> & {
  * Use `create(ProfileTotalsSchema)` to create a new message.
  */
 export const ProfileTotalsSchema: GenMessage<ProfileTotals> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_stats, 10);
+  messageDesc(file_gravel_hub_v1_stats, 13);
 
 /**
  * PlayerMatch is one match a member played, with their row in it.
@@ -480,7 +611,7 @@ export type PlayerMatch = Message<"gravel.hub.v1.PlayerMatch"> & {
  * Use `create(PlayerMatchSchema)` to create a new message.
  */
 export const PlayerMatchSchema: GenMessage<PlayerMatch> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_stats, 11);
+  messageDesc(file_gravel_hub_v1_stats, 14);
 
 /**
  * @generated from message gravel.hub.v1.GetMemberProfileRequest
@@ -499,7 +630,7 @@ export type GetMemberProfileRequest = Message<"gravel.hub.v1.GetMemberProfileReq
  * Use `create(GetMemberProfileRequestSchema)` to create a new message.
  */
 export const GetMemberProfileRequestSchema: GenMessage<GetMemberProfileRequest> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_stats, 12);
+  messageDesc(file_gravel_hub_v1_stats, 15);
 
 /**
  * @generated from message gravel.hub.v1.GetMemberProfileResponse
@@ -557,7 +688,7 @@ export type GetMemberProfileResponse = Message<"gravel.hub.v1.GetMemberProfileRe
  * Use `create(GetMemberProfileResponseSchema)` to create a new message.
  */
 export const GetMemberProfileResponseSchema: GenMessage<GetMemberProfileResponse> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_stats, 13);
+  messageDesc(file_gravel_hub_v1_stats, 16);
 
 /**
  * PlayerIdentity is a player at an identity provider, as the stats store keys them (never a
@@ -586,7 +717,7 @@ export type PlayerIdentity = Message<"gravel.hub.v1.PlayerIdentity"> & {
  * Use `create(PlayerIdentitySchema)` to create a new message.
  */
 export const PlayerIdentitySchema: GenMessage<PlayerIdentity> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_stats, 14);
+  messageDesc(file_gravel_hub_v1_stats, 17);
 
 /**
  * ParticipationEvent is one time a player took part in something a first-party app tracks
@@ -668,7 +799,7 @@ export type ParticipationEvent = Message<"gravel.hub.v1.ParticipationEvent"> & {
  * Use `create(ParticipationEventSchema)` to create a new message.
  */
 export const ParticipationEventSchema: GenMessage<ParticipationEvent> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_stats, 15);
+  messageDesc(file_gravel_hub_v1_stats, 18);
 
 /**
  * @generated from message gravel.hub.v1.RecordParticipationRequest
@@ -688,7 +819,7 @@ export type RecordParticipationRequest = Message<"gravel.hub.v1.RecordParticipat
  * Use `create(RecordParticipationRequestSchema)` to create a new message.
  */
 export const RecordParticipationRequestSchema: GenMessage<RecordParticipationRequest> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_stats, 16);
+  messageDesc(file_gravel_hub_v1_stats, 19);
 
 /**
  * ParticipationResult is what became of one event.
@@ -714,7 +845,7 @@ export type ParticipationResult = Message<"gravel.hub.v1.ParticipationResult"> &
  * Use `create(ParticipationResultSchema)` to create a new message.
  */
 export const ParticipationResultSchema: GenMessage<ParticipationResult> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_stats, 17);
+  messageDesc(file_gravel_hub_v1_stats, 20);
 
 /**
  * @generated from message gravel.hub.v1.RecordParticipationResponse
@@ -733,7 +864,7 @@ export type RecordParticipationResponse = Message<"gravel.hub.v1.RecordParticipa
  * Use `create(RecordParticipationResponseSchema)` to create a new message.
  */
 export const RecordParticipationResponseSchema: GenMessage<RecordParticipationResponse> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_stats, 18);
+  messageDesc(file_gravel_hub_v1_stats, 21);
 
 /**
  * ParticipationEntry is one player on a participation board, named as on GetBoard.
@@ -781,7 +912,7 @@ export type ParticipationEntry = Message<"gravel.hub.v1.ParticipationEntry"> & {
  * Use `create(ParticipationEntrySchema)` to create a new message.
  */
 export const ParticipationEntrySchema: GenMessage<ParticipationEntry> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_stats, 19);
+  messageDesc(file_gravel_hub_v1_stats, 22);
 
 /**
  * @generated from message gravel.hub.v1.GetParticipationBoardRequest
@@ -831,7 +962,7 @@ export type GetParticipationBoardRequest = Message<"gravel.hub.v1.GetParticipati
  * Use `create(GetParticipationBoardRequestSchema)` to create a new message.
  */
 export const GetParticipationBoardRequestSchema: GenMessage<GetParticipationBoardRequest> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_stats, 20);
+  messageDesc(file_gravel_hub_v1_stats, 23);
 
 /**
  * @generated from message gravel.hub.v1.GetParticipationBoardResponse
@@ -881,7 +1012,7 @@ export type GetParticipationBoardResponse = Message<"gravel.hub.v1.GetParticipat
  * Use `create(GetParticipationBoardResponseSchema)` to create a new message.
  */
 export const GetParticipationBoardResponseSchema: GenMessage<GetParticipationBoardResponse> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_stats, 21);
+  messageDesc(file_gravel_hub_v1_stats, 24);
 
 /**
  * ParticipationTotals is a member's participation of one kind over one window: "all", "week",
@@ -931,7 +1062,7 @@ export type ParticipationTotals = Message<"gravel.hub.v1.ParticipationTotals"> &
  * Use `create(ParticipationTotalsSchema)` to create a new message.
  */
 export const ParticipationTotalsSchema: GenMessage<ParticipationTotals> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_stats, 22);
+  messageDesc(file_gravel_hub_v1_stats, 25);
 
 /**
  * StatsService is the stats boards (ADR-0012): counts from the hub's own polls of each server,
@@ -958,7 +1089,7 @@ export type EraseIdentityRequest = Message<"gravel.hub.v1.EraseIdentityRequest">
  * Use `create(EraseIdentityRequestSchema)` to create a new message.
  */
 export const EraseIdentityRequestSchema: GenMessage<EraseIdentityRequest> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_stats, 23);
+  messageDesc(file_gravel_hub_v1_stats, 26);
 
 /**
  * EraseIdentityResponse counts what the erasure re-keyed; it never repeats the identity.
@@ -1028,7 +1159,7 @@ export type EraseIdentityResponse = Message<"gravel.hub.v1.EraseIdentityResponse
  * Use `create(EraseIdentityResponseSchema)` to create a new message.
  */
 export const EraseIdentityResponseSchema: GenMessage<EraseIdentityResponse> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_stats, 24);
+  messageDesc(file_gravel_hub_v1_stats, 27);
 
 /**
  * MatchResult is one series a server's match plugin ran.
@@ -1113,7 +1244,7 @@ export type MatchResult = Message<"gravel.hub.v1.MatchResult"> & {
  * Use `create(MatchResultSchema)` to create a new message.
  */
 export const MatchResultSchema: GenMessage<MatchResult> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_stats, 25);
+  messageDesc(file_gravel_hub_v1_stats, 28);
 
 /**
  * MatchResultMap is one map of a series.
@@ -1169,7 +1300,7 @@ export type MatchResultMap = Message<"gravel.hub.v1.MatchResultMap"> & {
  * Use `create(MatchResultMapSchema)` to create a new message.
  */
 export const MatchResultMapSchema: GenMessage<MatchResultMap> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_stats, 26);
+  messageDesc(file_gravel_hub_v1_stats, 29);
 
 /**
  * MatchResultPlayer is a player's totals on one map, shown as a board shows them.
@@ -1230,7 +1361,7 @@ export type MatchResultPlayer = Message<"gravel.hub.v1.MatchResultPlayer"> & {
  * Use `create(MatchResultPlayerSchema)` to create a new message.
  */
 export const MatchResultPlayerSchema: GenMessage<MatchResultPlayer> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_stats, 27);
+  messageDesc(file_gravel_hub_v1_stats, 30);
 
 /**
  * @generated from message gravel.hub.v1.ListMatchResultsRequest
@@ -1271,7 +1402,7 @@ export type ListMatchResultsRequest = Message<"gravel.hub.v1.ListMatchResultsReq
  * Use `create(ListMatchResultsRequestSchema)` to create a new message.
  */
 export const ListMatchResultsRequestSchema: GenMessage<ListMatchResultsRequest> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_stats, 28);
+  messageDesc(file_gravel_hub_v1_stats, 31);
 
 /**
  * @generated from message gravel.hub.v1.ListMatchResultsResponse
@@ -1288,7 +1419,7 @@ export type ListMatchResultsResponse = Message<"gravel.hub.v1.ListMatchResultsRe
  * Use `create(ListMatchResultsResponseSchema)` to create a new message.
  */
 export const ListMatchResultsResponseSchema: GenMessage<ListMatchResultsResponse> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_stats, 29);
+  messageDesc(file_gravel_hub_v1_stats, 32);
 
 /**
  * @generated from message gravel.hub.v1.GetMatchResultRequest
@@ -1305,7 +1436,7 @@ export type GetMatchResultRequest = Message<"gravel.hub.v1.GetMatchResultRequest
  * Use `create(GetMatchResultRequestSchema)` to create a new message.
  */
 export const GetMatchResultRequestSchema: GenMessage<GetMatchResultRequest> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_stats, 30);
+  messageDesc(file_gravel_hub_v1_stats, 33);
 
 /**
  * @generated from message gravel.hub.v1.GetMatchResultResponse
@@ -1330,7 +1461,7 @@ export type GetMatchResultResponse = Message<"gravel.hub.v1.GetMatchResultRespon
  * Use `create(GetMatchResultResponseSchema)` to create a new message.
  */
 export const GetMatchResultResponseSchema: GenMessage<GetMatchResultResponse> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_stats, 31);
+  messageDesc(file_gravel_hub_v1_stats, 34);
 
 /**
  * @generated from message gravel.hub.v1.GetMatchDemoRequest
@@ -1352,7 +1483,7 @@ export type GetMatchDemoRequest = Message<"gravel.hub.v1.GetMatchDemoRequest"> &
  * Use `create(GetMatchDemoRequestSchema)` to create a new message.
  */
 export const GetMatchDemoRequestSchema: GenMessage<GetMatchDemoRequest> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_stats, 32);
+  messageDesc(file_gravel_hub_v1_stats, 35);
 
 /**
  * @generated from message gravel.hub.v1.GetMatchDemoResponse
@@ -1374,7 +1505,7 @@ export type GetMatchDemoResponse = Message<"gravel.hub.v1.GetMatchDemoResponse">
  * Use `create(GetMatchDemoResponseSchema)` to create a new message.
  */
 export const GetMatchDemoResponseSchema: GenMessage<GetMatchDemoResponse> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_stats, 33);
+  messageDesc(file_gravel_hub_v1_stats, 36);
 
 /**
  * @generated from message gravel.hub.v1.GetSessionRecapRequest
@@ -1408,7 +1539,7 @@ export type GetSessionRecapRequest = Message<"gravel.hub.v1.GetSessionRecapReque
  * Use `create(GetSessionRecapRequestSchema)` to create a new message.
  */
 export const GetSessionRecapRequestSchema: GenMessage<GetSessionRecapRequest> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_stats, 34);
+  messageDesc(file_gravel_hub_v1_stats, 37);
 
 /**
  * RecapMatch is one match that overlaps a recap's window.
@@ -1458,7 +1589,7 @@ export type RecapMatch = Message<"gravel.hub.v1.RecapMatch"> & {
  * Use `create(RecapMatchSchema)` to create a new message.
  */
 export const RecapMatchSchema: GenMessage<RecapMatch> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_stats, 35);
+  messageDesc(file_gravel_hub_v1_stats, 38);
 
 /**
  * @generated from message gravel.hub.v1.GetSessionRecapResponse
@@ -1523,7 +1654,7 @@ export type GetSessionRecapResponse = Message<"gravel.hub.v1.GetSessionRecapResp
  * Use `create(GetSessionRecapResponseSchema)` to create a new message.
  */
 export const GetSessionRecapResponseSchema: GenMessage<GetSessionRecapResponse> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_stats, 36);
+  messageDesc(file_gravel_hub_v1_stats, 39);
 
 /**
  * @generated from message gravel.hub.v1.GetActivityRequest
@@ -1542,7 +1673,7 @@ export type GetActivityRequest = Message<"gravel.hub.v1.GetActivityRequest"> & {
  * Use `create(GetActivityRequestSchema)` to create a new message.
  */
 export const GetActivityRequestSchema: GenMessage<GetActivityRequest> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_stats, 37);
+  messageDesc(file_gravel_hub_v1_stats, 40);
 
 /**
  * ActivityHour is one hour of the week in the organization's timezone (stats.timezone).
@@ -1584,7 +1715,7 @@ export type ActivityHour = Message<"gravel.hub.v1.ActivityHour"> & {
  * Use `create(ActivityHourSchema)` to create a new message.
  */
 export const ActivityHourSchema: GenMessage<ActivityHour> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_stats, 38);
+  messageDesc(file_gravel_hub_v1_stats, 41);
 
 /**
  * ActivityWeek is one week of the window, from its Monday in the organization's timezone.
@@ -1615,7 +1746,7 @@ export type ActivityWeek = Message<"gravel.hub.v1.ActivityWeek"> & {
  * Use `create(ActivityWeekSchema)` to create a new message.
  */
 export const ActivityWeekSchema: GenMessage<ActivityWeek> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_stats, 39);
+  messageDesc(file_gravel_hub_v1_stats, 42);
 
 /**
  * QuietRegular is a regular before the window with no session in it, shown as a board shows a
@@ -1671,7 +1802,7 @@ export type QuietRegular = Message<"gravel.hub.v1.QuietRegular"> & {
  * Use `create(QuietRegularSchema)` to create a new message.
  */
 export const QuietRegularSchema: GenMessage<QuietRegular> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_stats, 40);
+  messageDesc(file_gravel_hub_v1_stats, 43);
 
 /**
  * @generated from message gravel.hub.v1.GetActivityResponse
@@ -1785,7 +1916,7 @@ export type GetActivityResponse = Message<"gravel.hub.v1.GetActivityResponse"> &
  * Use `create(GetActivityResponseSchema)` to create a new message.
  */
 export const GetActivityResponseSchema: GenMessage<GetActivityResponse> = /*@__PURE__*/
-  messageDesc(file_gravel_hub_v1_stats, 41);
+  messageDesc(file_gravel_hub_v1_stats, 44);
 
 /**
  * first-party apps, on boards of its own (ADR-0014).
@@ -1880,6 +2011,18 @@ export const StatsService: GenService<{
     methodKind: "unary";
     input: typeof GetSessionRecapRequestSchema;
     output: typeof GetSessionRecapResponseSchema;
+  },
+  /**
+   * ListGaps is the data a server's feed is known to be missing (ADR-0011 §5), oldest first; boards
+   * count from the poll, so a gap says what the feed lacks, not that a board is short. The same
+   * access as GetBoard.
+   *
+   * @generated from rpc gravel.hub.v1.StatsService.ListGaps
+   */
+  listGaps: {
+    methodKind: "unary";
+    input: typeof ListGapsRequestSchema;
+    output: typeof ListGapsResponseSchema;
   },
   /**
    * ListMatchResults is the series a match plugin reported (MatchZy, ADR-0024), newest first,

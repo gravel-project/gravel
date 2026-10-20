@@ -56,6 +56,8 @@ const (
 	// StatsServiceGetSessionRecapProcedure is the fully-qualified name of the StatsService's
 	// GetSessionRecap RPC.
 	StatsServiceGetSessionRecapProcedure = "/gravel.hub.v1.StatsService/GetSessionRecap"
+	// StatsServiceListGapsProcedure is the fully-qualified name of the StatsService's ListGaps RPC.
+	StatsServiceListGapsProcedure = "/gravel.hub.v1.StatsService/ListGaps"
 	// StatsServiceListMatchResultsProcedure is the fully-qualified name of the StatsService's
 	// ListMatchResults RPC.
 	StatsServiceListMatchResultsProcedure = "/gravel.hub.v1.StatsService/ListMatchResults"
@@ -99,6 +101,10 @@ type StatsServiceClient interface {
 	// overlap it and the top five by kills. The window is at most 24 hours and must have ended.
 	// The same access as GetBoard.
 	GetSessionRecap(context.Context, *connect.Request[v1.GetSessionRecapRequest]) (*connect.Response[v1.GetSessionRecapResponse], error)
+	// ListGaps is the data a server's feed is known to be missing (ADR-0011 §5), oldest first; boards
+	// count from the poll, so a gap says what the feed lacks, not that a board is short. The same
+	// access as GetBoard.
+	ListGaps(context.Context, *connect.Request[v1.ListGapsRequest]) (*connect.Response[v1.ListGapsResponse], error)
 	// ListMatchResults is the series a match plugin reported (MatchZy, ADR-0024), newest first,
 	// without their maps and players. Who may GetBoard.
 	ListMatchResults(context.Context, *connect.Request[v1.ListMatchResultsRequest]) (*connect.Response[v1.ListMatchResultsResponse], error)
@@ -175,6 +181,12 @@ func NewStatsServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(statsServiceMethods.ByName("GetSessionRecap")),
 			connect.WithClientOptions(opts...),
 		),
+		listGaps: connect.NewClient[v1.ListGapsRequest, v1.ListGapsResponse](
+			httpClient,
+			baseURL+StatsServiceListGapsProcedure,
+			connect.WithSchema(statsServiceMethods.ByName("ListGaps")),
+			connect.WithClientOptions(opts...),
+		),
 		listMatchResults: connect.NewClient[v1.ListMatchResultsRequest, v1.ListMatchResultsResponse](
 			httpClient,
 			baseURL+StatsServiceListMatchResultsProcedure,
@@ -218,6 +230,7 @@ type statsServiceClient struct {
 	recordParticipation   *connect.Client[v1.RecordParticipationRequest, v1.RecordParticipationResponse]
 	getParticipationBoard *connect.Client[v1.GetParticipationBoardRequest, v1.GetParticipationBoardResponse]
 	getSessionRecap       *connect.Client[v1.GetSessionRecapRequest, v1.GetSessionRecapResponse]
+	listGaps              *connect.Client[v1.ListGapsRequest, v1.ListGapsResponse]
 	listMatchResults      *connect.Client[v1.ListMatchResultsRequest, v1.ListMatchResultsResponse]
 	getMatchResult        *connect.Client[v1.GetMatchResultRequest, v1.GetMatchResultResponse]
 	getMatchDemo          *connect.Client[v1.GetMatchDemoRequest, v1.GetMatchDemoResponse]
@@ -263,6 +276,11 @@ func (c *statsServiceClient) GetParticipationBoard(ctx context.Context, req *con
 // GetSessionRecap calls gravel.hub.v1.StatsService.GetSessionRecap.
 func (c *statsServiceClient) GetSessionRecap(ctx context.Context, req *connect.Request[v1.GetSessionRecapRequest]) (*connect.Response[v1.GetSessionRecapResponse], error) {
 	return c.getSessionRecap.CallUnary(ctx, req)
+}
+
+// ListGaps calls gravel.hub.v1.StatsService.ListGaps.
+func (c *statsServiceClient) ListGaps(ctx context.Context, req *connect.Request[v1.ListGapsRequest]) (*connect.Response[v1.ListGapsResponse], error) {
+	return c.listGaps.CallUnary(ctx, req)
 }
 
 // ListMatchResults calls gravel.hub.v1.StatsService.ListMatchResults.
@@ -316,6 +334,10 @@ type StatsServiceHandler interface {
 	// overlap it and the top five by kills. The window is at most 24 hours and must have ended.
 	// The same access as GetBoard.
 	GetSessionRecap(context.Context, *connect.Request[v1.GetSessionRecapRequest]) (*connect.Response[v1.GetSessionRecapResponse], error)
+	// ListGaps is the data a server's feed is known to be missing (ADR-0011 §5), oldest first; boards
+	// count from the poll, so a gap says what the feed lacks, not that a board is short. The same
+	// access as GetBoard.
+	ListGaps(context.Context, *connect.Request[v1.ListGapsRequest]) (*connect.Response[v1.ListGapsResponse], error)
 	// ListMatchResults is the series a match plugin reported (MatchZy, ADR-0024), newest first,
 	// without their maps and players. Who may GetBoard.
 	ListMatchResults(context.Context, *connect.Request[v1.ListMatchResultsRequest]) (*connect.Response[v1.ListMatchResultsResponse], error)
@@ -388,6 +410,12 @@ func NewStatsServiceHandler(svc StatsServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(statsServiceMethods.ByName("GetSessionRecap")),
 		connect.WithHandlerOptions(opts...),
 	)
+	statsServiceListGapsHandler := connect.NewUnaryHandler(
+		StatsServiceListGapsProcedure,
+		svc.ListGaps,
+		connect.WithSchema(statsServiceMethods.ByName("ListGaps")),
+		connect.WithHandlerOptions(opts...),
+	)
 	statsServiceListMatchResultsHandler := connect.NewUnaryHandler(
 		StatsServiceListMatchResultsProcedure,
 		svc.ListMatchResults,
@@ -436,6 +464,8 @@ func NewStatsServiceHandler(svc StatsServiceHandler, opts ...connect.HandlerOpti
 			statsServiceGetParticipationBoardHandler.ServeHTTP(w, r)
 		case StatsServiceGetSessionRecapProcedure:
 			statsServiceGetSessionRecapHandler.ServeHTTP(w, r)
+		case StatsServiceListGapsProcedure:
+			statsServiceListGapsHandler.ServeHTTP(w, r)
 		case StatsServiceListMatchResultsProcedure:
 			statsServiceListMatchResultsHandler.ServeHTTP(w, r)
 		case StatsServiceGetMatchResultProcedure:
@@ -485,6 +515,10 @@ func (UnimplementedStatsServiceHandler) GetParticipationBoard(context.Context, *
 
 func (UnimplementedStatsServiceHandler) GetSessionRecap(context.Context, *connect.Request[v1.GetSessionRecapRequest]) (*connect.Response[v1.GetSessionRecapResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.StatsService.GetSessionRecap is not implemented"))
+}
+
+func (UnimplementedStatsServiceHandler) ListGaps(context.Context, *connect.Request[v1.ListGapsRequest]) (*connect.Response[v1.ListGapsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gravel.hub.v1.StatsService.ListGaps is not implemented"))
 }
 
 func (UnimplementedStatsServiceHandler) ListMatchResults(context.Context, *connect.Request[v1.ListMatchResultsRequest]) (*connect.Response[v1.ListMatchResultsResponse], error) {

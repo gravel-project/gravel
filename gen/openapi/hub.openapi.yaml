@@ -3174,6 +3174,48 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/gravel.hub.v1.GetSessionRecapResponse'
+  /gravel.hub.v1.StatsService/ListGaps:
+    post:
+      tags:
+        - gravel.hub.v1.StatsService
+      summary: ListGaps
+      description: |-
+        ListGaps is the data a server's feed is known to be missing (ADR-0011 §5), oldest first; boards
+         count from the poll, so a gap says what the feed lacks, not that a board is short. The same
+         access as GetBoard.
+      operationId: gravel.hub.v1.StatsService.ListGaps
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gravel.hub.v1.ListGapsRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/gravel.hub.v1.ListGapsResponse'
   /gravel.hub.v1.StatsService/ListMatchResults:
     post:
       tags:
@@ -5184,6 +5226,50 @@ components:
       description: |-
         GameTheme is a game's overlay on the organization's theme, applied to the game's pages: a
          server of the game, its moderation pages, and a board scoped to the game or one of its servers.
+    gravel.hub.v1.Gap:
+      type: object
+      properties:
+        reason:
+          type: string
+          title: reason
+          description: |-
+            "hub_down" (the hub was away, for a feed that doesn't retry), "silence" (the feed went quiet
+             in a full match), "dropped" (the server gave up on events) or "reconcile" (the feed's kills
+             and deaths fell short of the poll's for a match).
+        from:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: from
+        to:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: to
+        events:
+          type: integer
+          title: events
+          format: int32
+          description: 'dropped: how many events the server gave up on.'
+        matchId:
+          type: string
+          title: match_id
+          description: 'reconcile: the match, and the kills and deaths the feed lacked across how many players.'
+        kills:
+          type: integer
+          title: kills
+          format: int32
+        deaths:
+          type: integer
+          title: deaths
+          format: int32
+        players:
+          type: integer
+          title: players
+          format: int32
+      title: Gap
+      additionalProperties: false
+      description: |-
+        Gap is a span of a server's feed the hub knows it is missing, recorded as a gap instead of
+         counted as nothing. Only counts: a gap never names a player.
     gravel.hub.v1.GetActivityRequest:
       type: object
       properties:
@@ -6264,6 +6350,49 @@ components:
             $ref: '#/components/schemas/gravel.hub.v1.Game'
           title: games
       title: ListGamesResponse
+      additionalProperties: false
+    gravel.hub.v1.ListGapsRequest:
+      type: object
+      properties:
+        serverId:
+          type: string
+          title: server_id
+        from:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: from
+        to:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: to
+      title: ListGapsRequest
+      additionalProperties: false
+      description: |-
+        ListGapsRequest is one server's gaps (ADR-0011 §5) that began in a window: unset to is now, unset
+         from is 30 days before to, and the window is at most 90 days.
+    gravel.hub.v1.ListGapsResponse:
+      type: object
+      properties:
+        gaps:
+          type: array
+          items:
+            $ref: '#/components/schemas/gravel.hub.v1.Gap'
+          title: gaps
+          description: Oldest first.
+        from:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: from
+          description: The window read.
+        to:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: to
+        more:
+          type: boolean
+          title: more
+          description: More gaps began in the window than the answer holds (the first 100 are given).
+      title: ListGapsResponse
       additionalProperties: false
     gravel.hub.v1.ListIdentityEventsRequest:
       type: object

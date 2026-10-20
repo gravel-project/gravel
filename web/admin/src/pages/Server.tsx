@@ -3,7 +3,8 @@
 // snapshot and destroy need servers:provision and the server's id typed to confirm; a live lease
 // can be released with servers:lease. Buttons follow the capability for the server's game and the
 // host's state. Each answer names the event it wrote; a refusal is shown in the hub's words.
-// Moderation stays on the member page (/servers/{id}).
+// Moderation stays on the member page (/servers/{id}). The feed's gaps in the last 30 days (ADR-0011
+// §5, gravel#3) close the page for whoever may read the stats.
 import { timestampDate, timestampFromDate } from "@bufbuild/protobuf/wkt";
 import { Code, ConnectError } from "@connectrpc/connect";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -14,6 +15,8 @@ import type { User } from "../gen/gravel/hub/v1/identity_pb";
 import { type ServerHost, ServerHostService } from "../gen/gravel/hub/v1/hosts_pb";
 import { ServerLeaseService } from "../gen/gravel/hub/v1/leases_pb";
 import { ServerService } from "../gen/gravel/hub/v1/servers_pb";
+import { StatsService } from "../gen/gravel/hub/v1/stats_pb";
+import { gapWords, span } from "../gaps";
 import { type Action, actions, holdsFor, provisioning } from "../servers";
 import { useClient } from "../transport";
 import { utc } from "./People";
@@ -82,7 +85,62 @@ export function Server({ id, me }: { id: string; me: User }) {
         </p>
       )}
       {holdsFor(me, "servers:lease", game) && <Lease id={id} done={setOutcome} />}
+      <Gaps id={id} />
     </>
+  );
+}
+
+// Gaps is what the server's event feed is known to have missed in the last 30 days. Stats the
+// viewer may not read show nothing; any other failure says so.
+function Gaps({ id }: { id: string }) {
+  const stats = useClient(StatsService);
+  const q = useQuery({ queryKey: ["gaps", id], queryFn: ({ signal }) => stats.listGaps({ serverId: id }, { signal }) });
+  if (q.error && [Code.PermissionDenied, Code.Unauthenticated].includes(ConnectError.from(q.error).code)) {
+    return null;
+  }
+  return (
+    <section aria-labelledby="gaps" className="mb-6">
+      <h2 id="gaps" className="mb-2 text-xl font-bold">
+        Missing data
+      </h2>
+      <p className="mb-2 text-muted">
+        What the server’s event feed is known to have missed in the last 30 days. Only a server with a feed is watched; the boards count from the hub’s polls, so
+        they aren’t affected.
+      </p>
+      {q.error ? (
+        <p role="alert">The hub did not answer: {message(q.error)}.</p>
+      ) : !q.data ? (
+        <p className="text-muted">Loading the gaps…</p>
+      ) : q.data.gaps.length === 0 ? (
+        <p>No gaps recorded.</p>
+      ) : (
+        <>
+          <table className="w-full text-left">
+            <thead>
+              <tr>
+                <th scope="col">From</th>
+                <th scope="col">Length</th>
+                <th scope="col">What happened</th>
+              </tr>
+            </thead>
+            <tbody>
+              {q.data.gaps.map((g, i) => {
+                const from = g.from ? timestampDate(g.from) : undefined;
+                const to = g.to ? timestampDate(g.to) : from;
+                return (
+                  <tr key={i}>
+                    <td>{from ? utc(from) : "—"}</td>
+                    <td>{from && to ? span(from, to) : "—"}</td>
+                    <td>{gapWords(g)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {q.data.more && <p className="mt-2 text-muted">Only the oldest {q.data.gaps.length} are listed.</p>}
+        </>
+      )}
+    </section>
   );
 }
 

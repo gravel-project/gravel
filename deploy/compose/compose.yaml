@@ -43,10 +43,10 @@ services:
     restart: unless-stopped
 
   hub:
-    image: ghcr.io/gravel-project/gravel-hub@sha256:aeefd917c654928aa9000d72bb8718ca3e6319d272fda934fdfb158b2e7c1a2a
+    image: ghcr.io/gravel-project/gravel-hub@sha256:4b25b4c015301d24c57f827eef211e9aadc866a530c8b6e2620f9a5d2b8d296d
     command: ["serve", "--config", "/etc/gravel/hub.yaml"]
     environment:
-      GRAVEL_IMAGE: ghcr.io/gravel-project/gravel-hub@sha256:aeefd917c654928aa9000d72bb8718ca3e6319d272fda934fdfb158b2e7c1a2a # /healthz reports it
+      GRAVEL_IMAGE: ghcr.io/gravel-project/gravel-hub@sha256:4b25b4c015301d24c57f827eef211e9aadc866a530c8b6e2620f9a5d2b8d296d # /healthz reports it
     secrets:
       - gravel-db-url
       - gravel-stats-pseudonym-key
@@ -133,7 +133,7 @@ services:
   bot:
     # The Discord bot with the stock modules (docs/bot.md): local/bot.yaml, the bot's token and its
     # client secret as a hub app (`docker compose exec hub /ko-app/gravel-hub apps create …`).
-    image: ghcr.io/gravel-project/gravel-bot@sha256:44a972b8a1e5f7dbfdaae31a794daf674f335c52b4200bf95e6916e0174d5a0b
+    image: ghcr.io/gravel-project/gravel-bot@sha256:66f69a2b61a049f3a07fff42eff7856d2d62e6133aa8155ae2e00f5c21a36877
     profiles: ["bot"]
     command: ["serve", "--config", "/etc/gravel/bot.yaml"]
     secrets:

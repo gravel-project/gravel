@@ -151,7 +151,7 @@ Two more constraints. The feed's format is unverified: S1 (deploy#49) is meant t
     a token of its own, as #216 does for match results (principle 10), rather than deleting the
     events; events of nobody are kept as they are.
   - **Not yet:** the `reconcile` detector (built 2026-10-20, below) and the trust mapping's first
-    event-fed board need the kills; gaps on the server and game pages wait for #18's pages; CS2's and MatchZy's parsers
+    event-fed board need the kills; gaps on the server and game pages wait for #18's pages (shown since, below); CS2's and MatchZy's parsers
     come when their events are wanted as stats.
 - **2026-10-19, after Hidden Token Gaming's first start on 0.10.1.**
   - **A false `hub_down` gap.** The upgrade's restart wrote a gap of 1029 minutes, from the last
@@ -224,3 +224,11 @@ Two more constraints. The feed's format is unverified: S1 (deploy#49) is meant t
     (`faction`, `score`), `players`, and `randomWinner` (true when nobody scored and the server drew
     the winner), then `MatchState.PostMatch`. The stats event is kind `match_ended` with the map,
     the match, `winner`, `random_winner`, `scores` and `players`.
+- **2026-10-20, where gaps are shown (#3).** `StatsService.ListGaps` reads a server's gaps with the
+  boards' access, counts only, never a player. A server's page lists the last 30 days' under
+  "Missing data", and the admin dashboard's server page lists them too. §5's "beside" the boards
+  is narrowed. The boards count from the poll, not the feed (ADR-0012), so a gap leaves every board
+  as it was, and a gap beside a board would say it is short when it isn't. Gaps reach the boards
+  and the game pages when the feed's events do (#17). The sources' conformance is
+  `internal/hub`'s `TestStatsSourcesConformance`, for the sources with a producer (`server_adapter`
+  from the poll and the feed, `first_party`); `platform_api` and `self_report` come with theirs (#2).
