@@ -20,7 +20,9 @@ const Game = "wardogs"
 //	1: match_state (2026-10-18, from the first capture).
 //	2: player_joined and player_left, and a match_state's match_id (2026-10-19, from the
 //	   first session with a player on).
-const FeedVersion = 2
+//	3: killed and match_ended (2026-10-20; match_ended from Hidden Token Gaming's capture, killed
+//	   from the community's, games/wardogs' feed.go says which).
+const FeedVersion = 3
 
 // The kinds. Each has, when the event had one, game_time (the game's clock in seconds; it is not
 // a wall-clock time, so the event is observed when its batch was received).
@@ -33,6 +35,14 @@ const (
 	// and the game's own id for them are not kept: who they are is resolved at read time.
 	KindPlayerJoined = "player_joined"
 	KindPlayerLeft   = "player_left"
+	// KindKill is one player killed: the player is the killer (nobody when the world killed), the
+	// target the victim. Extensions map, match_id, cause (the item, when the event named one),
+	// distance_cm (when it gave one), headshot and suicide. A suicide's player and target are the
+	// same SteamID; it counts as a death, not a kill.
+	KindKill = ingest.KindKill
+	// KindMatchEnded is a match's end: extensions map, match_id, winner (the faction), random_winner
+	// (nobody scored and the server drew it), scores (faction → score) and players (how many on).
+	KindMatchEnded = "match_ended"
 )
 
 // steamProvider is the identity provider a SteamID belongs to (README principle 5).
@@ -93,6 +103,45 @@ func (Feed) Parse(b ingest.Batch) (ingest.Parsed, error) {
 				kind = KindPlayerLeft
 			}
 			out.Events = append(out.Events, event(e, kind, store.PlayerKey{Provider: steamProvider, Subject: string(p.PlayerSteamID)}, ext))
+		case wardogs.FeedKilled:
+			k, err := e.Kill()
+			if err != nil || !steamID.MatchString(string(k.VictimSteamID)) || (k.KillerSteamID != "" && !steamID.MatchString(string(k.KillerSteamID))) {
+				out.Invalid++
+				continue
+			}
+			ext := map[string]any{"map": k.MapName, "headshot": k.Headshot(), "suicide": k.Suicide()}
+			if k.MatchID != "" {
+				ext["match_id"] = k.MatchID
+			}
+			if k.Cause != "" {
+				ext["cause"] = k.Cause
+			}
+			if k.Distance != nil {
+				ext["distance_cm"] = *k.Distance
+			}
+			var killer store.PlayerKey
+			if k.KillerSteamID != "" {
+				killer = store.PlayerKey{Provider: steamProvider, Subject: string(k.KillerSteamID)}
+			}
+			out.Events = append(out.Events, event(e, KindKill, killer, ext, store.PlayerKey{Provider: steamProvider, Subject: string(k.VictimSteamID)}))
+		case wardogs.FeedMatchEnded:
+			m, err := e.MatchEnded()
+			if err != nil || m.WinningFaction == "" {
+				out.Invalid++
+				continue
+			}
+			scores := make(map[string]any, len(m.FactionScores))
+			for _, f := range m.FactionScores {
+				scores[f.Faction] = f.Score
+			}
+			ext := map[string]any{"map": m.MapName, "winner": m.WinningFaction, "random_winner": m.RandomWinner, "scores": scores}
+			if m.MatchID != "" {
+				ext["match_id"] = m.MatchID
+			}
+			if m.Players != nil {
+				ext["players"] = *m.Players
+			}
+			out.Events = append(out.Events, event(e, KindMatchEnded, store.PlayerKey{}, ext))
 		default:
 			out.Unknown = append(out.Unknown, e.Type)
 		}
@@ -100,10 +149,15 @@ func (Feed) Parse(b ingest.Batch) (ingest.Parsed, error) {
 	return out, nil
 }
 
-// event is one stats event of a feed event: keyed by its eventId, with its game time when it had one.
-func event(e wardogs.FeedEvent, kind string, player store.PlayerKey, ext map[string]any) ingest.Event {
+// event is one stats event of a feed event: keyed by its eventId, with its game time when it had
+// one, and the other player (a kill's victim) when there is one.
+func event(e wardogs.FeedEvent, kind string, player store.PlayerKey, ext map[string]any, target ...store.PlayerKey) ingest.Event {
 	if e.HasTime {
 		ext["game_time"] = e.EventTime
 	}
-	return ingest.Event{Key: e.EventID, Kind: kind, Player: player, Extensions: ext}
+	ev := ingest.Event{Key: e.EventID, Kind: kind, Player: player, Extensions: ext}
+	if len(target) > 0 {
+		ev.Target = target[0]
+	}
+	return ev
 }

@@ -1,0 +1,38 @@
+{
+  "events": [
+    {
+      "eventId": "BF338A3B-4905-41D0-AD9F-1401CFCA66DF",
+      "eventTime": 86425.941098406911,
+      "factionScores": [
+        {
+          "faction": "Lonestar",
+          "score": 0
+        },
+        {
+          "faction": "Valkyra",
+          "score": 0
+        },
+        {
+          "faction": "Manticore",
+          "score": 0
+        }
+      ],
+      "mapName": "Kavkazi",
+      "matchId": "054b8989-0234-42bb-878c-96bf4945834c",
+      "players": 0,
+      "randomWinner": true,
+      "type": "match_ended",
+      "winningFaction": "Valkyra"
+    },
+    {
+      "eventId": "2D399828-FFCE-4103-A51E-080688DA53B5",
+      "eventTime": 86425.941098406911,
+      "mapName": "Kavkazi",
+      "matchId": "054b8989-0234-42bb-878c-96bf4945834c",
+      "state": "MatchState.PostMatch",
+      "type": "match_state"
+    }
+  ],
+  "serverId": "00000000-0000-4000-8000-000000000001",
+  "serverName": "Hidden Token Gaming"
+}

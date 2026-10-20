@@ -100,6 +100,11 @@ type Server struct {
 	eventSeq uint64
 	dropped  int
 	inFlight int
+	// delivery is the feed's own counts, as GET /v1/feed reports them.
+	delivery struct {
+		sent, failures, lastStatus int
+		lastSuccess                time.Time
+	}
 }
 
 // player is a regular who is on the server.
@@ -355,7 +360,8 @@ func (s *Server) step(t time.Time) {
 		return
 	}
 	if len(s.online) == 0 {
-		// Everyone left: the match is over without a winner and the server waits again.
+		// Everyone left: the match is over and the server waits again.
+		s.ended(t)
 		s.match.playing = false
 		return
 	}
@@ -478,7 +484,7 @@ func (s *Server) fight(t time.Time) {
 		killer.cash += 150
 		victim.deaths++
 		s.match.scores[killer.faction] += 5
-		s.queue(t, killer.SteamID, victim.SteamID)
+		s.queue(t, killer, victim)
 	}
 }
 
@@ -533,6 +539,9 @@ func (s *Server) score() {
 // scores start again, and the next match waits for its minimum.
 func (s *Server) endMatch(t time.Time) {
 	s.logger.Debug("wardogsim: match ended", "map", s.match.entry.Map, "players", len(s.online), "minutes", int(t.Sub(s.match.startedAt).Minutes()))
+	if s.match.playing {
+		s.ended(t)
+	}
 	s.match.playing = false
 	s.enterRotation(s.match.next)
 	for _, p := range s.online {
@@ -591,6 +600,9 @@ func (s *Server) reboot(t time.Time) {
 	s.online, s.back = nil, map[int]time.Time{}
 	s.live = s.written
 	s.booted, s.restart = t, s.profile.NextRestart(t)
+	// The feed's counts are since the server started (GET /v1/feed). Whether the real server keeps
+	// its queue across a restart is not known; the simulation keeps it.
+	s.dropped, s.delivery.sent, s.delivery.failures = 0, 0, 0
 	s.match.playing = false
 	s.enterRotation(0)
 	s.started(t)

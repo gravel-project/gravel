@@ -207,9 +207,26 @@ type Feed struct {
 	Endpoints     []FeedEndpoint `json:"endpoints"`
 }
 
-// FeedEndpoint is one place the feed posts to. Season 02's server lists none until one is set,
-// so its fields are not yet seen; the raw answer keeps whatever it carries.
-type FeedEndpoint = json.RawMessage
+// FeedEndpoint is one place the feed posts to, and how its delivery is going (Hidden Token
+// Gaming's server, 2026-10-20). The server queues what it could not post and retries, so Queued
+// and InFlight are waiting, not lost; DroppedTotal is what it gave up on. The Url's path and the
+// token are not shown.
+type FeedEndpoint struct {
+	Index  int    `json:"index"`
+	Scheme string `json:"scheme"`
+	Host   string `json:"host"`
+	// Healthy is false from the first failed post to the next good one.
+	Healthy             bool  `json:"healthy"`
+	Queued              int64 `json:"queued"`
+	InFlight            int64 `json:"inFlight"`
+	ConsecutiveFailures int64 `json:"consecutiveFailures"`
+	// SentTotal and DroppedTotal count events since the server started.
+	SentTotal    int64 `json:"sentTotal"`
+	DroppedTotal int64 `json:"droppedTotal"`
+	// LastHTTPStatus is the last post's answer; LastSuccessUnixSeconds when one was last taken.
+	LastHTTPStatus         int   `json:"lastHttpStatus"`
+	LastSuccessUnixSeconds int64 `json:"lastSuccessUnixSeconds"`
+}
 
 // AuditEntry is one admin-log line.
 type AuditEntry struct {

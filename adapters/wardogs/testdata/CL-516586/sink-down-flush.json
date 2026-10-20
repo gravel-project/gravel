@@ -1,0 +1,28 @@
+{
+  "events": [
+    {
+      "eventId": "830161CB-48CD-4B88-BDF9-C2C8115AA71E",
+      "eventTime": 69520.862234435976,
+      "mapName": "Kavkazi",
+      "matchId": "5b36c055-ba7d-4b2b-b179-35c4f2a7dede",
+      "playerId": "00000000-0000-4000-8001-000000000001",
+      "playerName": "Player 2",
+      "playerSteamId": "76561190000000002",
+      "players": 1,
+      "type": "player_joined"
+    },
+    {
+      "eventId": "5585DE1B-4840-4F5A-8C99-C9E7F42C45F3",
+      "eventTime": 69669.963385324925,
+      "mapName": "Kavkazi",
+      "matchId": "5b36c055-ba7d-4b2b-b179-35c4f2a7dede",
+      "playerId": "00000000-0000-4000-8001-000000000001",
+      "playerName": "Player 2",
+      "playerSteamId": "76561190000000002",
+      "players": 0,
+      "type": "player_left"
+    }
+  ],
+  "serverId": "00000000-0000-4000-8000-000000000001",
+  "serverName": "Hidden Token Gaming"
+}

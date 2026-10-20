@@ -46,6 +46,21 @@ type Spec struct {
 	// CloudVM is how the game runs on a VM the hub makes (the cloud-VM driver, ADR-0003); nil for a
 	// game that driver does not run.
 	CloudVM *cloudvm.Profile `yaml:"cloudvm,omitempty"`
+	// Feed is how the game's servers push their events (ADR-0011 §5): what the gap detectors may
+	// assume of it.
+	Feed FeedSpec `yaml:"feed"`
+}
+
+// FeedSpec is how a game's event feed delivers.
+type FeedSpec struct {
+	// Retries is true when a server keeps what it could not post and posts it again later (War
+	// Dogs, deploy#49): a hub that was away has lost nothing the server still holds, so a hub_down
+	// gap is not recorded for it, and the server's own count of what it gave up on (the dropped
+	// gap) is what says a loss.
+	Retries bool `yaml:"retries"`
+	// Kills is true when the feed posts every kill: the reconcile gap compares each match's kills
+	// and deaths from the feed with the poll's.
+	Kills bool `yaml:"kills"`
 }
 
 // Layout is a game's page layout (README, Leaderboards & UI).

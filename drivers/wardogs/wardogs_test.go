@@ -251,3 +251,62 @@ func TestStatusWithoutAServerID(t *testing.T) {
 		t.Errorf("an unset ID: %+v, %v", st.Join, err)
 	}
 }
+
+// The status carries the feed's delivery (GET /v1/feed, Season 02), read at most once a FeedTTL;
+// a feed that is off, or a build without the route, says nothing, and a failed read keeps the
+// last good one.
+func TestStatusCarriesTheFeedDelivery(t *testing.T) {
+	var failing, off atomic.Bool
+	srv := wardogstest.New(t, "../../games/wardogs/testdata/CL-516586", wardogstest.Options{Handle: map[string]http.HandlerFunc{
+		"GET /v1/feed": func(w http.ResponseWriter, _ *http.Request) {
+			switch {
+			case failing.Load():
+				w.WriteHeader(http.StatusInternalServerError)
+			case off.Load():
+				_, _ = io.WriteString(w, `{"enabled":false,"endpointCount":0,"anyUnhealthy":false,"endpoints":[]}`)
+			default:
+				_, _ = io.WriteString(w, `{"enabled":true,"endpointCount":1,"anyUnhealthy":true,"endpoints":[{"index":0,"scheme":"https",
+					"host":"ingest.example.org","healthy":false,"queued":2,"inFlight":1,"consecutiveFailures":7,"sentTotal":4,
+					"droppedTotal":3,"lastHttpStatus":503,"lastSuccessUnixSeconds":1792429805}]}`)
+			}
+		},
+	}})
+	d := newDriver(t, srv, wardogstest.Token)
+	now := time.Date(2026, 10, 20, 12, 30, 0, 0, time.UTC)
+	wardogs.SetNow(d, func() time.Time { return now })
+	ctx := context.Background()
+	feedReads := func() int {
+		n := 0
+		for _, r := range srv.Requests() {
+			if r.Method == http.MethodGet && r.Path == "/v1/feed" {
+				n++
+			}
+		}
+		return n
+	}
+
+	want := []drivers.FeedDelivery{{Host: "ingest.example.org", Queued: 3, Sent: 4, Dropped: 3}}
+	st, err := d.Status(ctx)
+	if err != nil || !slices.Equal(st.Feeds, want) {
+		t.Fatalf("status feeds = %+v, %v", st.Feeds, err)
+	}
+	now = now.Add(wardogs.FeedTTL - time.Second)
+	if _, err := d.Status(ctx); err != nil || feedReads() != 1 {
+		t.Errorf("within the TTL the feed is not read again: %d reads, %v", feedReads(), err)
+	}
+	failing.Store(true)
+	now = now.Add(wardogs.FeedTTL)
+	if st, err := d.Status(ctx); err != nil || !slices.Equal(st.Feeds, want) || feedReads() != 2 {
+		t.Errorf("a failed read: %+v, %v, %d reads", st.Feeds, err, feedReads())
+	}
+	failing.Store(false)
+	off.Store(true)
+	now = now.Add(wardogs.FeedTTL)
+	if st, err := d.Status(ctx); err != nil || st.Feeds != nil {
+		t.Errorf("a feed that is off: %+v, %v", st.Feeds, err)
+	}
+	old := wardogstest.New(t, fixture, wardogstest.Options{})
+	if st, err := newDriver(t, old, wardogstest.Token).Status(ctx); err != nil || st.Feeds != nil {
+		t.Errorf("a build without the route: %+v, %v", st.Feeds, err)
+	}
+}

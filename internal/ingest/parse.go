@@ -32,6 +32,9 @@ const (
 	StatsSchemaVersion = 1
 	// KindGap is a gap's kind (ADR-0011 §5).
 	KindGap = "gap"
+	// KindKill is a kill, whichever game's: its player the killer (none when the world killed),
+	// its target the victim, the same player for a suicide. The reconcile gap counts it.
+	KindKill = "kill"
 
 	parsePage = 100
 )

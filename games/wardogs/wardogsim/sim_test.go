@@ -694,10 +694,11 @@ func TestFeed(t *testing.T) {
 								joins++
 							}
 						}
-						if e.Type == "kill" {
-							var k FeedEvent
-							if err := json.Unmarshal(e.Raw, &k); err != nil || !strings.HasPrefix(k.VictimSteamID, StandInSteamIDPrefix) || k.Distance == nil {
-								t.Errorf("kill %s: %v", e.Raw, err)
+						if e.Type == wardogs.FeedKilled {
+							k, err := e.Kill()
+							if err != nil || !strings.HasPrefix(string(k.VictimSteamID), StandInSteamIDPrefix) || k.MatchID == "" || k.MapName == "" ||
+								(k.KillerSteamID != "" && (k.Distance == nil || k.Cause == "" || k.KillerName == "")) {
+								t.Errorf("killed %s: %v", e.Raw, err)
 							}
 							kills++
 						}

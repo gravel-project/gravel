@@ -13,9 +13,11 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/pprof"
+	"net/url"
 	"os"
 	"regexp"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -568,10 +570,12 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 		if err != nil {
 			return nil, err
 		}
+		specs := servers.Specs()
 		var out []ingest.FeedServer
 		for _, s := range list {
 			if _, ok := parsers[s.Game]; ok && s.Feed != nil {
-				out = append(out, ingest.FeedServer{ID: s.ID, Game: s.Game, Trust: s.Trust})
+				feed := specs[s.Game].Feed
+				out = append(out, ingest.FeedServer{ID: s.ID, Game: s.Game, Trust: s.Trust, Retries: feed.Retries, Kills: feed.Kills})
 			}
 		}
 		return out, nil
@@ -581,6 +585,20 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 			return 0, false
 		}
 		return max(o.Status.Players, len(o.Players)), o.Reachable
+	}, func(server string) (store.FeedDelivery, bool) {
+		o, ok := h.monitor.Observation(server)
+		if !ok || !o.Reachable {
+			return store.FeedDelivery{}, false
+		}
+		def, err := h.servers.Server(context.Background(), server)
+		if err != nil || def.Feed == nil {
+			return store.FeedDelivery{}, false
+		}
+		d, ok := feedDelivery(o.Status.Feeds, def.Feed.URL)
+		if !ok {
+			return store.FeedDelivery{}, false
+		}
+		return store.FeedDelivery{Sent: d.Sent, Dropped: d.Dropped, ObservedAt: o.ObservedAt}, true
 	}, away, h.registry, logger)
 	h.ingest.SetStoredHook(gaps.Stored)
 	h.jobs.Start(jobs.Job{Name: "ingest_gaps", Every: ingest.GapsEvery, Immediate: true, Run: gaps.Run})
@@ -957,3 +975,19 @@ func writeJSON(w http.ResponseWriter, code int, v any) {
 // MetricNames are the names of every metric the hub exposes on its internal listener, including
 // those with no sample yet (docs/hub.md, Observability; the dashboards' drift test reads them).
 func (h *Hub) MetricNames() []string { return h.registry.Names() }
+
+// feedDelivery is the delivery to the hub among a server's feed endpoints: the one whose host is
+// the host of the hub's feed URL, or the only one there is.
+func feedDelivery(feeds []drivers.FeedDelivery, hubURL string) (drivers.FeedDelivery, bool) {
+	if u, err := url.Parse(hubURL); err == nil && u.Hostname() != "" {
+		for _, f := range feeds {
+			if strings.EqualFold(f.Host, u.Hostname()) || strings.EqualFold(f.Host, u.Host) {
+				return f, true
+			}
+		}
+	}
+	if len(feeds) == 1 {
+		return feeds[0], true
+	}
+	return drivers.FeedDelivery{}, false
+}

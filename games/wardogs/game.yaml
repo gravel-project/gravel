@@ -39,6 +39,11 @@ bands:
 # Bulkhead's money rule is narrower than a whole-game flag: never sell earning power (XP, cash).
 # No benefit gravel offers touches either, so the flag stays off.
 no_paid_perks: false
+# The event feed (ADR-0011 §5): the server queues what it could not post and posts it again (it
+# held nine minutes of a 503 and lost nothing, deploy#49), and it posts every kill.
+feed:
+  retries: true
+  kills: true
 layout:
   # A board's columns, in order; the first is what it ranks by. The poll counts kills and deaths
   # per match, so every metric applies.

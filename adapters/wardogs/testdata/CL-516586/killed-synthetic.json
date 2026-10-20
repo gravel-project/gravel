@@ -1,0 +1,78 @@
+{
+  "events": [
+    {
+      "contextTags": [
+        "Meta.Progression.Context.Player.KillContext.Headshot",
+        "Meta.PlayerKillFlag.Player.Local.Kill",
+        "Meta.PlayerKillFlag.Player.Local.Death"
+      ],
+      "cause": "Id.Item.AK74M",
+      "distance": 4512.25,
+      "eventId": "00000000-0000-4000-8002-000000000001",
+      "eventTime": 1200.5,
+      "killerId": "00000000-0000-4000-8001-000000000001",
+      "killerName": "Player 1",
+      "killerSteamId": "76561190000000001",
+      "mapName": "Kavkazi",
+      "matchId": "00000000-0000-4000-8003-000000000001",
+      "type": "killed",
+      "victimId": "00000000-0000-4000-8001-000000000002",
+      "victimName": "Player 2",
+      "victimSteamId": "76561190000000002"
+    },
+    {
+      "contextTags": [
+        "Meta.Progression.Context.Player.KillContext.Falling",
+        "Meta.PlayerKillFlag.Player.Local.Death"
+      ],
+      "eventId": "00000000-0000-4000-8002-000000000002",
+      "eventTime": 1260.75,
+      "mapName": "Kavkazi",
+      "matchId": "00000000-0000-4000-8003-000000000001",
+      "type": "killed",
+      "victimId": "00000000-0000-4000-8001-000000000001",
+      "victimName": "Player 1",
+      "victimSteamId": "76561190000000001"
+    },
+    {
+      "cause": "Id.Item.M67",
+      "contextTags": [
+        "Meta.PlayerKillFlag.Player.Suicide",
+        "Meta.PlayerKillFlag.Player.Local.Kill",
+        "Meta.PlayerKillFlag.Player.Local.Death"
+      ],
+      "eventId": "00000000-0000-4000-8002-000000000003",
+      "eventTime": 1302,
+      "killerId": "00000000-0000-4000-8001-000000000002",
+      "killerName": "Player 2",
+      "killerSteamId": "76561190000000002",
+      "mapName": "Kavkazi",
+      "matchId": "00000000-0000-4000-8003-000000000001",
+      "type": "killed",
+      "victimId": "00000000-0000-4000-8001-000000000002",
+      "victimName": "Player 2",
+      "victimSteamId": "76561190000000002"
+    },
+    {
+      "cause": "Id.Item.BTR80",
+      "contextTags": [
+        "Meta.Progression.Context.Player.KillContext.VehicleExplosion",
+        "Meta.PlayerKillFlag.Player.Local.Kill",
+        "Meta.PlayerKillFlag.Player.Local.Death"
+      ],
+      "eventId": "00000000-0000-4000-8002-000000000004",
+      "eventTime": 1340.25,
+      "killerId": "00000000-0000-4000-8001-000000000002",
+      "killerName": "Player 2",
+      "killerSteamId": "76561190000000002",
+      "mapName": "Kavkazi",
+      "matchId": "00000000-0000-4000-8003-000000000001",
+      "type": "killed",
+      "victimId": "00000000-0000-4000-8001-000000000001",
+      "victimName": "Player 1",
+      "victimSteamId": "76561190000000001"
+    }
+  ],
+  "serverId": "00000000-0000-4000-8000-000000000001",
+  "serverName": "Hidden Token Gaming"
+}

@@ -4998,7 +4998,7 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
-      "description": "stored: kept before the answer; unauthorized: no valid feed token (server unknown); rate_limited, too_large, bad_request: refused; error: not stored, so lost (the sources do not retry). No data is expected when nothing posted to the ingest route in the range.",
+      "description": "stored: kept before the answer; unauthorized: no valid feed token (server unknown); rate_limited, too_large, bad_request: refused; error: not stored (a source that retries, as War Dogs does, posts it again; one that does not has lost it). No data is expected when nothing posted to the ingest route in the range.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -5222,7 +5222,7 @@
       "gravelOptional": "no server sent an event twice in the range",
       "gridPos": {
         "h": 8,
-        "w": 12,
+        "w": 8,
         "x": 0,
         "y": 243
       },
@@ -5258,7 +5258,7 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
-      "description": "Data a feed lost, recorded as gap events (ADR-0011 §5). hub_down: the hub was away while players were on; silence: no batch for ten minutes while ten or more players were on. No data is expected when no feed lost anything in the range.",
+      "description": "Data a feed lost, recorded as gap events (ADR-0011 §5). hub_down: the hub was away while players were on, for a feed that does not retry; silence: no batch for ten minutes while ten or more players were on; dropped: the server gave up on events; reconcile: a match's kills or deaths from the feed fell short of the poll's. No data is expected when no feed lost anything in the range.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -5287,8 +5287,8 @@
       "gravelOptional": "no feed lost anything in the range",
       "gridPos": {
         "h": 8,
-        "w": 12,
-        "x": 12,
+        "w": 8,
+        "x": 8,
         "y": 243
       },
       "id": 90,
@@ -5319,6 +5319,71 @@
       "type": "timeseries"
     },
     {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Events a server said it gave up on posting (War Dogs: GET /v1/feed's droppedTotal, read by the poll). It queues and retries what it could not post, so a slow or absent hub costs nothing until it drops (deploy#49). No data is expected when no server gave up on an event in the range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": ""
+        },
+        "overrides": []
+      },
+      "gravelOptional": "no server gave up on an event in the range",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 243
+      },
+      "id": 91,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (server) (increase(gravel_ingest_dropped_events_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval]))",
+          "legendFormat": "{{server}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Events the server dropped",
+      "type": "timeseries"
+    },
+    {
       "collapsed": false,
       "gridPos": {
         "h": 1,
@@ -5326,7 +5391,7 @@
         "x": 0,
         "y": 251
       },
-      "id": 91,
+      "id": 92,
       "panels": [],
       "title": "Background jobs",
       "type": "row"
@@ -5368,7 +5433,7 @@
         "x": 0,
         "y": 252
       },
-      "id": 92,
+      "id": 93,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5425,7 +5490,7 @@
         "x": 16,
         "y": 252
       },
-      "id": 93,
+      "id": 94,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -5463,7 +5528,7 @@
         "x": 0,
         "y": 260
       },
-      "id": 94,
+      "id": 95,
       "panels": [],
       "title": "Events",
       "type": "row"
@@ -5506,7 +5571,7 @@
         "x": 0,
         "y": 261
       },
-      "id": 95,
+      "id": 96,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5571,7 +5636,7 @@
         "x": 0,
         "y": 269
       },
-      "id": 96,
+      "id": 97,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5636,7 +5701,7 @@
         "x": 12,
         "y": 269
       },
-      "id": 97,
+      "id": 98,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5671,7 +5736,7 @@
         "x": 0,
         "y": 277
       },
-      "id": 98,
+      "id": 99,
       "panels": [],
       "title": "Runtime",
       "type": "row"
@@ -5712,7 +5777,7 @@
         "x": 0,
         "y": 278
       },
-      "id": 99,
+      "id": 100,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5775,7 +5840,7 @@
         "x": 8,
         "y": 278
       },
-      "id": 100,
+      "id": 101,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5838,7 +5903,7 @@
         "x": 16,
         "y": 278
       },
-      "id": 101,
+      "id": 102,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5901,7 +5966,7 @@
         "x": 0,
         "y": 286
       },
-      "id": 102,
+      "id": 103,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -5964,7 +6029,7 @@
         "x": 8,
         "y": 286
       },
-      "id": 103,
+      "id": 104,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -6027,7 +6092,7 @@
         "x": 16,
         "y": 286
       },
-      "id": 104,
+      "id": 105,
       "options": {
         "legend": {
           "displayMode": "list",
