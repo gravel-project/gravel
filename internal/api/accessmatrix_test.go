@@ -56,6 +56,12 @@ func TestAccessMatrix(t *testing.T) {
 	mod := r.user(t, "Mod", "2")
 	r.grant(t, owner.ID, mod.ID, store.RoleModerator)
 	member := r.user(t, "Member", "3")
+	// ADR-0027's other two roles, granted instance-wide. A game-scoped grant needs a game, which
+	// this rig doesn't have: TestGameScopedGrants holds a scoped moderator to their own game.
+	admin := r.user(t, "Admin", "4")
+	r.grant(t, owner.ID, admin.ID, store.RoleAdmin)
+	operator := r.user(t, "Operator", "5")
+	r.grant(t, owner.ID, operator.ID, store.RoleOperator)
 
 	memberScopes := slices.Sorted(func(yield func(string) bool) {
 		for s := range apps.MemberScopes {
@@ -86,6 +92,8 @@ func TestAccessMatrix(t *testing.T) {
 		{"anonymous", fixed(http.DefaultClient)},
 		{"member", session(member.ID)},
 		{"moderator", session(mod.ID)},
+		{"operator", session(operator.ID)},
+		{"admin", session(admin.ID)},
 		{"owner", session(owner.ID)},
 		{"member-token", fixed(memberClient(r.memberToken(t, member.ID, memberScopes, memberScopes...)))},
 		{"moderator-token", fixed(memberClient(r.memberToken(t, mod.ID, memberScopes, memberScopes...)))},
