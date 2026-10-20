@@ -8,6 +8,15 @@ patch release is everything else.
 
 ## [Unreleased]
 
+### Added
+
+- **The feed's gaps are shown** (#3, ADR-0011 §5). `StatsService.ListGaps` reads a server's gaps that began in a window (the last 30 days unless asked, at most 90; the oldest 100, with `more` past that): each one's reason, its window and its counts (the events a `dropped` gap lost; the match, kills, deaths and players a `reconcile` gap found short), never a player. It has the boards' access, and a member's token reads it with `stats:read`. A server's page lists the gaps under "Missing data", each in words, and shows nothing when there are none or the stats are private. The admin dashboard's server page lists them too and says when none were recorded. The boards count from the poll, not the feed, so a gap changes no board and none is shown on one.
+- **The stats sources' conformance test** (#3). `internal/hub`'s `TestStatsSourcesConformance` reads each source with a producer back through the API. The poll's matches reach the combat boards at every scope; the feed's kill events reach no board; a gap is listed by `ListGaps` and counted nowhere else; and an app's participation reaches the participation board only. `platform_api` and `self_report` have no producer yet; their cases come with them (#2). README principle 4 already says what #3 asked of it.
+
+### Changed
+
+- gravel's own quadlet units and the Compose tier pin the **0.10.2** images, verified with cosign 3 against the release workflow at `v0.10.2` (a `v0.10.1` identity refused, the 0.10.1 images as controls): `gravel-hub@sha256:4b25b4c015301d24c57f827eef211e9aadc866a530c8b6e2620f9a5d2b8d296d` (and its `GRAVEL_IMAGE`) and `gravel-bot@sha256:66f69a2b61a049f3a07fff42eff7856d2d62e6133aa8155ae2e00f5c21a36877`. `gravel-postgres` stays: 0.10.2 published none. `docs/hub.md` names 0.10.2 as the tag example.
+
 ## [0.10.2] - 2026-10-20
 
 ### Added

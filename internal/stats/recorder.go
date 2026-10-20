@@ -67,6 +67,7 @@ type Store interface {
 	ParticipationBoard(ctx context.Context, q store.ParticipationBoardQuery) ([]store.ParticipationRow, error)
 	ParticipationKinds(ctx context.Context, orgID uuid.UUID) ([]string, error)
 	ParticipationTotals(ctx context.Context, q store.ParticipationTotalsQuery) ([]store.KindTotals, error)
+	StatsEvents(ctx context.Context, orgID uuid.UUID, serverID, kind string, from, to time.Time, limit int) ([]store.StatsEvent, error)
 }
 
 // Recorder records matches from the monitor's observations; it is the monitor's ObservationSink.

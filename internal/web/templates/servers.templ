@@ -216,6 +216,33 @@ templ serverBody(p ServerPage) {
 		}
 		<p><a href={ templ.SafeURL(p.BoardURL) }>This server's leaderboard</a></p>
 	</section>
+	if len(p.Gaps) > 0 {
+		<section aria-labelledby="gaps-heading">
+			<h2 id="gaps-heading">Missing data</h2>
+			<p class="muted">What this server's event feed is known to have missed in the last 30 days. The leaderboard counts from the hub's own checks of the server, so it isn't affected.</p>
+			<table>
+				<thead>
+					<tr>
+						<th scope="col">From</th>
+						<th scope="col">Length</th>
+						<th scope="col">What happened</th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, g := range p.Gaps {
+						<tr>
+							<td>{ at(g.From) }</td>
+							<td>{ Duration(int(g.To.Sub(g.From).Seconds())) }</td>
+							<td>{ g.What }</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+			if p.GapsMore {
+				<p class="muted">Only the oldest { fmt.Sprint(len(p.Gaps)) } are listed.</p>
+			}
+		</section>
+	}
 	if p.Mod != nil {
 		if p.Host != nil {
 			@HostSection(p)

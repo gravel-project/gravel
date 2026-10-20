@@ -79,6 +79,42 @@ message ListMatchesResponse {
   string next_page_token = 2;
 }
 
+// ListGapsRequest is one server's gaps (ADR-0011 §5) that began in a window: unset to is now, unset
+// from is 30 days before to, and the window is at most 90 days.
+message ListGapsRequest {
+  string server_id = 1;
+  google.protobuf.Timestamp from = 2;
+  google.protobuf.Timestamp to = 3;
+}
+
+// Gap is a span of a server's feed the hub knows it is missing, recorded as a gap instead of
+// counted as nothing. Only counts: a gap never names a player.
+message Gap {
+  // "hub_down" (the hub was away, for a feed that doesn't retry), "silence" (the feed went quiet
+  // in a full match), "dropped" (the server gave up on events) or "reconcile" (the feed's kills
+  // and deaths fell short of the poll's for a match).
+  string reason = 1;
+  google.protobuf.Timestamp from = 2;
+  google.protobuf.Timestamp to = 3;
+  // dropped: how many events the server gave up on.
+  int32 events = 4;
+  // reconcile: the match, and the kills and deaths the feed lacked across how many players.
+  string match_id = 5;
+  int32 kills = 6;
+  int32 deaths = 7;
+  int32 players = 8;
+}
+
+message ListGapsResponse {
+  // Oldest first.
+  repeated Gap gaps = 1;
+  // The window read.
+  google.protobuf.Timestamp from = 2;
+  google.protobuf.Timestamp to = 3;
+  // More gaps began in the window than the answer holds (the first 100 are given).
+  bool more = 4;
+}
+
 message GetBoardNameRequest {}
 
 message GetBoardNameResponse {
@@ -299,6 +335,10 @@ service StatsService {
   // overlap it and the top five by kills. The window is at most 24 hours and must have ended.
   // The same access as GetBoard.
   rpc GetSessionRecap(GetSessionRecapRequest) returns (GetSessionRecapResponse);
+  // ListGaps is the data a server's feed is known to be missing (ADR-0011 §5), oldest first; boards
+  // count from the poll, so a gap says what the feed lacks, not that a board is short. The same
+  // access as GetBoard.
+  rpc ListGaps(ListGapsRequest) returns (ListGapsResponse);
   // ListMatchResults is the series a match plugin reported (MatchZy, ADR-0024), newest first,
   // without their maps and players. Who may GetBoard.
   rpc ListMatchResults(ListMatchResultsRequest) returns (ListMatchResultsResponse);

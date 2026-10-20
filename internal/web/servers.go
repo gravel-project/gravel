@@ -190,6 +190,23 @@ func (h *Handler) server(w http.ResponseWriter, r *http.Request) {
 			sp.Matches = append(sp.Matches, row)
 		}
 	}
+	// The feed's gaps (ADR-0011 §5): the same access as the matches, and nothing shown when they
+	// are private or none were recorded.
+	gaps, err := h.statsAPI.ListGaps(ctx, connect.NewRequest(&hubv1.ListGapsRequest{ServerId: id}))
+	switch connect.CodeOf(err) {
+	case connect.CodeUnauthenticated, connect.CodePermissionDenied:
+		// Private stats: the matches' note already says so.
+	default:
+		if err != nil {
+			h.serverError(w, r, fmt.Errorf("ListGaps: %w", err))
+			return
+		}
+		for _, g := range gaps.Msg.GetGaps() {
+			sp.Gaps = append(sp.Gaps, templates.GapRow{From: g.GetFrom().AsTime(), To: g.GetTo().AsTime(),
+				What: templates.GapWords(g.GetReason(), int(g.GetEvents()), int(g.GetKills()), int(g.GetDeaths()), int(g.GetPlayers()))})
+		}
+		sp.GapsMore = gaps.Msg.GetMore()
+	}
 	if p.User.CanModerate() {
 		sp.Mod = h.modControls(r, id, s.GetStatus().GetCapabilities())
 		if s.GetDriver() == "cloudvm" {
