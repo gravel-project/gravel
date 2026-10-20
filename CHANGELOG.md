@@ -8,6 +8,8 @@ patch release is everything else.
 
 ## [Unreleased]
 
+## [0.10.2] - 2026-10-20
+
 ### Added
 
 - **The War Dogs feed's joins and leaves become stats events** (#4, feed version 2, from Hidden Token Gaming's first session with a player on, 2026-10-18). `player_joined` and `player_left` are the player by SteamID with the map, the match and how many are on after (`players`); the name and the game's own id for the player are not kept. A `match_state` carries the match's id (`match_id`) from the wait for players on. The hub reads every stored batch again at its next start. The fixtures in `adapters/wardogs/testdata/CL-516586/` are now the four real batches, redacted, in place of the reconstructed one. The demo's simulated server posts a join and a leave for each made-up player.
@@ -838,7 +840,8 @@ patch release is everything else.
 
 - README and CLAUDE.md follow ADR-0001: status line, principle 2 (the resource lives in the hub's database), the hub and backup paragraphs, the adapter-repo rule, the local-dev default, and a seven-step build order with the issues behind each step. The launch games are the five Hidden Token Gaming plays, in three shapes, with War Dogs first; the open threads link the design-delta issues #2–#9 (#1).
 
-[Unreleased]: https://github.com/gravel-project/gravel/compare/v0.10.1...HEAD
+[Unreleased]: https://github.com/gravel-project/gravel/compare/v0.10.2...HEAD
+[0.10.2]: https://github.com/gravel-project/gravel/compare/v0.10.1...v0.10.2
 [0.10.1]: https://github.com/gravel-project/gravel/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/gravel-project/gravel/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/gravel-project/gravel/compare/v0.8.1...v0.9.0
