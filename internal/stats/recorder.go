@@ -22,7 +22,7 @@ import (
 )
 
 // SourceServerAdapter is the provenance of counts read from the server itself (ADR-0011).
-const SourceServerAdapter = "server_adapter"
+const SourceServerAdapter = store.SourceServerAdapter
 
 // maxGap is the longest time between two polls that still counts as time on: a longer gap (the
 // hub was down, a poll failed) adds nothing rather than guessing.
@@ -65,7 +65,7 @@ type Store interface {
 	PlayerTotals(ctx context.Context, q store.PlayerTotalsQuery) (store.BoardRow, error)
 	PlayerMatches(ctx context.Context, orgID uuid.UUID, keys []store.PlayerKey, limit int) ([]store.PlayerMatch, error)
 	ParticipationBoard(ctx context.Context, q store.ParticipationBoardQuery) ([]store.ParticipationRow, error)
-	ParticipationKinds(ctx context.Context, orgID uuid.UUID) ([]string, error)
+	ParticipationKinds(ctx context.Context, orgID uuid.UUID, game string) ([]string, error)
 	ParticipationTotals(ctx context.Context, q store.ParticipationTotalsQuery) ([]store.KindTotals, error)
 	StatsEvents(ctx context.Context, orgID uuid.UUID, serverID, kind string, from, to time.Time, limit int) ([]store.StatsEvent, error)
 }

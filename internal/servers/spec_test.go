@@ -14,26 +14,27 @@ import (
 	"github.com/gravel-project/gravel/games/wardogs/wardogstest"
 )
 
-// Every shipped spec parses, the catalog entries have no driver, and each carries its
-// publisher's rules (gravel#8).
+// Every shipped spec parses, the server-less games have no driver, and each carries its
+// publisher's rules (gravel#8) and its sources (gravel#2).
 func TestCatalogSpecs(t *testing.T) {
 	specs := Specs()
 	for _, c := range []struct {
 		id, name, provider string
 		noPaidPerks        bool
+		sources            []string
 	}{
-		{"cs2", "Counter-Strike 2", "steam", true},
-		{"seaofthieves", "Sea of Thieves", "xbox", true},
-		{"starcitizen", "Star Citizen", "rsi", true},
-		{"pubg", "PUBG", "pubg", true},
-		{"wardogs", "War Dogs", "steam", false},
+		{"cs2", "Counter-Strike 2", "steam", true, []string{"server_adapter", "first_party"}},
+		{"seaofthieves", "Sea of Thieves", "xbox", true, []string{"first_party", "self_report"}},
+		{"starcitizen", "Star Citizen", "rsi", true, []string{"first_party", "self_report"}},
+		{"pubg", "PUBG", "pubg", true, []string{"platform_api", "first_party"}},
+		{"wardogs", "War Dogs", "steam", false, []string{"server_adapter", "first_party"}},
 	} {
 		s, ok := specs[c.id]
-		if !ok || s.Name != c.name || s.IdentityProvider != c.provider || s.NoPaidPerks != c.noPaidPerks {
+		if !ok || s.Name != c.name || s.IdentityProvider != c.provider || s.NoPaidPerks != c.noPaidPerks || !slices.Equal(s.Sources, c.sources) {
 			t.Errorf("%s spec = %+v", c.id, s)
 		}
 		if c.id != "wardogs" && c.id != "cs2" && len(s.Drivers) != 0 {
-			t.Errorf("%s has drivers %v; it is a catalog entry", c.id, s.Drivers)
+			t.Errorf("%s has drivers %v; it is a server-less game", c.id, s.Drivers)
 		}
 	}
 	if len(specs["cs2"].Plugins.Deny) == 0 {
@@ -81,7 +82,7 @@ func TestWarDogsBandsAreInTheServersSchema(t *testing.T) {
 }
 
 func TestParseSpecRefusesMalformedRules(t *testing.T) {
-	const head = "id: x\nname: X\nidentity_provider: steam\ndrivers: []\n"
+	const head = "id: x\nname: X\nidentity_provider: steam\ndrivers: []\nsources: [first_party]\n"
 	for name, c := range map[string]struct{ yaml, want string }{
 		"no kind":        {"bands:\n  - {section: S, key: K}\n", "set exactly one of min/max, max_length or hosts"},
 		"two kinds":      {"bands:\n  - {section: S, key: K, max: 3, max_length: 4}\n", "set exactly one of"},
@@ -109,10 +110,25 @@ func TestParseSpecRefusesMalformedRules(t *testing.T) {
 			t.Errorf("%s: err = %v, want %q", name, err, c.want)
 		}
 	}
+	// The sources: present, known, once each, and server_adapter exactly when there are drivers.
+	const bare = "id: x\nname: X\nidentity_provider: steam\n"
+	for name, c := range map[string]struct{ yaml, want string }{
+		"no sources":        {"drivers: []\n", "sources: at least one of server_adapter, platform_api, first_party, self_report"},
+		"empty sources":     {"drivers: []\nsources: []\n", "sources: at least one of"},
+		"unknown source":    {"drivers: []\nsources: [rumour]\n", `sources[0]: "rumour" is not one of`},
+		"source twice":      {"drivers: []\nsources: [first_party, first_party]\n", `sources[1]: "first_party" is listed twice`},
+		"server, no driver": {"drivers: []\nsources: [server_adapter]\n", "server_adapter needs a driver"},
+		"driver, no server": {"drivers: [wardogs]\nsources: [first_party]\n", "a game with drivers takes server_adapter"},
+	} {
+		_, err := ParseSpec([]byte(bare + c.yaml))
+		if err == nil || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("%s: err = %v, want %q", name, err, c.want)
+		}
+	}
 	if _, err := ParseSpec([]byte("id: x\nname: X\ndrivers: []\n")); err == nil {
 		t.Error("a spec without identity_provider parsed")
 	}
-	// No drivers is a catalog entry, and well formed.
+	// No drivers is a server-less game, and well formed.
 	if s, err := ParseSpec([]byte(head)); err != nil || len(s.Drivers) != 0 {
 		t.Errorf("catalog entry = %+v, %v", s, err)
 	}
@@ -143,7 +159,7 @@ func TestCheckPlugins(t *testing.T) {
 	}
 
 	// An allow list permits only its names; the denylist still wins over it.
-	s, err := ParseSpec([]byte("id: x\nname: X\nidentity_provider: steam\nplugins:\n  deny:\n    - {match: skin, reason: no skins}\n  allow: [MatchZy, SkinChanger]\n"))
+	s, err := ParseSpec([]byte("id: x\nname: X\nidentity_provider: steam\nsources: [first_party]\nplugins:\n  deny:\n    - {match: skin, reason: no skins}\n  allow: [MatchZy, SkinChanger]\n"))
 	if err != nil {
 		t.Fatal(err)
 	}

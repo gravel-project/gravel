@@ -16,8 +16,9 @@ const cs2Stats = [
 ];
 
 const games = [
-  { id: "cs2", name: "Counter-Strike 2", statExtensions: cs2Stats },
-  { id: "wardogs", name: "War Dogs", layout: { board: ["kills", "deaths", "kd"] } },
+  { id: "cs2", name: "Counter-Strike 2", statExtensions: cs2Stats, combatBoards: true },
+  { id: "seaofthieves", name: "Sea of Thieves", serverLess: true },
+  { id: "wardogs", name: "War Dogs", layout: { board: ["kills", "deaths", "kd"] }, combatBoards: true },
 ];
 
 const servers = [
@@ -66,6 +67,18 @@ describe("game stats", () => {
     await waitFor(() => { expect(within(table).getByText("Cy")).toBeTruthy(); });
     expect(within(table).getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Rank", "Player", "Kills", "Deaths", "K/D"]);
     expect(screen.getByText(/Private: the boards need stats:read/)).toBeTruthy();
+  });
+
+  it("offers no server-less game, and says so when every game is one", async () => {
+    renderShell({ me: owner, path: "/stats", games, servers, boards, results });
+    const picker = await screen.findByRole("combobox", { name: "Game" });
+    expect(within(picker).getAllByRole("option").map((o) => o.textContent)).toEqual(["Counter-Strike 2", "War Dogs"]);
+  });
+
+  it("says a hub whose games all lack combat boards has none to show", async () => {
+    renderShell({ me: owner, path: "/stats", games: [{ id: "seaofthieves", name: "Sea of Thieves", serverLess: true }] });
+    expect(await screen.findByText(/This hub’s games have no combat boards/)).toBeTruthy();
+    expect(screen.queryByRole("table")).toBeNull();
   });
 
   it("says a private board needs stats:read", async () => {

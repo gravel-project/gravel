@@ -53,6 +53,36 @@ func (r *rig) withServer(t *testing.T) time.Time {
 	return at
 }
 
+// A server-less game enables with no servers and lists with its sources, no combat boards and no
+// driver (gravel#2); a server for it is still refused.
+func TestServerLessGameIsListed(t *testing.T) {
+	r := newRig(t)
+	ctx := context.Background()
+	if _, err := r.srvs.Apply(ctx, servers.Manifest{Games: []servers.GameRef{{ID: "seaofthieves"}}}, servers.ApplyOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	anon := hubv1connect.NewServerServiceClient(http.DefaultClient, r.srv.URL)
+	games, err := anon.ListGames(ctx, connect.NewRequest(&hubv1.ListGamesRequest{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	g := games.Msg.GetGames()
+	if len(g) != 1 || g[0].GetId() != "seaofthieves" || g[0].GetIdentityProvider() != "xbox" || !g[0].GetServerLess() || g[0].GetCombatBoards() ||
+		!slices.Equal(g[0].GetSources(), []string{"first_party", "self_report"}) {
+		t.Errorf("games = %v", g)
+	}
+	list, err := anon.ListServers(ctx, connect.NewRequest(&hubv1.ListServersRequest{}))
+	if err != nil || len(list.Msg.GetServers()) != 0 {
+		t.Errorf("servers = %v, %v", list.Msg.GetServers(), err)
+	}
+	_, err = r.srvs.Apply(ctx, servers.Manifest{Games: []servers.GameRef{{ID: "seaofthieves"}},
+		Servers: []servers.Server{{ID: "sot-1", Name: "SoT", Game: "seaofthieves", Driver: "wardogs", Location: "slc", Endpoint: endpoint,
+			CredentialFile: credFile, Trust: servers.TrustOfficial}}}, servers.ApplyOptions{})
+	if err == nil || !strings.Contains(err.Error(), "Sea of Thieves has no servers") {
+		t.Errorf("a server for a server-less game: %v", err)
+	}
+}
+
 // A team's players are counted from the server's players at the same poll, by the team's key in any
 // case (#159); unset when the hub can't tell.
 func TestServerTeamCounts(t *testing.T) {
@@ -117,6 +147,9 @@ func TestServerReadsArePublicAndCarryNoControlDetails(t *testing.T) {
 	g := games.Msg.GetGames()
 	if len(g) != 1 || g[0].GetId() != "wardogs" || g[0].GetIdentityProvider() != "steam" || len(g[0].GetBands()) != 5 || g[0].GetNoPaidPerks() {
 		t.Errorf("games = %v", g)
+	}
+	if !slices.Equal(g[0].GetSources(), []string{"server_adapter", "first_party"}) || !g[0].GetCombatBoards() || g[0].GetServerLess() {
+		t.Errorf("War Dogs' sources = %v, combat boards %v, server-less %v", g[0].GetSources(), g[0].GetCombatBoards(), g[0].GetServerLess())
 	}
 	for _, b := range g[0].GetBands() {
 		if (b.GetKey() == "ServerImageURL" && len(b.GetHosts()) != 4) || (b.GetKey() == "ServerName" && b.GetMaxLength() != 64) ||

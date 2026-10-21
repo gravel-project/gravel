@@ -466,7 +466,7 @@ func New(ctx context.Context, opts Options) (*Hub, error) {
 	h.stats = stats.NewBoards(st, o.ID, stats.NewNamer(st, o.ID, []byte(cfg.Stats.PseudonymKey), logger), statsSettings, changes)
 	// Participation from first-party apps (ADR-0014) shares the change counter, so its boards are
 	// cached like the combat boards.
-	h.participation = stats.NewParticipation(st, o.ID, h.servers, servers.GameIDs(), statsSettings, changes, h.registry)
+	h.participation = stats.NewParticipation(st, o.ID, h.servers, servers.Specs(), statsSettings, changes, h.registry)
 	// Cloud spend (ADR-0034): each cloud location's bill, where its token may read it, a snapshot
 	// a day, beside the hub's own estimate.
 	h.spend = spend.New(st, o.ID, func(ctx context.Context) ([]spend.Location, error) {

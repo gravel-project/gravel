@@ -25,7 +25,7 @@ import (
 // combat board: they live in tables of their own that no combat board reads.
 
 // SourceFirstParty is the provenance of participation events (ADR-0011).
-const SourceFirstParty = "first_party"
+const SourceFirstParty = store.SourceFirstParty
 
 // ParticipationSchemaVersion is the version of the participation event schema stored with each
 // event; a request's schema_version 0 means this one.
@@ -51,8 +51,9 @@ const (
 	OutcomeInvalid   = "invalid"
 )
 
-// ParticipationProviders are the identity providers a participation event may name: the ones a
-// member can link (internal/identity/providers), so an event can reach a member's profile.
+// ParticipationProviders are the identity providers any participation event may name: the ones a
+// member can link (internal/identity/providers), so an event can reach a member's profile. An event
+// of a game may also name the game's own provider (gravel#2): a Sea of Thieves crew's xbox.
 var ParticipationProviders = org.MappedProviders
 
 // ErrInvalidParticipation is a request with an invalid event; the message names every problem.
@@ -98,16 +99,16 @@ type Participation struct {
 	st       ParticipationStore
 	orgID    uuid.UUID
 	servers  ServerSource
-	games    []string
+	games    map[string]servers.Spec
 	settings SettingsSource
 	changes  *Changes
 	now      func() time.Time
 	events   *prometheus.CounterVec
 }
 
-// NewParticipation builds the recorder and registers its metric. games are the games this hub
-// ships (servers.GameIDs); changes is bumped when an event is stored, for the boards' cache.
-func NewParticipation(st ParticipationStore, orgID uuid.UUID, srv ServerSource, games []string, settings SettingsSource, changes *Changes, reg prometheus.Registerer) *Participation {
+// NewParticipation builds the recorder and registers its metric. games are the specs this hub
+// ships (servers.Specs); changes is bumped when an event is stored, for the boards' cache.
+func NewParticipation(st ParticipationStore, orgID uuid.UUID, srv ServerSource, games map[string]servers.Spec, settings SettingsSource, changes *Changes, reg prometheus.Registerer) *Participation {
 	p := &Participation{st: st, orgID: orgID, servers: srv, games: games, settings: settings, changes: changes, now: time.Now,
 		events: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Name: "gravel_participation_events_total",
@@ -161,6 +162,16 @@ func (p *Participation) Record(ctx context.Context, appID uuid.UUID, events []Pa
 	return out, nil
 }
 
+// providers are the identity providers an event of a game may name: ParticipationProviders, and
+// the game's own; ParticipationProviders alone for no game, or one the hub doesn't ship.
+func (p *Participation) providers(game string) []string {
+	spec, ok := p.games[game]
+	if !ok || slices.Contains(ParticipationProviders, spec.IdentityProvider) {
+		return ParticipationProviders
+	}
+	return append(slices.Clone(ParticipationProviders), spec.IdentityProvider)
+}
+
 // count counts events under an outcome, by kind ("invalid" for a kind that is not well formed, so
 // a bad sender cannot grow the label set).
 func (p *Participation) count(events []ParticipationEvent, outcome string) {
@@ -201,9 +212,6 @@ func (p *Participation) check(ctx context.Context, appID uuid.UUID, events []Par
 			bad(i, "identity", "required")
 		} else {
 			row.Provider, row.Subject = e.Identity.Provider, e.Identity.Subject
-			if !slices.Contains(ParticipationProviders, e.Identity.Provider) {
-				bad(i, "identity.provider", "%s is not one of %s", quote(e.Identity.Provider), strings.Join(ParticipationProviders, ", "))
-			}
 			switch n := utf8.RuneCountInString(e.Identity.Subject); {
 			case n == 0:
 				bad(i, "identity.subject", "required")
@@ -213,7 +221,7 @@ func (p *Participation) check(ctx context.Context, appID uuid.UUID, events []Par
 				bad(i, "identity.subject", "must not hold control characters")
 			}
 		}
-		if e.GameID != "" && !slices.Contains(p.games, e.GameID) {
+		if _, ok := p.games[e.GameID]; e.GameID != "" && !ok {
 			bad(i, "game_id", "%s is not a game this hub ships", quote(e.GameID))
 		}
 		if e.ServerID != "" {
@@ -237,6 +245,13 @@ func (p *Participation) check(ctx context.Context, appID uuid.UUID, events []Par
 			default:
 				row.GameID = game
 			}
+		}
+		// The game, named or the server's, decides what else the event may be (gravel#2).
+		if spec, ok := p.games[row.GameID]; ok && !spec.Accepts(SourceFirstParty) {
+			bad(i, "game_id", "%s takes no participation: its stats come from %s", spec.Name, strings.Join(spec.Sources, ", "))
+		}
+		if allowed := p.providers(row.GameID); e.Identity != nil && !slices.Contains(allowed, e.Identity.Provider) {
+			bad(i, "identity.provider", "%s is not one of %s", quote(e.Identity.Provider), strings.Join(allowed, ", "))
 		}
 		switch n := utf8.RuneCountInString(e.Session); {
 		case n > MaxParticipationSess:

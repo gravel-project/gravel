@@ -68,7 +68,10 @@ export function Stats() {
   const servers = useClient(ServerService);
   const games = useQuery({ queryKey: ["games"], queryFn: ({ signal }) => servers.listGames({}, { signal }), staleTime: Infinity, refetchInterval: false });
   const [picked, setPicked] = useState("");
-  const list = games.data?.games ?? [];
+  // A game whose stats make no combat board (a server-less game's participation, gravel#2) has
+  // nothing to rank here.
+  const all = games.data?.games ?? [];
+  const list = all.filter((g) => g.combatBoards);
   const game = list.find((g) => g.id === picked) ?? list[0];
   return (
     <>
@@ -82,8 +85,10 @@ export function Stats() {
         <p role="status" className="text-muted">
           Loading the games…
         </p>
-      ) : !game ? (
+      ) : all.length === 0 ? (
         <p>This hub runs no game yet: name one in servers.yaml.</p>
+      ) : !game ? (
+        <p>This hub’s games have no combat boards: their stats are their communities’ participation, on each game’s page.</p>
       ) : (
         <>
           {list.length > 1 && (

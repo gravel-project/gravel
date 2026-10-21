@@ -72,7 +72,7 @@ var partNow = time.Date(2026, 10, 14, 3, 0, 0, 0, time.UTC)
 func newParticipation(t *testing.T) (*Participation, *partStore, *knownServers, *Changes) {
 	t.Helper()
 	st, srv, changes := &partStore{}, &knownServers{games: map[string]string{"wd-1": "wardogs"}}, &Changes{}
-	p := NewParticipation(st, uuid.New(), srv, []string{"cs2", "wardogs"}, func(context.Context) (org.Stats, error) {
+	p := NewParticipation(st, uuid.New(), srv, servers.Specs(), func(context.Context) (org.Stats, error) {
 		return org.Stats{Timezone: "America/Chicago"}, nil
 	}, changes, prometheus.NewRegistry())
 	p.now = func() time.Time { return partNow }
@@ -118,6 +118,12 @@ func TestRecordParticipationValidation(t *testing.T) {
 		{"an unknown server", func(e *ParticipationEvent) { e.ServerID = "nope" }, `server_id: "nope" is not a server this hub knows`},
 		{"a server and another game", func(e *ParticipationEvent) { e.ServerID, e.GameID = "wd-1", "cs2" }, `game_id: "cs2" is not the game of server "wd-1" (wardogs)`},
 		{"a server and its game", func(e *ParticipationEvent) { e.ServerID, e.GameID = "wd-1", "wardogs" }, ""},
+		// A game's own identity provider is accepted for its events only (gravel#2).
+		{"an Xbox identity of Sea of Thieves", func(e *ParticipationEvent) { e.GameID, e.Identity.Provider = "seaofthieves", "xbox" }, ""},
+		{"a Steam identity of Sea of Thieves", func(e *ParticipationEvent) { e.GameID = "seaofthieves" }, ""},
+		{"an Xbox identity of War Dogs", func(e *ParticipationEvent) { e.GameID, e.Identity.Provider = "wardogs", "xbox" }, `identity.provider: "xbox" is not one of discord, steam`},
+		{"an Xbox identity on a War Dogs server", func(e *ParticipationEvent) { e.ServerID, e.Identity.Provider = "wd-1", "xbox" }, `identity.provider: "xbox" is not one of discord, steam`},
+		{"an RSI identity of Sea of Thieves", func(e *ParticipationEvent) { e.GameID, e.Identity.Provider = "seaofthieves", "rsi" }, `identity.provider: "rsi" is not one of discord, steam, xbox`},
 		{"a long session", func(e *ParticipationEvent) { e.Session = strings.Repeat("s", 129) }, "session: 129 characters, at most 128"},
 		{"a session with a control character", func(e *ParticipationEvent) { e.Session = "muster\t42" }, "session: must not hold control characters"},
 		{"a session at the limit", func(e *ParticipationEvent) { e.Session = strings.Repeat("é", 128) }, ""},
@@ -152,6 +158,28 @@ func TestRecordParticipationValidation(t *testing.T) {
 				t.Errorf("a refused request stored %v (%v)", st.rows, got)
 			}
 		})
+	}
+}
+
+// A game whose sources don't include first_party takes no participation (gravel#2), whether the
+// event names it or its server.
+func TestRecordParticipationRefusesAGameWithoutIt(t *testing.T) {
+	p, st, srv, _ := newParticipation(t)
+	p.games = map[string]servers.Spec{"claims": {ID: "claims", Name: "Claims", IdentityProvider: "steam", Sources: []string{"self_report"}}}
+	srv.games["c-1"] = "claims"
+	for _, edit := range []func(e *ParticipationEvent){
+		func(e *ParticipationEvent) { e.GameID = "claims" },
+		func(e *ParticipationEvent) { e.ServerID = "c-1" },
+	} {
+		e := seeding("k-1")
+		edit(&e)
+		_, err := p.Record(context.Background(), uuid.New(), []ParticipationEvent{e})
+		if !errors.Is(err, ErrInvalidParticipation) || !strings.Contains(err.Error(), "events[0].game_id: Claims takes no participation: its stats come from self_report") {
+			t.Errorf("err = %v", err)
+		}
+	}
+	if len(st.rows) != 0 {
+		t.Errorf("stored %v", st.rows)
 	}
 }
 
@@ -274,7 +302,7 @@ type partBoardStore struct {
 	tq     []store.ParticipationTotalsQuery
 }
 
-func (p *partBoardStore) ParticipationKinds(context.Context, uuid.UUID) ([]string, error) {
+func (p *partBoardStore) ParticipationKinds(context.Context, uuid.UUID, string) ([]string, error) {
 	return p.kinds, nil
 }
 

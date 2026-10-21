@@ -37,6 +37,15 @@ message Game {
   // The game's own stats beyond kills and deaths (the Game spec's stats.extensions, ADR-0033), in
   // the order the pages show them.
   repeated StatExtension stat_extensions = 7;
+  // Where the game's stats may come from (the Game spec's sources, gravel#2): "server_adapter",
+  // "platform_api", "first_party", "self_report".
+  repeated string sources = 8;
+  // The game can have combat boards: one of its sources feeds them (ADR-0011's trust mapping). A
+  // server-less game whose stats are only participation and claims has none; its pages show its
+  // participation instead.
+  bool combat_boards = 9;
+  // The game has no driver, so no servers (gravel#2).
+  bool server_less = 10;
 }
 
 // StatExtension is one of a game's own stats, declarative data from its Game spec (ADR-0033): a

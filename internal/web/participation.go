@@ -16,14 +16,17 @@ import (
 // first-party apps record (seeding a server, attending an event). Like the leaderboards they read
 // the hub's own API in process, and the API decides who may see them.
 
-// participationQuery is a participation page's query string: kind (empty: the first recorded),
-// window ("all", "week", "month", "season:<name>") and the page token.
+// participationQuery is a participation page's query string: game (empty: every game), kind
+// (empty: the first recorded), window ("all", "week", "month", "season:<name>") and the page token.
 type participationQuery struct {
-	kind, window, page string
+	game, kind, window, page string
 }
 
 func (q participationQuery) url(page string) string {
 	v := url.Values{}
+	if q.game != "" {
+		v.Set("game", q.game)
+	}
 	if q.kind != "" {
 		v.Set("kind", q.kind)
 	}
@@ -41,20 +44,38 @@ func (q participationQuery) url(page string) string {
 
 func (h *Handler) participation(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
-	q := participationQuery{kind: qs.Get("kind"), window: qs.Get("window"), page: qs.Get("page")}
+	q := participationQuery{game: qs.Get("game"), kind: qs.Get("kind"), window: qs.Get("window"), page: qs.Get("page")}
 	if q.window == "" {
 		q.window = "all"
+	}
+	games, _, err := h.gamesAndServers(r)
+	if err != nil {
+		h.serverError(w, r, err)
+		return
+	}
+	g, known := games[q.game]
+	if q.game != "" && !known {
+		h.fail(w, r, http.StatusNotFound, "No such board", "This hub has no game by that name.")
+		return
 	}
 	p, b, err := h.page(r, "Participation")
 	if err != nil {
 		h.serverError(w, r, err)
 		return
 	}
-	pp := templates.ParticipationPage{Page: p.Page}
+	pp := templates.ParticipationPage{Page: p.Page, Heading: "Participation"}
+	if known {
+		pp.Heading = g.GetName() + " participation"
+		withGame(&pp.Page, q.game, g.GetName())
+	}
+	pp.Games = append(pp.Games, templates.Option{Value: "", Label: "Every game", Selected: q.game == ""})
+	for _, id := range sortedGameIDs(games) {
+		pp.Games = append(pp.Games, templates.Option{Value: id, Label: games[id].GetName(), Selected: q.game == id})
+	}
 	ctx, _ := withBrowser(r)
 	windows, loc := h.windowOptions(ctx, q.window)
 	pp.Windows = windows
-	req := &hubv1.GetParticipationBoardRequest{Kind: q.kind, PageSize: boardPageSize, PageToken: q.page}
+	req := &hubv1.GetParticipationBoardRequest{Kind: q.kind, GameId: q.game, PageSize: boardPageSize, PageToken: q.page}
 	req.Window, req.Season = windowOf(q.window)
 
 	resp, err := h.statsAPI.GetParticipationBoard(ctx, connect.NewRequest(req))
@@ -75,7 +96,7 @@ func (h *Handler) participation(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 		if !slices.Contains(m.GetKinds(), m.GetKind()) {
-			h.fail(w, r, http.StatusNotFound, "No such board", "Nothing of that kind has been recorded on this hub.")
+			h.fail(w, r, http.StatusNotFound, "No such board", "Nothing of that kind has been recorded here.")
 			return
 		}
 		for _, k := range m.GetKinds() {

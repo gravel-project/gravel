@@ -215,7 +215,7 @@ func (a11yFleet) ListServers(context.Context, *connect.Request[hubv1.ListServers
 }
 
 func (a11yFleet) ListGames(context.Context, *connect.Request[hubv1.ListGamesRequest]) (*connect.Response[hubv1.ListGamesResponse], error) {
-	return connect.NewResponse(&hubv1.ListGamesResponse{Games: []*hubv1.Game{{Id: "wardogs", Name: "War Dogs"}, {Id: "cs2", Name: "Counter-Strike 2"}}}), nil
+	return connect.NewResponse(&hubv1.ListGamesResponse{Games: []*hubv1.Game{{Id: "wardogs", Name: "War Dogs", CombatBoards: true}, {Id: "cs2", Name: "Counter-Strike 2", CombatBoards: true}}}), nil
 }
 
 // a11yFleet is a fleet with every health and both alarm severities, so the fleet page (gravel#192)
@@ -488,7 +488,8 @@ func TestAccessibility(t *testing.T) {
 		"/fixture/participation": func() templ.Component {
 			p := base
 			p.Title = "Participation"
-			return templates.Participation(templates.ParticipationPage{Page: p, Kind: "Seeding", Range: "Oct 5, 2026 to Oct 11, 2026", NextURL: "/participation?page=x",
+			return templates.Participation(templates.ParticipationPage{Page: p, Heading: "Participation", Kind: "Seeding", Range: "Oct 5, 2026 to Oct 11, 2026", NextURL: "/participation?page=x",
+				Games:   []templates.Option{{Value: "", Label: "Every game", Selected: true}, {Value: "seaofthieves", Label: "Sea of Thieves"}},
 				Kinds:   []templates.Option{{Value: "attendance", Label: "Attendance"}, {Value: "seeding", Label: "Seeding", Selected: true}},
 				Windows: []templates.Option{{Value: "all", Label: "All time"}, {Value: "week", Label: "This week", Selected: true}},
 				Rows: []templates.ParticipationRow{{Rank: 1, Name: "Brave Falcon", Pseudonymous: true, Time: "2h 05m", Times: 5},
@@ -511,10 +512,45 @@ func TestAccessibility(t *testing.T) {
 			p.Title = online.Name + " recap"
 			return templates.Recap(templates.RecapPage{Page: p, ServerID: online.ID, ServerName: online.Name, BoardURL: "/boards", Window: "Wed Oct 7, 2026, 18:00 to 22:00 CDT"})
 		},
+		// The games (gravel#2): the list, a game with servers, and a server-less game's page.
+		"/fixture/games": func() templ.Component {
+			p := base
+			p.Title = "Games"
+			return templates.Games(templates.GamesPage{Page: p, Games: []templates.GameRow{
+				{ID: "seaofthieves", Name: "Sea of Thieves", Summary: "No game servers: its community's participation"},
+				{ID: "wardogs", Name: "War Dogs", Summary: "2 servers"}}})
+		},
+		"/fixture/game": func() templ.Component {
+			p := base
+			p.Title = "War Dogs"
+			p.Game = &templates.Game{ID: "wardogs", Name: "War Dogs"}
+			return templates.GameHome(templates.GamePage{Page: p, Name: "War Dogs", Servers: []templates.ServerRow{online}, Ranked: true,
+				Board: &templates.GameBoard{URL: "/boards?scope=game%3Awardogs",
+					Columns: []templates.BoardColumn{{Metric: "kills", Label: "Kills", Sorted: true}, {Metric: "deaths", Label: "Deaths"}, {Metric: "kd", Label: "K/D"}},
+					Rows: []templates.BoardRow{{Rank: 1, Name: "Brave Falcon", Pseudonymous: true, Cells: []string{"42", "10", "4.20"}},
+						{Rank: 2, Name: "Jo", UserID: "u1", Cells: []string{"30", "12", "2.50"}}}},
+				Activities: []templates.Activity{{Label: "Seeding", URL: "/participation?game=wardogs&kind=seeding",
+					Rows: []templates.ParticipationRow{{Rank: 1, Name: "Jo", UserID: "u1", Time: "2h 05m", Times: 5}}}}})
+		},
+		"/fixture/game-server-less": func() templ.Component {
+			p := base
+			p.Title = "Sea of Thieves"
+			p.Game = &templates.Game{ID: "seaofthieves", Name: "Sea of Thieves"}
+			return templates.GameHome(templates.GamePage{Page: p, Name: "Sea of Thieves", ServerLess: true, Ranked: true,
+				Activities: []templates.Activity{
+					{Label: "Crew", URL: "/participation?game=seaofthieves&kind=crew", Rows: []templates.ParticipationRow{{Rank: 1, Name: "Brave Falcon", Pseudonymous: true, Time: "4h 10m", Times: 3}}},
+					{Label: "Voyage", URL: "/participation?game=seaofthieves&kind=voyage", Rows: []templates.ParticipationRow{{Rank: 1, Name: "Jo", UserID: "u1", Time: "1h 00m", Times: 1}}}}})
+		},
+		"/fixture/game-empty": func() templ.Component {
+			p := base
+			p.Title = "Star Citizen"
+			p.Game = &templates.Game{ID: "starcitizen", Name: "Star Citizen"}
+			return templates.GameHome(templates.GamePage{Page: p, Name: "Star Citizen", ServerLess: true})
+		},
 		"/fixture/participation-empty": func() templ.Component {
 			p := base
 			p.Title = "Participation"
-			return templates.Participation(templates.ParticipationPage{Page: p, Empty: true})
+			return templates.Participation(templates.ParticipationPage{Page: p, Heading: "Participation", Empty: true})
 		},
 		"/fixture/member-participation": func() templ.Component {
 			p := base
@@ -663,7 +699,7 @@ func TestAccessibility(t *testing.T) {
 	paths := []string{"/login", "/fixture/account-unowned", "/fixture/account-owner", "/fixture/error",
 		"/fixture/account-nominated", "/fixture/account-handover",
 		"/fixture/servers", "/fixture/servers-demo", "/fixture/server", "/fixture/server-anonymous", "/fixture/server-game-overlay", "/fixture/boards", "/fixture/member-self", "/fixture/member",
-		"/fixture/participation", "/fixture/participation-empty", "/fixture/member-participation", "/fixture/recap", "/fixture/recap-nobody",
+		"/fixture/participation", "/fixture/participation-empty", "/fixture/member-participation", "/fixture/games", "/fixture/game", "/fixture/game-server-less", "/fixture/game-empty", "/fixture/recap", "/fixture/recap-nobody",
 		"/fixture/server-moderator", "/fixture/server-host", "/fixture/server-host-parked", "/fixture/host-confirm", "/fixture/confirm", "/fixture/log", "/fixture/account-apps", "/fixture/consent",
 		"/fixture/account-proof", "/fixture/proof", "/fixture/proof-proven", "/fixture/host-expect", "/fixture/result",
 		"/fixture/login-local", "/fixture/register", "/fixture/account-local", "/fixture/reset",

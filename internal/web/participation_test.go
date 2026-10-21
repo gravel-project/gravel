@@ -21,6 +21,7 @@ func (f *fakeStats) GetParticipationBoard(_ context.Context, req *connect.Reques
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.partLast = req.Msg
+	f.partAll = append(f.partAll, req.Msg)
 	if f.partErr != 0 {
 		return nil, connect.NewError(f.partErr, errors.New("no season named \"Nope\""))
 	}

@@ -9,17 +9,34 @@ templ Participation(p ParticipationPage) {
 	}
 }
 
-// ParticipationContent is a participation board with its kind and window; the form works
+// ParticipationContent is a participation board with its game, kind and window; the form works
 // without htmx.
 templ ParticipationContent(p ParticipationPage) {
+	@GameScope(p.Game) {
+		@participationBody(p)
+	}
+}
+
+// participationBody is ParticipationContent inside its game's overlay.
+templ participationBody(p ParticipationPage) {
 	@FlashView(p.Flash)
-	<h1>Participation</h1>
+	<h1>{ p.Heading }</h1>
 	<p><a href="/boards">Leaderboards</a></p>
 	if p.Empty {
 		<p class="muted">Nothing has been recorded yet. Participation, such as seeding a server or attending an event, comes from the community's own apps.</p>
 	} else {
 		if len(p.Kinds) > 0 {
 			<form method="get" action="/participation" class="filters" hx-get="/participation" hx-target="#page" hx-push-url="true">
+				if len(p.Games) > 0 {
+					<div>
+						<label for="game">Game</label>
+						<select id="game" name="game">
+							for _, o := range p.Games {
+								<option value={ o.Value } selected?={ o.Selected }>{ o.Label }</option>
+							}
+						</select>
+					</div>
+				}
 				<div>
 					<label for="kind">Activity</label>
 					<select id="kind" name="kind">
@@ -47,40 +64,45 @@ templ ParticipationContent(p ParticipationPage) {
 		} else if len(p.Rows) == 0 {
 			<p class="muted">Nobody has taken part in this window yet.</p>
 		} else {
-			<table class="board">
-				<caption>{ p.Kind }</caption>
-				<thead>
-					<tr>
-						<th scope="col" class="num">#</th>
-						<th scope="col">Player</th>
-						<th scope="col" class="num" aria-sort="descending">Time ▼</th>
-						<th scope="col" class="num">Times</th>
-					</tr>
-				</thead>
-				<tbody>
-					for _, r := range p.Rows {
-						<tr>
-							<td class="num">{ fmt.Sprint(r.Rank) }</td>
-							<td>
-								if r.UserID != "" {
-									<a href={ templ.SafeURL("/members/" + r.UserID) }>{ r.Name }</a>
-								} else {
-									{ r.Name }
-								}
-								if !r.Pseudonymous {
-									<span class="badge">member</span>
-								}
-							</td>
-							<td class="num">{ r.Time }</td>
-							<td class="num">{ fmt.Sprint(r.Times) }</td>
-						</tr>
-					}
-				</tbody>
-			</table>
+			@ParticipationTable(p.Kind, p.Rows)
 			<p class="muted">Players who haven't linked an account, or chose not to show their name, appear under a pseudonym.</p>
 			if p.NextURL != "" {
 				<p><a href={ templ.SafeURL(p.NextURL) } hx-get={ p.NextURL } hx-target="#page" hx-push-url="true">Next page</a></p>
 			}
 		}
 	}
+}
+
+// ParticipationTable is a participation board's table: who took part, for how long and how often.
+templ ParticipationTable(caption string, rows []ParticipationRow) {
+	<table class="board">
+		<caption>{ caption }</caption>
+		<thead>
+			<tr>
+				<th scope="col" class="num">#</th>
+				<th scope="col">Player</th>
+				<th scope="col" class="num" aria-sort="descending">Time ▼</th>
+				<th scope="col" class="num">Times</th>
+			</tr>
+		</thead>
+		<tbody>
+			for _, r := range rows {
+				<tr>
+					<td class="num">{ fmt.Sprint(r.Rank) }</td>
+					<td>
+						if r.UserID != "" {
+							<a href={ templ.SafeURL("/members/" + r.UserID) }>{ r.Name }</a>
+						} else {
+							{ r.Name }
+						}
+						if !r.Pseudonymous {
+							<span class="badge">member</span>
+						}
+					</td>
+					<td class="num">{ r.Time }</td>
+					<td class="num">{ fmt.Sprint(r.Times) }</td>
+				</tr>
+			}
+		</tbody>
+	</table>
 }

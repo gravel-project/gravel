@@ -232,3 +232,13 @@ Two more constraints. The feed's format is unverified: S1 (deploy#49) is meant t
   and the game pages when the feed's events do (#17). The sources' conformance is
   `internal/hub`'s `TestStatsSourcesConformance`, for the sources with a producer (`server_adapter`
   from the poll and the feed, `first_party`); `platform_api` and `self_report` come with theirs (#2).
+- **2026-10-21, sources per game (gravel#2).** Each Game spec now says which sources its stats may
+  come from (`sources`), and the hub refuses an event from any other: a participation event for a
+  game without `first_party` is invalid. A spec is checked when gravel builds, with
+  `server_adapter` exactly when it has drivers, so a server-less game can never have a
+  server-reported event. The trust mapping by source is now one function, `stats.Feeds`
+  (`server_adapter` and `platform_api` feed the combat boards, `first_party` the participation
+  boards, `self_report` and anything unknown nothing until reviewed), and `stats.CombatBoards` says
+  whether a game can have combat boards at all (`ListGames`' `combat_boards`). The mapping by trust
+  stays the boards' own. `platform_api` and `self_report` still have no producer: PUBG's API stats
+  and the self-report review flow bring theirs, with their conformance cases.

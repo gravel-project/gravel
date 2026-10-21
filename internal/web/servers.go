@@ -264,12 +264,12 @@ func (h *Handler) boards(w http.ResponseWriter, r *http.Request) {
 	req := &hubv1.GetBoardRequest{PageSize: boardPageSize, PageToken: q.page}
 	columns := defaultBoard
 	bp.Scopes = append(bp.Scopes, templates.Option{Value: "", Label: "Everyone (official servers)", Selected: q.scope == ""})
-	gameIDs := make([]string, 0, len(games))
-	for id := range games {
-		gameIDs = append(gameIDs, id)
-	}
-	slices.Sort(gameIDs)
-	for _, id := range gameIDs {
+	// A game whose stats make no combat board (a server-less game's participation, gravel#2) has
+	// no scope here: its page shows its participation.
+	for _, id := range sortedGameIDs(games) {
+		if !games[id].GetCombatBoards() {
+			continue
+		}
 		v := "game:" + id
 		bp.Scopes = append(bp.Scopes, templates.Option{Value: v, Label: games[id].GetName(), Selected: q.scope == v})
 	}
@@ -284,6 +284,10 @@ func (h *Handler) boards(w http.ResponseWriter, r *http.Request) {
 		g, ok := games[id]
 		if !ok {
 			h.fail(w, r, http.StatusNotFound, "No such board", "This hub has no game by that name.")
+			return
+		}
+		if !g.GetCombatBoards() {
+			h.fail(w, r, http.StatusNotFound, "No such board", g.GetName()+" has no leaderboard: its stats are its community's participation, on its game page.")
 			return
 		}
 		req.GameId, bp.Heading = id, g.GetName()+" leaderboard"

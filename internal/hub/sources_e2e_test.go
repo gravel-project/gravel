@@ -36,7 +36,8 @@ import (
 //   - first_party, an app's participation: on the participation board only (ADR-0014).
 //
 // platform_api (a publisher's API, PUBG) and self_report (Sea of Thieves and Star Citizen
-// milestones) have no producer yet; their cases come with them (gravel#2).
+// milestones) have no producer yet; their cases come with them (PUBG's API stats, the self-report
+// review flow). Which sources a game takes is its spec's (gravel#2, TestServerLessGame).
 func TestStatsSourcesConformance(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Stats.PseudonymKey = "a test pseudonym key, at least 32 bytes long"

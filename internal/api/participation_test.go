@@ -39,12 +39,12 @@ func (f *fakeStatsStore) RecordParticipation(_ context.Context, events []store.P
 	return out, nil
 }
 
-func (f *fakeStatsStore) ParticipationKinds(context.Context, uuid.UUID) ([]string, error) {
+func (f *fakeStatsStore) ParticipationKinds(_ context.Context, _ uuid.UUID, game string) ([]string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	var kinds []string
 	for _, e := range f.events {
-		if !slices.Contains(kinds, e.Kind) {
+		if (game == "" || e.GameID == game) && !slices.Contains(kinds, e.Kind) {
 			kinds = append(kinds, e.Kind)
 		}
 	}

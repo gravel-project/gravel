@@ -73,7 +73,7 @@ func (b *Boards) participationBoard(ctx context.Context, q ParticipationQuery) (
 	if err != nil {
 		return ParticipationBoard{}, err
 	}
-	kinds, err := b.st.ParticipationKinds(ctx, b.orgID)
+	kinds, err := b.st.ParticipationKinds(ctx, b.orgID, game)
 	if err != nil {
 		return ParticipationBoard{}, err
 	}

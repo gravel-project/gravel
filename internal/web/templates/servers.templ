@@ -21,21 +21,31 @@ templ ServersContent(p ServersPage) {
 	} else {
 		<ul class="cards">
 			for _, s := range p.Servers {
-				<li class="card">
-					<h2><a href={ templ.SafeURL("/servers/" + s.ID) }>{ s.Name }</a></h2>
-					<p class="meta">
-						{ s.Game }
-						if s.Official {
-							<span class="badge">official</span>
-						} else {
-							<span class="badge badge-muted">community</span>
-						}
-					</p>
-					@StateLine(s)
-				</li>
+				@ServerCard(s, "h2")
 			}
 		</ul>
 	}
+}
+
+// ServerCard is a server in a list of cards: its name linking to its page, its game, its trust and
+// its state. heading is the name's element, h2 or h3, for the page's outline.
+templ ServerCard(s ServerRow, heading string) {
+	<li class="card">
+		if heading == "h3" {
+			<h3><a href={ templ.SafeURL("/servers/" + s.ID) }>{ s.Name }</a></h3>
+		} else {
+			<h2><a href={ templ.SafeURL("/servers/" + s.ID) }>{ s.Name }</a></h2>
+		}
+		<p class="meta">
+			{ s.Game }
+			if s.Official {
+				<span class="badge">official</span>
+			} else {
+				<span class="badge badge-muted">community</span>
+			}
+		</p>
+		@StateLine(s)
+	</li>
 }
 
 // StateLine is a server's state word, players and map on one line.
@@ -369,39 +379,49 @@ templ boardsBody(p BoardsPage) {
 	} else if len(p.Rows) == 0 {
 		<p class="muted">Nobody has played in this window yet.</p>
 	} else {
-		<table class="board">
-			<thead>
-				<tr>
-					<th scope="col" class="num">#</th>
-					<th scope="col">Player</th>
-					for _, c := range p.Columns {
-						if c.Sorted {
-							<th scope="col" class="num" aria-sort="descending"><a href={ templ.SafeURL(c.URL) } hx-get={ c.URL } hx-target="#page" hx-push-url="true">{ c.Label } ▼</a></th>
-						} else {
-							<th scope="col" class="num"><a href={ templ.SafeURL(c.URL) } hx-get={ c.URL } hx-target="#page" hx-push-url="true">{ c.Label }</a></th>
-						}
-					}
-				</tr>
-			</thead>
-			<tbody>
-				for _, r := range p.Rows {
-					<tr>
-						<td class="num">{ fmt.Sprint(r.Rank) }</td>
-						<td>
-							@BoardPlayer(r)
-						</td>
-						for _, cell := range r.Cells {
-							<td class="num">{ cell }</td>
-						}
-					</tr>
-				}
-			</tbody>
-		</table>
+		@BoardTable(p.Columns, p.Rows)
 		<p class="muted">Players who haven't linked an account, or chose not to show their name, appear under a pseudonym.</p>
 		if p.NextURL != "" {
 			<p><a href={ templ.SafeURL(p.NextURL) } hx-get={ p.NextURL } hx-target="#page" hx-push-url="true">Next page</a></p>
 		}
 	}
+}
+
+// BoardTable is a leaderboard's table. A column with a URL is a link that ranks by it; the
+// sorted one is marked.
+templ BoardTable(columns []BoardColumn, rows []BoardRow) {
+	<table class="board">
+		<thead>
+			<tr>
+				<th scope="col" class="num">#</th>
+				<th scope="col">Player</th>
+				for _, c := range columns {
+					if c.Sorted && c.URL != "" {
+						<th scope="col" class="num" aria-sort="descending"><a href={ templ.SafeURL(c.URL) } hx-get={ c.URL } hx-target="#page" hx-push-url="true">{ c.Label } ▼</a></th>
+					} else if c.Sorted {
+						<th scope="col" class="num" aria-sort="descending">{ c.Label } ▼</th>
+					} else if c.URL != "" {
+						<th scope="col" class="num"><a href={ templ.SafeURL(c.URL) } hx-get={ c.URL } hx-target="#page" hx-push-url="true">{ c.Label }</a></th>
+					} else {
+						<th scope="col" class="num">{ c.Label }</th>
+					}
+				}
+			</tr>
+		</thead>
+		<tbody>
+			for _, r := range rows {
+				<tr>
+					<td class="num">{ fmt.Sprint(r.Rank) }</td>
+					<td>
+						@BoardPlayer(r)
+					</td>
+					for _, cell := range r.Cells {
+						<td class="num">{ cell }</td>
+					}
+				</tr>
+			}
+		</tbody>
+	</table>
 }
 
 // BoardPlayer is a ranked player as the boards show them: the name, linking to the member's

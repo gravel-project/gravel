@@ -203,7 +203,7 @@ func newRig(t *testing.T, idOpts ...rigIdentity) *rig {
 	}
 	boards := stats.NewBoards(r.stats, o.ID, stats.NewNamer(r.stats, o.ID, nil, logger), statsSettings, nil)
 	r.reg = prometheus.NewRegistry()
-	part := stats.NewParticipation(r.stats, o.ID, r.srvs, servers.GameIDs(), statsSettings, nil, r.reg)
+	part := stats.NewParticipation(r.stats, o.ID, r.srvs, servers.Specs(), statsSettings, nil, r.reg)
 	mod := servers.NewModeration(r.srvs, r.drv, r.audit, serverstest.NewBanStore(), o.ID, prometheus.NewRegistry(), logger)
 	mux := http.NewServeMux()
 	member := connect.WithInterceptors(api.MemberTokens()) // as the hub wires it (ADR-0015)

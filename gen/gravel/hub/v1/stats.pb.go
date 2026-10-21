@@ -1819,7 +1819,8 @@ type GetParticipationBoardResponse struct {
 	To   *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=to,proto3" json:"to,omitempty"`
 	// The kind ranked; empty when nothing has been recorded.
 	Kind string `protobuf:"bytes,5,opt,name=kind,proto3" json:"kind,omitempty"`
-	// Every kind recorded in the organization, sorted, for a picker.
+	// Every kind recorded in the organization (of the game, when game_id is set), sorted, for a
+	// picker.
 	Kinds         []string `protobuf:"bytes,6,rep,name=kinds,proto3" json:"kinds,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

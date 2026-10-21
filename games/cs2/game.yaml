@@ -5,6 +5,8 @@ name: Counter-Strike 2
 # Logs carry SteamID3 ([U:1:N]); gravel keys players by the SteamID64 it converts to.
 identity_provider: steam
 drivers: [cloudvm]
+# Its servers' poll, logs and match results, and what first-party apps record.
+sources: [server_adapter, first_party]
 plugins:
   # Valve's server guidelines forbid item spoofing (weapon skins, knives, gloves, stickers, music
   # kits, fake ranks or coins). The penalty is every GSLT on the operator's account disabled and

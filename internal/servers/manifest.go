@@ -441,7 +441,7 @@ func (m Manifest) Validate(specs map[string]Spec, drivers, providers []string) e
 		case !slices.Contains(drivers, s.Driver):
 			bad("%s.driver: %q is not a driver this hub has (%s)", at, s.Driver, strings.Join(drivers, ", "))
 		case gameOK && len(spec.Drivers) == 0:
-			bad("%s.game: %s is a catalog entry; gravel has no driver for its servers yet", at, spec.Name)
+			bad("%s.game: %s has no servers: it is a server-less game (no driver), enabled under games only", at, spec.Name)
 		case gameOK && !slices.Contains(spec.Drivers, s.Driver):
 			bad("%s.driver: %q does not control %s (%s)", at, s.Driver, spec.Name, strings.Join(spec.Drivers, ", "))
 		}
