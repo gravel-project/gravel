@@ -1,5 +1,5 @@
 # gravel's Discord bot (docs/bot.md): the stock modules against this stack's hub, pinned by digest
-# to a release of ghcr.io/gravel-project/gravel-bot (0.10.2; the index digest covers amd64 and
+# to a release of ghcr.io/gravel-project/gravel-bot (0.10.3; the index digest covers amd64 and
 # arm64). docs/releasing.md says how to verify a release and move the pin. For a local build use
 # `make bot-image` and Image=localhost/gravel-bot:dev. Config: ~/.config/gravel/bot.yaml. Secrets:
 # the bot token and the hub client secret (`gravel-hub apps create`), both podman secrets mounted
@@ -10,7 +10,7 @@ Requires=gravel-hub.service
 After=gravel-hub.service
 
 [Container]
-Image=ghcr.io/gravel-project/gravel-bot@sha256:66f69a2b61a049f3a07fff42eff7856d2d62e6133aa8155ae2e00f5c21a36877
+Image=ghcr.io/gravel-project/gravel-bot@sha256:b45f0938540766e5f4743dd79c539ce5284069415fda74751d55f3d93010da17
 ContainerName=gravel-bot
 Network=gravel.network
 PublishPort=127.0.0.1:8081:8081
