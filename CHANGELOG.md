@@ -8,6 +8,8 @@ patch release is everything else.
 
 ## [Unreleased]
 
+## [0.10.3] - 2026-10-21
+
 ### Added
 
 - **Xbox identities through Discord's connections** (#217, Hidden Token Gaming's ADR-0004). `auth.xbox.enabled` beside `auth.discord` adds a link-only `xbox` provider on the same Discord application: Discord OAuth2 with `identify` and `connections`, its own callback `<base_url>/auth/xbox/callback` (register it in the Developer Portal), and one read of the member's connections. The identity is the Xbox connection's `id` kept exactly as Discord gives it, never decoded, with the gamertag as its name; the XUID is never looked up. A member who linked a Discord account must prove Xbox through that one (`identity.Account.Via`, refused with "Different account" otherwise); a Discord account with no Xbox, or only a revoked one, is "No Xbox account". The account page, `/whoami` ("Xbox") and Linked Roles' `xbox_linked` show it, and a Discord role may follow it (`discord.roles.providers.xbox`). `gravel_auth_completions_total` gains the results `no_account` and `wrong_account`.
@@ -859,7 +861,8 @@ patch release is everything else.
 
 - README and CLAUDE.md follow ADR-0001: status line, principle 2 (the resource lives in the hub's database), the hub and backup paragraphs, the adapter-repo rule, the local-dev default, and a seven-step build order with the issues behind each step. The launch games are the five Hidden Token Gaming plays, in three shapes, with War Dogs first; the open threads link the design-delta issues #2–#9 (#1).
 
-[Unreleased]: https://github.com/gravel-project/gravel/compare/v0.10.2...HEAD
+[Unreleased]: https://github.com/gravel-project/gravel/compare/v0.10.3...HEAD
+[0.10.3]: https://github.com/gravel-project/gravel/compare/v0.10.2...v0.10.3
 [0.10.2]: https://github.com/gravel-project/gravel/compare/v0.10.1...v0.10.2
 [0.10.1]: https://github.com/gravel-project/gravel/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/gravel-project/gravel/compare/v0.9.0...v0.10.0
