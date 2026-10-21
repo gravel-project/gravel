@@ -176,7 +176,7 @@ write_files:
   - path: /usr/local/share/gravel/quadlet/gravel-hub.container
     permissions: "0644"
     content: |
-      # The gravel hub, pinned by digest to a release of ghcr.io/gravel-project/gravel-hub (0.10.2; the
+      # The gravel hub, pinned by digest to a release of ghcr.io/gravel-project/gravel-hub (0.10.3; the
       # index digest covers amd64 and arm64). docs/releasing.md says how to verify a release and move
       # the pin, here and in GRAVEL_IMAGE below. For a local build use `make image` and
       # Image=localhost/gravel-hub:dev.
@@ -189,9 +189,9 @@ write_files:
       After=gravel-postgres.service
 
       [Container]
-      Image=ghcr.io/gravel-project/gravel-hub@sha256:4b25b4c015301d24c57f827eef211e9aadc866a530c8b6e2620f9a5d2b8d296d
+      Image=ghcr.io/gravel-project/gravel-hub@sha256:240bc90bd704aea83861859f24d1fcfce1184bd2b424cb83cf56bfe8894d4a04
       # What /healthz reports as the hub's image and digest (gravel#214): keep it equal to Image=.
-      Environment=GRAVEL_IMAGE=ghcr.io/gravel-project/gravel-hub@sha256:4b25b4c015301d24c57f827eef211e9aadc866a530c8b6e2620f9a5d2b8d296d
+      Environment=GRAVEL_IMAGE=ghcr.io/gravel-project/gravel-hub@sha256:240bc90bd704aea83861859f24d1fcfce1184bd2b424cb83cf56bfe8894d4a04
       ContainerName=gravel-hub
       Network=gravel.network
       PublishPort=127.0.0.1:8080:8080
