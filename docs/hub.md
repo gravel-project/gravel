@@ -85,6 +85,8 @@ auth:
     enabled: true
     api_key_file: /run/secrets/gravel-steam-api-key   # optional: persona name and avatar; or GRAVEL_STEAM_API_KEY
     login: false                 # link-only by default
+  xbox:
+    enabled: true                # link Xbox through Discord's connections, on auth.discord's application; link-only ([Xbox](#xbox-gravel217))
   local:
     enabled: false               # usernames and passwords, no provider needed ([Local accounts](#local-accounts-adr-0026))
 rate_limit:
@@ -294,7 +296,7 @@ discord:                     # what the bot manages (docs/bot.md); ids as quoted
   guild_id: "519496143298756611"
   roles:
     linked: "…"              # a member with any account besides Discord
-    providers:               # a member who linked this provider (discord, steam)
+    providers:               # a member who linked this provider (discord, steam, xbox)
       steam: "…"
   recognition:               # earned once, never removed; at most 10
     - role: "…"
@@ -1987,6 +1989,8 @@ so is unlinking the last one (a provider-only account would be unreachable).
 
 - **Discord:** register `<auth.base_url>/auth/discord/callback` as a redirect in the Developer
   Portal's OAuth2 settings; login asks for `identify` alone (no email, no connections).
+- **Xbox:** with `auth.xbox.enabled`, also register `<auth.base_url>/auth/xbox/callback` on the
+  same application ([Xbox](#xbox-gravel217)).
 - **Steam:** nothing to register; the OpenID assertion proves the SteamID64. The Web API key only
   fetches the persona name and avatar, and may be left out.
 - **Sessions:** server-side, `auth.session_ttl` long, no idle timeout. The cookie is `HttpOnly`,
@@ -2003,6 +2007,39 @@ so is unlinking the last one (a provider-only account would be unreachable).
   cloudflared); otherwise everyone shares the proxy's bucket. Set it only when nothing else can
   reach the listener: the header is trusted as given.
 - Expired sessions and attempts are pruned every ten minutes.
+
+### Xbox (gravel#217)
+
+A member links their Xbox account through Discord's connections (Hidden Token Gaming's ADR-0004):
+Microsoft's Xbox sign-in is for publishers only, and linking Xbox in Discord requires signing in
+with Microsoft, so an Xbox connection on the member's Discord account proves they control it.
+
+- **Setup.** `auth.xbox.enabled: true` beside an enabled `auth.discord`: the flow runs on the same
+  Discord application with its credentials, and needs `<auth.base_url>/auth/xbox/callback`
+  registered as one more redirect in the Developer Portal. It is link-only: the account page
+  offers "Link Xbox", and nobody signs in with it.
+- **The flow.** Discord OAuth2 with the scopes `identify` and `connections` (the member sees
+  Discord's consent screen the first time), then one read of the member's connections
+  (`GET /users/@me/connections`); the token is dropped.
+- **The identity.** `xbox` with the connection's `id` as the subject, kept exactly as Discord gives
+  it and never decoded: Discord withholds the XUID under its agreement with Xbox and gives an id of
+  its own (16 digits in 2026, a base64 SHA-256 of the XUID in 2021), the same after an unlink and a
+  re-link. The display name is the gamertag, refreshed when the member links again. The hub never
+  looks up or stores the XUID.
+- **Whose Discord.** A member who has linked a Discord account must link Xbox through that one;
+  another is refused ("Sign in to Discord as the account you linked here"). A member with no
+  Discord linked may use any.
+- **What counts.** A hidden connection still links; a revoked one, or none (an unlinked Xbox is
+  gone from Discord's list), is "No Xbox account" and links nothing. A member whose gamertag
+  changed links again to refresh it.
+- **Where it shows.** The account page and `/whoami` list it; Linked Roles' `xbox_linked` reads 1
+  at the member's next verification; a Discord role may follow it (`discord.roles.providers.xbox`).
+  A Sea of Thieves participation event may name an `xbox` identity, but an app that knows the
+  member's Discord account should record by that, which reaches the member however their Xbox is
+  keyed ([Participation](#participation-adr-0014)).
+- **Metrics.** `gravel_auth_completions_total{provider="xbox"}`, with the results `no_account` (no
+  Xbox on that Discord account) and `wrong_account` (another member's Discord) beside the usual
+  ones; `gravel_identities{provider="xbox"}`.
 
 ### Local accounts (ADR-0026)
 
@@ -2398,7 +2435,7 @@ and the digest-pin procedure.
 | `gravel_http_request_duration_seconds` | histogram (default buckets) | `handler` | HTTP latency | until the first request |
 | `gravel_rpc_requests_total` | counter | `procedure`, `code` (`ok` or the Connect code) | API calls, the pages' in-process calls included (ADR-0005) | until the first call |
 | `gravel_rpc_request_duration_seconds` | histogram (default buckets) | `procedure` | API latency | until the first call |
-| `gravel_auth_completions_total` | counter | `provider` (a configured provider, or `other`), `intent` (`login`, `link`, `roles`, `unknown` on a failure), `result` (`ok`, `denied`, `failed`, `invalid`, `mismatch`, `taken`, `error`) | how login, link and Linked Roles attempts ended | until the first callback |
+| `gravel_auth_completions_total` | counter | `provider` (a configured provider, or `other`), `intent` (`login`, `link`, `roles`, `unknown` on a failure), `result` (`ok`, `denied`, `failed`, `invalid`, `mismatch`, `taken`, `no_account`, `wrong_account`, `error`) | how login, link and Linked Roles attempts ended | until the first callback |
 | `gravel_rate_limited_total` | counter | `scope` (`ip`, `user`, `app`) | requests a rate limit refused | until the first refusal |
 | `gravel_oauth_authorizations_total` | counter | `result` (`issued`, `denied`, `rejected`, `error`) | how requests at the authorization endpoint ended (ADR-0015): a code went back, the member pressed Cancel, an unknown app or redirect URI or a request the app got an error for | until the first request there |
 | `gravel_oauth_token_grants_total` | counter | `grant_type` (`client_credentials`, `authorization_code`, `other`), `result` (`issued`, `invalid_client`, `invalid_grant`, `replayed`, `invalid_scope`, `invalid_request`, `unsupported_grant_type`, `error`) | token endpoint requests; `replayed` is a code presented twice, whose tokens were revoked | until the first request |

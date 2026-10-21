@@ -39,6 +39,8 @@ type rig struct {
 	idSt    *identitytest.FakeStore
 	discord *identitytest.FakePublisher
 	steam   *identitytest.FakeProvider
+	// xbox is the link-only Xbox provider, registered by withXbox (gravel#217).
+	xbox    *identitytest.FakeProvider
 	token   string
 	results []string
 	servers *fakeServers
@@ -66,6 +68,14 @@ type rig struct {
 
 // rigOption changes the rig before its identity service and pages are built.
 type rigOption func(r *rig, ids *[]identity.Option, h *[]func(*web.Handler))
+
+// withXbox registers a link-only Xbox provider whose accounts are proven through Discord accounts
+// (gravel#217).
+func withXbox(accounts map[string]identity.Account) rigOption {
+	return func(r *rig, _ *[]identity.Option, _ *[]func(*web.Handler)) {
+		r.xbox = &identitytest.FakeProvider{ProviderName: "xbox", Display: "Xbox", Accounts: accounts}
+	}
+}
 
 // withLocal turns local accounts on (ADR-0026) with policy, which the test may change later
 // through r.local; limiter, when set, bounds local logins per address.
@@ -143,14 +153,17 @@ func newRigWith(t *testing.T, theme templates.Theme, login bool, opts ...rigOpti
 	r.steam = &identitytest.FakeProvider{ProviderName: "steam", Accounts: map[string]identity.Account{
 		"jo-steam": {Subject: "76561198000000001", DisplayName: "JoOnSteam", Method: identity.MethodOpenID},
 	}}
-	regs := []identity.Registration{{Provider: r.discord, Login: true}, {Provider: r.steam}}
-	if !login {
-		regs = nil
-	}
 	var idOpts []identity.Option
 	var webOpts []func(*web.Handler)
 	for _, opt := range opts {
 		opt(r, &idOpts, &webOpts)
+	}
+	regs := []identity.Registration{{Provider: r.discord, Login: true}, {Provider: r.steam}}
+	if r.xbox != nil {
+		regs = append(regs, identity.Registration{Provider: r.xbox})
+	}
+	if !login {
+		regs = nil
 	}
 	ids := identity.New(r.idSt, o.ID, regs, 10*time.Minute, logger, idOpts...)
 	sess := session.New(r.idSt, time.Hour, false, logger)

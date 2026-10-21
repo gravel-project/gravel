@@ -491,6 +491,10 @@ func authResult(err error) string {
 		return "mismatch"
 	case errors.Is(err, identity.ErrIdentityTaken):
 		return "taken"
+	case errors.Is(err, identity.ErrNoAccount):
+		return "no_account"
+	case errors.Is(err, identity.ErrWrongAccount):
+		return "wrong_account"
 	}
 	return "error"
 }
@@ -508,6 +512,14 @@ func (h *Handler) authError(w http.ResponseWriter, r *http.Request, provider str
 		h.fail(w, r, http.StatusBadRequest, "Cancelled", "You cancelled at "+name+".")
 	case errors.Is(err, identity.ErrIdentityTaken):
 		h.fail(w, r, http.StatusConflict, "Already linked", "That "+name+" account is already linked to another member.")
+	case errors.Is(err, identity.ErrNoAccount):
+		h.fail(w, r, http.StatusBadRequest, "No "+name+" account", "The account you signed in with has no "+name+" account connected. Connect it there, then link it again.")
+	case errors.Is(err, identity.ErrWrongAccount):
+		via := "the provider"
+		if ve, ok := errors.AsType[*identity.ViaError](err); ok {
+			via = h.providerDisplay(ve.Provider)
+		}
+		h.fail(w, r, http.StatusForbidden, "Different account", "Sign in to "+via+" as the account you linked here, then link "+name+" again.")
 	case errors.Is(err, identity.ErrUnknownProvider), errors.Is(err, identity.ErrLoginNotAllowed), errors.Is(err, identity.ErrNotPublisher):
 		h.fail(w, r, http.StatusNotFound, "No such login", "This hub has no such login provider.")
 	case errors.Is(err, identity.ErrProviderFailed):

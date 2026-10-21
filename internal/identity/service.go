@@ -334,6 +334,9 @@ func (s *Service) recordLogin(ctx context.Context, userID uuid.UUID, acct Accoun
 
 func (s *Service) link(ctx context.Context, userID uuid.UUID, acct Account) (Completed, error) {
 	now := s.now()
+	if err := s.checkVia(ctx, userID, acct); err != nil {
+		return Completed{}, err
+	}
 	existing, err := s.st.GetIdentity(ctx, acct.Provider, acct.Subject)
 	switch {
 	case err == nil && existing.UserID != userID:
@@ -369,6 +372,34 @@ func (s *Service) link(ctx context.Context, userID uuid.UUID, acct Account) (Com
 	}
 	s.logger.InfoContext(ctx, "identity linked", "user_id", u.ID, "provider", acct.Provider)
 	return Completed{Intent: IntentLink, User: u, Identity: linked}, nil
+}
+
+// checkVia refuses an account proven through another provider's account when the member has
+// linked accounts of that provider and this is none of them: an Xbox account is linked through the
+// member's own Discord account, not someone else's. A member with none of that provider may use
+// any.
+func (s *Service) checkVia(ctx context.Context, userID uuid.UUID, acct Account) error {
+	if acct.Via == nil {
+		return nil
+	}
+	ids, err := s.st.ListIdentities(ctx, userID)
+	if err != nil {
+		return err
+	}
+	has := false
+	for _, i := range ids {
+		if i.Provider != acct.Via.Provider {
+			continue
+		}
+		if i.Subject == acct.Via.Subject {
+			return nil
+		}
+		has = true
+	}
+	if has {
+		return &ViaError{Provider: acct.Via.Provider}
+	}
+	return nil
 }
 
 func (s *Service) identity(acct Account, now time.Time) store.Identity {

@@ -14,7 +14,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/gravel-project/gravel/internal/org"
 	"github.com/gravel-project/gravel/internal/servers"
 	"github.com/gravel-project/gravel/internal/store"
 )
@@ -51,10 +50,11 @@ const (
 	OutcomeInvalid   = "invalid"
 )
 
-// ParticipationProviders are the identity providers any participation event may name: the ones a
-// member can link (internal/identity/providers), so an event can reach a member's profile. An event
-// of a game may also name the game's own provider (gravel#2): a Sea of Thieves crew's xbox.
-var ParticipationProviders = org.MappedProviders
+// ParticipationProviders are the identity providers any participation event may name: Discord and
+// Steam, which a member can link (internal/identity/providers), so an event can reach a member's
+// profile. An event of a game may also name the game's own provider (gravel#2): a Sea of Thieves
+// crew's xbox, never another game's.
+var ParticipationProviders = []string{"discord", "steam"}
 
 // ErrInvalidParticipation is a request with an invalid event; the message names every problem.
 var ErrInvalidParticipation = errors.New("invalid participation events")
