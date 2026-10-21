@@ -1,6 +1,6 @@
 # ADR-0012: The stats store keeps match totals from the poll and events from the feed, and boards are queries
 
-**Status:** proposed (2026-10-10) · **Changes:** where stats live, what a board counts, how an unlinked player is shown, how a season works, how an erasure reaches stats · **Tracked by:** #17 (the store and the boards); #3 (provenance, which lands in its first migration); #4 (the feed's parser, which writes into it); #18 (the pages); hidden-token-gaming/site#40 (the privacy policy goes live before the first board is public)
+**Status:** accepted (2026-10-21, John; built in #104 and #113) · **Changes:** where stats live, what a board counts, how an unlinked player is shown, how a season works, how an erasure reaches stats · **Tracked by:** #17 (the store and the boards); #3 (provenance, which lands in its first migration); #4 (the feed's parser, which writes into it); #18 (the pages); hidden-token-gaming/site#40 (the privacy policy goes live before the first board is public)
 
 ## Context
 

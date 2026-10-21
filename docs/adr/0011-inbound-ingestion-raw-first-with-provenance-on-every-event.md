@@ -1,6 +1,6 @@
 # ADR-0011: Inbound ingestion stores every batch raw before it parses, and every event carries its provenance
 
-**Status:** proposed (2026-10-10) · **Changes:** how a source that pushes into the hub is received, authenticated and kept; what a stats event records about where it came from; how missing data is recorded · **Tracked by:** #4 (ingestion) and #3 (provenance); #17 (the store and boards it feeds); hidden-token-gaming/deploy#49 (S1, the first feed), wardogs-server#12 (the config that turns it on)
+**Status:** accepted (2026-10-21, John; built in #99) · **Changes:** how a source that pushes into the hub is received, authenticated and kept; what a stats event records about where it came from; how missing data is recorded · **Tracked by:** #4 (ingestion) and #3 (provenance); #17 (the store and boards it feeds); hidden-token-gaming/deploy#49 (S1, the first feed), wardogs-server#12 (the config that turns it on)
 
 ## Context
 

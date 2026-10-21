@@ -1,6 +1,6 @@
 # ADR-0008: A separate bot process with service credentials, and the Discord mapping in the Organization settings
 
-**Status:** proposed (2026-10-09) · **Changes:** how gravel's Discord features run, how a service calls the hub's API, where a host's Discord role mapping lives · **Tracked by:** #15; the client-credentials slice of #6; hidden-token-gaming/deploy#45 (the mapping), htg#29 and htg#30 (the first consumer)
+**Status:** accepted (2026-10-21, John; built in #54, #55 and #56) · **Changes:** how gravel's Discord features run, how a service calls the hub's API, where a host's Discord role mapping lives · **Tracked by:** #15; the client-credentials slice of #6; hidden-token-gaming/deploy#45 (the mapping), htg#29 and htg#30 (the first consumer)
 
 ## Context
 

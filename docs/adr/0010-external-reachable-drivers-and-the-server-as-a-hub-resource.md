@@ -1,6 +1,6 @@
 # ADR-0010: External-reachable drivers are capability-driven, and a server is a hub resource
 
-**Status:** proposed (2026-10-09) · **Changes:** how the hub knows a server exists, how a driver is written against a game whose API changes, how moderation is recorded, what the hub runs in the background · **Tracked by:** #24 and #16; #8 (the bands it enforces), #18 (the pages that render it); hidden-token-gaming/deploy#137 (the first deployment), htg#31 and htg#57 (the first consumers), wardogs-server#12 and #13
+**Status:** accepted (2026-10-21, John; built in #82, #85 and #88) · **Changes:** how the hub knows a server exists, how a driver is written against a game whose API changes, how moderation is recorded, what the hub runs in the background · **Tracked by:** #24 and #16; #8 (the bands it enforces), #18 (the pages that render it); hidden-token-gaming/deploy#137 (the first deployment), htg#31 and htg#57 (the first consumers), wardogs-server#12 and #13
 
 ## Context
 

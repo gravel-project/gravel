@@ -1,6 +1,6 @@
 # ADR-0024: Match results from a server's match plugin
 
-**Status:** proposed (2026-10-12; accepted when John merges it) · **Changes:** adds match results beside the poll's match totals (amends ADR-0012), and a second kind of inbound batch from a server's own host (amends ADR-0011) · **Tracked by:** #20, hidden-token-gaming/htg#36 (the PUG flow that reads them)
+**Status:** accepted (2026-10-21, John; built in #179) · **Changes:** adds match results beside the poll's match totals (amends ADR-0012), and a second kind of inbound batch from a server's own host (amends ADR-0011) · **Tracked by:** #20, hidden-token-gaming/htg#36 (the PUG flow that reads them)
 
 ## Context
 
