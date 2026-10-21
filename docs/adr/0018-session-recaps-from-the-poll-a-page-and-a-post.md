@@ -1,6 +1,6 @@
 # ADR-0018: Session recaps from the poll, a page and a post
 
-**Status:** proposed (2026-10-11; accepted when John merges it) · **Changes:** what the stats store keeps beside matches, a new read of it, and a stock bot module · **Tracked by:** hidden-token-gaming/htg#56 (the first consumer); builds on ADR-0012 (the stats store) and ADR-0016 (weekly windows)
+**Status:** accepted (2026-10-21, John; built in #140) · **Changes:** what the stats store keeps beside matches, a new read of it, and a stock bot module · **Tracked by:** hidden-token-gaming/htg#56 (the first consumer); builds on ADR-0012 (the stats store) and ADR-0016 (weekly windows)
 
 ## Context
 

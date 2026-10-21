@@ -1,6 +1,6 @@
 # ADR-0009: Operator dashboards ship with gravel
 
-**Status:** proposed (2026-10-09) · **Changes:** what a gravel release contains, how a metric is renamed, how an operator gets dashboards · **Tracked by:** #61; #60 (the metrics it needs); hidden-token-gaming/htg#29 (the first consumer)
+**Status:** accepted (2026-10-21, John; built in #64) · **Changes:** what a gravel release contains, how a metric is renamed, how an operator gets dashboards · **Tracked by:** #61; #60 (the metrics it needs); hidden-token-gaming/htg#29 (the first consumer)
 
 ## Context
 

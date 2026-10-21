@@ -1,6 +1,6 @@
 # ADR-0019: Go-live posts for Twitch and Kick streams
 
-**Status:** proposed (2026-10-11; accepted when John merges it) · **Changes:** a stock bot module, a section of the Organization settings and of bot.yaml · **Tracked by:** hidden-token-gaming/htg#54 (the first consumer)
+**Status:** accepted (2026-10-21, John; built in #144) · **Changes:** a stock bot module, a section of the Organization settings and of bot.yaml · **Tracked by:** hidden-token-gaming/htg#54 (the first consumer)
 
 ## Context
 

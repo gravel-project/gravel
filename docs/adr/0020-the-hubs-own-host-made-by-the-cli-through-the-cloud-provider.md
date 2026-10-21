@@ -1,6 +1,6 @@
 # ADR-0020: The hub's own host, made by the CLI through the cloud provider interface
 
-**Status:** proposed (2026-10-11; John chose the direction the same day, accepted when he merges it) · **Changes:** who makes the machine the hub runs on, what the first `gravel` CLI commands are, what a hub host looks like; amends ADR-0003 §7 and ADR-0001's build order step 5 · **Tracked by:** #150; #35 (the provider interface it uses); hidden-token-gaming/deploy#93 (the first use)
+**Status:** accepted (2026-10-21, John; built in #151) · **Changes:** who makes the machine the hub runs on, what the first `gravel` CLI commands are, what a hub host looks like; amends ADR-0003 §7 and ADR-0001's build order step 5 · **Tracked by:** #150; #35 (the provider interface it uses); hidden-token-gaming/deploy#93 (the first use)
 
 ## Context
 

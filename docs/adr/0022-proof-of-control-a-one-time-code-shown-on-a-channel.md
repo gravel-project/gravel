@@ -1,6 +1,6 @@
 # ADR-0022: Proof of control, a one-time code shown on a channel
 
-**Status:** proposed (2026-10-12; accepted when John merges it) · **Changes:** how a member proves an account where no OAuth or OpenID exists, or proves one again; the README's "RCON code handshake" · **Tracked by:** #5; hidden-token-gaming/htg#40 and #41 (the RSI and PUBG channels, P5)
+**Status:** accepted (2026-10-21, John; built in #178) · **Changes:** how a member proves an account where no OAuth or OpenID exists, or proves one again; the README's "RCON code handshake" · **Tracked by:** #5; hidden-token-gaming/htg#40 and #41 (the RSI and PUBG channels, P5)
 
 ## Context
 

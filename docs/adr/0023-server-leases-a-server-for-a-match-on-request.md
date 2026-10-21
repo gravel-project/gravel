@@ -1,6 +1,6 @@
 # ADR-0023: Server leases, a server for a match on request
 
-**Status:** proposed (2026-10-12; accepted when John merges it) · **Changes:** the transient-server API (README "on-demand start, auto-tear-down"); amends ADR-0003 §5 (parking is the transient lifecycle) · **Tracked by:** #20, #176 (the plugin channel on the cloud VM), #177 (a fresh VM per lease); hidden-token-gaming/htg#36 (the first holder, Muster's `/pug`)
+**Status:** accepted (2026-10-21, John; built in #179; the fresh-VM provisioner is #177) · **Changes:** the transient-server API (README "on-demand start, auto-tear-down"); amends ADR-0003 §5 (parking is the transient lifecycle) · **Tracked by:** #20, #176 (the plugin channel on the cloud VM), #177 (a fresh VM per lease); hidden-token-gaming/htg#36 (the first holder, Muster's `/pug`)
 
 ## Context
 

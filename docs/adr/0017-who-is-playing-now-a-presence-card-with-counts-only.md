@@ -1,6 +1,6 @@
 # ADR-0017: "Who's playing now", a presence card with counts only
 
-**Status:** proposed (2026-10-11; accepted when John merges it) · **Changes:** how a host shows which games its members are playing, and how a module asks for a gateway intent · **Tracked by:** hidden-token-gaming/htg#32 (its presence half); ADR-0016 §7 deferred it to a decision of its own
+**Status:** accepted (2026-10-21, John; built in #139) · **Changes:** how a host shows which games its members are playing, and how a module asks for a gateway intent · **Tracked by:** hidden-token-gaming/htg#32 (its presence half); ADR-0016 §7 deferred it to a decision of its own
 
 ## Context
 
