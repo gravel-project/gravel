@@ -32,7 +32,7 @@ type fakeServers struct {
 func newFakeServers() *fakeServers {
 	observed := timestamppb.New(time.Date(2026, 10, 10, 20, 0, 0, 0, time.UTC))
 	return &fakeServers{
-		games: []*hubv1.Game{{Id: "wardogs", Name: "War Dogs", Layout: &hubv1.GameLayout{Board: []string{"kills", "deaths", "kd", "time", "matches"}}}},
+		games: []*hubv1.Game{{Id: "wardogs", Name: "War Dogs", CombatBoards: true, Layout: &hubv1.GameLayout{Board: []string{"kills", "deaths", "kd", "time", "matches"}}}},
 		servers: []*hubv1.Server{
 			{Id: "htg-wardogs-1", Name: "HTG WARDOGS | NA WEST | #1", GameId: "wardogs", Location: "qonzer-slc", Trust: "official",
 				Status: &hubv1.ServerStatus{State: "ok", Reachable: true, ObservedAt: observed, Players: 24, MaxPlayers: 80, Map: "Ozeti", RotationMap: "Europe", NextRotationMap: "NorthAmerica",
@@ -95,12 +95,14 @@ type fakeStats struct {
 	showName bool
 	// participation is what every profile answers with.
 	participation []*hubv1.ParticipationTotals
-	// The participation board: its answer, or partErr; partLast is the last request.
+	// The participation board: its answer, or partErr; partLast is the last request, partAll
+	// every one.
 	partErr     connect.Code
 	partKinds   []string
 	partEntries []*hubv1.ParticipationEntry
 	partNext    string
 	partLast    *hubv1.GetParticipationBoardRequest
+	partAll     []*hubv1.GetParticipationBoardRequest
 	// The session recap: its answer, or recapErr; recapLast is the last request.
 	recapErr  connect.Code
 	recap     *hubv1.GetSessionRecapResponse

@@ -185,7 +185,7 @@ Public listener (`server.listen`), HTTP/1.1 and unencrypted HTTP/2 so gRPC works
 | `/gravel.hub.v1.IdentityService/RevokeUserSessions` | `{"user_id": "…"}` → log a member out everywhere, with the tokens apps hold for them; `members:manage` |
 | `/gravel.hub.v1.IdentityService/ListRoleGrants` | `{"user_id": "…"}` (or `{}` for everyone) → who holds which role where; `identity:read` |
 | `/gravel.hub.v1.IdentityService/ListIdentityEvents` | `{"after_id": 0, "limit": 100}` → the identity log after a position, oldest first, the id to continue from, and the log's newest id (`head_id`, where a reader that just made a full pass starts); role sync's incremental pass; `identity:read` or the owner |
-| `/gravel.hub.v1.ServerService/ListGames` | the enabled games, their identity provider, bands, layout, stat extensions and `no_paid_perks`; public |
+| `/gravel.hub.v1.ServerService/ListGames` | the enabled games, their identity provider, bands, layout, stat extensions, `no_paid_perks`, `sources`, `combat_boards` and `server_less` ([Servers](#servers-adr-0010)); public |
 | `/gravel.hub.v1.ServerService/ListServers` | every server with its last observation (state, reachable, players and max, map, teams with their scores and, when the hub can count them, their players, capabilities, build, `observed_at`); public, no personal data, never a control address |
 | `/gravel.hub.v1.ServerService/GetServerStatus` | `{"server_id": "…"}` → one server; public; `not_found` for an unknown id |
 | `/gravel.hub.v1.StatsService/GetMemberProfile` | `{"user_id": "…"}` (empty: the caller) → a member's totals by window, their participation per kind over the same windows, and recent matches ([Pages](#pages-gravel18)); the member, the owner, `stats:read`, or anyone when they show their name and stats are public; else `not_found` |
@@ -195,7 +195,7 @@ Public listener (`server.listen`), HTTP/1.1 and unencrypted HTTP/2 so gRPC works
 | `/gravel.hub.v1.StatsService/RecordParticipation` | `{"events": [{"key", "kind", "identity": {"provider", "subject"}, "occurred_at", "duration_seconds", …}]}` (1 to 100) → a `recorded` or `duplicate` result per event, in order ([Participation](#participation-adr-0014)); an app with `participation:write` only, never a member or the owner; `invalid_argument` names every invalid field by index and stores nothing |
 | `/gravel.hub.v1.StatsService/GetSessionRecap` | `{"server_id": "…", "from": "…", "to": "…", "floor": 20}` → what the server's window held: peak players, minutes with anyone on and at or above `floor`, distinct players, the matches that overlap it with their team scores, and the top five by kills under pseudonyms or opted-in names ([Session recaps](#session-recaps-adr-0018)); the window at most 24 h and ended; the same access as `GetBoard` |
 | `/gravel.hub.v1.StatsService/ListGaps` | `{"server_id": "…", "from", "to"}` (both optional: the 30 days to now; at most 90) → the gaps that began in the window, oldest first, at most 100 (`more` past that): each its `reason`, `from`, `to` and counts (`events` for `dropped`; `match_id`, `kills`, `deaths`, `players` for `reconcile`), never a player; the same access as `GetBoard`; `not_found` for an unknown server |
-| `/gravel.hub.v1.StatsService/GetParticipationBoard` | `{"kind": "seeding", "game_id", "window": "week"}` → a page of players ranked by time taken part, under pseudonyms or opted-in names, and every kind recorded (`kinds`); the same access as `GetBoard` |
+| `/gravel.hub.v1.StatsService/GetParticipationBoard` | `{"kind": "seeding", "game_id", "window": "week"}` → a page of players ranked by time taken part, under pseudonyms or opted-in names, and every kind recorded (`kinds`; the game's, with `game_id`); the same access as `GetBoard` |
 | `/gravel.hub.v1.ServerService/ListServerPlayers` | `{"server_id": "…"}` → who was on at the last poll (name, provider identity, team, kills, deaths, ping, and the member's user id when that identity is linked); a logged-in member, the owner, or an app with `servers:read` |
 | `/grpc.health.v1.Health/Check` | gRPC health |
 | `/grpc.reflection.v1.ServerReflection/…` (and v1alpha) | gRPC reflection, so `grpcurl` and `buf curl` discover the API |
@@ -652,10 +652,36 @@ in `servers.yaml` and applies it like the Organization settings; the hub stores 
 and never stores a credential, only the file to read it from.
 
 **Game specs and publisher rules (gravel#8).** gravel ships five specs. War Dogs has a driver;
-Counter-Strike 2 has the cloud-VM driver ([Cloud-VM servers](#cloud-vm-servers-adr-0003)). Sea of
-Thieves, Star Citizen and PUBG are **catalog entries** (`drivers: []`): their rules are known
-before gravel can run a server for them. A manifest may enable a catalog
-game, but a server for one is refused. A spec's rules:
+Counter-Strike 2 has the cloud-VM driver ([Cloud-VM servers](#cloud-vm-servers-adr-0003)).
+
+**Server-less games (gravel#2).** Sea of Thieves, Star Citizen and PUBG have no server a community
+can host, so their specs have no driver (`drivers: []`). A manifest enables one under `games:` like
+any other (`games: [{id: seaofthieves}]`); a server for one is refused, and the poller, the cards
+and the leases never see it, since they work through servers. What such a game has is its players'
+identities (`identity_provider`), the participation first-party apps record for it, and the stats
+its other sources give. Its page (`/games/{id}`, [Pages](#pages-gravel18)) shows its participation,
+and it has no leaderboard unless one of its sources feeds one.
+
+Every spec says where its stats may come from (`sources`, ADR-0011's provenance):
+
+| Source | What it is | Feeds | Games |
+|---|---|---|---|
+| `server_adapter` | What a game server reports: its poll, its feed, its logs, its match plugin | the combat boards and profiles (Official servers) | every game with a driver, and only those: War Dogs, Counter-Strike 2 |
+| `platform_api` | What a publisher's API reports | the combat boards and profiles | PUBG (its producer comes with PUBG's stats) |
+| `first_party` | What a first-party app records: participation ([Participation](#participation-adr-0014)) | participation boards and profiles | all five |
+| `self_report` | What a player claims | nothing until a reviewer approves it, then profile badges | Sea of Thieves, Star Citizen (its producer comes with the review flow) |
+
+The hub refuses an event from a source the game doesn't take (a participation event for a game
+without `first_party`), and a spec is checked when gravel builds: `sources` lists one to four of
+these, once each, with `server_adapter` exactly when the spec has drivers. `ListGames` shows a
+game's `sources`, whether it can have combat boards (`combat_boards`, one of its sources feeds them)
+and whether it is server-less (`server_less`).
+
+A PUBG player's identity, when PUBG linking is built, is `pubg` with the subject
+`<shard>/<accountId>` (`steam/account.…`): an account id is per platform shard, and the provider
+stays one name.
+
+A spec's rules:
 
 | Rule | What it is | Enforced |
 |---|---|---|
@@ -1399,9 +1425,11 @@ only, never a leaderboard: they live in tables of their own that no combat board
   key again answers `duplicate` and stores nothing, even with other fields, so a retry is always
   safe; another app's key is its own. `kind` is the app's name for the activity (a lower-case letter,
   then up to 31 lower-case letters, digits or underscores). `identity` is a `discord` or `steam`
-  identity (a subject of at most 64 characters): events are keyed by identity, so a player who links
-  it later inherits them. `game_id` (a game the hub ships) and `server_id` (a server it knows; its
-  game is stored, and must match `game_id` when both are sent) are optional, as is `session`, the
+  identity, or the event's game's own (its spec's `identity_provider`: `xbox` for a Sea of Thieves
+  event, gravel#2), with a subject of at most 64 characters: events are keyed by identity, so a
+  player who links it later inherits them. `game_id` (a game the hub ships) and `server_id` (a
+  server it knows; its game is stored, and must match `game_id` when both are sent) are optional;
+  a game whose `sources` lack `first_party` refuses them. So is `session`, the
   app's own reference (at most 128 characters). `occurred_at` is required, at most 5 minutes ahead of
   the hub's clock and not older than the stats store keeps raw rows (`stats.raw_retention_months`).
   `duration_seconds` is 0 to 86400. One invalid event refuses the whole request, with every problem
@@ -1806,14 +1834,16 @@ is the API's to decide, and a page says so in words when it is refused.
 
 | Page | Shows | Who sees what |
 |---|---|---|
+| `/games` | every enabled game, by name, with its number of servers or, for a server-less game, none (gravel#2) | everyone |
+| `/games/{id}` | one game in its overlay: its servers (none for a server-less game), the top 10 of its leaderboard all time when its sources can make one, and the top 10 of each participation kind recorded for it, each linking to the whole board | the servers: everyone; the boards: as `/boards` and `/participation` |
 | `/servers` (also `/`) | every server: name, game, trust, state (Online, Offline, Checking, Unavailable), players and map | everyone |
 | `/servers/{id}` | the status with the team scores, the next map in the rotation, how to join (while live) and when it was observed, who is on (in-game name, team, kills, deaths, ping, a member badge), the last 10 matches, a link to the server's board | the status: everyone; who is on: members and the owner ("Log in to see who's on" otherwise); matches: as the boards |
 | `/members/{id}` (`/profile` is yours) | a member's totals over all time, this week, this month and each season running now (Official servers, every linked account), their participation over the same windows (a table per kind, [Participation](#participation-adr-0014)), their 20 most recent matches on any server, and on your own profile the switch that shows your name on leaderboards (`SetBoardName`) | the member, the owner and apps with `stats:read`; anyone when the member shows their name and `stats.public` is on; otherwise "no such profile", so a page never says who plays under a pseudonym. A named member on a board links here |
 | `/servers/{id}`, for the owner and moderators | per player in "Who's on": kick, ban or message, with a reason or the message; a Moderation section with a broadcast, a ban by SteamID64 for a player who isn't on, the ban list with unban, and the log link. A control shows only when the server's driver offers it (its capabilities). Every action goes through a confirmation page (`POST /servers/{id}/moderate`) that says exactly what will be sent, and is recorded in the audit log with the moderator's name | the owner and moderators ([Capabilities](#capabilities-adr-0027)) |
 | `/servers/{id}/log` | the server's moderation log, newest first: when, who (a member's name, or an app and who it acted for), the action, the player, the reason or message, the result | the owner and moderators |
-| `/boards?scope=&window=&metric=&page=` | a leaderboard: scope `` (everyone, Official servers), `game:<id>` or `server:<id>`; window `all`, `week`, `month` or `season:<name>`; ranked by any column of the game's `layout.board`, 50 a page | everyone when `stats.public` is on, else the owner ("Leaderboards are private…" otherwise) |
+| `/boards?scope=&window=&metric=&page=` | a leaderboard: scope `` (everyone, Official servers), `game:<id>` (a game with `combat_boards`; another is a 404 pointing to its page) or `server:<id>`; window `all`, `week`, `month` or `season:<name>`; ranked by any column of the game's `layout.board`, 50 a page | everyone when `stats.public` is on, else the owner ("Leaderboards are private…" otherwise) |
 | `/servers/{id}/recap?from=&to=&floor=` | a session recap ([Session recaps](#session-recaps-adr-0018)): the window in `stats.timezone`, peak players, minutes with anyone on and at or above the floor, distinct players, the matches with their times, map and team scores, and the top five by kills as the leaderboard shows players; "Nobody was on during this window." when nobody came. A link that isn't a recap window (not RFC 3339, longer than a day, not ended) is a 400 | as `/boards` ("Recaps are private…" otherwise) |
-| `/participation?kind=&window=&page=` | a participation board: the kinds recorded (a picker; "Nothing has been recorded yet" before the first), window `all`, `week`, `month` or `season:<name>`, players ranked by time taken part, 50 a page; linked from `/boards` | as `/boards` ("Participation boards are private…" otherwise) |
+| `/participation?game=&kind=&window=&page=` | a participation board: every game or one (a picker; in the game's overlay), the kinds recorded (a picker; "Nothing has been recorded yet" before the first), window `all`, `week`, `month` or `season:<name>`, players ranked by time taken part, 50 a page; linked from `/boards` | as `/boards` ("Participation boards are private…" otherwise) |
 
 `/members`, the staff's list of members, moved to the admin dashboard as People (#203) and
 redirects there; `/members/{id}` stays a member page.

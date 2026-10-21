@@ -44,3 +44,13 @@ The pieces are in place. Apps authenticate with client credentials and scoped be
 - **Kinds are the app's vocabulary.** gravel gives them no meaning beyond the label. A host that wants a board per game uses `game_id`; one that wants a new activity sends a new kind. Retiring a kind means not sending it any more; its history stays, as every stats row does.
 - **No member input.** A person cannot record their own participation through this procedure. Self-reported activity is ADR-0011's `self_report` source, which feeds nothing until a reviewer approves it, and is not built here.
 - **Producers.** HTG's seeding job (htg#32) and Muster (htg#34) each register an app with `participation:write`, and keep `stats:read` on a separate app (or the same one) if they read boards while stats are private.
+
+## Amendments
+
+- **2026-10-21, a game's own provider (gravel#2).** The widening the Providers consequence foresaw,
+  per game: an event may name `discord`, `steam`, or the identity provider of its game (the
+  `game_id` it names, or its server's game). A Sea of Thieves event may name an `xbox` identity; an
+  event of no game, or of War Dogs, still may not. A game whose spec's `sources` lack `first_party`
+  refuses participation. Kinds stay unregistered: gravel's Game specs name none, since they are a
+  host's app's vocabulary, and a game's page (`/games/{id}`) shows every kind recorded for it.
+  `GetParticipationBoard`'s `kinds` are the game's own when `game_id` is set.

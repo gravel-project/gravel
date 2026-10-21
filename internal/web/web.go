@@ -123,6 +123,8 @@ func (h *Handler) Register(mux Mux) {
 	mux.HandleFunc("GET /{$}", h.home)
 	mux.HandleFunc("GET /login", h.login)
 	mux.HandleFunc("GET /account", h.account)
+	mux.HandleFunc("GET /games", h.games)
+	mux.HandleFunc("GET /games/{id}", h.game)
 	mux.HandleFunc("GET /servers", h.servers)
 	mux.HandleFunc("GET /servers/{id}", h.server)
 	mux.HandleFunc("GET /servers/{id}/recap", h.recap)

@@ -689,9 +689,13 @@ type ParticipationRow struct {
 	Times  int
 }
 
-// ParticipationPage is a participation board (ADR-0014) with its kind and window.
+// ParticipationPage is a participation board (ADR-0014) with its game, kind and window.
 type ParticipationPage struct {
 	Page
+	// Heading is "Participation", or the game's participation when the board is one game's.
+	Heading string
+	// Games picks the board's game: every game, or one of the hub's (gravel#2).
+	Games   []Option
 	Kinds   []Option
 	Windows []Option
 	// Kind is the ranked kind's label, the table's caption.
@@ -782,4 +786,51 @@ type ResultPlayer struct {
 	// Extensions are the cells under ResultPage.Columns, formatted; "" is a stat the match
 	// plugin didn't report.
 	Extensions []string
+}
+
+// GamesPage lists the games the hub runs (gravel#2).
+type GamesPage struct {
+	Page
+	Games []GameRow
+}
+
+// GameRow is a game in the list: its page and a line on what it has.
+type GameRow struct {
+	ID      string
+	Name    string
+	Summary string
+}
+
+// GamePage is one game's page (gravel#2): its servers, the top of its leaderboard and the top of
+// each activity recorded for it.
+type GamePage struct {
+	Page
+	Name string
+	// ServerLess is a game with no driver: the page has no servers section.
+	ServerLess bool
+	Servers    []ServerRow
+	// Board is the top of the game's leaderboard; nil for a game whose stats make none.
+	Board *GameBoard
+	// Activities are the top of each participation kind recorded for the game.
+	Activities []Activity
+	// ParticipationNote explains participation boards the reader can't see.
+	ParticipationNote string
+	// Ranked is whether any table shows players, so the page explains pseudonyms.
+	Ranked bool
+}
+
+// GameBoard is the top of a game's leaderboard, with the link to the whole of it.
+type GameBoard struct {
+	Columns []BoardColumn
+	Rows    []BoardRow
+	// Note explains a board the reader can't see.
+	Note string
+	URL  string
+}
+
+// Activity is the top of one participation kind's board, with the link to the whole of it.
+type Activity struct {
+	Label string
+	Rows  []ParticipationRow
+	URL   string
 }

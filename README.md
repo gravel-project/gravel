@@ -155,6 +155,7 @@ One protobuf definition serves gRPC, gRPC-Web, and plain HTTP-JSON. No separate 
 - **Game-spec-provider interface**: "given a game, produce a Game spec." **LinuxGSM** (Linux Game Server Manager — install/config/update/backup knowledge for ~200 dedicated servers) is the first provider. We reuse its per-game knowledge; we keep our own orchestration.
 - Import produces a **draft** the admin edits freely. Edits are stored as an **overlay** on the imported base so upstream refreshes re-apply cleanly; conflicts are surfaced, never silently resolved.
 - War Dogs and Counter-Strike specs are hand-authored reference examples. Community catalog lives in its own repo; games are added by pull request.
+- A spec says where its game's stats may come from (`sources`: its servers, its publisher's API, first-party apps' participation, players' claims), and the hub refuses any other. A spec with no driver is a **server-less game** (#2): enabled like any game, with no servers, its page showing its participation.
 
 ### Web UI
 

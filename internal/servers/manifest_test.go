@@ -141,10 +141,10 @@ func TestValidate(t *testing.T) {
 	}{
 		{"version", func(m *Manifest) { m.Version = 2 }, "version: got 2"},
 		{"unknown game", func(m *Manifest) { m.Games = append(m.Games, GameRef{ID: "quake"}) }, `games[1].id: "quake" is not a game this hub ships (cs2, pubg, seaofthieves, starcitizen, wardogs)`},
-		{"catalog game", func(m *Manifest) {
+		{"server-less game", func(m *Manifest) {
 			m.Games = append(m.Games, GameRef{ID: "pubg"})
 			m.Servers[0].Game = "pubg"
-		}, "servers[0].game: PUBG is a catalog entry; gravel has no driver for its servers yet"},
+		}, "servers[0].game: PUBG has no servers: it is a server-less game (no driver), enabled under games only"},
 		{"length loosened", func(m *Manifest) {
 			m.Games[0].Bands = append(m.Games[0].Bands, Band{Section: "/Script/WDGame.WDGameSession", Key: "ServerName", MaxLength: i64(65)})
 		}, "max_length: 65 must be from 1 to the spec's 64"},

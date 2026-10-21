@@ -136,8 +136,17 @@ type Game struct {
 	// The game's own stats beyond kills and deaths (the Game spec's stats.extensions, ADR-0033), in
 	// the order the pages show them.
 	StatExtensions []*StatExtension `protobuf:"bytes,7,rep,name=stat_extensions,json=statExtensions,proto3" json:"stat_extensions,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Where the game's stats may come from (the Game spec's sources, gravel#2): "server_adapter",
+	// "platform_api", "first_party", "self_report".
+	Sources []string `protobuf:"bytes,8,rep,name=sources,proto3" json:"sources,omitempty"`
+	// The game can have combat boards: one of its sources feeds them (ADR-0011's trust mapping). A
+	// server-less game whose stats are only participation and claims has none; its pages show its
+	// participation instead.
+	CombatBoards bool `protobuf:"varint,9,opt,name=combat_boards,json=combatBoards,proto3" json:"combat_boards,omitempty"`
+	// The game has no driver, so no servers (gravel#2).
+	ServerLess    bool `protobuf:"varint,10,opt,name=server_less,json=serverLess,proto3" json:"server_less,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Game) Reset() {
@@ -217,6 +226,27 @@ func (x *Game) GetStatExtensions() []*StatExtension {
 		return x.StatExtensions
 	}
 	return nil
+}
+
+func (x *Game) GetSources() []string {
+	if x != nil {
+		return x.Sources
+	}
+	return nil
+}
+
+func (x *Game) GetCombatBoards() bool {
+	if x != nil {
+		return x.CombatBoards
+	}
+	return false
+}
+
+func (x *Game) GetServerLess() bool {
+	if x != nil {
+		return x.ServerLess
+	}
+	return false
 }
 
 // StatExtension is one of a game's own stats, declarative data from its Game spec (ADR-0033): a
@@ -2017,7 +2047,7 @@ const file_gravel_hub_v1_servers_proto_rawDesc = "" +
 	"unless_set\x18\a \x01(\tR\tunlessSetB\x06\n" +
 	"\x04_minB\x06\n" +
 	"\x04_maxB\r\n" +
-	"\v_max_length\"\xa0\x02\n" +
+	"\v_max_length\"\x80\x03\n" +
 	"\x04Game\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12+\n" +
@@ -2025,7 +2055,12 @@ const file_gravel_hub_v1_servers_proto_rawDesc = "" +
 	"\x05bands\x18\x04 \x03(\v2\x13.gravel.hub.v1.BandR\x05bands\x12\"\n" +
 	"\rno_paid_perks\x18\x05 \x01(\bR\vnoPaidPerks\x121\n" +
 	"\x06layout\x18\x06 \x01(\v2\x19.gravel.hub.v1.GameLayoutR\x06layout\x12E\n" +
-	"\x0fstat_extensions\x18\a \x03(\v2\x1c.gravel.hub.v1.StatExtensionR\x0estatExtensions\"\x7f\n" +
+	"\x0fstat_extensions\x18\a \x03(\v2\x1c.gravel.hub.v1.StatExtensionR\x0estatExtensions\x12\x18\n" +
+	"\asources\x18\b \x03(\tR\asources\x12#\n" +
+	"\rcombat_boards\x18\t \x01(\bR\fcombatBoards\x12\x1f\n" +
+	"\vserver_less\x18\n" +
+	" \x01(\bR\n" +
+	"serverLess\"\x7f\n" +
 	"\rStatExtension\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05label\x18\x02 \x01(\tR\x05label\x12\x12\n" +

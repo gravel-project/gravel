@@ -174,10 +174,11 @@ func (s *Store) ParticipationBoard(ctx context.Context, q ParticipationBoardQuer
 	return out, nil
 }
 
-// ParticipationKinds are the kinds recorded in an organization, raw or rolled up, sorted.
-func (s *Store) ParticipationKinds(ctx context.Context, orgID uuid.UUID) ([]string, error) {
-	rows, err := s.pool.Query(ctx, `SELECT kind FROM participation_events WHERE organization_id = $1
-		UNION SELECT kind FROM participation_monthly WHERE organization_id = $1 ORDER BY kind`, orgID)
+// ParticipationKinds are the kinds recorded in an organization, raw or rolled up, sorted: of one
+// game's events, or of every event when game is "".
+func (s *Store) ParticipationKinds(ctx context.Context, orgID uuid.UUID, game string) ([]string, error) {
+	rows, err := s.pool.Query(ctx, `SELECT kind FROM participation_events WHERE organization_id = $1 AND ($2 = '' OR game_id = $2)
+		UNION SELECT kind FROM participation_monthly WHERE organization_id = $1 AND ($2 = '' OR game_id = $2) ORDER BY kind`, orgID, game)
 	if err != nil {
 		return nil, fmt.Errorf("store: participation kinds: %w", err)
 	}

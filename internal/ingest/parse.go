@@ -27,7 +27,7 @@ const (
 	// ParseEvery is the parse job's period: a batch waits at most this long for its events.
 	ParseEvery = 10 * time.Second
 	// SourceServerAdapter is the provenance of events a server reported itself (ADR-0011 §4).
-	SourceServerAdapter = "server_adapter"
+	SourceServerAdapter = store.SourceServerAdapter
 	// StatsSchemaVersion is stats_events' schema version.
 	StatsSchemaVersion = 1
 	// KindGap is a gap's kind (ADR-0011 §5).

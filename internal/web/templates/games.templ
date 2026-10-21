@@ -1,0 +1,84 @@
+package templates
+
+// Games is the whole list of the hub's games (gravel#2).
+templ Games(p GamesPage) {
+	@Layout(p.Page) {
+		@GamesContent(p)
+	}
+}
+
+// GamesContent lists the games the hub runs, each linking to its page.
+templ GamesContent(p GamesPage) {
+	@FlashView(p.Flash)
+	<h1>Games</h1>
+	if len(p.Games) == 0 {
+		<p>This hub runs no game yet.</p>
+	} else {
+		<ul class="cards">
+			for _, g := range p.Games {
+				<li class="card">
+					<h2><a href={ templ.SafeURL("/games/" + g.ID) }>{ g.Name }</a></h2>
+					<p class="meta">{ g.Summary }</p>
+				</li>
+			}
+		</ul>
+	}
+}
+
+// GameHome is the whole page of one game.
+templ GameHome(p GamePage) {
+	@Layout(p.Page) {
+		@GameHomeContent(p)
+	}
+}
+
+// GameHomeContent is one game: its servers when it has any, the top of its leaderboard when its
+// stats can make one, and the top of each activity its community recorded (gravel#2).
+templ GameHomeContent(p GamePage) {
+	@GameScope(p.Game) {
+		@gameHomeBody(p)
+	}
+}
+
+// gameHomeBody is GameHomeContent inside the game's overlay.
+templ gameHomeBody(p GamePage) {
+	@FlashView(p.Flash)
+	<h1>{ p.Name }</h1>
+	if !p.ServerLess {
+		<h2>Servers</h2>
+		if len(p.Servers) == 0 {
+			<p class="muted">No { p.Name } servers on this hub yet.</p>
+		} else {
+			<ul class="cards">
+				for _, s := range p.Servers {
+					@ServerCard(s, "h3")
+				}
+			</ul>
+		}
+	}
+	if p.Board != nil {
+		<h2>Leaderboard</h2>
+		if p.Board.Note != "" {
+			<p class="muted">{ p.Board.Note }</p>
+		} else if len(p.Board.Rows) == 0 {
+			<p class="muted">Nobody has played yet.</p>
+		} else {
+			@BoardTable(p.Board.Columns, p.Board.Rows)
+			<p><a href={ templ.SafeURL(p.Board.URL) }>The whole leaderboard</a></p>
+		}
+	}
+	<h2>Participation</h2>
+	if p.ParticipationNote != "" {
+		<p class="muted">{ p.ParticipationNote }</p>
+	} else if len(p.Activities) == 0 {
+		<p class="muted">Nothing has been recorded for { p.Name } yet. Participation, such as seeding a server or attending an event, comes from the community's own apps.</p>
+	} else {
+		for _, a := range p.Activities {
+			@ParticipationTable(a.Label, a.Rows)
+			<p><a href={ templ.SafeURL(a.URL) }>{ a.Label }: the whole board</a></p>
+		}
+	}
+	if p.Ranked {
+		<p class="muted">Players who haven't linked an account, or chose not to show their name, appear under a pseudonym.</p>
+	}
+}

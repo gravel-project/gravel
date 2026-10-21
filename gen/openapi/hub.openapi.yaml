@@ -5148,6 +5148,25 @@ components:
           description: |-
             The game's own stats beyond kills and deaths (the Game spec's stats.extensions, ADR-0033), in
              the order the pages show them.
+        sources:
+          type: array
+          items:
+            type: string
+          title: sources
+          description: |-
+            Where the game's stats may come from (the Game spec's sources, gravel#2): "server_adapter",
+             "platform_api", "first_party", "self_report".
+        combatBoards:
+          type: boolean
+          title: combat_boards
+          description: |-
+            The game can have combat boards: one of its sources feeds them (ADR-0011's trust mapping). A
+             server-less game whose stats are only participation and claims has none; its pages show its
+             participation instead.
+        serverLess:
+          type: boolean
+          title: server_less
+          description: The game has no driver, so no servers (gravel#2).
       title: Game
       additionalProperties: false
       description: |-
@@ -5665,7 +5684,9 @@ components:
           items:
             type: string
           title: kinds
-          description: Every kind recorded in the organization, sorted, for a picker.
+          description: |-
+            Every kind recorded in the organization (of the game, when game_id is set), sorted, for a
+             picker.
       title: GetParticipationBoardResponse
       additionalProperties: false
     gravel.hub.v1.GetProofRequest:

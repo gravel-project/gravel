@@ -25,13 +25,18 @@ import (
 // Spec is a Game spec gravel ships (ADR-0010): what a game is, who its players are keyed by,
 // which drivers control it and the publisher's rules (gravel#8). A deployment enables a game by
 // naming it in servers.yaml and may tighten a band, never loosen one. A spec with no drivers is a
-// catalog entry: its rules are known before gravel can run a server for it.
+// server-less game (gravel#2): it has no servers, and its stats come from its other sources.
 type Spec struct {
 	ID               string   `yaml:"id"`
 	Name             string   `yaml:"name"`
 	IdentityProvider string   `yaml:"identity_provider"`
 	Drivers          []string `yaml:"drivers"`
-	Bands            []Band   `yaml:"bands"`
+	// Sources are where the game's stats may come from (ADR-0011's provenance, gravel#2): its
+	// servers (server_adapter), its publisher's API (platform_api), a first-party app's
+	// participation (first_party) or a player's own claim (self_report). The hub refuses an event
+	// from any other. A game with drivers takes server_adapter; one without never does.
+	Sources []string `yaml:"sources"`
+	Bands   []Band   `yaml:"bands"`
 	// Plugins are the server plugins the publisher's rules forbid (or, with an allow list, the
 	// only ones permitted); checked wherever a server image or its plugin set is built or approved.
 	Plugins PluginPolicy `yaml:"plugins"`
@@ -206,6 +211,9 @@ func (b Band) Driver() drivers.Band {
 		Hosts: slices.Clone(b.Hosts), UnlessSet: b.UnlessSet}
 }
 
+// Accepts reports whether the game takes stats from a source (store.Sources).
+func (s Spec) Accepts(source string) bool { return slices.Contains(s.Sources, source) }
+
 // Band finds the spec's band for a key.
 func (s Spec) Band(section, key string) (Band, bool) {
 	for _, b := range s.Bands {
@@ -323,6 +331,7 @@ func ParseSpec(b []byte) (Spec, error) {
 		return Spec{}, fmt.Errorf("servers: game spec %q: id, name and identity_provider are required", s.ID)
 	}
 	var problems []string
+	problems = append(problems, s.validateSources()...)
 	seen := map[string]bool{}
 	for i, band := range s.Bands {
 		at := fmt.Sprintf("bands[%d] (%s %s)", i, band.Section, band.Key)
@@ -377,6 +386,30 @@ func ParseSpec(b []byte) (Spec, error) {
 		return Spec{}, fmt.Errorf("servers: game spec %q: %s", s.ID, strings.Join(problems, "; "))
 	}
 	return s, nil
+}
+
+// validateSources names every problem with the sources: each one of store.Sources, once, and
+// server_adapter exactly when the game has drivers.
+func (s Spec) validateSources() []string {
+	if len(s.Sources) == 0 {
+		return []string{"sources: at least one of " + strings.Join(store.Sources, ", ")}
+	}
+	var problems []string
+	for i, src := range s.Sources {
+		switch {
+		case !slices.Contains(store.Sources, src):
+			problems = append(problems, fmt.Sprintf("sources[%d]: %q is not one of %s", i, src, strings.Join(store.Sources, ", ")))
+		case slices.Index(s.Sources, src) != i:
+			problems = append(problems, fmt.Sprintf("sources[%d]: %q is listed twice", i, src))
+		}
+	}
+	switch server := s.Accepts(store.SourceServerAdapter); {
+	case len(s.Drivers) > 0 && !server:
+		problems = append(problems, "sources: a game with drivers takes server_adapter, what its servers report")
+	case len(s.Drivers) == 0 && server:
+		problems = append(problems, "sources: server_adapter needs a driver; a server-less game has no servers to report it")
+	}
+	return problems
 }
 
 func validHost(h string) bool {

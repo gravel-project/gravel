@@ -9,6 +9,8 @@ name: War Dogs
 identity_provider: steam
 # The driver that controls a War Dogs server: the RCON API through games/wardogs.
 drivers: [wardogs]
+# Its servers' poll and feed, and the seeding minutes and attendance first-party apps record.
+sources: [server_adapter, first_party]
 bands:
   # The server enforces 18–30 itself; 18, 21, 24, 27 and 30 pay the default rate.
   - section: MatchState.Playing.KOTH

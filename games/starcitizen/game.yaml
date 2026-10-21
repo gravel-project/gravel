@@ -4,6 +4,9 @@ name: Star Citizen
 # Players are keyed by their RSI handle, proven by a one-time code in the RSI bio.
 identity_provider: rsi
 drivers: []
+# No API (CIG removed kill lines from Game.log): what first-party apps record, and what players
+# claim for a reviewer.
+sources: [first_party, self_report]
 # CIG's fan kit FAQ forbids donations, fundraising and paywalls tied to Star Citizen IP:
 # https://support.robertsspaceindustries.com/hc/en-us/articles/360006895793
 no_paid_perks: true

@@ -147,10 +147,17 @@ func TestParticipationBoardAndTotals(t *testing.T) {
 	if _, err := st.ParticipationBoard(ctx, store.ParticipationBoardQuery{OrganizationID: o.ID, Limit: 10}); err == nil {
 		t.Error("a board without a kind")
 	}
-	if kinds, err := st.ParticipationKinds(ctx, o.ID); err != nil || !reflect.DeepEqual(kinds, []string{"attendance", "seeding"}) {
+	if kinds, err := st.ParticipationKinds(ctx, o.ID, ""); err != nil || !reflect.DeepEqual(kinds, []string{"attendance", "seeding"}) {
 		t.Errorf("kinds = %v, %v", kinds, err)
 	}
-	if kinds, err := st.ParticipationKinds(ctx, uuid.New()); err != nil || len(kinds) != 0 {
+	// A game's kinds are its events' only (gravel#2): attendance here names no game.
+	if kinds, err := st.ParticipationKinds(ctx, o.ID, "wardogs"); err != nil || !reflect.DeepEqual(kinds, []string{"seeding"}) {
+		t.Errorf("War Dogs' kinds = %v, %v", kinds, err)
+	}
+	if kinds, err := st.ParticipationKinds(ctx, o.ID, "seaofthieves"); err != nil || len(kinds) != 0 {
+		t.Errorf("a game with no events has kinds %v, %v", kinds, err)
+	}
+	if kinds, err := st.ParticipationKinds(ctx, uuid.New(), ""); err != nil || len(kinds) != 0 {
 		t.Errorf("another organization's kinds = %v, %v", kinds, err)
 	}
 
@@ -264,8 +271,11 @@ func TestRollUpParticipation(t *testing.T) {
 	if after := totals(); !reflect.DeepEqual(after, totalsBefore) {
 		t.Errorf("profile totals changed: %+v, then %+v", totalsBefore, after)
 	}
-	if kinds, err := st.ParticipationKinds(ctx, o.ID); err != nil || !reflect.DeepEqual(kinds, []string{"attendance", "seeding"}) {
+	if kinds, err := st.ParticipationKinds(ctx, o.ID, ""); err != nil || !reflect.DeepEqual(kinds, []string{"attendance", "seeding"}) {
 		t.Errorf("kinds after the rollup = %v, %v", kinds, err)
+	}
+	if kinds, err := st.ParticipationKinds(ctx, o.ID, "wardogs"); err != nil || !reflect.DeepEqual(kinds, []string{"seeding"}) {
+		t.Errorf("War Dogs' kinds after the rollup = %v, %v", kinds, err)
 	}
 	rows, err := st.ParticipationEvents(ctx, o.ID)
 	if err != nil || len(rows) != 1 || rows[0].Key != "7" {

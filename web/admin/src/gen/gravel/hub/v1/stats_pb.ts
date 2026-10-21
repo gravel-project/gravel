@@ -1000,7 +1000,8 @@ export type GetParticipationBoardResponse = Message<"gravel.hub.v1.GetParticipat
   kind: string;
 
   /**
-   * Every kind recorded in the organization, sorted, for a picker.
+   * Every kind recorded in the organization (of the game, when game_id is set), sorted, for a
+   * picker.
    *
    * @generated from field: repeated string kinds = 6;
    */

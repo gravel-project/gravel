@@ -268,7 +268,8 @@ message GetParticipationBoardResponse {
   google.protobuf.Timestamp to = 4;
   // The kind ranked; empty when nothing has been recorded.
   string kind = 5;
-  // Every kind recorded in the organization, sorted, for a picker.
+  // Every kind recorded in the organization (of the game, when game_id is set), sorted, for a
+  // picker.
   repeated string kinds = 6;
 }
 

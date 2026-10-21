@@ -99,7 +99,7 @@ func (f *fakeHosts) recorded() []string {
 func withCS2(r *rig) {
 	r.servers.mu.Lock()
 	defer r.servers.mu.Unlock()
-	r.servers.games = append(r.servers.games, &hubv1.Game{Id: "cs2", Name: "Counter-Strike 2"})
+	r.servers.games = append(r.servers.games, &hubv1.Game{Id: "cs2", Name: "Counter-Strike 2", CombatBoards: true})
 	r.servers.servers = append(r.servers.servers, &hubv1.Server{Id: "htg-cs2-1", Name: "HTG CS2", GameId: "cs2", Location: "do-sfo3", Trust: "official", Driver: "cloudvm",
 		Status: &hubv1.ServerStatus{State: "ok", Reachable: true, Capabilities: []string{"status", "players", "kick", "broadcast", "bans", "ban", "unban", "park", "resize"},
 			Join: &hubv1.ServerJoin{Method: "address", Value: "203.0.113.50:27015", Hint: "In CS2's console: connect 203.0.113.50:27015"}}})

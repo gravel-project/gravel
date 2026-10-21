@@ -20,6 +20,7 @@ import (
 	"github.com/gravel-project/gravel/internal/authz"
 	"github.com/gravel-project/gravel/internal/identity"
 	"github.com/gravel-project/gravel/internal/servers"
+	"github.com/gravel-project/gravel/internal/stats"
 	"github.com/gravel-project/gravel/internal/store"
 )
 
@@ -174,7 +175,8 @@ func (s *ServerServer) ListGames(ctx context.Context, _ *connect.Request[hubv1.L
 	out := &hubv1.ListGamesResponse{}
 	for _, g := range games {
 		p := &hubv1.Game{Id: g.ID, Name: g.Name, IdentityProvider: g.IdentityProvider, NoPaidPerks: g.NoPaidPerks,
-			Layout: &hubv1.GameLayout{Board: g.Layout.Board}, StatExtensions: statExtensionMessages(g.Stats.Extensions)}
+			Layout: &hubv1.GameLayout{Board: g.Layout.Board}, StatExtensions: statExtensionMessages(g.Stats.Extensions),
+			Sources: slices.Clone(g.Sources), CombatBoards: stats.CombatBoards(g.Spec), ServerLess: len(g.Drivers) == 0}
 		for _, b := range g.Bands {
 			p.Bands = append(p.Bands, &hubv1.Band{Section: b.Section, Key: b.Key, Min: b.Min, Max: b.Max,
 				MaxLength: b.MaxLength, Hosts: b.Hosts, UnlessSet: b.UnlessSet})
