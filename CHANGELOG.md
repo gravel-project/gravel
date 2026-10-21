@@ -15,6 +15,7 @@ patch release is everything else.
 
 ### Changed
 
+- `go.mod`'s `toolchain` moves to Go 1.26.10 (the `go` directive stays 1.26.0): govulncheck flagged GO-2026-6809 (CVE-2026-111943, published 2026-10-21) in `crypto/x509` at 1.26.9, a denylist of compromised intermediate certificates in `Certificate.Verify`, reached from every outbound TLS call (the bot's hub client among them). It turned every PR's `vuln` job red. `actions/setup-go` installs exactly the version `go.mod` names, so the bump is the fix; the images take it at the next release.
 - gravel's own quadlet units and the Compose tier pin the **0.10.2** images, verified with cosign 3 against the release workflow at `v0.10.2` (a `v0.10.1` identity refused, the 0.10.1 images as controls): `gravel-hub@sha256:4b25b4c015301d24c57f827eef211e9aadc866a530c8b6e2620f9a5d2b8d296d` (and its `GRAVEL_IMAGE`) and `gravel-bot@sha256:66f69a2b61a049f3a07fff42eff7856d2d62e6133aa8155ae2e00f5c21a36877`. `gravel-postgres` stays: 0.10.2 published none. `docs/hub.md` names 0.10.2 as the tag example.
 
 ## [0.10.2] - 2026-10-20
