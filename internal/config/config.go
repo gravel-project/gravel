@@ -225,7 +225,16 @@ type Auth struct {
 	AttemptTTL time.Duration `yaml:"attempt_ttl"`
 	Discord    Discord       `yaml:"discord"`
 	Steam      Steam         `yaml:"steam"`
+	Xbox       Xbox          `yaml:"xbox"`
 	Local      Local         `yaml:"local"`
+}
+
+// Xbox links a member's Xbox account through Discord's connections (gravel#217): a flow of its
+// own on the Discord application (auth.discord's credentials) with the scopes identify and
+// connections, and its own callback, <base_url>/auth/xbox/callback, registered with that
+// application. Link-only: nobody signs in with Xbox.
+type Xbox struct {
+	Enabled bool `yaml:"enabled"`
 }
 
 // Local is local accounts (ADR-0026): a username and a password, with no provider at all. Off by
@@ -509,6 +518,9 @@ func (c Config) Validate() error {
 		if c.Auth.Discord.ClientSecret == "" {
 			bad("auth.discord: no client secret; set %s, auth.discord.client_secret_file or auth.discord.client_secret", EnvDiscordClientSecret)
 		}
+	}
+	if c.Auth.Xbox.Enabled && !c.Auth.Discord.Enabled {
+		bad("auth.xbox: needs auth.discord enabled; the Xbox link runs on the Discord application")
 	}
 	if (c.Auth.Discord.Enabled && c.Auth.Discord.Login) || (c.Auth.Steam.Enabled && c.Auth.Steam.Login) || c.Auth.Local.Enabled {
 		// fine: somebody can log in

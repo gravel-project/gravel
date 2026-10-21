@@ -105,6 +105,8 @@ func providerLabel(p string) string {
 		return "Discord"
 	case "steam":
 		return "Steam"
+	case "xbox":
+		return "Xbox"
 	default:
 		return p
 	}

@@ -160,6 +160,10 @@ func TestSettingsValidateDiscord(t *testing.T) {
 	if err := (Settings{Version: 1, Discord: Discord{GuildID: guild}}).Validate(); err != nil {
 		t.Errorf("a guild with no roles yet is valid: %v", err)
 	}
+	// A role may follow an Xbox link (gravel#217).
+	if err := (Settings{Version: 1, Discord: Discord{GuildID: guild, Roles: DiscordRoles{Providers: map[string]string{"xbox": steam}}}}).Validate(); err != nil {
+		t.Errorf("an Xbox role: %v", err)
+	}
 
 	cases := []struct {
 		name string
@@ -170,7 +174,7 @@ func TestSettingsValidateDiscord(t *testing.T) {
 		{"bad ids", Discord{GuildID: "12345", Roles: DiscordRoles{Linked: "abc", Providers: map[string]string{"steam": "1234567890123456789012"}}},
 			[]string{"discord.guild_id: \"12345\"", "discord.roles.linked: \"abc\"", "discord.roles.providers.steam"}},
 		{"an id past uint64", Discord{GuildID: "99999999999999999999"}, []string{"discord.guild_id"}},
-		{"unknown provider", Discord{GuildID: guild, Roles: DiscordRoles{Providers: map[string]string{"xbox": steam}}}, []string{"discord.roles.providers.xbox: \"xbox\" is not a provider"}},
+		{"unknown provider", Discord{GuildID: guild, Roles: DiscordRoles{Providers: map[string]string{"rsi": steam}}}, []string{"discord.roles.providers.rsi: \"rsi\" is not a provider (discord, steam, xbox)"}},
 		{"duplicate role", Discord{GuildID: guild, Roles: DiscordRoles{Linked: linked, Providers: map[string]string{"steam": linked}}}, []string{"discord.roles.providers.steam: role " + linked + " is already mapped by discord.roles.linked"}},
 		{"@everyone", Discord{GuildID: guild, Roles: DiscordRoles{Linked: guild}}, []string{"@everyone"}},
 		{"bad recognition", Discord{GuildID: guild, Recognition: []Recognition{{Role: founders, Rule: "member_since", Count: 0, MinMembers: -1}, {Role: steam, Rule: RuleFirstMembers, Count: MaxFirstMembers + 1}}},

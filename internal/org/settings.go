@@ -563,8 +563,8 @@ type Recognition struct {
 const RuleFirstMembers = "first_members"
 
 // MappedProviders are the providers a Discord role may follow: the hub's login and link
-// providers (internal/identity/providers).
-var MappedProviders = []string{"discord", "steam"}
+// providers (internal/identity/providers), Xbox included (gravel#217).
+var MappedProviders = []string{"discord", "steam", "xbox"}
 
 // IsZero reports whether nothing is set.
 func (d Discord) IsZero() bool {

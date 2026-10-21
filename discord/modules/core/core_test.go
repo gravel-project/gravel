@@ -17,9 +17,10 @@ func TestMessages(t *testing.T) {
 		{Provider: "discord", Subject: "42", DisplayName: "jo", LinkedAt: at},
 		{Provider: "steam", Subject: "7656", LinkedAt: at},
 		{Provider: "xbox", Subject: "x1", DisplayName: "JoX"},
+		{Provider: "rsi", Subject: "r1", DisplayName: "JoR"},
 	}}
 	got := core.WhoamiMessage(u, "https://app.example.com/")
-	for _, want := range []string{"**Jo** (owner)", "• Discord: jo (linked 2026-10-09)", "• Steam: 7656 (linked 2026-10-09)", "• xbox: JoX\n", "Manage them at https://app.example.com//account"} {
+	for _, want := range []string{"**Jo** (owner)", "• Discord: jo (linked 2026-10-09)", "• Steam: 7656 (linked 2026-10-09)", "• Xbox: JoX\n", "• rsi: JoR\n", "Manage them at https://app.example.com//account"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in %q", want, got)
 		}

@@ -313,3 +313,55 @@ func TestPrune(t *testing.T) {
 		t.Errorf("prune: %v %d", err, n)
 	}
 }
+
+// An account proven through another provider's (Xbox through Discord's connections, gravel#217)
+// must be proven through the member's own account of that provider when they have one; a member
+// with none of it may use any.
+func TestLinkThroughAnotherAccount(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	xbox := &identitytest.FakeProvider{ProviderName: "xbox", Accounts: map[string]identity.Account{
+		"jo-own":    {Subject: "3062899446890994", DisplayName: "Hidden Token", Method: identity.MethodOAuth2, Via: &identity.Via{Provider: "discord", Subject: "1"}},
+		"jo-sams":   {Subject: "3062899446890995", DisplayName: "Sam's", Method: identity.MethodOAuth2, Via: &identity.Via{Provider: "discord", Subject: "2"}},
+		"steam-any": {Subject: "3062899446890996", DisplayName: "Anyone's", Method: identity.MethodOAuth2, Via: &identity.Via{Provider: "discord", Subject: "2"}},
+	}}
+	svc := identity.New(f.st, orgID, []identity.Registration{{Provider: f.discord, Login: true}, {Provider: f.steam, Login: true}, {Provider: xbox}}, 10*time.Minute,
+		slog.New(slog.NewTextHandler(io.Discard, nil)), identity.WithClock(func() time.Time { return *f.now }))
+	link := func(userID uuid.UUID, code string) (identity.Completed, error) {
+		t.Helper()
+		b, err := svc.Begin(ctx, "xbox", identity.IntentLink, &userID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return svc.Complete(ctx, b.AttemptToken, "xbox", identitytest.CallbackParams(code, xbox.LastState()), &userID)
+	}
+	jo := f.login(t, "jo").User
+
+	// Through Sam's Discord account: refused, naming Discord.
+	_, err := link(jo.ID, "jo-sams")
+	var ve *identity.ViaError
+	if !errors.Is(err, identity.ErrWrongAccount) || !errors.As(err, &ve) || ve.Provider != "discord" {
+		t.Errorf("through another Discord account: %v", err)
+	}
+	// Through Jo's own: linked, with the gamertag; again: refreshed.
+	done, err := link(jo.ID, "jo-own")
+	if err != nil || done.Identity.Provider != "xbox" || done.Identity.Subject != "3062899446890994" || done.Identity.DisplayName != "Hidden Token" {
+		t.Fatalf("through Jo's own Discord: %v %+v", err, done.Identity)
+	}
+	if _, err := link(jo.ID, "jo-own"); err != nil {
+		t.Errorf("linking it again: %v", err)
+	}
+
+	// A member who signed in with Steam and has no Discord may prove it through any Discord account.
+	b, err := svc.Begin(ctx, "steam", identity.IntentLogin, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	steamer, err := svc.Complete(ctx, b.AttemptToken, "steam", identitytest.CallbackParams("jo-steam", f.steam.LastState()), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if done, err := link(steamer.User.ID, "steam-any"); err != nil || done.Identity.Subject != "3062899446890996" {
+		t.Errorf("a member with no Discord: %v %+v", err, done.Identity)
+	}
+}

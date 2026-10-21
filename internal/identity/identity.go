@@ -44,10 +44,27 @@ var (
 	ErrLastIdentity    = errors.New("the last linked identity cannot be unlinked")
 	ErrNotLinked       = errors.New("that identity is not linked to this user")
 	ErrNotPublisher    = errors.New("this provider cannot publish a member's linked accounts")
+	// ErrNoAccount is a provider that proves an account through another (Xbox through Discord's
+	// connections) finding none on the account the member signed in with.
+	ErrNoAccount = errors.New("the account signed in with has none of this provider's accounts connected")
+	// ErrWrongAccount is a link proven through an account of a provider the member already linked,
+	// but not that one (a ViaError says which provider).
+	ErrWrongAccount = errors.New("the link was proven through a different account than the one the user linked")
 )
 
-// Provider is one login or linking provider behind a browser redirect: Discord, Steam, later
-// Patreon or Xbox. Implementations live in internal/identity/providers.
+// ViaError is ErrWrongAccount naming the provider the member must sign in to as the account they
+// linked.
+type ViaError struct {
+	Provider string
+}
+
+func (e *ViaError) Error() string { return ErrWrongAccount.Error() + " (" + e.Provider + ")" }
+
+// Unwrap makes the error ErrWrongAccount.
+func (e *ViaError) Unwrap() error { return ErrWrongAccount }
+
+// Provider is one login or linking provider behind a browser redirect: Discord, Steam, Xbox
+// (through Discord), later Patreon. Implementations live in internal/identity/providers.
 type Provider interface {
 	// Name is the provider key stored on identities: "discord", "steam".
 	Name() string
@@ -91,4 +108,15 @@ type Account struct {
 	DisplayName string // mutable and for display only: Discord's global name, Steam's persona name; may be empty
 	AvatarURL   string // may be empty
 	Method      string // MethodOAuth2 or MethodOpenID
+	// Via is the account this one was proven through, when the provider proves it through another
+	// provider's account (an Xbox account by the Discord account it is connected to); nil
+	// otherwise. A member who has linked an account of Via's provider must have proven it through
+	// that one.
+	Via *Via
+}
+
+// Via is an account of another provider: its Name and the subject there.
+type Via struct {
+	Provider string
+	Subject  string
 }

@@ -336,6 +336,8 @@ func TestAuthValidation(t *testing.T) {
 		"session ttl":             "auth:\n  session_ttl: 0s\n",
 		"attempt ttl":             "auth:\n  attempt_ttl: -1s\n",
 		"client ip header spaced": "server:\n  client_ip_header: 'X Forwarded'\n",
+		"xbox without discord":    "auth:\n  base_url: https://a.example\n  steam:\n    enabled: true\n    login: true\n  xbox:\n    enabled: true\n",
+		"xbox login":              "auth:\n  xbox:\n    enabled: true\n    login: true\n",
 	}
 	for name, extra := range cases {
 		if _, err := Parse(strings.NewReader(minimal+extra), noEnv()); err == nil {
@@ -346,6 +348,16 @@ func TestAuthValidation(t *testing.T) {
 	ok := minimal + "auth:\n  base_url: https://a.example\n  steam:\n    enabled: true\n    login: true\n"
 	if _, err := Parse(strings.NewReader(ok), noEnv()); err != nil {
 		t.Errorf("steam-only login: %v", err)
+	}
+	// Xbox beside Discord, on its application, with its own callback (gravel#217).
+	xbox := minimal + "auth:\n  base_url: https://a.example\n  discord:\n    enabled: true\n    client_id: '1'\n    client_secret: x\n  xbox:\n    enabled: true\n"
+	cfg, err := Parse(strings.NewReader(xbox), noEnv())
+	if err != nil || !cfg.Auth.Xbox.Enabled || cfg.Auth.CallbackURL("xbox") != "https://a.example/auth/xbox/callback" {
+		t.Errorf("xbox: %v", err)
+	}
+	if _, err := Parse(strings.NewReader(minimal+"auth:\n  base_url: https://a.example\n  steam:\n    enabled: true\n    login: true\n  xbox:\n    enabled: true\n"), noEnv()); err == nil ||
+		!strings.Contains(err.Error(), "auth.xbox: needs auth.discord enabled") {
+		t.Errorf("xbox without discord: %v", err)
 	}
 }
 

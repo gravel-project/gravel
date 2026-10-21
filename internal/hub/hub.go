@@ -642,6 +642,11 @@ func (h *Hub) buildProviders() []identity.Registration {
 		}
 		h.logger.Info("login provider", "provider", "discord", "login", cfg.Discord.Login, "callback", cfg.CallbackURL("discord"), "linked_roles_verification_url", linkedRoles, "secret", cfg.Discord.SecretSource())
 	}
+	if cfg.Xbox.Enabled {
+		// Validated: Discord is enabled, and the Xbox link runs on its application.
+		regs = append(regs, identity.Registration{Provider: providers.Xbox(cfg.Discord.ClientID, cfg.Discord.ClientSecret, cfg.CallbackURL("xbox"), client)})
+		h.logger.Info("login provider", "provider", "xbox", "login", false, "callback", cfg.CallbackURL("xbox"))
+	}
 	if cfg.Steam.Enabled {
 		regs = append(regs, identity.Registration{Provider: providers.Steam(cfg.Steam.APIKey, cfg.CallbackURL("steam"), client), Login: cfg.Steam.Login})
 		key := cfg.Steam.KeySource()

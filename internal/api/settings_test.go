@@ -135,7 +135,7 @@ func TestOrganizationSettings(t *testing.T) {
 	}
 
 	bad := &hubv1.OrganizationSettings{Theme: &hubv1.Theme{Light: &hubv1.ThemeTokens{Accent: "red; }"}, LogoUrl: "http://insecure.example/x.png"}, Nav: []*hubv1.NavLink{{Label: "", Url: "javascript:alert(1)", Placement: "sidebar"}},
-		Discord: &hubv1.DiscordSettings{Roles: &hubv1.DiscordRoles{Providers: map[string]string{"xbox": "1300000000000000002"}},
+		Discord: &hubv1.DiscordSettings{Roles: &hubv1.DiscordRoles{Providers: map[string]string{"rsi": "1300000000000000002"}},
 			Seeding: []*hubv1.DiscordSeeding{{Server: "htg-wardogs-1", Channel: "1300000000000000101", Role: "1300000000000000004", Below: 1,
 				Hours: []*hubv1.DiscordSeedingHours{{Days: []string{"wed"}, From: "18:00", To: "18:00"}}}},
 			Presence:     &hubv1.DiscordPresence{Channel: "#whos-playing", Games: []*hubv1.DiscordPresenceGame{{Game: "wardogs", Label: "War Dogs"}}},
@@ -148,7 +148,7 @@ func TestOrganizationSettings(t *testing.T) {
 	if connect.CodeOf(err) != connect.CodeInvalidArgument {
 		t.Fatalf("invalid: %v", err)
 	}
-	for _, want := range []string{"theme.light.accent", "theme.logo_url", "nav[0].label", "nav[0].url", "nav[0].placement", "discord.guild_id", "discord.roles.providers.xbox", "discord.seeding[0].below", "discord.presence.channel", "discord.streams.streamers[0].platform", "discord.news.feeds[0].label", "discord.match_results.servers[0]", "discord.presence.games[0]: names no activity", "discord.seeding[0].hours[0]: from and to",
+	for _, want := range []string{"theme.light.accent", "theme.logo_url", "nav[0].label", "nav[0].url", "nav[0].placement", "discord.guild_id", "discord.roles.providers.rsi", "discord.seeding[0].below", "discord.presence.channel", "discord.streams.streamers[0].platform", "discord.news.feeds[0].label", "discord.match_results.servers[0]", "discord.presence.games[0]: names no activity", "discord.seeding[0].hours[0]: from and to",
 		"games.wardogs.theme.light: a game overlays only the accent", "games.wardogs.nav[0].placement", "games.wardogs.maps.Ozeti"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("the error names %s: %v", want, err)
