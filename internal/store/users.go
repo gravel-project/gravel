@@ -73,8 +73,7 @@ var (
 	ErrLastIdentity = errors.New("last identity")
 )
 
-// userColumns reads a user; roles are their instance-wide grants (role_grants), not users.roles,
-// which #199 drops.
+// userColumns reads a user; roles are their instance-wide grants (role_grants).
 const userColumns = `id, organization_id, display_name, created_at, last_login_at,
 	ARRAY(SELECT g.role FROM role_grants g WHERE g.user_id = users.id AND g.game_id IS NULL ORDER BY g.role)`
 

@@ -12,6 +12,10 @@ patch release is everything else.
 
 - gravel's own quadlet units, the Compose tier and the hub VM's stock profile pin the **0.10.3** images, verified with cosign 3 against the release workflow at `v0.10.3` (a `v0.10.2` identity refused, the 0.10.2 images as controls): `gravel-hub@sha256:240bc90bd704aea83861859f24d1fcfce1184bd2b424cb83cf56bfe8894d4a04` (and its `GRAVEL_IMAGE`) and `gravel-bot@sha256:b45f0938540766e5f4743dd79c539ce5284069415fda74751d55f3d93010da17`. `gravel-postgres` stays, since 0.10.3 published none. `docs/hub.md`'s tag example says `0.10.3`.
 
+### Removed
+
+- **Breaking:** `users.roles`, ADR-0013's moderator column, is dropped by migration 00039 (#199; `instant`, since Postgres only marks the column dropped). gravel has neither read nor written it since #185, whose migration 00025 copied it into `role_grants`, so only something outside gravel reading the table directly notices. `TestDropUsersRolesMigration` takes a database down to 00038 and back; going down puts `moderator` back for every instance-wide moderator grant.
+
 ## [0.10.3] - 2026-10-21
 
 ### Added

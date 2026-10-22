@@ -86,6 +86,7 @@ The design doc's role table is the target:
 - **App scopes:** `servers:operate` and `roles:grant` (moderator only) became scopes an app may hold. An app holding `servers:moderate` lost park and unpark, which moved to `servers:operate`; no first-party app of Hidden Token Gaming's called them.
 - **The Members page** lists every member's grants with remove buttons and a grant form (role, every game or one) for anyone holding `roles:grant`; the Members link shows to them.
 
+- **`users.roles` is dropped** (#199, 2026-10-22, migration 00039) after the grants ran Hidden Token Gaming's hub for a week (gravel 0.9.0, live there 2026-10-15). Going down puts the column back with `moderator` for every instance-wide moderator grant, the only role ADR-0013's column could hold.
 
 ## As built (#197, 2026-10-13): §6, ownership transfer
 
