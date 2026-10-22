@@ -1651,8 +1651,8 @@ when), which can't be changed.
 
 **From ADR-0013's roles** (migration 00025): every member who held `moderator` holds a moderator
 grant and an operator grant, so park and unpark, which moved to operator, still work for them.
-Prune the operator grants on People where they don't belong. `users.roles` is no longer
-read and goes in #199.
+Prune the operator grants on People where they don't belong. Migration 00039 drops `users.roles`
+(#199).
 
 | Capability | Admits | Held by |
 |---|---|---|
