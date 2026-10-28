@@ -86,7 +86,7 @@ services:
   cloudflared:
     # A Cloudflare Tunnel instead of open ports: point its public hostname at http://hub:8080 in the
     # Cloudflare dashboard and put the tunnel's token in local/secrets/tunnel-token.
-    image: ghcr.io/gravel-project/mirror/cloudflared@sha256:9b49eed8f62806d5d45ddf59ecefb5710429598ea6d3fcccd2af938f621b2b07
+    image: ghcr.io/gravel-project/mirror/cloudflared@sha256:1b1d34d0a9c0bfca9de72db8460d328db3f19edd2b96169114e3e893a97bbe53
     profiles: ["tunnel"]
     command: ["tunnel", "--no-autoupdate", "run", "--token-file", "/run/secrets/gravel-tunnel-token"]
     secrets:
