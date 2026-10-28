@@ -155,14 +155,15 @@ write_files:
       # http://gravel-hub:8080 on gravel.network. Secret: gravel-tunnel-token
       # (`podman secret create gravel-tunnel-token <file>`), read from its file under /run/secrets, never
       # from the environment (a child process or a crash report would see it there). cloudflared
-      # 2026.10.0, pinned by digest in gravel's mirror (deploy/mirror/images.txt copies :latest weekly;
-      # a digest stays pullable after :latest moves on).
+      # 2026.10.5, pinned by digest in gravel's mirror (deploy/mirror/images.txt copies :latest weekly;
+      # a digest stays pullable after :latest moves on). Cloudflare's eMudhra certificate advisory needs
+      # 2026.10.2 or later (#296).
       [Unit]
       Description=Cloudflare Tunnel for the gravel hub
       After=gravel-hub.service
 
       [Container]
-      Image=ghcr.io/gravel-project/mirror/cloudflared@sha256:9b49eed8f62806d5d45ddf59ecefb5710429598ea6d3fcccd2af938f621b2b07
+      Image=ghcr.io/gravel-project/mirror/cloudflared@sha256:1b1d34d0a9c0bfca9de72db8460d328db3f19edd2b96169114e3e893a97bbe53
       ContainerName=gravel-cloudflared
       Network=gravel.network
       Secret=gravel-tunnel-token
