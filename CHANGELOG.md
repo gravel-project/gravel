@@ -16,6 +16,10 @@ patch release is everything else.
 
 - **Breaking:** `users.roles`, ADR-0013's moderator column, is dropped by migration 00039 (#199; `instant`, since Postgres only marks the column dropped). gravel has neither read nor written it since #185, whose migration 00025 copied it into `role_grants`, so only something outside gravel reading the table directly notices. `TestDropUsersRolesMigration` takes a database down to 00038 and back; going down puts `moderator` back for every instance-wide moderator grant.
 
+### Fixed
+
+- **cloudflared 2026.10.5** for Cloudflare's eMudhra certificate advisory (#296): the private keys of eight eMudhra intermediate certificates were compromised (2026-10-19), and Cloudflare asks every Tunnel connector to run 2026.10.2 or later. gravel's quadlet unit, the Compose tier and the hub VM's stock profile pinned 2026.10.0; they now pin `ghcr.io/gravel-project/mirror/cloudflared@sha256:1b1d34d0a9c0bfca9de72db8460d328db3f19edd2b96169114e3e893a97bbe53`, the same digest as Docker Hub's `cloudflare/cloudflared:2026.10.5`, which reports `cloudflared version 2026.10.5`. A host running an older pin should move to it; the tunnel token is unaffected.
+
 ## [0.10.3] - 2026-10-21
 
 ### Added
