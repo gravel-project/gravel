@@ -11,6 +11,7 @@ patch release is everything else.
 ### Changed
 
 - Go dependencies: templ v0.3.1100, connect v1.21.1, godo v1.233.0 and prometheus/common v0.73.0 (dependabot's gravel#300). The templ generator pin in the Makefile moves with the module and the pages are regenerated: v0.3.1100's runtime no longer exports `ResolveAttributeValue` and `JoinURLErrs`, which v0.3.1070's generated code called, so the bump alone did not compile.
+- `deploy/postgres` builds on the mirror's postgres:17 at `31ba9c9…` (was `2d2b899…`), moved together in the quadlet, `observability/check.sh`, CI and hubvm's rendered host config (`hubvm/testdata/stock.golden.yaml`), as `TestPostgresPinsAgree` and `TestRenderGolden` require; dependabot's gravel#299 could move only the Containerfile.
 - gravel's own quadlet units, the Compose tier and the hub VM's stock profile pin the **0.10.3** images, verified with cosign 3 against the release workflow at `v0.10.3` (a `v0.10.2` identity refused, the 0.10.2 images as controls): `gravel-hub@sha256:240bc90bd704aea83861859f24d1fcfce1184bd2b424cb83cf56bfe8894d4a04` (and its `GRAVEL_IMAGE`) and `gravel-bot@sha256:b45f0938540766e5f4743dd79c539ce5284069415fda74751d55f3d93010da17`. `gravel-postgres` stays, since 0.10.3 published none. `docs/hub.md`'s tag example says `0.10.3`.
 
 ### Removed
