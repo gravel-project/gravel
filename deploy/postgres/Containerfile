@@ -2,7 +2,7 @@
 # storage and the backup job can take base backups (ADR-0006). Built by `make postgres-image`
 # for development and by the release workflow for ghcr.io/gravel-project/gravel-postgres.
 # Postgres 17.11 (Debian trixie); WAL-G's Ubuntu 22.04 build runs on it (glibc 2.35 or later).
-FROM ghcr.io/gravel-project/mirror/postgres:17@sha256:31ba9c94a03ada9988f2bb493a22a75eef3a185884533e5cdbcd498ea835b08f
+FROM ghcr.io/gravel-project/mirror/postgres:17@sha256:3b0cda93be7c8dba2ed484d19393d93845dc3dafb88973e248ba8e6d99d784e1
 
 ARG TARGETARCH
 ARG WALG_VERSION=v3.0.9
