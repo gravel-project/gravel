@@ -8,6 +8,10 @@ patch release is everything else.
 
 ## [Unreleased]
 
+### Added
+
+- ADR-0032 (proposed; accepted when merged): the telemetry store beside the hub, from the sixteen-day trials on Hidden Token Gaming's hub (hidden-token-gaming/deploy#201). VictoriaMetrics as the metrics store with `vmalert` and Alertmanager for the rules, Grafana out of the tiers' defaults and into a profile, VictoriaLogs where a tier has logs, `vmagent` pushing a fleet's copy to a centre that forces the `hub` label. The numbers are in the ADR; #209 and #212 build it.
+
 ### Changed
 
 - Go dependencies: templ v0.3.1100, connect v1.21.1, godo v1.233.0 and prometheus/common v0.73.0 (dependabot's gravel#300). The templ generator pin in the Makefile moves with the module and the pages are regenerated: v0.3.1100's runtime no longer exports `ResolveAttributeValue` and `JoinURLErrs`, which v0.3.1070's generated code called, so the bump alone did not compile.
