@@ -16,7 +16,7 @@ PROTOC_GEN_CONNECT_OPENAPI_VERSION ?= v0.28.0
 GOLANGCI_LINT_VERSION ?= v2.14.0
 GOVULNCHECK_VERSION ?= v1.8.0
 KO_VERSION ?= v0.19.1
-TEMPL_VERSION ?= v0.3.1070
+TEMPL_VERSION ?= v0.3.1100
 # Vendored into internal/web/static/vendor/ by `make vendor-htmx`; the pages load it from the binary.
 HTMX_VERSION ?= 2.0.11
 # The accessibility check (`make a11y`) runs this through npx; CI pins it the same way.
