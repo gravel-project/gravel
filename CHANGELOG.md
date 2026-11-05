@@ -8,6 +8,10 @@ patch release is everything else.
 
 ## [Unreleased]
 
+### Added
+
+- ADR-0032 (proposed; accepted when merged): the telemetry store beside the hub, from the sixteen-day trials on Hidden Token Gaming's hub (hidden-token-gaming/deploy#201). VictoriaMetrics as the metrics store with `vmalert` and Alertmanager for the rules, Grafana out of the tiers' defaults and into a profile, VictoriaLogs where a tier has logs, `vmagent` pushing a fleet's copy to a centre that forces the `hub` label. The numbers are in the ADR; #209 and #212 build it.
+
 ### Changed
 
 - `deploy/postgres` builds on the mirror's postgres:17 at `31ba9c9…` (was `2d2b899…`), moved together in the quadlet, `observability/check.sh`, CI and hubvm's rendered host config (`hubvm/testdata/stock.golden.yaml`), as `TestPostgresPinsAgree` and `TestRenderGolden` require; dependabot's gravel#299 could move only the Containerfile.
